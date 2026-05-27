@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "fixture": true,
+    "collection": "billing_codes",
+    "created": "2026-05-27",
+    "note": "Local-dev fixtures only. Descriptors are paraphrased (AMA owns verbatim CPT). Replace with licensed data in Phase 5."
+  },
+  "records": [
+    { "code": "99213", "code_system": "CPT", "descriptor": "Office/outpatient visit, established patient, low-level medical decision making (about 20-29 minutes).", "category": "Evaluation and Management", "effective_year": 2025, "valid_modifiers": ["25"] },
+    { "code": "99214", "code_system": "CPT", "descriptor": "Office/outpatient visit, established patient, moderate-level medical decision making (about 30-39 minutes).", "category": "Evaluation and Management", "effective_year": 2025, "valid_modifiers": ["25"] },
+    { "code": "99285", "code_system": "CPT", "descriptor": "Emergency department visit, high-complexity medical decision making.", "category": "Evaluation and Management", "effective_year": 2025, "valid_modifiers": ["25"] },
+    { "code": "99395", "code_system": "CPT", "descriptor": "Periodic preventive medicine visit, established patient, ages 18-39.", "category": "Preventive Medicine", "effective_year": 2025, "valid_modifiers": ["33"] },
+    { "code": "12031", "code_system": "CPT", "descriptor": "Layered (intermediate) repair of a wound of the scalp, trunk, or extremities, 2.5 cm or less.", "category": "Surgery", "effective_year": 2024, "valid_modifiers": ["59", "51"] },
+    { "code": "11402", "code_system": "CPT", "descriptor": "Excision of a benign skin lesion of the trunk, arm, or leg, 1.1-2.0 cm.", "category": "Surgery", "effective_year": 2024, "valid_modifiers": ["59"] },
+    { "code": "27447", "code_system": "CPT", "descriptor": "Total knee arthroplasty (replacement of both the femoral and tibial articular surfaces).", "category": "Surgery", "effective_year": 2025, "valid_modifiers": ["50", "RT", "LT"] },
+    { "code": "45378", "code_system": "CPT", "descriptor": "Flexible colonoscopy examining to the cecum; base code used for a screening colonoscopy.", "category": "Surgery", "effective_year": 2025, "valid_modifiers": ["53"] },
+    { "code": "45380", "code_system": "CPT", "descriptor": "Flexible colonoscopy with biopsy of one or more lesions (diagnostic).", "category": "Surgery", "effective_year": 2025, "valid_modifiers": ["33", "59"] },
+    { "code": "73721", "code_system": "CPT", "descriptor": "MRI of a lower-extremity joint (e.g., knee) without contrast material.", "category": "Radiology", "effective_year": 2025, "valid_modifiers": ["RT", "LT", "26", "TC"] },
+    { "code": "71046", "code_system": "CPT", "descriptor": "Chest X-ray, two views (frontal and lateral).", "category": "Radiology", "effective_year": 2024, "valid_modifiers": ["26", "TC"] },
+    { "code": "71250", "code_system": "CPT", "descriptor": "CT scan of the chest without contrast material.", "category": "Radiology", "effective_year": 2025, "valid_modifiers": ["26", "TC"] },
+    { "code": "80053", "code_system": "CPT", "descriptor": "Comprehensive metabolic panel (a defined set of 14 blood chemistry tests).", "category": "Pathology and Laboratory", "effective_year": 2025 },
+    { "code": "85025", "code_system": "CPT", "descriptor": "Complete blood count (CBC) with automated differential white-cell count.", "category": "Pathology and Laboratory", "effective_year": 2025 },
+    { "code": "G0008", "code_system": "HCPCS", "descriptor": "Administration of an influenza virus vaccine.", "category": "HCPCS Level II", "effective_year": 2025 },
+    { "code": "G0438", "code_system": "HCPCS", "descriptor": "Annual wellness visit, initial — includes a personalized prevention plan of service.", "category": "Preventive Medicine", "effective_year": 2025 },
+    { "code": "J3490", "code_system": "HCPCS", "descriptor": "Unclassified drug (used when no specific HCPCS drug code exists).", "category": "HCPCS Level II", "effective_year": 2025, "valid_modifiers": ["JW", "JZ"] },
+    { "code": "A4253", "code_system": "HCPCS", "descriptor": "Blood glucose test strips for home monitoring, per 50 strips.", "category": "HCPCS Level II", "effective_year": 2024 },
+    { "code": "I10", "code_system": "ICD-10", "descriptor": "Essential (primary) hypertension.", "category": "Diagnosis", "effective_year": 2025 },
+    { "code": "E11.9", "code_system": "ICD-10", "descriptor": "Type 2 diabetes mellitus without complications.", "category": "Diagnosis", "effective_year": 2025 }
+  ]
+}

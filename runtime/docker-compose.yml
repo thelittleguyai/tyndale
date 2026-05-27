@@ -40,5 +40,18 @@ services:
     command: --config /app/config.yaml
     # Real hardening (key rotation, allow-lists) lands in Phase 4.
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333" # HTTP
+      - "6334:6334" # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    # NOTE: for the runtime service, set QDRANT_URL=http://qdrant:6333 in .env.local.
+    # Production deploy is a self-hosted Qdrant in the Azure VPC (Phase 5).
+
 volumes:
   postgres_data:
+  qdrant_data:

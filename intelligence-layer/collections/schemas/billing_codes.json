@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tyndale:collections:billing_codes",
+  "title": "Tyndale billing_codes record",
+  "description": "One CPT/HCPCS/ICD-10 code record. Production ~80K rows; fixtures ~20.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "code_system", "descriptor", "category", "effective_year"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "The CPT/HCPCS/ICD-10 code, e.g. '99214', 'G0438', 'E11.9'."
+    },
+    "code_system": {
+      "type": "string",
+      "enum": ["CPT", "HCPCS", "ICD-10"]
+    },
+    "descriptor": {
+      "type": "string",
+      "description": "Full code descriptor text (paraphrased for CPT; AMA owns verbatim CPT)."
+    },
+    "category": {
+      "type": "string",
+      "description": "Code category for filtering, e.g. 'Evaluation and Management'."
+    },
+    "effective_year": {
+      "type": "integer",
+      "minimum": 2000,
+      "maximum": 2100
+    },
+    "valid_modifiers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Modifiers valid with this code (optional)."
+    }
+  },
+  "examples": [
+    {
+      "code": "99214",
+      "code_system": "CPT",
+      "descriptor": "Office/outpatient visit, established patient, moderate-level medical decision making (about 30-39 minutes).",
+      "category": "Evaluation and Management",
+      "effective_year": 2025,
+      "valid_modifiers": ["25"]
+    }
+  ]
+}

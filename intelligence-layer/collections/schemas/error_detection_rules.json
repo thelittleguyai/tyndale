@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tyndale:collections:error_detection_rules",
+  "title": "Tyndale error_detection_rules record",
+  "description": "Narrative policy/rule text that gets embedded. NCCI/MUE TABULAR lookups live in Postgres, not here — only the narrative reasoning goes into Qdrant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rule_id",
+    "rule_type",
+    "applicable_codes",
+    "effective_date_start",
+    "effective_date_end",
+    "authority",
+    "narrative_text"
+  ],
+  "properties": {
+    "rule_id": { "type": "string" },
+    "rule_type": {
+      "type": "string",
+      "description": "e.g. 'ncci_ptp', 'mue', 'modifier_validity', 'aca_preventive', 'upcoding_pattern', 'phantom_charge'."
+    },
+    "applicable_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Codes this rule applies to."
+    },
+    "effective_date_start": { "type": "string", "format": "date" },
+    "effective_date_end": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Null for currently-effective rules."
+    },
+    "payer": {
+      "type": ["string", "null"],
+      "description": "Null for universal rules; otherwise the payer name."
+    },
+    "authority": {
+      "type": "string",
+      "description": "'CMS' | '<payer_name>' | 'state_<XX>'."
+    },
+    "narrative_text": {
+      "type": "string",
+      "description": "The policy text that gets embedded (paraphrased, not verbatim)."
+    },
+    "structured_rule_id": {
+      "type": ["string", "null"],
+      "description": "Optional pointer to the Postgres structured NCCI/MUE table; null for non-tabular rules."
+    }
+  },
+  "examples": [
+    {
+      "rule_id": "ncci_ptp_80053_85025",
+      "rule_type": "ncci_ptp",
+      "applicable_codes": ["80053", "85025"],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A comprehensive metabolic panel and a complete blood count are commonly reported together and are not a bundled pair under NCCI; however, billing both with a panel component that overlaps (e.g., a basic metabolic panel on the same day) is a procedure-to-procedure conflict and the column-two code is denied unless a clinically appropriate modifier applies.",
+      "structured_rule_id": "ncci:ptp:80053:85025"
+    }
+  ]
+}

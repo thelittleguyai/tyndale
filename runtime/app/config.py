@@ -39,6 +39,20 @@ class Settings(BaseSettings):
     litellm_proxy_url: str | None = None  # Phase 4
     azure_key_vault_url: str | None = None  # Phase 4 — audit-log encryption keys
 
+    # --- Knowledge layer (Qdrant + Voyage AI) ---
+    # qdrant_url: an http(s):// URL connects to a server (Docker/Azure); any other
+    # value (a filesystem path or ":memory:") uses qdrant-client's embedded local
+    # mode — handy for Docker-less local dev (see app/knowledge/client.py).
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None
+    voyage_api_key: str | None = None  # when unset, embeddings/rerank use a dev stub
+
+    # Embedding model per collection (defaults are locked; override only for benchmarks).
+    embedding_model_billing_codes: str = "voyage-3-large"
+    embedding_model_error_detection: str = "voyage-3-large"
+    embedding_model_laws: str = "voyage-context-3"
+    embedding_model_payer_policies: str = "voyage-3-large"
+
     # --- Feature flags (off by default; stubs run when off) ---
     use_real_claude: bool = False
     use_real_ocr: bool = False
