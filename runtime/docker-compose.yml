@@ -1,0 +1,44 @@
+# Local dev stack: Postgres + runtime (FastAPI) + LiteLLM proxy skeleton.
+# NOTE: in .env.local, DATABASE_URL must use host `postgres` (not localhost) for
+# the runtime service, e.g.:
+#   DATABASE_URL=postgresql+asyncpg://tyndale:tyndale@postgres:5432/tyndale
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tyndale
+      POSTGRES_PASSWORD: tyndale
+      POSTGRES_DB: tyndale
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tyndale -d tyndale"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  runtime:
+    build: .
+    env_file: .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    command: >
+      bash -c "uv run alembic upgrade head &&
+               uv run uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload"
+
+  litellm:
+    image: ghcr.io/berriai/litellm:latest
+    ports:
+      - "4001:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml
+    command: --config /app/config.yaml
+    # Real hardening (key rotation, allow-lists) lands in Phase 4.
+
+volumes:
+  postgres_data:

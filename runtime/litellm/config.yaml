@@ -1,0 +1,52 @@
+# LiteLLM proxy — SKELETON for local dev only.
+# Real hardening (weekly key rotation, per-route allow-lists, request-level audit
+# logging) lands in Phase 4 with the security/HIPAA contact. See README.md.
+#
+# Model assignments follow discipline rule D3:
+#   Lead Planner = Sonnet 4.6 · Strategist = Opus 4.7 · Code Validator = Haiku 4.5
+#   (Judge = Opus 4.7). Legal Researcher/Strategist/Code Validator are unused in
+#   the V1-Lite (Phase 2) 3-agent set but are defined here for forward-compat.
+
+model_list:
+  - model_name: lead_planner
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: bill_detective
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: math_person
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: legal_researcher # Phase 2 unused
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: strategist # Phase 2 unused
+    litellm_params:
+      model: anthropic/claude-opus-4-7
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: code_validator # Phase 2 unused
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: judge
+    litellm_params:
+      model: anthropic/claude-opus-4-7
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+litellm_settings:
+  # Prompt caching enabled at the proxy level (discipline rule D16/D17).
+  cache: true
+  cache_params:
+    type: local
+
+# Claude-only fallback chain: Anthropic direct -> Bedrock -> Azure Foundry.
+# Bedrock + Foundry are PLACEHOLDERS here; real credentials/wiring land in Phase 4.
+router_settings:
+  fallbacks:
+    - lead_planner: [bill_detective] # placeholder same-provider fallback for local dev
+  # TODO(Phase 4): add bedrock/ and azure_foundry/ deployments + cross-provider
+  # fallbacks for non-user-facing utility only (per discipline rules D16/D19).
