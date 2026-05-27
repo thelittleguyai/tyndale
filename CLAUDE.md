@@ -121,6 +121,26 @@ medical-billing advocacy/reconciliation platform, not a crisis center. (All five
 out-of-scope categories use clean declines that emphasize what Tyndale *does* handle — see
 the refusal templates in `docs/tyndale-spec/`.)
 
+## UI design directive
+
+ALL UI in Tyndale — every signed-out marketing page, every signed-in screen in
+`apps/mobile`, every modal, every email template, every future feature — follows the design
+theme established in:
+
+- `docs/design/marketing_landing.png`
+- `docs/design/signed_in_dashboard.png`
+
+These screenshots are the canonical visual reference. The Tailwind design tokens in
+`packages/shared/src/design-tokens.ts` encode the palette and typography; CLAUDE.md treats
+the screenshots as the source of truth where tokens and screenshots disagree.
+
+When building any new UI surface, future Claude Code sessions read both screenshots before
+writing components. New screens use the same dark navy/teal + cream-light palette, the same
+Inter typography, the same rounded-card primitives, the same sage/amber/rose accents, and the
+same component conventions visible in the screenshots.
+
+This directive is permanent. It supersedes any per-prompt UI guidance that contradicts it.
+
 ## Phase status
 
 Phase 0 closure complete: monorepo skeleton, root configs, docs scaffold, integration
