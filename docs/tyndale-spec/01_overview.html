@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyndale Intelligence Layer — How It Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-cream: #F5F1EA;
+    --bg-cream-soft: #FAF7F2;
+    --surface: #FFFFFF;
+    --teal: #1F4E4A;
+    --teal-deep: #173D3A;
+    --teal-soft: #E0EAE8;
+    --teal-tint: #F0F5F4;
+    --sage: #3DAA7E;
+    --sage-deep: #2E8862;
+    --sage-soft: #E5F2EB;
+    --sage-tint: #F2F8F4;
+    --amber: #E08A3C;
+    --amber-deep: #C26F26;
+    --amber-soft: #FBEBD8;
+    --rose: #C75252;
+    --rose-soft: #F7E0E0;
+    --ink: #0F2A28;
+    --ink-soft: #2A3A38;
+    --ink-muted: #5A6A68;
+    --ink-dim: #8A9594;
+    --ink-faint: #B8C0BF;
+    --border: #E4DFD5;
+    --border-soft: #EFEAE0;
+    --border-card: #ECE6D9;
+    --shadow-card: 0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05);
+    --shadow-elev: 0 2px 4px rgba(15, 42, 40, 0.05), 0 8px 24px rgba(15, 42, 40, 0.08);
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 20px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg-cream);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.65;
+    padding: 56px 32px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 920px; margin: 0 auto; }
+
+  /* HEADER */
+  .doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 36px;
+    margin-bottom: 56px;
+  }
+  .doc-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 14px;
+  }
+  .doc-title {
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 20px;
+  }
+  .doc-subtitle {
+    font-size: 18px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 720px;
+  }
+  .header-logo-mark {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 22px;
+  }
+
+  /* TOC */
+  .toc {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 64px;
+    box-shadow: var(--shadow-card);
+  }
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+  }
+  .toc-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 32px;
+  }
+  .toc-list a {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14.5px;
+    padding: 6px 0;
+  }
+  .toc-list a:hover { color: var(--teal); }
+  .toc-list a .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    min-width: 22px;
+  }
+
+  /* SECTIONS */
+  section {
+    margin-bottom: 72px;
+    scroll-margin-top: 24px;
+  }
+  .section-marker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .section-marker::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--teal);
+    display: inline-block;
+  }
+  .section-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 24px;
+  }
+  .lede {
+    font-size: 18px;
+    line-height: 1.65;
+    color: var(--ink);
+    margin-bottom: 24px;
+    max-width: 760px;
+  }
+  .lede strong { font-weight: 700; }
+  
+  p { margin-bottom: 18px; max-width: 760px; }
+  p strong { font-weight: 700; color: var(--ink); }
+
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    margin-top: 40px;
+    margin-bottom: 14px;
+  }
+
+  h4 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+
+  /* CALLOUT */
+  .callout {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius-sm);
+    padding: 22px 28px;
+    margin: 28px 0;
+    box-shadow: var(--shadow-card);
+    max-width: 760px;
+  }
+  .callout.sage { border-left-color: var(--sage); }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.rose { border-left-color: var(--rose); }
+  .callout-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .callout.sage .callout-eyebrow { color: var(--sage-deep); }
+  .callout.amber .callout-eyebrow { color: var(--amber-deep); }
+  .callout.rose .callout-eyebrow { color: var(--rose); }
+  .callout-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.005em;
+  }
+  .callout-text {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  /* TEAM BLOCK — for the "team of specialists" visual */
+  .team-block {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 36px;
+    margin: 32px 0;
+    box-shadow: var(--shadow-card);
+  }
+
+  .lead-planner-card {
+    background: linear-gradient(180deg, var(--teal) 0%, var(--teal-deep) 100%);
+    color: white;
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    text-align: center;
+    margin: 0 auto 22px;
+    max-width: 420px;
+    box-shadow: 0 8px 24px rgba(31, 78, 74, 0.2);
+  }
+  .lead-planner-card .label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 8px;
+  }
+  .lead-planner-card .name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.015em;
+  }
+  .lead-planner-card .desc {
+    font-size: 13.5px;
+    color: rgba(255,255,255,0.78);
+    line-height: 1.5;
+  }
+
+  .arrows-down {
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 22px;
+    margin: 8px 0 18px;
+    letter-spacing: 12px;
+  }
+
+  .specialists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .specialist-card {
+    background: var(--bg-cream-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 11px;
+    padding: 16px 16px;
+    text-align: center;
+  }
+
+  .specialist-card.opus {
+    background: var(--rose-soft);
+    border-color: var(--rose);
+  }
+  .specialist-card.haiku {
+    background: var(--amber-soft);
+    border-color: var(--amber);
+  }
+
+  .specialist-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 4px;
+    letter-spacing: -0.005em;
+  }
+
+  .specialist-desc {
+    font-size: 11.5px;
+    color: var(--ink-muted);
+    line-height: 1.4;
+  }
+
+  /* TIMELINE — for "how a typical chat works" */
+  .timeline {
+    margin: 24px 0;
+    max-width: 760px;
+  }
+  .timeline-step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--border-soft);
+  }
+  .timeline-step:last-child { border-bottom: none; }
+  .timeline-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .timeline-content {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .timeline-content strong { color: var(--ink); font-weight: 700; }
+
+  /* GRID OF CONCEPT CARDS */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .concept-card {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    box-shadow: var(--shadow-card);
+  }
+  .concept-card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .concept-card-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .concept-card-text {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  /* LIBRARIES — 4 knowledge collections */
+  .library-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .library-card {
+    background: white;
+    border-left: 4px solid var(--teal);
+    border-radius: 8px;
+    padding: 18px 22px;
+    box-shadow: var(--shadow-card);
+  }
+  .library-card.amber { border-left-color: var(--amber); }
+  .library-card.sage { border-left-color: var(--sage); }
+  .library-card.rose { border-left-color: var(--rose); }
+  .library-card h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 0;
+    margin-bottom: 6px;
+  }
+  .library-card p {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+
+  /* CONVERSATION EXAMPLE */
+  .convo-block {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin: 24px 0;
+    box-shadow: var(--shadow-card);
+  }
+  .convo-bubble {
+    padding: 14px 20px;
+    border-radius: 18px;
+    margin-bottom: 14px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    max-width: 85%;
+  }
+  .convo-bubble.user {
+    background: var(--teal);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 6px;
+  }
+  .convo-bubble.assistant {
+    background: var(--bg-cream-soft);
+    color: var(--ink);
+    border-bottom-left-radius: 6px;
+  }
+  .convo-bubble.assistant strong { color: var(--teal); }
+  .convo-divider {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    padding: 14px 0;
+  }
+  .agent-trace {
+    background: var(--teal-tint);
+    border: 1px solid var(--teal-soft);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    max-width: 85%;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .agent-trace .header {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .agent-trace ul { list-style: none; padding: 0; margin: 0; }
+  .agent-trace li { padding: 3px 0; }
+  .agent-trace li::before { content: '→ '; color: var(--teal); }
+
+  /* PRINCIPLE GRID — the P1-P6 principles */
+  .principle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .principle-card {
+    background: var(--teal-tint);
+    border: 1px solid var(--teal-soft);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .principle-num {
+    display: inline-block;
+    background: var(--teal);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 10px;
+  }
+  .principle-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6px;
+    letter-spacing: -0.005em;
+  }
+  .principle-text {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  /* FOOTER */
+  .doc-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+    margin-top: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    body { padding: 32px 16px 48px; }
+    .doc-title { font-size: 32px; }
+    .section-title { font-size: 26px; }
+    .toc-list, .concept-grid, .library-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="doc-header">
+    <svg class="header-logo-mark" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="none" stroke="#1F4E4A" stroke-width="3"/><rect x="26" y="20" width="28" height="36" rx="3" fill="#1F4E4A"/><line x1="32" y1="30" x2="48" y2="30" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="48" y2="36" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="42" x2="42" y2="42" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><path d="M34 50 L38 54 L48 44" stroke="#3DAA7E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <div class="doc-eyebrow">Tyndale · Intelligence Layer Overview</div>
+    <h1 class="doc-title">How Tyndale's brain works.</h1>
+    <p class="doc-subtitle">A plain-language explanation of how Tyndale's AI thinks, the team of specialists behind it, and the architecture that lets it act as a confident advocate for users facing medical billing problems.</p>
+  </header>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <div class="toc-list">
+      <a href="#what"><span class="num">01</span> What Tyndale is</a>
+      <a href="#team"><span class="num">02</span> The team of specialists</a>
+      <a href="#libraries"><span class="num">03</span> The knowledge libraries</a>
+      <a href="#workflow"><span class="num">04</span> How a typical interaction works</a>
+      <a href="#proactive"><span class="num">05</span> Why it thinks ahead of you</a>
+      <a href="#voice"><span class="num">06</span> How it talks</a>
+      <a href="#safety"><span class="num">07</span> How it stays safe</a>
+      <a href="#tradeoffs"><span class="num">08</span> The key tradeoffs</a>
+    </div>
+  </nav>
+
+  <!-- SECTION 01: WHAT TYNDALE IS -->
+  <section id="what">
+    <div class="section-marker">Section 01 · What Tyndale is</div>
+    <h2 class="section-title">A confident advocate, built on AI specialists</h2>
+
+    <p class="lede">Tyndale is an AI-powered medical billing reconciliation and health advocacy platform. When a user gets confused by a bill or denied coverage, Tyndale catches the errors, fixes the coverage mistakes, drafts the appeal letters that get them resolved, and tracks the deadlines.</p>
+
+    <p>The "intelligence layer" is what makes Tyndale work. It's the AI brain behind the product — the part that reads bills, understands insurance plans, knows the relevant laws, and decides what to do about a problem. The rest of the product (the app interface, the payment system, the document storage) is conventional software. The intelligence layer is what's new.</p>
+
+    <p>This document explains how that intelligence layer is structured, in language that doesn't require an engineering background. By the end, you should understand: the team of AI specialists Tyndale uses, the reference libraries those specialists consult, the workflow of a typical user interaction, and the design principles that make Tyndale feel different from ChatGPT or a customer service chatbot.</p>
+
+    <div class="callout">
+      <div class="callout-eyebrow">The core idea in one sentence</div>
+      <div class="callout-title">Tyndale isn't a single AI — it's a team of AI specialists, each great at one thing, coordinated by a project manager who talks to the user.</div>
+      <div class="callout-text">This is the same way a real medical billing advocate works. A client walks in; the advocate triages the case; specialists get called in as needed — a coding expert, a legal expert, a strategist. Tyndale's architecture mirrors that. The difference is everything happens in seconds, every interaction gets logged, and the system never forgets a deadline.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 02: THE TEAM -->
+  <section id="team">
+    <div class="section-marker">Section 02 · The team of specialists</div>
+    <h2 class="section-title">A project manager and five specialists</h2>
+
+    <p>When a user opens Tyndale and asks something — whether by uploading a bill, typing in chat, or tapping a quick-action tile — the request goes to a coordinator we call the <strong>Lead Planner</strong>. The Lead Planner is what the user actually talks to. It greets them, understands what they need, plans the work, and pulls in specialists.</p>
+
+    <p>The Lead Planner doesn't do the deep analysis itself. Its job is to coordinate. Behind it, five specialists handle the actual work — each great at one specific thing, each running in its own isolated context.</p>
+
+    <div class="team-block">
+      <div class="lead-planner-card">
+        <div class="label">Coordinator</div>
+        <div class="name">Lead Planner</div>
+        <div class="desc">Talks to the user. Plans the work. Delegates to specialists. Composes the final answer. Never does the deep analysis itself.</div>
+      </div>
+
+      <div class="arrows-down">↓ ↓ ↓ ↓ ↓</div>
+
+      <div class="specialists-grid">
+        <div class="specialist-card">
+          <div class="specialist-name">Bill Detective</div>
+          <div class="specialist-desc">Reads bills. Finds errors across every category — bundling, upcoding, duplicates, surprise billing, more.</div>
+        </div>
+        <div class="specialist-card">
+          <div class="specialist-name">Math Person</div>
+          <div class="specialist-desc">Recomputes what the user actually owes. Catches deductible, coinsurance, and out-of-pocket-max mistakes.</div>
+        </div>
+        <div class="specialist-card">
+          <div class="specialist-name">Legal Researcher</div>
+          <div class="specialist-desc">Knows federal and state laws. Figures out which appeal path applies, which protections kick in.</div>
+        </div>
+        <div class="specialist-card opus">
+          <div class="specialist-name">Strategist</div>
+          <div class="specialist-desc">Takes everyone's findings and decides what to actually do. Sequences the steps. Picks the right move.</div>
+        </div>
+        <div class="specialist-card haiku">
+          <div class="specialist-name">Code Validator</div>
+          <div class="specialist-desc">Fast, cheap checker for billing code validity. Used a lot. Kept lean on purpose.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Why a team instead of one AI?</h3>
+
+    <p>The instinct might be: why not have one big AI that does everything? The reason: <strong>specialization works better than generalism, both for quality and for cost.</strong></p>
+
+    <p>Each specialist works in its own isolated context — its own working memory. The Bill Detective doesn't waste memory on legal text it doesn't need; the Legal Researcher doesn't waste memory on bill-parsing details. Each one stays focused on what it's good at. When you specialize, the quality of each output goes up dramatically.</p>
+
+    <p>It also lets us match the right cost to the right job. Reading a bill and finding errors is hard reasoning work — that's a job for a powerful model. Looking up "is this a real billing code?" is a fast, cheap lookup — that's a job for a fast, cheap model. The Code Validator runs a smaller, faster AI than the Bill Detective for exactly this reason.</p>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">Plain-language summary</div>
+      <div class="callout-title">One coordinator who talks to the user. Five specialists who do the actual work.</div>
+      <div class="callout-text">The coordinator (Lead Planner) is the voice of the product. The specialists work behind the scenes. The user never directly interacts with the specialists — they just see the result.</div>
+    </div>
+
+    <h3>Two more layers: Skills and reference data</h3>
+
+    <p>Beyond the team itself, the intelligence layer has two more important pieces. We'll cover the reference data (the knowledge libraries) in the next section. First, <strong>Skills</strong>.</p>
+
+    <p>Skills are <em>playbooks</em>. They're written reference documents that specialists consult when they need to do specific kinds of work. They're the operational knowledge that doesn't change with every conversation — the standard procedures.</p>
+
+    <p>Tyndale has eight Skills. Each is a detailed playbook for one type of task:</p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 1</div>
+        <div class="concept-card-title">Document Generation</div>
+        <div class="concept-card-text">Playbook for writing the 21 types of letters Tyndale creates — appeals, surprise-billing disputes, charity-care applications, demand letters, more. Each letter type has a template, citation requirements, and tone guidance.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 2</div>
+        <div class="concept-card-title">Cost Estimation</div>
+        <div class="concept-card-text">Playbook for estimating what something should cost — using real claims data (FAIR Health) plus the user's plan benefits plus Medicare benchmarks. Returns a confident range, not a guess.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 3</div>
+        <div class="concept-card-title">Bill Error Detection</div>
+        <div class="concept-card-text">The investigative playbook the Bill Detective consults. Walks through every category of bill error systematically — bundling, upcoding, duplicates, surprise billing, coverage misapplication, administrative errors.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 4</div>
+        <div class="concept-card-title">Coverage Connection &amp; FHIR</div>
+        <div class="concept-card-text">Playbook for connecting to a user's insurance via FHIR (the standard data exchange protocol), pulling their coverage and claims, and handling edge cases like multiple insurance plans.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 5</div>
+        <div class="concept-card-title">Find a Doctor</div>
+        <div class="concept-card-text">Playbook for finding in-network providers — searching by specialty, location, quality, and confirming network status against the user's specific plan.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 6</div>
+        <div class="concept-card-title">Plan a Visit</div>
+        <div class="concept-card-text">Playbook for making sure an upcoming appointment will be covered — checking prior authorization requirements, referrals, and prep steps. Not appointment booking — pre-visit coverage assurance.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 7</div>
+        <div class="concept-card-title">Charity Care Eligibility</div>
+        <div class="concept-card-text">Playbook for determining whether someone qualifies for hospital charity care under IRS 501(r) requirements — income thresholds, asset tests, residency, state-specific rules.</div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Skill 8</div>
+        <div class="concept-card-title">Negotiation &amp; Strategy</div>
+        <div class="concept-card-text">The Strategist's playbook. Decides which appeal path applies in which situation — internal appeal vs. external review vs. DOI complaint vs. open negotiation. Sequences the steps.</div>
+      </div>
+    </div>
+
+    <p>Skills are different from specialists. Specialists are the <em>people on the team</em>; Skills are the <em>reference manuals on the shelf</em>. A specialist consults a Skill the way an attorney consults a treatise — pulling it down when they need it, putting it back when they don't.</p>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">An important detail</div>
+      <div class="callout-title">Skills know how to investigate before they know what's wrong</div>
+      <div class="callout-text">Some Skills — Bill Error Detection, Negotiation &amp; Strategy, Charity Care Eligibility — face a challenge: the specialist doesn't yet know what kind of problem they're dealing with. So these Skills include a <em>diagnostic index</em> at the top. The specialist reads the diagnostic index first, runs through a systematic checklist of what could be going on, and only then loads the deep playbook for the specific issue identified. This is how Tyndale avoids missing things.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 03: KNOWLEDGE LIBRARIES -->
+  <section id="libraries">
+    <div class="section-marker">Section 03 · The knowledge libraries</div>
+    <h2 class="section-title">Four reference libraries the team can search</h2>
+
+    <p>Skills tell the specialists <em>how to think</em>. The knowledge libraries tell them <em>what's actually true in the world</em>. They're searchable databases that hold the factual reference data the specialists need: actual billing codes, actual rules, actual laws, actual insurance company policies.</p>
+
+    <p>Why separate them from Skills? Because <strong>Skills change when our approach changes; libraries change when the world changes</strong>. When we improve how Tyndale thinks about something, we edit a Skill. When a new state law passes, we update a library. Keeping them separate means we can update each without touching the other.</p>
+
+    <div class="library-grid">
+      <div class="library-card">
+        <h4>billing_codes</h4>
+        <p>Every CPT, HCPCS, and ICD-10 code, with its descriptor, category, and valid modifiers. About 80,000 entries total. Refreshed quarterly when CMS releases updates.</p>
+      </div>
+      <div class="library-card amber">
+        <h4>error_detection_rules</h4>
+        <p>The full library of bill-error logic — bundling rules, modifier validity, place-of-service rules, preventive-care requirements, timely filing windows, upcoding patterns. About 250,000 rules.</p>
+      </div>
+      <div class="library-card sage">
+        <h4>laws_regulations</h4>
+        <p>Federal and state laws — ERISA, Affordable Care Act, No Surprises Act, mental health parity rules, IRS charity care requirements, state-specific surprise-billing protections, state insurance department procedures.</p>
+      </div>
+      <div class="library-card rose">
+        <h4>payer_policies</h4>
+        <p>Insurance company medical-necessity policies, Medicare coverage determinations, prescription drug formularies, prior authorization requirements. Each policy version-stamped with effective dates.</p>
+      </div>
+    </div>
+
+    <p>When a specialist searches a library, the system does something more sophisticated than a basic search. It uses <strong>semantic search</strong> — meaning the specialist can ask "what does ERISA say about appeal deadlines?" and the library returns results even if the actual law uses different words (like "external review timing" or "claims procedure"). The system understands meaning, not just exact keywords.</p>
+
+    <p>But because legal text often hinges on exact section numbers and specific code identifiers (like "29 U.S.C. § 1132" or "CPT 99285"), the system also uses keyword search as a complement. The two together (called "hybrid search") catch what either alone would miss.</p>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">Why this design choice matters</div>
+      <div class="callout-title">Point-in-time correctness</div>
+      <div class="callout-text">Every chunk in laws_regulations and payer_policies has a start date and end date. When the Bill Detective reviews a 2024 claim, it gets the 2024 version of the policy, not today's version. This matters enormously — payer policies version quarterly, and adjudicating a claim against the wrong version is a common production failure in healthcare AI. Tyndale prevents it by design.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 04: HOW IT WORKS -->
+  <section id="workflow">
+    <div class="section-marker">Section 04 · How a typical interaction works</div>
+    <h2 class="section-title">Walking through a real example</h2>
+
+    <p>Here's what happens when a user uploads a bill. This is the most common interaction, and it shows every piece working together.</p>
+
+    <div class="convo-block">
+      <div class="convo-bubble user">My wife had an MRI last month and I just got a $1,200 bill. Is that right?</div>
+
+      <div class="convo-bubble assistant">Let me pull up her coverage and the EOB and check the math. Give me 20 seconds.</div>
+
+      <div class="agent-trace">
+        <div class="header">Behind the scenes</div>
+        <ul>
+          <li>Lead Planner reads the question, recognizes it as a bill check</li>
+          <li>Pulls up Sarah's case file (the user's wife is already known from the household profile)</li>
+          <li>Decides to spawn Bill Detective + Math Person in parallel</li>
+          <li>Both specialists work in their own isolated context windows</li>
+        </ul>
+      </div>
+
+      <div class="convo-divider">Bill Detective works the bill</div>
+
+      <div class="agent-trace">
+        <div class="header">Bill Detective</div>
+        <ul>
+          <li>OCRs the uploaded bill image</li>
+          <li>Identifies CPT 73721 (MRI of knee joint)</li>
+          <li>Consults Bill Error Detection Skill — runs through the diagnostic index</li>
+          <li>Searches error_detection_rules library — no bundling or modifier issues found</li>
+          <li>Searches payer_policies — confirms MRI is covered under Sarah's UHC plan</li>
+          <li>Writes structured findings to the shared case file</li>
+        </ul>
+      </div>
+
+      <div class="convo-divider">Math Person works the coverage</div>
+
+      <div class="agent-trace">
+        <div class="header">Math Person</div>
+        <ul>
+          <li>Pulls Sarah's EOB from UnitedHealthcare via FHIR</li>
+          <li>Confirms deductible status — she'd paid $2,100 of $2,500 before this MRI</li>
+          <li>Recomputes member responsibility: $400 deductible + 20% of remaining $800 = $560</li>
+          <li>Notes the discrepancy: $1,200 charged vs. $560 actually owed</li>
+          <li>Writes findings to the case file</li>
+        </ul>
+      </div>
+
+      <div class="convo-divider">Lead Planner reads the findings and composes the answer</div>
+
+      <div class="convo-bubble assistant"><strong>That bill is wrong.</strong> Your wife had already paid $2,100 toward her $2,500 deductible before this MRI. Insurance applied the full $1,200 to the deductible — but only $400 of it should have hit. The rest should have been split per the 20% coinsurance rule.<br><br>She actually owes about <strong>$560</strong>, not $1,200.</div>
+
+      <div class="convo-bubble assistant">I can write a letter to UnitedHealthcare requesting they re-process the claim, or I can call them on your behalf. Want me to draft the letter?</div>
+
+      <div class="convo-bubble user">Yes, send the letter</div>
+
+      <div class="agent-trace">
+        <div class="header">Behind the scenes — letter generation</div>
+        <ul>
+          <li>Lead Planner spawns Strategist (powered by the most capable AI model)</li>
+          <li>Strategist consults Negotiation &amp; Strategy Skill — picks "re-adjudication request" framework</li>
+          <li>Strategist consults Legal Researcher for the relevant ERISA citation</li>
+          <li>Document Generation Skill drafts the letter with full citations</li>
+          <li>Citation verifier confirms every legal claim resolves to a real source</li>
+          <li>Letter is shown to the user for approval — never sent without explicit user consent</li>
+        </ul>
+      </div>
+
+      <div class="convo-bubble assistant">Drafted. Take a look — if it looks right, hit Send and it'll go out today. I'll set a reminder to follow up if I don't hear back in 30 days.</div>
+    </div>
+
+    <h3>The key things to notice</h3>
+
+    <p><strong>The user did almost nothing.</strong> They asked one question and approved one letter. Tyndale did the rest — pulling data, checking codes, recomputing math, drafting language, setting deadlines.</p>
+
+    <p><strong>The specialists worked in parallel where possible.</strong> Bill Detective and Math Person worked on the same bill simultaneously, in their own isolated contexts. Only the Lead Planner waited for both to finish before composing the answer.</p>
+
+    <p><strong>Every claim in the response was grounded.</strong> The dollar amounts came from structured data (EOB, plan benefits). The legal citation came from the laws_regulations library. The recommendation came from the Negotiation Skill. Nothing was invented by the AI.</p>
+
+    <p><strong>Nothing left Tyndale without the user's approval.</strong> The letter was drafted and shown to the user. The user clicked Send. Then it went out.</p>
+  </section>
+
+  <!-- SECTION 05: PROACTIVE -->
+  <section id="proactive">
+    <div class="section-marker">Section 05 · Why it thinks ahead of you</div>
+    <h2 class="section-title">The principle that makes Tyndale feel different</h2>
+
+    <p>Most AI products work like this: the user thinks about what to ask, formulates the question, provides the context, and the AI answers. The user does all the planning. The AI just responds.</p>
+
+    <p>Tyndale is built to invert that. The product promise is "we handle this for you" — and that promise breaks the moment the user has to think hard about what to ask, what context to provide, or what to do with the answer. So the intelligence layer is designed around six operating principles that, together, mean Tyndale anticipates instead of just responding.</p>
+
+    <div class="principle-grid">
+      <div class="principle-card">
+        <div class="principle-num">P1</div>
+        <div class="principle-title">Anticipate, then ask, then make the ask trivial</div>
+        <div class="principle-text">Before asking the user for information, Tyndale exhausts what it can infer from existing context and look up via tools. Only after those, it asks. When it asks, it asks the one question that unlocks the most — and tells the user exactly how to find the answer.</div>
+      </div>
+      <div class="principle-card">
+        <div class="principle-num">P2</div>
+        <div class="principle-title">Surface what's next</div>
+        <div class="principle-text">When Tyndale completes a task, it doesn't stop at "done." It surfaces what the user should consider next — an upcoming deadline, a related bill that's likely affected, a follow-up action that's now possible.</div>
+      </div>
+      <div class="principle-card">
+        <div class="principle-num">P3</div>
+        <div class="principle-title">Bundle questions and actions</div>
+        <div class="principle-text">If Tyndale genuinely needs three pieces of information, it asks for all three in one message, with context for each. Never drags the user through sequential interrogation.</div>
+      </div>
+      <div class="principle-card">
+        <div class="principle-num">P4</div>
+        <div class="principle-title">Maximize action per user turn</div>
+        <div class="principle-text">A single user turn ("check this bill") results in everything Tyndale can do without further input. The user shouldn't have to come back six times to nudge the work forward.</div>
+      </div>
+      <div class="principle-card">
+        <div class="principle-num">P5</div>
+        <div class="principle-title">Default to action, not options</div>
+        <div class="principle-text">When Tyndale identifies a problem with a confident verdict, it proposes the specific next step. It doesn't offer a menu of options when it can make a defensible recommendation.</div>
+      </div>
+      <div class="principle-card">
+        <div class="principle-num">P6</div>
+        <div class="principle-title">Tools chain, not interrogate</div>
+        <div class="principle-text">When the system needs five lookups to answer a question, it makes all five — it doesn't ask the user to confirm between each one. Specialists chain their work; the user sees the result.</div>
+      </div>
+    </div>
+
+    <p>These principles aren't just nice-to-have. They're baked into every prompt, every Skill, and every subagent. The Lead Planner's prompt explicitly tells it to anticipate next steps. The Skills are written with "here's how to investigate before asking" diagnostic indexes. The case file architecture lets specialists write findings to a shared workspace so the system can hold many things in mind at once without overwhelming any single specialist.</p>
+
+    <div class="callout">
+      <div class="callout-eyebrow">A concrete example of the principle in action</div>
+      <div class="callout-title">User: "I'm not sure what type of colonoscopy it is."</div>
+      <div class="callout-text">Default AI: "You'll need to find out whether it's screening or diagnostic. Let me know when you do."<br><br>Tyndale: "Let me see what I can figure out on my own first. From your FHIR data, I see a referral from your PCP last month for 'screening colonoscopy at age 50' — that strongly suggests this is a screening colonoscopy, which under ACA §2713 should be zero-cost-share. But I want to confirm because the coding at the visit is what actually determines what you're charged. Here's how to confirm in 30 seconds: when you check in for the procedure, ask the front desk to confirm the CPT code they're billing. If they say CPT 45378, it's billed as screening — that's correct. If they say CPT 45380, it's diagnostic — that's wrong for your situation and we should fix it before the visit. I can also send you a short script for what to say if you want."</div>
+    </div>
+  </section>
+
+  <!-- SECTION 06: VOICE -->
+  <section id="voice">
+    <div class="section-marker">Section 06 · How it talks</div>
+    <h2 class="section-title">Confident advocate, in three registers</h2>
+
+    <p>Tyndale's voice is "confident advocate" — warm, hand-holding, proactive, willing to state errors clearly when they're errors. But "confident" doesn't mean the same thing for every kind of claim Tyndale makes. The system uses a three-tier framework that distinguishes between three kinds of statements:</p>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Tier A — Facts from structured data</div>
+        <div class="concept-card-title">Assert directly. No hedging.</div>
+        <div class="concept-card-text">Dollar amounts, codes, dates, names — these come from documents and structured reference data. They're either right or wrong. Tyndale reports what the data says without softening.<br><br><em>"Your bill shows $4,217 for an ER visit on March 14."</em></div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Tier B — Legal interpretation</div>
+        <div class="concept-card-title">Confident framing + citation.</div>
+        <div class="concept-card-text">Legal claims interpret law in context. The standard language: "appears to violate," "qualifies for" — confident but grounded, with the cited authority.<br><br><em>"This appears to violate the No Surprises Act [42 U.S.C. § 300gg-111]."</em></div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Tier C — Strategic recommendation</div>
+        <div class="concept-card-title">Frame as recommendation with reasoning.</div>
+        <div class="concept-card-text">Strategic advice is inherently uncertain. Tyndale recommends a specific course of action, with the reasoning that supports it. Never predicts outcomes.<br><br><em>"I recommend sending the appeal letter today and following up by phone in 7 days."</em></div>
+      </div>
+      <div class="concept-card">
+        <div class="concept-card-eyebrow">Forbidden across all tiers</div>
+        <div class="concept-card-title">Outcome predictions.</div>
+        <div class="concept-card-text">"Your appeal will succeed." "This will work." None of these. Outcomes are uncertain. Tyndale recommends actions and notes likely scenarios but never predicts results.</div>
+      </div>
+    </div>
+
+    <p>This framework prevents two opposite failure modes. Underclaiming ("there may potentially be a possible issue") makes Tyndale unhelpful. Overclaiming ("the provider committed fraud") makes Tyndale legally risky and erodes trust when outcomes don't match the prediction. The three-tier system threads the needle: confident where Tyndale should be confident, qualified where qualification is honest, never overclaiming.</p>
+  </section>
+
+  <!-- SECTION 07: SAFETY -->
+  <section id="safety">
+    <div class="section-marker">Section 07 · How it stays safe</div>
+    <h2 class="section-title">The safety architecture</h2>
+
+    <p>Tyndale handles protected health information for every user. The intelligence layer is built around several safety mechanisms that make it HIPAA-compliant and defensible against the kinds of failures that have damaged production AI products in adjacent spaces.</p>
+
+    <h3>Citation verification</h3>
+
+    <p>Every legal claim Tyndale generates must trace back to a real source in the laws_regulations library. After generation, a programmatic step verifies every citation in the output. If a citation can't be resolved, the system regenerates. After three failed attempts, the work is flagged for human review and not shipped. This is what prevents the failure mode where AI confidently cites laws that don't exist — a documented problem in production legal-tech tools that has resulted in publicized failures.</p>
+
+    <h3>Two-stream logging</h3>
+
+    <p>Application logs (used for debugging) never contain protected health information — they're scrubbed by an automated layer before anything writes to them. A separate encrypted audit log contains the full fidelity of every PHI access, every tool invocation, every generated output. Engineers can debug with the app log without exposing PHI; investigators can reconstruct any case from the encrypted audit log when needed.</p>
+
+    <h3>Human approval gate</h3>
+
+    <p>Nothing leaves Tyndale without explicit user approval. Letters get drafted by the system; users see them and click Send. Email sends are gated by a hook that validates an approval token before the call goes through. This means even if the AI generates something inappropriate, it can't actually send it without the user's eyes on it first.</p>
+
+    <h3>Out-of-scope refusal</h3>
+
+    <p>When users ask things outside Tyndale's scope (clinical questions, legal advice beyond billing, financial advice, mental health support), Tyndale declines cleanly. It doesn't try to be helpful by guessing. The decline emphasizes what Tyndale is for ("I handle medical billing") rather than just what it isn't.</p>
+
+    <h3>Anthropic-only for clinical and legal reasoning</h3>
+
+    <p>Tyndale's voice, safety patterns, and instruction-following are tuned to Claude (Anthropic's AI model family). The system has three independent paths to Claude — Anthropic's direct API, AWS Bedrock, and Microsoft Azure Foundry. If one path fails, the system falls back to another. If all three Claude paths are down, Tyndale displays a maintenance message rather than silently switching to a different AI provider whose behavior we haven't evaluated.</p>
+  </section>
+
+  <!-- SECTION 08: TRADEOFFS -->
+  <section id="tradeoffs">
+    <div class="section-marker">Section 08 · The key tradeoffs</div>
+    <h2 class="section-title">What we chose, and why</h2>
+
+    <p>Every architecture is a set of tradeoffs. Five worth knowing about:</p>
+
+    <h3>Multi-agent costs more, but produces better results</h3>
+
+    <p>A single AI doing everything would be cheaper. Multi-agent systems use roughly 15 times more tokens than single-agent systems. We accepted that cost because the quality difference is decisive — specialized agents with isolated context dramatically outperform a single generalist on complex tasks like medical billing analysis. We mitigate the cost through aggressive prompt caching (re-using stable prefixes across calls), effort-scaling rules (only spawning the specialists the task needs), and putting cheap models where they fit (Code Validator on a small, fast model).</p>
+
+    <h3>We chose Claude exclusively for the brain</h3>
+
+    <p>Some products use multiple AI providers — Claude for some tasks, GPT for others, fallback to whichever is up. Tyndale uses only Claude for any user-facing reasoning. The reason: Tyndale's confident-advocate voice, safety patterns, refusal behavior, and Skill structures are all tuned to Claude's specific instruction-following patterns. Falling over to a different provider would produce different outputs that the user can't tell are coming from a different model. We'd rather show a maintenance message than ship inconsistent quality.</p>
+
+    <h3>We self-host the vector database</h3>
+
+    <p>The reference libraries live in a vector database called Qdrant, which we run ourselves on Microsoft Azure. We could use a managed service (Pinecone, Qdrant Cloud, others). Self-hosting means more operational work for our engineers, but it keeps all the data inside our existing HIPAA boundary with no additional vendor relationship to manage. At our team size, that simplification is worth the ops overhead.</p>
+
+    <h3>We use synthetic test data at launch</h3>
+
+    <p>The system is evaluated against ~2,000–5,000 synthetic test cases generated by AI, plus a curated set of expert-labeled examples. We deliberately don't use real production data for evaluation at launch. Real production data eventually makes evaluation better, but it requires additional contracts (Business Associate Agreements) with our evaluation platform vendor. We defer that until after launch.</p>
+
+    <h3>We have a human approval gate on letters and emails</h3>
+
+    <p>Some products send emails automatically. Tyndale requires explicit user approval for every outbound message. This adds friction to the experience — but it's the right kind of friction. The user is the principal; we are their advocate. An advocate doesn't send letters in the client's name without the client signing off. Tyndale operates the same way.</p>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">The big picture</div>
+      <div class="callout-title">The intelligence layer is built to fail safely</div>
+      <div class="callout-text">If a specialist makes a mistake, the citation verifier catches it. If the AI providers are down, the system displays a maintenance message rather than degrading silently. If a letter draft is wrong, the user catches it before sending. The architecture assumes things will go wrong in production — and is designed so the wrongness gets caught before it reaches the user, or at least before it leaves Tyndale.</div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="doc-footer">
+    <div>Tyndale · Intelligence Layer Overview · v1.0</div>
+    <div>For non-technical audiences</div>
+  </footer>
+
+</div>
+</body>
+</html>

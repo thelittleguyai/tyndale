@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyndale V1-Lite — Scope &amp; Forward-Compatibility Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-cream: #F5F1EA; --bg-cream-soft: #FAF7F2; --surface: #FFFFFF;
+    --teal: #1F4E4A; --teal-deep: #173D3A; --teal-soft: #E0EAE8; --teal-tint: #F0F5F4;
+    --sage: #3DAA7E; --sage-deep: #2E8862; --sage-soft: #E5F2EB; --sage-tint: #F2F8F4;
+    --amber: #E08A3C; --amber-deep: #C26F26; --amber-soft: #FBEBD8;
+    --rose: #C75252; --rose-soft: #F7E0E0;
+    --ink: #0F2A28; --ink-soft: #2A3A38; --ink-muted: #5A6A68; --ink-faint: #B8C0BF;
+    --border: #E4DFD5; --border-soft: #EFEAE0; --border-card: #ECE6D9;
+    --shadow-card: 0 1px 2px rgba(15,42,40,0.04), 0 4px 12px rgba(15,42,40,0.05);
+    --radius-sm: 8px; --radius: 14px; --radius-lg: 20px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg-cream); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; padding: 56px 32px 96px; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 980px; margin: 0 auto; }
+  .doc-header { border-bottom: 1px solid var(--border); padding-bottom: 36px; margin-bottom: 48px; }
+  .doc-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal); margin-bottom: 14px; }
+  .doc-title { font-size: 44px; font-weight: 700; line-height: 1.05; letter-spacing: -0.025em; margin-bottom: 18px; }
+  .doc-subtitle { font-size: 18px; color: var(--ink-muted); line-height: 1.55; max-width: 740px; }
+  .header-logo-mark { width: 56px; height: 56px; margin-bottom: 20px; }
+
+  .relationship-banner {
+    background: linear-gradient(135deg, var(--teal-tint), var(--sage-tint));
+    border: 1px solid var(--teal-soft); border-radius: var(--radius);
+    padding: 24px 28px; margin-bottom: 56px; display: flex; gap: 20px; align-items: flex-start;
+  }
+  .relationship-banner .icon { width: 40px; height: 40px; background: var(--teal); border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; font-weight: 700; }
+  .relationship-banner .body { font-size: 14.5px; color: var(--ink-soft); line-height: 1.6; }
+  .relationship-banner .body strong { color: var(--ink); }
+
+  .toc { background: white; border: 1px solid var(--border-card); border-radius: var(--radius); padding: 28px 32px; margin-bottom: 56px; box-shadow: var(--shadow-card); }
+  .toc-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 16px; }
+  .toc-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+  .toc-list a { display: flex; gap: 12px; align-items: baseline; color: var(--ink); text-decoration: none; font-size: 14px; padding: 6px 0; }
+  .toc-list a:hover { color: var(--teal); }
+  .toc-list a .num { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); min-width: 22px; }
+
+  section { margin-bottom: 64px; scroll-margin-top: 24px; }
+  .section-marker { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal); margin-bottom: 12px; display: flex; gap: 16px; align-items: center; }
+  .section-marker::before { content: ''; width: 28px; height: 1px; background: var(--teal); display: inline-block; }
+  .section-title { font-size: 31px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 16px; }
+  .section-lede { font-size: 16px; color: var(--ink-muted); line-height: 1.6; max-width: 780px; margin-bottom: 28px; }
+  p { margin-bottom: 14px; max-width: 800px; color: var(--ink-soft); }
+  p strong { color: var(--ink); font-weight: 700; }
+  h3 { font-size: 21px; font-weight: 700; letter-spacing: -0.015em; margin-top: 36px; margin-bottom: 12px; color: var(--ink); }
+  code { font-family: var(--font-mono); font-size: 13px; background: var(--bg-cream-soft); padding: 2px 6px; border-radius: 4px; color: var(--teal-deep); }
+  pre { background: var(--ink); color: #DDE3E2; padding: 18px 22px; border-radius: var(--radius-sm); overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; margin: 16px 0; max-width: 800px; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+
+  /* Split table — V1-Lite vs Full */
+  table.split { width: 100%; max-width: 800px; border-collapse: collapse; margin: 20px 0; background: white; border: 1px solid var(--border-card); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-card); }
+  table.split th { background: var(--teal); color: white; padding: 12px 18px; text-align: left; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+  table.split th.lite { background: var(--sage-deep); }
+  table.split td { padding: 13px 18px; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; color: var(--ink-soft); vertical-align: top; }
+  table.split tr:last-child td { border-bottom: none; }
+  table.split td.feature { font-weight: 600; color: var(--ink); }
+
+  .callout { background: white; border: 1px solid var(--border-card); border-left: 4px solid var(--teal); border-radius: var(--radius-sm); padding: 22px 28px; margin: 24px 0; box-shadow: var(--shadow-card); max-width: 800px; }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.sage { border-left-color: var(--sage); }
+  .callout.rose { border-left-color: var(--rose); }
+  .callout-eyebrow { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--teal); font-weight: 600; margin-bottom: 6px; }
+  .callout.amber .callout-eyebrow { color: var(--amber-deep); }
+  .callout.sage .callout-eyebrow { color: var(--sage-deep); }
+  .callout.rose .callout-eyebrow { color: var(--rose); }
+  .callout-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .callout-text { font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+
+  ul.bullets { list-style: none; padding: 0; margin: 16px 0; max-width: 800px; }
+  ul.bullets li { padding: 9px 0 9px 28px; border-bottom: 1px dashed var(--border-soft); position: relative; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+  ul.bullets li:last-child { border-bottom: none; }
+  ul.bullets li::before { content: '→'; position: absolute; left: 6px; top: 9px; color: var(--teal); font-weight: 700; }
+  ul.bullets li strong { color: var(--ink); }
+
+  /* contract badge */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 100px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; }
+  .badge.same { background: var(--sage-soft); color: var(--sage-deep); }
+  .badge.lite { background: var(--amber-soft); color: var(--amber-deep); }
+  .badge.defer { background: var(--rose-soft); color: var(--rose); }
+
+  /* Flow diagram */
+  .flow { background: white; border: 1px solid var(--border-card); border-radius: var(--radius); padding: 32px; margin: 24px 0; box-shadow: var(--shadow-card); }
+  .flow-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .flow-node { background: var(--teal-tint); border: 1px solid var(--teal-soft); border-radius: 10px; padding: 12px 16px; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--ink); min-width: 110px; }
+  .flow-node.new { background: var(--sage-soft); border-color: var(--sage); }
+  .flow-node.lite { background: var(--amber-soft); border-color: var(--amber); }
+  .flow-arrow { color: var(--ink-faint); font-size: 18px; }
+  .flow-caption { text-align: center; font-size: 12px; color: var(--ink-muted); margin-top: 14px; font-style: italic; }
+
+  .doc-footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 80px; display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-muted); font-family: var(--font-mono); }
+  @media (max-width: 740px) { body { padding: 32px 16px 48px; } .doc-title { font-size: 32px; } .toc-list { grid-template-columns: 1fr; } table.split td, table.split th { font-size: 12px; padding: 10px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <svg class="header-logo-mark" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="none" stroke="#1F4E4A" stroke-width="3"/><rect x="26" y="20" width="28" height="36" rx="3" fill="#1F4E4A"/><line x1="32" y1="30" x2="48" y2="30" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="48" y2="36" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="42" x2="42" y2="42" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><path d="M34 50 L38 54 L48 44" stroke="#3DAA7E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <div class="doc-eyebrow">Tyndale · V1-Lite · Scope &amp; Forward-Compatibility</div>
+    <h1 class="doc-title">Ship the lean version. Keep everything.</h1>
+    <p class="doc-subtitle">A thinner first version of Tyndale you can build and launch faster — document upload instead of FHIR, a 3-agent intelligence layer, no letter generation yet — designed so that every piece you ship is a forward-compatible subset of full Tyndale. Nothing gets thrown away when you upgrade.</p>
+  </header>
+
+  <div class="relationship-banner">
+    <div class="icon">↑</div>
+    <div class="body"><strong>This document is additive.</strong> The three documents you already have — the Overview, the Developer Build Spec, and the Build Kit — remain your <strong>full Tyndale</strong> target, unchanged. This spec defines a <strong>subset</strong> that ships first and upgrades into the full version by <em>expansion, not rewrite</em>. Every V1-Lite component uses the same contracts (case file schema, citation format, voice tiering, Skill structure, tool signatures) as full Tyndale, so the full build layers on top of what V1-Lite ships.</div>
+  </div>
+
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <div class="toc-list">
+      <a href="#principle"><span class="num">01</span> The forward-compatibility principle</a>
+      <a href="#whatchanges"><span class="num">02</span> What changes, what stays</a>
+      <a href="#upload"><span class="num">03</span> Document upload (replaces FHIR)</a>
+      <a href="#agents"><span class="num">04</span> The 3-agent intelligence layer</a>
+      <a href="#deferred"><span class="num">05</span> What's deferred and why</a>
+      <a href="#feedback"><span class="num">06</span> The feedback &amp; learning loop</a>
+      <a href="#upgrademap"><span class="num">07</span> The upgrade map</a>
+      <a href="#reuse"><span class="num">08</span> What you reuse from the full kit</a>
+    </div>
+  </nav>
+
+  <!-- 01 -->
+  <section id="principle">
+    <div class="section-marker">Section 01 · The principle</div>
+    <h2 class="section-title">Subset, not a separate product</h2>
+    <p class="section-lede">The risk with a "lite version" is that you build something you later throw away. V1-Lite avoids that by obeying one rule: it shares full Tyndale's contracts from day one.</p>
+
+    <p>A contract is any interface or data shape that two parts of the system agree on. If V1-Lite and full Tyndale agree on the same contracts, then upgrading means <em>adding</em> components that speak the same language — not <em>replacing</em> components that spoke a different one.</p>
+
+    <p>The five contracts that V1-Lite must share with full Tyndale, exactly:</p>
+
+    <ul class="bullets">
+      <li><strong>Case file schema.</strong> The Postgres record that holds a user's matter — findings, deadlines, coverage data, documents. V1-Lite writes the same fields the full version reads. When FHIR goes live later, it populates the <em>same coverage fields</em> that manual upload populates now.</li>
+      <li><strong>Citation format.</strong> The <code>[authority §section, src_id]</code> format from <code>reference/citations.md</code>. V1-Lite's Tier B legal claims cite exactly the way full Tyndale does, so the citation resolver you build now keeps working unchanged.</li>
+      <li><strong>Voice tiering.</strong> The three-tier framework from <code>reference/voice_tiering.md</code>. V1-Lite speaks in the same confident-advocate voice with the same tier discipline. No voice migration later.</li>
+      <li><strong>Skill structure.</strong> The SKILL.md + reference-files pattern. V1-Lite ships a subset of the 8 Skills, each in the full structure. Adding the deferred Skills later is just adding directories.</li>
+      <li><strong>Tool signatures.</strong> The tool descriptions from <code>tools/descriptions/</code>. V1-Lite implements a subset of tools, but each implemented tool matches its full-version signature exactly. The FHIR tools' <em>return shapes</em> are matched by the upload-path tools, so subagents never know the difference.</li>
+    </ul>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">The test for any V1-Lite decision</div>
+      <div class="callout-title">"Does this create throwaway work, or expandable work?"</div>
+      <div class="callout-text">If a simplification means rebuilding later, it's the wrong simplification. If it means adding later, it's right. Example: building a custom V1-Lite case file schema = throwaway (you'd migrate data later). Building the full case file schema but only populating some fields = expandable (you just start populating more fields). Always choose expandable.</div>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section id="whatchanges">
+    <div class="section-marker">Section 02 · The delta</div>
+    <h2 class="section-title">What changes, what stays</h2>
+    <p class="section-lede">Three things change in V1-Lite. Everything else is identical to full Tyndale or a clean subset of it.</p>
+
+    <table class="split">
+      <tr><th class="feature" style="background:var(--ink)">Component</th><th class="lite">V1-Lite</th><th>Full Tyndale</th></tr>
+      <tr><td class="feature">Coverage / claims data</td><td><span class="badge lite">CHANGED</span> User uploads documents; OCR extracts into case file</td><td>1upHealth FHIR pull, automatic</td></tr>
+      <tr><td class="feature">Intelligence layer</td><td><span class="badge lite">CHANGED</span> 3 agents: Lead Planner + Bill Detective + Math Person</td><td>6 agents: + Legal Researcher, Strategist, Code Validator</td></tr>
+      <tr><td class="feature">Letter generation</td><td><span class="badge defer">DEFERRED</span> Detects &amp; explains; tells user what to do</td><td>Drafts all 21 letter types with citations</td></tr>
+      <tr><td class="feature">Foundation files (principles, voice, refusals, citations, glossary, discipline rules)</td><td><span class="badge same">IDENTICAL</span> Used verbatim</td><td>Same files</td></tr>
+      <tr><td class="feature">Knowledge collections</td><td><span class="badge same">IDENTICAL</span> All 4 collections</td><td>All 4 collections</td></tr>
+      <tr><td class="feature">Bill Error Detection Skill</td><td><span class="badge same">IDENTICAL</span> Full Skill + diagnostic index</td><td>Same Skill</td></tr>
+      <tr><td class="feature">Cost Estimation Skill</td><td><span class="badge same">IDENTICAL</span></td><td>Same Skill</td></tr>
+      <tr><td class="feature">Coverage Connection Skill</td><td><span class="badge lite">SUBSET</span> Manual-upload mode only</td><td>+ FHIR OAuth mode</td></tr>
+      <tr><td class="feature">Find a Doctor / Plan a Visit Skills</td><td><span class="badge lite">OPTIONAL</span> Include if time allows</td><td>Both included</td></tr>
+      <tr><td class="feature">Document Gen / Negotiation / Charity Care Skills</td><td><span class="badge defer">DEFERRED</span> Strategy guidance folded into Lead Planner</td><td>Three standalone Skills</td></tr>
+      <tr><td class="feature">Citation enforcement (Layers 1+2)</td><td><span class="badge same">IDENTICAL</span></td><td>Same</td></tr>
+      <tr><td class="feature">Voice tiering &amp; refusals</td><td><span class="badge same">IDENTICAL</span></td><td>Same</td></tr>
+      <tr><td class="feature">PHI scrubbing / dual-stream logging</td><td><span class="badge same">IDENTICAL</span> Required day one</td><td>Same</td></tr>
+      <tr><td class="feature">LiteLLM Claude-only routing</td><td><span class="badge same">IDENTICAL</span></td><td>Same</td></tr>
+      <tr><td class="feature">Eval suite (golden + synthetic)</td><td><span class="badge same">IDENTICAL</span> Structure; fewer cases at start</td><td>Full case counts</td></tr>
+      <tr><td class="feature">Feedback &amp; learning loop</td><td><span class="badge same">NEW — both versions</span> Built day one</td><td>Same loop, more volume</td></tr>
+      <tr><td class="feature">Web app (mobile-friendly)</td><td><span class="badge lite">NEW</span> Upload-centric UI</td><td>+ Connect-insurance flow</td></tr>
+    </table>
+
+    <div class="callout">
+      <div class="callout-eyebrow">Notice what's NOT in the "changed" rows</div>
+      <div class="callout-title">The HIPAA spine is identical in both versions</div>
+      <div class="callout-text">PHI scrubbing, dual-stream logging, encrypted audit log, citation enforcement, Claude-only routing, BAA chain — all required day one in V1-Lite. You don't get to defer compliance to "make it lite." A medical-billing product handling real bills is handling PHI from the first upload. The good news: building it once means it carries forward unchanged.</div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section id="upload">
+    <div class="section-marker">Section 03 · Document upload</div>
+    <h2 class="section-title">Upload replaces FHIR — but writes the same data</h2>
+    <p class="section-lede">In full Tyndale, the FHIR tools pull structured Coverage, EOB, and Claim data from 1upHealth. In V1-Lite, the user uploads those same documents and an OCR + extraction path produces the same structured shape.</p>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-node lite">User uploads<br>bill / EOB / card</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node new">OCR +<br>extraction</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Same case file<br>coverage fields</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Bill Detective /<br>Math Person</div>
+      </div>
+      <div class="flow-caption">V1-Lite: the subagents consume the case file. They never know the data came from an upload instead of FHIR.</div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-node new">1upHealth<br>FHIR pull</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Same case file<br>coverage fields</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">Bill Detective /<br>Math Person</div>
+      </div>
+      <div class="flow-caption">Full Tyndale: FHIR writes the same fields. The subagents are unchanged. Upload path stays as a fallback for users who prefer it.</div>
+    </div>
+
+    <h3>How this stays forward-compatible</h3>
+
+    <p>The tool descriptions in <code>tools/descriptions/</code> define what <code>fhir_get_coverage</code> and <code>fhir_get_eobs</code> <em>return</em>. In V1-Lite you build tools that produce the <em>same return shape</em> from uploaded documents:</p>
+
+    <ul class="bullets">
+      <li><strong><code>upload_extract_coverage</code></strong> returns the same shape as <code>fhir_get_coverage</code> — plan name, subscriber, effective dates, deductible, coinsurance, OOP max. Source is an uploaded insurance card + plan summary instead of a FHIR Coverage resource.</li>
+      <li><strong><code>upload_extract_eob</code></strong> returns the same shape as <code>fhir_get_eobs</code> — line items, allowed amounts, member responsibility. Source is an uploaded EOB image instead of a FHIR ExplanationOfBenefit resource.</li>
+      <li><strong><code>bill_ocr_extract</code></strong> is identical to full Tyndale — it was always document-based.</li>
+    </ul>
+
+    <p>When 1upHealth goes live, the FHIR tools are added <em>alongside</em> the upload tools. The Lead Planner gains a branch: "if the user has connected insurance, pull via FHIR; otherwise, ask them to upload." The upload path never gets removed — plenty of users will prefer uploading, and some payers won't be reachable via FHIR.</p>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">The one real cost of upload-first</div>
+      <div class="callout-title">OCR extraction quality is your V1-Lite risk</div>
+      <div class="callout-text">FHIR data is clean and structured. Uploaded documents are messy — photos of crumpled bills, low-contrast EOBs, multi-page PDFs. The extraction path needs confidence scoring: when extraction confidence is low, the Lead Planner asks the user to confirm the key numbers (per principle P1 — make the ask trivial: "I read your deductible as $2,500 — is that right?"). This is also a feature: confirmed extractions become high-quality labeled training data for the feedback loop.</div>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section id="agents">
+    <div class="section-marker">Section 04 · Intelligence layer</div>
+    <h2 class="section-title">Three agents, folded responsibilities</h2>
+    <p class="section-lede">Full Tyndale has six agents. V1-Lite has three: Lead Planner, Bill Detective, Math Person. The Strategist's and Legal Researcher's work is folded into the Lead Planner using the Skills directly. Code Validator is deferred.</p>
+
+    <table class="split">
+      <tr><th class="feature" style="background:var(--ink)">Agent</th><th class="lite">V1-Lite role</th><th>Full Tyndale role</th></tr>
+      <tr><td class="feature">Lead Planner <span class="badge same">Sonnet 4.6</span></td><td>Coordinator + folds in light legal research (queries laws_regulations directly) + folds in strategy guidance (recommends next steps without drafting letters)</td><td>Pure coordinator; delegates legal + strategy to specialists</td></tr>
+      <tr><td class="feature">Bill Detective <span class="badge same">Sonnet 4.6</span></td><td><span class="badge same">IDENTICAL</span> Bill analysis via Bill Error Detection Skill</td><td>Same</td></tr>
+      <tr><td class="feature">Math Person <span class="badge same">Sonnet 4.6</span></td><td><span class="badge same">IDENTICAL</span> Coverage math</td><td>Same</td></tr>
+      <tr><td class="feature">Legal Researcher <span class="badge defer">Opus→folded</span></td><td>Folded into Lead Planner: it queries laws_regulations and cites directly</td><td>Standalone Sonnet 4.6 subagent</td></tr>
+      <tr><td class="feature">Strategist <span class="badge defer">deferred</span></td><td>Folded into Lead Planner: recommends the path, doesn't draft documents</td><td>Standalone Opus 4.7 subagent</td></tr>
+      <tr><td class="feature">Code Validator <span class="badge defer">deferred</span></td><td>Deferred; Bill Detective does code lookups inline via tools</td><td>Standalone Haiku 4.5 subagent</td></tr>
+    </table>
+
+    <h3>Why this is still meaningfully better than a raw LLM</h3>
+
+    <p>Even at three agents, V1-Lite keeps the things that make Tyndale trustworthy where a bare LLM is not:</p>
+
+    <ul class="bullets">
+      <li><strong>Independent audit, not trust.</strong> Tyndale computes what you <em>should</em> owe from your real coverage terms and compares it against both the provider's bill and the insurer's EOB. A raw LLM (and most people) read the EOB and assume the insurer did the math right. Tyndale doesn't — it catches payer errors, not just provider errors.</li>
+      <li><strong>Encounter verification.</strong> Tyndale translates each charged line item into plain language and asks you to confirm it matches your visit — catching phantom charges and upcoded visits a raw LLM can't see.</li>
+      <li><strong>Grounded retrieval.</strong> All four knowledge collections are live. Claims about codes, rules, laws, and policies come from real retrieved sources — not the model's memory.</li>
+      <li><strong>Citation enforcement.</strong> Layers 1 and 2 run. Every Tier B legal claim resolves to a real source or the output doesn't ship.</li>
+      <li><strong>Voice tiering.</strong> Facts asserted, legal claims qualified-and-cited, recommendations framed with reasoning, outcomes never predicted.</li>
+      <li><strong>Structured findings.</strong> Bill Detective and Math Person write structured findings to the case file — auditable, not just prose.</li>
+      <li><strong>Point-in-time correctness.</strong> A 2024 claim is adjudicated against 2024 law. A raw LLM has no concept of this.</li>
+      <li><strong>Confident-advocate voice + the anticipation principles.</strong> The product still thinks ahead, surfaces next steps, and makes asks trivial.</li>
+    </ul>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">Critical correctness principle — applies to both versions</div>
+      <div class="callout-title">The EOB is audited, never trusted</div>
+      <div class="callout-text">Insurers miscalculate cost-sharing, misapply coverage, process in-network care as out-of-network, ignore the out-of-pocket max, and wrongfully deny — often downstream of a provider's incorrect submission. If Tyndale trusted the insurer's EOB as the right answer, it would be blind to the entire category of payer errors, which is half of what Tyndale exists to catch. So Math Person computes the member's responsibility <em>independently</em> from coverage terms first, then compares against both the bill and the EOB. The coverage data the user uploads in V1-Lite isn't there to save typing — it's the independent basis for the audit. This is the Independent Audit Doctrine; it's foundational and it ranks above everything else.</div>
+    </div>
+
+    <h3>The upgrade: folding out, not rewriting</h3>
+
+    <p>When you move to full Tyndale, you "promote" the folded-in work into dedicated subagents. The Lead Planner prompt's legal-research section becomes the Legal Researcher subagent prompt (already written — Task 19). The strategy-guidance section becomes the Strategist subagent prompt (Task 20). The inline code lookups get a dedicated Code Validator (Task 21). The Skills and tools they use already exist. This is expansion: the logic moves from one prompt into three, and the Lead Planner goes back to pure coordination.</p>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">Why fold into the Lead Planner specifically</div>
+      <div class="callout-title">The Lead Planner already speaks the voice and owns composition</div>
+      <div class="callout-text">In full Tyndale the Lead Planner composes the final answer from subagent findings. In V1-Lite it does a bit more of the thinking itself, but the output surface is identical. The user experience doesn't change between versions — only the internal division of labor does. That's exactly the kind of change that's invisible to users and clean to upgrade.</div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section id="deferred">
+    <div class="section-marker">Section 05 · Deferrals</div>
+    <h2 class="section-title">What's deferred, and what V1-Lite does instead</h2>
+    <p class="section-lede">Deferring letter generation is the biggest scope cut. Here's how V1-Lite still delivers value in its place.</p>
+
+    <h3>Letter generation → detect, explain, and direct</h3>
+
+    <p>In full Tyndale, when a bill error is found, the Strategist + Document Generation Skill draft the appeal letter. In V1-Lite, that final drafting step is deferred. Instead, V1-Lite:</p>
+
+    <ul class="bullets">
+      <li><strong>Audits independently</strong> (Math Person) — computes what the user should owe from coverage terms and compares against both the bill and the EOB, catching payer-side errors as well as provider-side. The user sees three numbers: billed, EOB-claimed, and Tyndale-computed.</li>
+      <li><strong>Verifies the encounter</strong> — translates each charged line item to plain language and has the user confirm it matches their visit, catching phantom charges and upcoded visits.</li>
+      <li><strong>Detects the error</strong> (Bill Detective, identical to full).</li>
+      <li><strong>Explains it clearly</strong> in plain language — what's wrong, why it's wrong, with the legal citation (Tier B).</li>
+      <li><strong>Tells the user exactly what to do</strong> — "Call UnitedHealthcare at the number on your card, reference claim #X, and tell them the MRI was applied entirely to your deductible when only $400 should have been. Ask them to re-process it." A specific, scripted next step (Tier C).</li>
+      <li><strong>Captures the outcome</strong> via the feedback loop — did the user act? Did it work? This is gold for training the full version's letter generator.</li>
+    </ul>
+
+    <p>This is still dramatically more than a raw LLM gives — it's a grounded, cited diagnosis with a specific action plan. What it doesn't do yet is write the letter <em>for</em> the user. That's the headline feature you add when you go full, and by then you'll have real outcome data on which problems and which scripts actually resolve.</p>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">A deliberate sequencing benefit</div>
+      <div class="callout-title">Deferring letters defers your highest-risk surface</div>
+      <div class="callout-text">Letter generation is exactly where citation faithfulness, hallucinated numbers, and your manual-review burden concentrate. By deferring it, V1-Lite ships with a lower-risk output surface (explanations and scripts, which the user executes and sanity-checks themselves) while you accumulate the real bill examples and outcome data that make the eventual letter generator far better and safer. You're not just shipping less — you're sequencing risk intelligently.</div>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section id="feedback">
+    <div class="section-marker">Section 06 · Feedback &amp; learning loop</div>
+    <h2 class="section-title">Learning from users and their bills, from day one</h2>
+    <p class="section-lede">The most valuable asset Tyndale builds isn't code — it's a growing corpus of real bills, real errors, and real outcomes. V1-Lite captures this from the first user, feeding the same eval system you already designed.</p>
+
+    <p>This loop is new to both versions — it wasn't in the original three documents, and it belongs in both. Building it in V1-Lite means full Tyndale inherits a working learning system plus months of accumulated data.</p>
+
+    <h3>The four-stage loop</h3>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-node new">1 · Capture</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node new">2 · De-identify</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node new">3 · Triage</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node new">4 · Promote</div>
+      </div>
+      <div class="flow-caption">Real usage becomes labeled eval cases that make every future version measurably better.</div>
+    </div>
+
+    <h3>Stage 1 — Capture</h3>
+    <ul class="bullets">
+      <li><strong>Explicit feedback:</strong> thumbs up/down on every Tyndale response, plus an optional "what was wrong?" with structured reasons (wrong number, missed an error, bad recommendation, confusing, etc.).</li>
+      <li><strong>Implicit signals:</strong> did the user act on the recommendation? Did they come back and report an outcome? Did they correct an extracted value?</li>
+      <li><strong>Bill examples:</strong> the uploaded documents themselves, plus the structured extraction and the findings — the full case, captured for potential training/eval use.</li>
+      <li><strong>Outcome capture:</strong> a lightweight "Did this get resolved?" follow-up that records whether the diagnosis and script actually worked.</li>
+    </ul>
+
+    <h3>Stage 2 — De-identify (the HIPAA gate)</h3>
+    <div class="callout rose">
+      <div class="callout-eyebrow">Non-negotiable</div>
+      <div class="callout-title">Using a bill to improve Tyndale requires separate consent + de-identification</div>
+      <div class="callout-text">Serving a user with their data is one permission. Using their data to improve the product is a <em>different</em> one. V1-Lite collects explicit, separate opt-in consent ("Help improve Tyndale by letting us learn from your de-identified bills"). Before any real example becomes a candidate training/eval case, it runs through the same Presidio + custom-recognizer pipeline specced in the full Developer Spec (§18). No real example enters the eval corpus with PHI intact. De-identified examples are reviewed by Brock before promotion.</div>
+    </div>
+
+    <h3>Stage 3 — Triage</h3>
+    <ul class="bullets">
+      <li>Negative feedback and corrections are queued for Brock's review. A bad output is a candidate eval case — it shows a failure mode worth testing against.</li>
+      <li>High-value cases (clear errors Tyndale caught well, or clear misses) get flagged for promotion.</li>
+      <li>The triage queue routes to the same <code>#tyndale-quality</code> channel from the full failure-mode instrumentation (§22).</li>
+    </ul>
+
+    <h3>Stage 4 — Promote into the eval suite</h3>
+    <ul class="bullets">
+      <li>Promoted cases are written in the <strong>same golden-example schema</strong> from Task 26 (<code>evals/golden/schema.json</code>) — so they slot directly into the eval suite you already designed.</li>
+      <li>A real bill that Tyndale got wrong becomes a regression test: the next version must get it right.</li>
+      <li>A real bill that Tyndale got right becomes a guardrail: future changes can't break it.</li>
+      <li>This is exactly the "eval suite grows from production findings" discipline rule (D21.10) — now fed by a real pipeline instead of waiting for the full version.</li>
+    </ul>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">Why this matters more than it looks</div>
+      <div class="callout-title">By the time you build the letter generator, you'll know what actually works</div>
+      <div class="callout-text">Because V1-Lite captures which diagnoses and which action-scripts led to resolved bills, the full version's Document Generation Skill won't be authored from theory — it'll be trained and evaluated against real cases with known outcomes. The deferral of letter generation and the feedback loop work together: defer the hard feature, gather the data that makes it good, then build it well.</div>
+    </div>
+
+    <h3>Forward-compatibility of the loop</h3>
+    <p>The capture schema, consent model, de-identification pipeline, and promotion-to-golden flow are identical in both versions. Full Tyndale inherits the loop running and the data already accumulated. The only difference is volume — more users, more bills, more outcomes.</p>
+  </section>
+
+  <!-- 07 -->
+  <section id="upgrademap">
+    <div class="section-marker">Section 07 · Upgrade map</div>
+    <h2 class="section-title">From V1-Lite to full Tyndale, component by component</h2>
+    <p class="section-lede">For each V1-Lite component, exactly what changes (and what doesn't) when you go full.</p>
+
+    <table class="split">
+      <tr><th class="feature" style="background:var(--ink)">Component</th><th class="lite">Upgrade action</th><th>Effort</th></tr>
+      <tr><td class="feature">Coverage data</td><td>Add FHIR tools alongside upload tools; add "connect insurance" branch to Lead Planner. Upload path stays.</td><td>Add, don't replace</td></tr>
+      <tr><td class="feature">Legal Researcher</td><td>Promote the Lead Planner's folded-in legal section to the standalone Legal Researcher subagent (prompt already written, Task 19).</td><td>Move logic out</td></tr>
+      <tr><td class="feature">Strategist</td><td>Promote folded-in strategy guidance to standalone Strategist subagent (Task 20). Wire in Document Generation.</td><td>Move logic out + wire</td></tr>
+      <tr><td class="feature">Code Validator</td><td>Add the Haiku 4.5 subagent (Task 21). Bill Detective offloads code lookups to it.</td><td>Add subagent</td></tr>
+      <tr><td class="feature">Letter generation</td><td>Build Document Generation Skill (Task 09), Negotiation &amp; Strategy Skill (Task 10), Charity Care Skill (Task 11). Add the gated send-email path. Now trained on real V1-Lite outcome data.</td><td>New build (but data-informed)</td></tr>
+      <tr><td class="feature">Web app</td><td>Add the connect-insurance flow + letter review/approval UI. Upload UI stays.</td><td>Add screens</td></tr>
+      <tr><td class="feature">Everything else</td><td>No change — already full-version.</td><td>None</td></tr>
+    </table>
+
+    <p>Notice that most upgrade actions are "move logic out" or "add" — not "rewrite." The two genuine new builds (letter generation, connect-insurance flow) were always going to be built; V1-Lite just sequences them later, after you have data to inform them.</p>
+  </section>
+
+  <!-- 08 -->
+  <section id="reuse">
+    <div class="section-marker">Section 08 · Reuse</div>
+    <h2 class="section-title">What you reuse from the full kit, unchanged</h2>
+    <p class="section-lede">The V1-Lite Build Kit doesn't recreate work you already have. It points to the existing task files and adds only what's new.</p>
+
+    <h3>Reused verbatim from the full Build Kit</h3>
+    <ul class="bullets">
+      <li><strong>Tasks 01–07</strong> (foundation): repo setup, principles, voice tiering, refusals, citation format, glossary, discipline rules. Built once, used by both versions.</li>
+      <li><strong>Task 08</strong> (Bill Error Detection Skill): identical.</li>
+      <li><strong>Task 12</strong> (Cost Estimation Skill): identical.</li>
+      <li><strong>Task 13</strong> (Coverage Connection &amp; FHIR Skill): built in manual-upload mode; the FHIR sections are scaffolded but inactive until upgrade.</li>
+      <li><strong>Tasks 14–15</strong> (Find a Doctor, Plan a Visit): optional in V1-Lite; include if time allows.</li>
+      <li><strong>Tasks 17–18</strong> (Bill Detective, Math Person subagent prompts): identical.</li>
+      <li><strong>Tasks 23–25</strong> (collection schemas, ingestion templates, fixtures): all four collections, identical.</li>
+      <li><strong>Task 26</strong> (golden examples structure): identical — and now fed by the feedback loop.</li>
+      <li><strong>Tasks 28–29</strong> (synthetic generation): identical.</li>
+    </ul>
+
+    <h3>New in the V1-Lite Build Kit</h3>
+    <ul class="bullets">
+      <li><strong>The collapsed Lead Planner prompt</strong> (folds in legal research + strategy guidance).</li>
+      <li><strong>The document-upload + extraction tools</strong> (matching the FHIR tool return shapes).</li>
+      <li><strong>The mobile-friendly web app shell</strong> (upload-centric UI).</li>
+      <li><strong>The feedback &amp; learning loop</strong> (capture schema, consent, de-identification, triage, promotion).</li>
+      <li><strong>The V1-Lite handoff brief</strong> (what ships in V1-Lite, what the team builds next).</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-eyebrow">Bottom line on document strategy</div>
+      <div class="callout-title">New documents for V1-Lite; the originals stay as your full-version target</div>
+      <div class="callout-text">You asked whether to use entirely new documents or keep the existing ones. The answer: keep all three existing documents exactly as they are — they're your full Tyndale reference. This V1-Lite spec and the V1-Lite Build Kit are additive. When you hand work to Claude Code, Cowork, and your developers, you give them the V1-Lite Build Kit <em>first</em> (which reuses many of the original task files), ship V1-Lite, then return to the full Build Kit to expand into complete Tyndale. Nothing is wasted; everything compounds.</div>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>Tyndale · V1-Lite Scope &amp; Forward-Compatibility · v1.0</div>
+    <div>Additive to the full documentation set</div>
+  </footer>
+
+</div>
+</body>
+</html>

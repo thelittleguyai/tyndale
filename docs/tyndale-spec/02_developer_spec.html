@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyndale Intelligence Layer — Developer Build Specification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-cream: #F5F1EA;
+    --bg-cream-soft: #FAF7F2;
+    --surface: #FFFFFF;
+    --teal: #1F4E4A;
+    --teal-deep: #173D3A;
+    --teal-soft: #E0EAE8;
+    --teal-tint: #F0F5F4;
+    --sage: #3DAA7E;
+    --sage-deep: #2E8862;
+    --sage-soft: #E5F2EB;
+    --amber: #E08A3C;
+    --amber-deep: #C26F26;
+    --amber-soft: #FBEBD8;
+    --rose: #C75252;
+    --rose-soft: #F7E0E0;
+    --ink: #0F2A28;
+    --ink-soft: #2A3A38;
+    --ink-muted: #5A6A68;
+    --ink-faint: #B8C0BF;
+    --border: #E4DFD5;
+    --border-soft: #EFEAE0;
+    --border-card: #ECE6D9;
+    --shadow-card: 0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05);
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 20px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg-cream);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 56px 32px 96px;
+  }
+  .page { max-width: 1180px; margin: 0 auto; }
+  .doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 36px;
+    margin-bottom: 56px;
+  }
+  .doc-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 14px;
+  }
+  .doc-title {
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+  .doc-subtitle {
+    font-size: 17px;
+    color: var(--ink-muted);
+    line-height: 1.55;
+    max-width: 760px;
+  }
+  .header-logo-mark { width: 56px; height: 56px; margin-bottom: 20px; }
+
+  .toc {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 64px;
+    box-shadow: var(--shadow-card);
+  }
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+  }
+  .toc-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 32px;
+  }
+  .toc-list a {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 0;
+  }
+  .toc-list a:hover { color: var(--teal); }
+  .toc-list a .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    min-width: 22px;
+  }
+
+  section { margin-bottom: 72px; scroll-margin-top: 24px; }
+  .section-marker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .section-marker::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--teal);
+    display: inline-block;
+  }
+  .section-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .section-lede {
+    font-size: 15.5px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 820px;
+  }
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin-top: 38px;
+    margin-bottom: 12px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 14px; max-width: 820px; }
+  p strong { color: var(--ink); font-weight: 700; }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--bg-cream-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--teal-deep);
+  }
+
+  pre {
+    background: var(--ink);
+    color: #DDE3E2;
+    padding: 18px 22px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    margin: 16px 0;
+    max-width: 820px;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  /* Specs */
+  .spec-table {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .spec-row {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    padding: 14px 22px;
+    gap: 22px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13.5px;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-row.head {
+    background: var(--teal);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+  .spec-key {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--teal);
+    font-weight: 600;
+  }
+  .spec-row.head .spec-key { color: white; }
+  .spec-val { color: var(--ink-soft); }
+
+  /* Decision block */
+  .decision-block {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius-sm);
+    padding: 24px 28px;
+    margin: 18px 0;
+    box-shadow: var(--shadow-card);
+    max-width: 820px;
+  }
+  .decision-block-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .decision-block-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+
+  /* Rules list */
+  ol.rules, ul.bullets {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    max-width: 820px;
+  }
+  ol.rules li, ul.bullets li {
+    padding: 10px 0 10px 36px;
+    border-bottom: 1px dashed var(--border-soft);
+    position: relative;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  ol.rules li:last-child, ul.bullets li:last-child { border-bottom: none; }
+  ol.rules { counter-reset: rule; }
+  ol.rules li::before {
+    counter-increment: rule;
+    content: counter(rule);
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 24px;
+    height: 24px;
+    background: var(--teal);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  ul.bullets li::before {
+    content: '→';
+    position: absolute;
+    left: 8px;
+    top: 10px;
+    color: var(--teal);
+    font-weight: 700;
+  }
+  ol.rules li strong { color: var(--ink); font-weight: 700; }
+  ul.bullets li strong { color: var(--ink); font-weight: 700; }
+
+  /* Callout */
+  .callout {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius-sm);
+    padding: 20px 26px;
+    margin: 22px 0;
+    box-shadow: var(--shadow-card);
+    max-width: 820px;
+  }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.rose { border-left-color: var(--rose); }
+  .callout.sage { border-left-color: var(--sage); }
+  .callout-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .callout.amber .callout-eyebrow { color: var(--amber-deep); }
+  .callout.rose .callout-eyebrow { color: var(--rose); }
+  .callout.sage .callout-eyebrow { color: var(--sage-deep); }
+  .callout-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .callout-text {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  /* Model pill */
+  .model-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .model-pill.sonnet { background: var(--teal-soft); color: var(--teal); }
+  .model-pill.opus { background: var(--rose-soft); color: var(--rose); }
+  .model-pill.haiku { background: var(--amber-soft); color: var(--amber-deep); }
+
+  /* TABLE for routing/threshold info */
+  table.std {
+    width: 100%;
+    max-width: 820px;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  table.std th {
+    background: var(--teal);
+    color: white;
+    padding: 12px 18px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  table.std td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    vertical-align: top;
+  }
+  table.std tr:last-child td { border-bottom: none; }
+  table.std code { font-size: 12px; }
+
+  /* Subsection block */
+  .subsection {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  /* Pre-launch check list */
+  .checklist {
+    background: var(--amber-soft);
+    border: 1px solid var(--amber);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 24px 0;
+    max-width: 820px;
+  }
+  .checklist-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .checklist-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--amber);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .checklist-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .checklist-item .checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1.5px solid var(--amber-deep);
+    flex-shrink: 0;
+    margin-top: 1px;
+    background: white;
+  }
+
+  .doc-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+    margin-top: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+
+  @media (max-width: 900px) {
+    body { padding: 32px 16px 48px; }
+    .doc-title { font-size: 34px; }
+    .toc-list { grid-template-columns: 1fr; }
+    .spec-row { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <svg class="header-logo-mark" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="none" stroke="#1F4E4A" stroke-width="3"/><rect x="26" y="20" width="28" height="36" rx="3" fill="#1F4E4A"/><line x1="32" y1="30" x2="48" y2="30" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="48" y2="36" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="42" x2="42" y2="42" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><path d="M34 50 L38 54 L48 44" stroke="#3DAA7E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <div class="doc-eyebrow">Tyndale · Developer Build Specification</div>
+    <h1 class="doc-title">Intelligence Layer Build Spec</h1>
+    <p class="doc-subtitle">Complete technical specification for building Tyndale's AI intelligence layer. Every decision codified, every discipline rule listed, ship gates defined. Audience: Phil, Jonas, Josh.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <div class="toc-list">
+      <a href="#foundations"><span class="num">01</span> Foundational principles</a>
+      <a href="#orchestration"><span class="num">02</span> Orchestration architecture</a>
+      <a href="#subagents"><span class="num">03</span> Subagents</a>
+      <a href="#models"><span class="num">04</span> Model assignments</a>
+      <a href="#skills"><span class="num">05</span> Skills</a>
+      <a href="#knowledge"><span class="num">06</span> Knowledge collections</a>
+      <a href="#embeddings"><span class="num">07</span> Embeddings &amp; reranking</a>
+      <a href="#chunking"><span class="num">08</span> Hybrid search &amp; chunking</a>
+      <a href="#vectordb"><span class="num">09</span> Vector database</a>
+      <a href="#crons"><span class="num">10</span> Cron jobs</a>
+      <a href="#tools"><span class="num">11</span> Tool architecture</a>
+      <a href="#context"><span class="num">12</span> Context management</a>
+      <a href="#citations"><span class="num">13</span> Citation enforcement</a>
+      <a href="#voice"><span class="num">14</span> Voice tiering</a>
+      <a href="#refusals"><span class="num">15</span> Out-of-scope handling</a>
+      <a href="#routing"><span class="num">16</span> Model routing</a>
+      <a href="#caching"><span class="num">17</span> Prompt caching</a>
+      <a href="#phi"><span class="num">18</span> PHI scrubbing &amp; logging</a>
+      <a href="#baa"><span class="num">19</span> BAA chain</a>
+      <a href="#evals"><span class="num">20</span> Evaluation platform</a>
+      <a href="#shipgates"><span class="num">21</span> Ship gates</a>
+      <a href="#failuremodes"><span class="num">22</span> Failure mode instrumentation</a>
+      <a href="#prelaunch"><span class="num">99</span> Pre-launch readiness</a>
+    </div>
+  </nav>
+
+  <!-- 01: FOUNDATIONAL PRINCIPLES -->
+  <section id="foundations">
+    <div class="section-marker">Section 01 · Foundations</div>
+    <h2 class="section-title">Six operating principles that shape everything</h2>
+    <p class="section-lede">These principles are the operational interpretation of Tyndale's "thinks 5 steps ahead" product promise. They constrain every Skill prompt, every subagent design, every tool design. When a build decision is ambiguous, defer to whichever interpretation best honors these principles.</p>
+
+    <ol class="rules">
+      <li><strong>P1 — Anticipate, then ask, then make the ask trivial.</strong> Before asking the user for information, exhaust inference from existing context (FHIR data, prior cases, the bill itself, payer policies, user state) and tool lookups. Only after those, ask. When asking, ask the one question that unlocks the most. Tell the user exactly how to find the answer in the most efficient way possible. Offer to help with the asking when Tyndale can (drafting a message, providing a script, making a call). "Go figure it out" is never the right answer. "Here's the one thing to ask, here's exactly how to ask it, and here's what to listen for" is.</li>
+      <li><strong>P2 — Surface what's next.</strong> When Tyndale completes a task, it doesn't stop at "done." It surfaces the next 1–2 things the user should consider: an upcoming deadline, a related bill that's likely affected, a follow-up action that's now possible. The user can ignore the surfacing, but they shouldn't have to ask for it.</li>
+      <li><strong>P3 — Bundle questions and actions.</strong> If Tyndale genuinely needs three pieces of information from the user, ask for all three in one message, with context for each. Never drag the user through sequential interrogation.</li>
+      <li><strong>P4 — Maximize action per user turn.</strong> A single user turn ("check this bill") should result in everything Tyndale can do without further input — analysis, related-bill scan, FHIR pull, deadline math, draft response if applicable. The user shouldn't have to come back six times to nudge the work forward.</li>
+      <li><strong>P5 — Default to action, not options.</strong> When Tyndale identifies a problem with a confident verdict, propose the specific next step (with an approval gate). Don't offer the user a menu of "you could do X, Y, or Z." If the situation truly has multiple defensible paths, recommend one and note the alternatives — but never abdicate the decision to the user when Tyndale can make a defensible recommendation.</li>
+      <li><strong>P6 — Tools chain, not interrogate.</strong> Subagents and Skills are designed to chain multiple tool calls before returning to the user. If a question needs five tool calls to fully answer, the agent makes all five — not one, then asks the user to confirm, then another four.</li>
+    </ol>
+
+    <div class="callout">
+      <div class="callout-eyebrow">Build implication</div>
+      <div class="callout-title">Every prompt for the Lead Planner, subagents, and Skills must reference these six principles</div>
+      <div class="callout-text">Either inlined in the prompt itself or via a shared "tyndale_principles.md" reference file that's loaded as part of the system context. This is not optional — these principles are how Tyndale operationalizes its product promise, and they must be present at every reasoning surface.</div>
+    </div>
+  </section>
+
+  <!-- 02: ORCHESTRATION -->
+  <section id="orchestration">
+    <div class="section-marker">Section 02 · Orchestration</div>
+    <h2 class="section-title">Orchestrator-Worker pattern (Claude Agent SDK)</h2>
+    <p class="section-lede">Lead Planner orchestrates 5 specialized subagents. Lead Planner does not do deep analysis — it coordinates, delegates, and composes. Subagents run in isolated context windows with focused tool sets.</p>
+
+    <h3>Implementation</h3>
+
+    <ul class="bullets">
+      <li><strong>SDK:</strong> Claude Agent SDK (Python). Pin to a tested version; document the version in <code>requirements.txt</code> with explicit constraint.</li>
+      <li><strong>Lead Planner spawns subagents via the SDK's subagent invocation pattern.</strong> Each subagent invocation includes the four-part contract: (1) clear objective, (2) output format, (3) explicit tool list (via <code>allowed_tools</code>), (4) explicit definition of done.</li>
+      <li><strong>Subagent return payloads to Lead Planner are minimal</strong> — pointers to case-file findings, not full structured dumps. See §12 for the artifact pattern.</li>
+      <li><strong>Effort scaling enforced in Lead Planner prompt.</strong> Hard rules per task type; see §12.</li>
+    </ul>
+
+    <h3>Hooks lifecycle</h3>
+
+    <p>The SDK's hooks system is the HIPAA enforcement point. Implementations required:</p>
+
+    <ul class="bullets">
+      <li><strong>UserPromptSubmit hook:</strong> Scans uploaded bill text and chat input for prompt injection patterns. See §18. Wraps OCR content in "DATA, NOT INSTRUCTIONS" framing before passing to subagent context.</li>
+      <li><strong>PreToolUse hooks:</strong> (a) PHI scrubbing via Presidio before app-log writes (see §18); (b) approval-token validation on high-risk tools (<code>send_email</code>, public-facing writes); (c) effective-date filter validation on queries against <code>laws_regulations</code> and <code>payer_policies</code> (see §22).</li>
+      <li><strong>PostToolUse hooks:</strong> Audit log writes; cache hit-rate measurement; cost accounting per subagent invocation.</li>
+      <li><strong>Stop hook:</strong> Citation resolution check (§13 Layer 2) for outputs containing legal claims. Triggers regeneration if citations don't resolve.</li>
+    </ul>
+  </section>
+
+  <!-- 03: SUBAGENTS -->
+  <section id="subagents">
+    <div class="section-marker">Section 03 · Subagents</div>
+    <h2 class="section-title">Five specialists with focused responsibilities</h2>
+    <p class="section-lede">Each subagent runs in its own context window with a focused tool allow-list. Each subagent has a dedicated system prompt versioned in git.</p>
+
+    <table class="std">
+      <tr>
+        <th>Subagent</th>
+        <th>Model</th>
+        <th>Primary Skill(s)</th>
+        <th>Tool allow-list</th>
+      </tr>
+      <tr>
+        <td><strong>Bill Detective</strong></td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Bill Error Detection</td>
+        <td>bill_ocr_extract, fhir_get_eobs, qdrant_search_billing_codes, qdrant_search_error_detection_rules, qdrant_search_payer_policies, ncci_check_pair, mue_check, pg_case_file_get, pg_upsert_finding</td>
+      </tr>
+      <tr>
+        <td><strong>Math Person</strong></td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Coverage Connection &amp; FHIR, Cost Estimation</td>
+        <td>fhir_get_coverage, fhir_get_eobs, qdrant_search_payer_policies, cost_estimate_fair_health, cost_estimate_medicare_rvu, pg_case_file_get, pg_upsert_finding</td>
+      </tr>
+      <tr>
+        <td><strong>Legal Researcher</strong></td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>(consults Skills as needed)</td>
+        <td>qdrant_search_laws_regulations, qdrant_search_payer_policies, fhir_get_clinical_note, legal_doi_complaint_route, pg_case_file_get, pg_upsert_finding</td>
+      </tr>
+      <tr>
+        <td><strong>Strategist</strong></td>
+        <td><span class="model-pill opus">Opus 4.7</span></td>
+        <td>Negotiation &amp; Strategy, Charity Care Eligibility</td>
+        <td>pg_case_file_get, pg_upsert_finding, pg_deadline_upsert, pg_list_due, legal_doi_complaint_route, deadline_calculate, provider_340b_check, charity_care_eligibility, doc_template_select</td>
+      </tr>
+      <tr>
+        <td><strong>Code Validator</strong></td>
+        <td><span class="model-pill haiku">Haiku 4.5</span></td>
+        <td>(none — direct lookups)</td>
+        <td>qdrant_search_billing_codes, ncci_check_pair, mue_check</td>
+      </tr>
+    </table>
+
+    <h3>Subagent prompt structure</h3>
+
+    <p>Every subagent system prompt has the same structural skeleton:</p>
+
+    <pre><code># {Subagent Name}
+
+You are Tyndale's {subagent role}. Your job is {one-sentence description}.
+
+## Tyndale's six operating principles
+{reference to tyndale_principles.md OR inlined principles}
+
+## Your scope
+{what this subagent does and doesn't do}
+
+## Your tools
+{tool descriptions — pulled from the central tool registry}
+
+## Voice tier rules
+{reference to voice_tiering.md OR inlined tier rules}
+
+## Skills you may consult
+{Skill descriptions for Skills this subagent uses}
+
+## Output format
+{structured output the Lead Planner expects when you return}
+
+## Effort budget
+{token / latency budget for this subagent's invocations}
+</code></pre>
+
+    <p>Subagent prompts are versioned with semver in git. Every prompt commit triggers a smoke eval pass.</p>
+  </section>
+
+  <!-- 04: MODELS -->
+  <section id="models">
+    <div class="section-marker">Section 04 · Models</div>
+    <h2 class="section-title">Model assignments and rationale</h2>
+
+    <table class="std">
+      <tr>
+        <th>Role</th>
+        <th>Model</th>
+        <th>Reasoning</th>
+      </tr>
+      <tr>
+        <td>Lead Planner</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Planning + composition + voice — Sonnet's sweet spot. Highest-volume agent; cost matters.</td>
+      </tr>
+      <tr>
+        <td>Bill Detective</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Structured extraction + RAG lookup.</td>
+      </tr>
+      <tr>
+        <td>Math Person</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Recompute logic + EOB narrative interpretation. Eval against Haiku at V1.1 — migrate if parity holds.</td>
+      </tr>
+      <tr>
+        <td>Legal Researcher</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Heaviest prompt-cache beneficiary; legal corpus prefix dominates token cost.</td>
+      </tr>
+      <tr>
+        <td><strong>Strategist</strong></td>
+        <td><span class="model-pill opus">Opus 4.7</span></td>
+        <td><strong>Multi-step strategic reasoning where Opus's gains show up.</strong> Runs less frequently than other subagents — only on active appeals. Modest cost impact (~+$1–3/user/year). Voice/composition stays Sonnet via Lead Planner.</td>
+      </tr>
+      <tr>
+        <td>Code Validator</td>
+        <td><span class="model-pill haiku">Haiku 4.5</span></td>
+        <td>High-volume CPT/HCPCS validity lookups. Underlying answer is deterministic from structured tables anyway.</td>
+      </tr>
+      <tr>
+        <td>Document Generation Skill</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Drafting work — Sonnet's domain. Eval against Opus on golden set; escalate only if Opus wins by ≥5 points on the document-quality rubric on a statistically significant sample.</td>
+      </tr>
+      <tr>
+        <td>All other Skills</td>
+        <td><span class="model-pill sonnet">Sonnet 4.6</span></td>
+        <td>Default for any Skill invocation not otherwise specified.</td>
+      </tr>
+      <tr>
+        <td>LLM Judge (evals)</td>
+        <td><span class="model-pill opus">Opus 4.7</span></td>
+        <td>Strongest reasoning = most reliable judge. Used despite generation being Sonnet because judge calls are lower-volume than generation. Never sees the same prompt that generated the output (avoids self-evaluation bias).</td>
+      </tr>
+    </table>
+
+    <h3>Model versioning</h3>
+
+    <p>All model references pinned to dated IDs. No floating aliases. Model upgrades happen via eval-gated PR, never auto-upgrade in production.</p>
+
+    <pre><code># Example — pinned model IDs in config
+
+LEAD_PLANNER_MODEL = "claude-sonnet-4-6-{dated_id}"
+STRATEGIST_MODEL = "claude-opus-4-7"
+CODE_VALIDATOR_MODEL = "claude-haiku-4-5-20251001"
+JUDGE_MODEL = "claude-opus-4-7"</code></pre>
+  </section>
+
+  <!-- 05: SKILLS -->
+  <section id="skills">
+    <div class="section-marker">Section 05 · Skills</div>
+    <h2 class="section-title">Eight filesystem-based playbooks</h2>
+    <p class="section-lede">Skills are directories in git. Each contains a SKILL.md with YAML frontmatter (name, description) and a body under ~500 lines. Reference files at one level depth for detailed playbooks. Versioned with semver.</p>
+
+    <h3>The 8 Skills</h3>
+
+    <table class="std">
+      <tr>
+        <th>#</th>
+        <th>Skill</th>
+        <th>Used by</th>
+      </tr>
+      <tr><td>1</td><td><code>document_generation</code> — 21 letter types with cited legal claims, plain-language summaries, readability checks</td><td>Strategist (primarily); Lead Planner directly</td></tr>
+      <tr><td>2</td><td><code>cost_estimation</code> — FAIR Health UCR + plan benefits + Medicare benchmark with confidence bands</td><td>Math Person; Lead Planner directly</td></tr>
+      <tr><td>3</td><td><code>bill_error_detection</code> — comprehensive playbook for every error family with diagnostic index</td><td>Bill Detective</td></tr>
+      <tr><td>4</td><td><code>coverage_connection_fhir</code> — SMART-on-FHIR OAuth, parsing 1upHealth resources, edge cases</td><td>Math Person; Lead Planner directly</td></tr>
+      <tr><td>5</td><td><code>find_a_doctor</code> — in-network search + ratings + quality data + tier verification</td><td>Lead Planner directly</td></tr>
+      <tr><td>6</td><td><code>plan_a_visit</code> — pre-visit coverage assurance (prior auth, referral, prep)</td><td>Lead Planner directly</td></tr>
+      <tr><td>7</td><td><code>charity_care_eligibility</code> — IRS 501(r) framework with diagnostic index</td><td>Strategist; Lead Planner directly</td></tr>
+      <tr><td>8</td><td><code>negotiation_strategy</code> — appeal sequencing logic with diagnostic index</td><td>Strategist</td></tr>
+    </table>
+
+    <h3>Directory structure (example: bill_error_detection)</h3>
+
+    <pre><code>skills/bill_error_detection/
+├── SKILL.md                          (under 500 lines — index + intro)
+├── 00_diagnostic_index.md            (THE SCREENING CHECKLIST)
+├── 01_provider_billing/
+│   ├── bundling.md
+│   ├── upcoding.md
+│   ├── duplicates.md
+│   ├── modifier_abuse.md
+│   ├── mue_violations.md
+│   ├── place_of_service.md
+│   └── phantom_charges.md
+├── 02_coverage_application/
+│   ├── deductible_math.md
+│   ├── in_out_network_errors.md
+│   ├── preventive_violations.md
+│   ├── prior_auth_violations.md
+│   └── parity_violations.md
+├── 03_nsa_violations/
+│   ├── er_balance_bills.md
+│   ├── surprise_specialists.md
+│   ├── air_ambulance.md
+│   └── gfe_violations.md
+└── 04_admin_errors/
+    ├── wrong_patient.md
+    ├── premature_billing.md
+    └── premature_collections.md</code></pre>
+
+    <h3>Skill discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Every Skill description is "a little pushy"</strong> with positive triggers, domain keywords, and exclusion clauses. Worded to invite use; Claude has a measured tendency to under-trigger Skills.</li>
+      <li><strong>Every SKILL.md body stays under ~500 lines.</strong> Detailed playbooks live in reference files in the same directory, loaded on demand.</li>
+      <li><strong>Reference files are one level deep</strong> from SKILL.md (no nested subdirectories beyond what's shown above) so Claude reads complete files without traversal logic.</li>
+      <li><strong>Imperatives reframed as "rule + reason."</strong> Instead of "ALWAYS cite the source," write "Cite the source for every legal claim — otherwise the appeal letter fails downstream citation-verification and won't ship." Reasoning lets the model generalize.</li>
+      <li><strong>In-skill examples</strong> of past appeal letters by type pre-filled in Document Generation reference files. Few-shot examples beat instructions for complex outputs.</li>
+      <li><strong>Skills versioned with semver in YAML frontmatter</strong> and shipped via git PR. No runtime versioning.</li>
+      <li><strong>Any Skill where the agent must first identify the situation before applying remediation logic includes a <code>00_diagnostic_index.md</code></strong> reference file loaded at the start of every invocation. Detailed remediation playbooks load only after the diagnostic identifies what's in play. Applies to: <code>bill_error_detection</code>, <code>negotiation_strategy</code>, <code>charity_care_eligibility</code>.</li>
+    </ol>
+
+    <h3>SKILL.md frontmatter example</h3>
+
+    <pre><code>---
+name: bill_error_detection
+description: |
+  Use this Skill whenever a medical bill or EOB needs to be checked for errors.
+  Covers every error family: provider billing errors (bundling, upcoding,
+  duplicates, modifier abuse, MUE, place-of-service, phantom charges);
+  coverage application errors (deductible math, in/out-network, preventive,
+  prior auth, parity); No Surprises Act violations (ER balance bills,
+  surprise specialists, air ambulance, GFE); admin errors (wrong patient,
+  premature billing/collections).
+  
+  DO NOT use this Skill for: cost estimation (use cost_estimation), coverage
+  connection (use coverage_connection_fhir), appeal letter drafting (use
+  document_generation).
+  
+  ALWAYS load 00_diagnostic_index.md first — it walks through the screening
+  checklist of what to look for. Load deeper reference files only when the
+  diagnostic flags a specific category.
+version: 1.0.0
+---</code></pre>
+  </section>
+
+  <!-- 06: KNOWLEDGE -->
+  <section id="knowledge">
+    <div class="section-marker">Section 06 · Knowledge</div>
+    <h2 class="section-title">Four Qdrant knowledge collections</h2>
+    <p class="section-lede">Collections hold factual reference data — codes, rules-as-data, statutes, policies. Behavior lives in Skills, not collections. Mandatory point-in-time filters on time-sensitive collections.</p>
+
+    <table class="std">
+      <tr>
+        <th>Collection</th>
+        <th>Contents</th>
+        <th>Refresh</th>
+        <th>Size</th>
+      </tr>
+      <tr>
+        <td><code>billing_codes</code></td>
+        <td>CPT, HCPCS, ICD-10 descriptors; categories; valid modifiers per code</td>
+        <td>Quarterly</td>
+        <td>~80K rows</td>
+      </tr>
+      <tr>
+        <td><code>error_detection_rules</code></td>
+        <td>NCCI PTP edits (narrative text only), MUE narrative, modifier validity, ACA §2713 preventive list, timely filing, upcoding patterns, phantom-charge red flags</td>
+        <td>Quarterly</td>
+        <td>~250K rows (narrative); NCCI/MUE tabular data in Postgres separately</td>
+      </tr>
+      <tr>
+        <td><code>laws_regulations</code></td>
+        <td>Federal + state laws (ERISA, ACA, NSA, MHPAEA, IRS 501(r), state surprise-billing, state medical-debt, state DOI)</td>
+        <td>Weekly diff scan via Regulation Researcher cron</td>
+        <td>~12K chunks</td>
+      </tr>
+      <tr>
+        <td><code>payer_policies</code></td>
+        <td>CMS LCDs/NCDs, Medicare Coverage Database, Part D formularies, HRSA 340B, commercial payer medical-necessity, prior-auth requirements</td>
+        <td>Quarterly</td>
+        <td>~30K chunks</td>
+      </tr>
+    </table>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>No behavioral rules in collections.</strong> "When you see X, do Y" content goes in Skills, not in Qdrant. Collections hold facts; the model interprets and decides.</li>
+      <li><strong>Mandatory point-in-time filters.</strong> Every query against <code>laws_regulations</code> and <code>payer_policies</code> must include an effective-date filter pinned to the relevant date (date-of-service for a bill; today's date for new questions). Enforced via PreToolUse hook (see §22).</li>
+    </ol>
+
+    <div class="callout">
+      <div class="callout-eyebrow">Critical separation</div>
+      <div class="callout-title">NCCI edits and MUE limits live in structured Postgres tables, not Qdrant</div>
+      <div class="callout-text">Only the narrative policy text (CMS manual chapters, payer guidance) goes into the <code>error_detection_rules</code> Qdrant collection. Queries for "are these two codes bundled?" hit Postgres directly via <code>ncci_check_pair</code> and <code>mue_check</code> tools. Queries for "what's the policy rationale behind this rule?" hit Qdrant. This split is non-negotiable — treating tabular rule tables as text RAG and getting fuzzy matches on code pairs is a known production failure mode.</div>
+    </div>
+
+    <h3>Metadata schemas per collection</h3>
+
+    <p>Each collection's metadata schema:</p>
+
+    <pre><code># billing_codes
+{
+  code: str,
+  code_system: "CPT" | "HCPCS" | "ICD-10",
+  category: str,
+  effective_year: int,
+  valid_modifiers: list[str]
+}
+
+# error_detection_rules (narrative content)
+{
+  rule_type: str,
+  applicable_codes: list[str],
+  effective_date_start: date,
+  effective_date_end: date,
+  payer: str | null,  # null for universal rules
+  authority: str  # "CMS" | "payer_name" | "state_XX"
+}
+
+# laws_regulations
+{
+  jurisdiction: str,  # "federal" | "state_XX"
+  statute: str,  # e.g., "29 U.S.C." or "Cal. Ins. Code"
+  section: str,
+  effective_date_start: date,
+  effective_date_end: date,
+  document_type: str,  # "statute" | "regulation" | "sub_regulatory_guidance"
+  parent_title: str,
+  parent_part: str
+}
+
+# payer_policies
+{
+  payer: str,
+  policy_id: str,
+  version: str,
+  effective_date_start: date,
+  effective_date_end: date,
+  applicable_codes: list[str],
+  plan_type: str  # "commercial" | "Medicare" | "Medicaid"
+}</code></pre>
+  </section>
+
+  <!-- 07: EMBEDDINGS -->
+  <section id="embeddings">
+    <div class="section-marker">Section 07 · Embeddings &amp; reranking</div>
+    <h2 class="section-title">Voyage embeddings + voyage rerank-2.5</h2>
+
+    <table class="std">
+      <tr>
+        <th>Collection</th>
+        <th>Embedding</th>
+        <th>Dim / precision</th>
+      </tr>
+      <tr><td><code>billing_codes</code></td><td>voyage-3-large</td><td>1024 / int8</td></tr>
+      <tr><td><code>error_detection_rules</code></td><td>voyage-3-large</td><td>1024 / int8</td></tr>
+      <tr><td><code>laws_regulations</code></td><td><strong>voyage-context-3</strong></td><td>1024 / int8</td></tr>
+      <tr><td><code>payer_policies</code></td><td>voyage-3-large</td><td>1024 / int8</td></tr>
+    </table>
+
+    <h3>Pre-launch benchmark requirement</h3>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">Ship gate — Josh owns</div>
+      <div class="callout-title">voyage-context-3 vs voyage-3-large NDCG@10 benchmark on laws_regulations</div>
+      <div class="callout-text">Before V1 ships, Josh runs an internal NDCG@10 benchmark on a curated 100-query legal eval set. Ship with voyage-context-3 only if it wins by ≥3 NDCG points. If not, revert to voyage-3-large. Document the result in <code>benchmarks/embedding_choice.md</code> with the eval set, methodology, and decision.</div>
+    </div>
+
+    <h3>Reranking</h3>
+
+    <ul class="bullets">
+      <li><strong>Reranker:</strong> voyage rerank-2.5 for all RAG queries. No "fast path" that skips reranking.</li>
+      <li><strong>Top-K from embedding search:</strong> 50. <strong>Top-K returned from rerank:</strong> 5–10 depending on query complexity.</li>
+      <li><strong>Instruction-following used per-collection.</strong> Each collection has a default rerank instruction tuned to its domain. Subagents can override per query.</li>
+      <li><strong>Rerank scores persisted in audit log</strong> for post-hoc debugging ("did the right chunk come back at rank 1, or rank 6?").</li>
+    </ul>
+
+    <h3>Default rerank instructions</h3>
+
+    <pre><code># laws_regulations
+"Prefer statutory law over case law. Prefer federal authorities over
+state when the question implicates ERISA preemption. Prefer current
+law over superseded provisions."
+
+# payer_policies
+"Return only policies effective on the date of service. De-prioritize
+policies from the wrong plan year. Prefer payer-specific over generic."
+
+# error_detection_rules
+"Prefer NCCI edits over general billing guidance. Return rules
+specific to the code combination, not parent category."
+
+# billing_codes
+"Prefer exact code matches over similar codes. Return the descriptor
+for the queried code first."</code></pre>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Josh runs pre-launch NDCG benchmark</strong> per above. Ship gate.</li>
+      <li><strong>No mid-flight embedding model changes without re-embedding the full collection.</strong> Mixing two embedding models in one collection produces silently wrong results. Version collections (e.g., <code>laws_regulations_v2</code>) on any embedding model change.</li>
+      <li><strong>Embedding model and dimension locked in collection metadata.</strong> Code that queries the collection verifies the model match before embedding the query. Silent invalidator guard.</li>
+      <li><strong>All RAG queries go through rerank.</strong> No exceptions.</li>
+      <li><strong>Instruction-following used aggressively.</strong> Defaults above; subagents can override per query.</li>
+    </ol>
+  </section>
+
+  <!-- 08: HYBRID SEARCH / CHUNKING -->
+  <section id="chunking">
+    <div class="section-marker">Section 08 · Hybrid search &amp; chunking</div>
+    <h2 class="section-title">Hybrid search on all collections; chunking per collection</h2>
+
+    <h3>Hybrid search</h3>
+
+    <p>Hybrid (vector + BM25) on all 4 collections. RRF (Reciprocal Rank Fusion) for merging. Default fusion weight 0.5/0.5, tunable per collection. Qdrant ships hybrid natively.</p>
+
+    <p>Reason: vector-only fails on (a) statute citations like <code>29 U.S.C. § 1132(a)(1)(B)</code>, (b) CPT/HCPCS code exact matches, (c) plan-year date strings. Hybrid catches what either alone misses.</p>
+
+    <h3>Chunking strategy per collection</h3>
+
+    <table class="std">
+      <tr>
+        <th>Collection</th>
+        <th>Chunking</th>
+        <th>Avg size</th>
+        <th>Storage</th>
+      </tr>
+      <tr><td><code>billing_codes</code></td><td>One chunk per code</td><td>100–300 tok</td><td>Qdrant only</td></tr>
+      <tr><td><code>error_detection_rules</code></td><td>Structured rules in Postgres; policy narrative text in Qdrant per rule (200–500 tok)</td><td>Split storage</td><td>Postgres + Qdrant</td></tr>
+      <tr><td><code>laws_regulations</code></td><td>One chunk per statute/regulation section; parent Title/Part/Subpart heading inline at chunk top</td><td>800–1,500 tok</td><td>Qdrant only</td></tr>
+      <tr><td><code>payer_policies</code></td><td>One chunk per policy section</td><td>500–1,000 tok</td><td>Qdrant only</td></tr>
+    </table>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Hybrid search (vector + BM25 with RRF fusion) on all 4 collections.</strong> No exceptions.</li>
+      <li><strong>NCCI edits and MUE limits live in structured Postgres tables, not Qdrant.</strong> Only narrative policy text from CMS goes into the <code>error_detection_rules</code> Qdrant collection.</li>
+      <li><strong>Section headings included inline at the top of every chunk</strong> for <code>laws_regulations</code>. Parent Title/Part/Subpart context as metadata, but the immediate section heading goes in the chunk text itself.</li>
+      <li><strong>Every <code>payer_policies</code> and <code>laws_regulations</code> chunk has effective_date_start and effective_date_end.</strong> Every query filters by date-of-service. Non-negotiable.</li>
+      <li><strong>Chunk boundaries respect document structure.</strong> Section breaks, not fixed token windows.</li>
+      <li><strong>Chunk metadata schema is versioned alongside collection.</strong> Adding a new required metadata field means re-embedding.</li>
+    </ol>
+  </section>
+
+  <!-- 09: VECTOR DB -->
+  <section id="vectordb">
+    <div class="section-marker">Section 09 · Vector DB</div>
+    <h2 class="section-title">Self-hosted Qdrant on Azure</h2>
+    <p class="section-lede">Self-hosted Qdrant on Azure Container Apps inside the FastAPI monolith's VPC. No public ingress.</p>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Self-hosted Qdrant on Azure Container Apps in same VPC as FastAPI monolith.</strong> No public ingress. Internal-only network policy.</li>
+      <li><strong>Quarterly Qdrant version upgrades</strong> scheduled in low-traffic windows (Sunday 03:00 UTC, alongside the Regulation Researcher cron's downtime if needed).</li>
+      <li><strong>Daily snapshots to Azure Blob with 30-day retention.</strong> Restore drills run twice per year — full restore from snapshot into a staging Qdrant instance, validate query results match production, tear down.</li>
+      <li><strong>Performance targets locked in collection metadata:</strong> p95 search latency &lt; 50ms on HNSW indexes, recall@10 ≥ 0.95 on the curated eval set. Regression after re-index triggers investigation before deploy.</li>
+      <li><strong>No Qdrant Cloud migration</strong> until/unless Qdrant publishes a formal third-party HIPAA attestation. Revisit then.</li>
+    </ol>
+  </section>
+
+  <!-- 10: CRONS -->
+  <section id="crons">
+    <div class="section-marker">Section 10 · Cron jobs</div>
+    <h2 class="section-title">Two background workers</h2>
+
+    <h3>Proactive Monitor (nightly · 02:00 UTC)</h3>
+
+    <p>Scans every active case file for:</p>
+
+    <ul class="bullets">
+      <li>Approaching deadlines (ERISA 180-day, ACA §2719, NSA windows, payer timely-filing, charity-care application deadlines). Configurable notification thresholds: 14d / 7d / 3d / 24h.</li>
+      <li>New EOBs from 1upHealth — auto-pull, OCR if needed, run through Bill Detective. Findings written to case file. Errors trigger user notification.</li>
+      <li>Inbound payer mail classification — approvals close cases; denials trigger Strategist; RFIs surface as user actions.</li>
+      <li>Urgency-tiered notifications: <strong>Urgent</strong> (SMS + push + email), <strong>Action</strong> (email + push), <strong>Success</strong> (email + push), <strong>Info</strong> (push or in-app only).</li>
+    </ul>
+
+    <h3>Regulation Researcher (weekly · Sundays 03:00 UTC)</h3>
+
+    <ul class="bullets">
+      <li>CMS quarterly drops — NCCI edits, MUE limits, RVU updates, Medicare fee schedule. Re-indexes affected chunks in <code>error_detection_rules</code> and <code>billing_codes</code>; updates structured Postgres NCCI/MUE tables.</li>
+      <li>eCFR feeds — diffs ERISA, ACA, NSA, MHPAEA, IRS §501(r) regulations. Affected sections in <code>laws_regulations</code> get re-embedded with new effective dates; old versions get <code>effective_date_end</code> set.</li>
+      <li>State DOI updates per-state polling.</li>
+      <li>HRSA 340B daily check; CMS Coverage Database quarterly.</li>
+      <li>Routes material changes to the correction pipeline.</li>
+      <li>Writes <code>last_verified_date</code> back to chunk metadata.</li>
+    </ul>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Crons wrap stateless <code>query()</code> calls, not persistent agent sessions.</strong> Each case processed independently; each regulation source polled independently. Failure on one doesn't break the whole run.</li>
+      <li><strong>Idempotency by design.</strong> Running a cron twice produces the same result as running it once. Regulation changes are diff-based; notifications check for duplicates before sending.</li>
+      <li><strong>Cron runs logged to the same audit stream</strong> as user-triggered work.</li>
+      <li><strong>Failure alerts route to ops, not users.</strong> Failed cases get retried; persistent failures page on-call.</li>
+      <li><strong>Cost budgets per cron.</strong> Each cron has a daily/weekly cost ceiling. Exceeding budget pauses execution and alerts.</li>
+    </ol>
+  </section>
+
+  <!-- 11: TOOLS -->
+  <section id="tools">
+    <div class="section-marker">Section 11 · Tool architecture</div>
+    <h2 class="section-title">In-process tools for V1; ~22 tools total</h2>
+    <p class="section-lede">All tools implemented as Python functions inside the FastAPI monolith. External MCP servers deferred to V1.1+.</p>
+
+    <h3>Tool inventory by category</h3>
+
+    <table class="std">
+      <tr><th>Category</th><th>Tools</th></tr>
+      <tr><td>Bill ingestion · OCR</td><td><code>bill_ocr_extract</code></td></tr>
+      <tr><td>FHIR · 1upHealth</td><td><code>fhir_oauth_initiate</code>, <code>fhir_get_coverage</code>, <code>fhir_get_eobs</code>, <code>fhir_get_clinical_note</code></td></tr>
+      <tr><td>Knowledge retrieval · Qdrant</td><td><code>qdrant_search_billing_codes</code>, <code>qdrant_search_error_detection_rules</code>, <code>qdrant_search_laws_regulations</code>, <code>qdrant_search_payer_policies</code></td></tr>
+      <tr><td>Postgres · case files</td><td><code>pg_case_file_get</code>, <code>pg_upsert_finding</code>, <code>pg_deadline_upsert</code>, <code>pg_list_due</code>, <code>pg_document_template_get</code></td></tr>
+      <tr><td>Cost estimation</td><td><code>cost_estimate_fair_health</code>, <code>cost_estimate_medicare_rvu</code></td></tr>
+      <tr><td>Code &amp; bundling (hit Postgres tables)</td><td><code>ncci_check_pair</code>, <code>mue_check</code></td></tr>
+      <tr><td>Legal lookups</td><td><code>legal_doi_complaint_route</code>, <code>deadline_calculate</code></td></tr>
+      <tr><td>340B &amp; charity care</td><td><code>provider_340b_check</code>, <code>charity_care_eligibility</code></td></tr>
+      <tr><td>Document generation</td><td><code>doc_template_select</code>, <code>doc_generate</code></td></tr>
+      <tr><td>Email &amp; notifications</td><td><code>compose_email</code>, <code>send_email</code> (gated), <code>notify_user</code></td></tr>
+    </table>
+
+    <h3>Tool description structure</h3>
+
+    <p>Every tool description states:</p>
+
+    <ol class="rules">
+      <li><strong>What the tool does</strong> in one sentence.</li>
+      <li><strong>When to use it</strong> — positive triggers.</li>
+      <li><strong>When NOT to use it</strong> — exclusion clauses.</li>
+      <li><strong>Arguments</strong> with concrete examples.</li>
+      <li><strong>Return shape</strong> with a sample.</li>
+    </ol>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>In-process tools for everything PHI-touching and performance-critical.</strong> External MCP servers only for non-PHI, only when Anthropic-shipped connectors offer real value, and only after V1.</li>
+      <li><strong>Every tool has an <code>allowed_tools</code> allow-list scoped per subagent.</strong> Bill Detective never sees email tools; Code Validator never sees FHIR tools.</li>
+      <li><strong>Tool descriptions get a deliberate pre-V1 review pass.</strong> Anthropic's published data: rewriting tool descriptions cut downstream task completion time by 40%.</li>
+      <li><strong>High-risk tools gated by PreToolUse hooks:</strong> <code>send_email</code>, <code>pg_upsert_finding</code> for user-visible findings, any tool that writes to external systems. Hook validates approval tokens, scope, intent.</li>
+      <li><strong>Every tool call logged to audit stream</strong> with invoking subagent, arguments (scrubbed in app log, full in audit), duration, outcome.</li>
+      <li><strong>Tools chain inside a single subagent invocation when possible.</strong> Supports P6.</li>
+      <li><strong>External MCP connector evaluation deferred to V1.1.</strong> When Anthropic's healthcare MCP connectors mature, evaluate whether any V1 in-process tools should migrate.</li>
+    </ol>
+  </section>
+
+  <!-- 12: CONTEXT MANAGEMENT -->
+  <section id="context">
+    <div class="section-marker">Section 12 · Context management</div>
+    <h2 class="section-title">Artifact pattern + plan-to-memory + effort scaling</h2>
+
+    <h3>Artifact pattern (Postgres-backed)</h3>
+
+    <p>Subagents write findings to Postgres case file. Lead Planner reads pointers to those findings, not full payloads.</p>
+
+    <pre><code># Subagent returns minimal payload to Lead Planner
+{
+  "finding_id": "fnd_a7d92...",
+  "case_file_id": "case_847c1...",
+  "summary": "Bundling error found; details in finding_id"
+}
+
+# Lead Planner reads from case file when composing user-facing output
+finding = pg_case_file_get(finding_id)
+# ...uses finding details only when needed</code></pre>
+
+    <h3>Plan-to-memory</h3>
+
+    <p>Lead Planner writes plan to case file at start of complex tasks (active appeal, multi-step research, complex bill review). Plan includes:</p>
+
+    <ul class="bullets">
+      <li>What it'll investigate</li>
+      <li>What subagents it'll invoke</li>
+      <li>What success looks like</li>
+      <li><strong>What it anticipates needing next</strong> after the current task completes (supports P2)</li>
+    </ul>
+
+    <p>Plan is a versioned field; every revision logged. Subagents read current plan before doing work; if plan changed since subagent spawned, subagent re-reads and adapts.</p>
+
+    <h3>Effort scaling rules</h3>
+
+    <p>Hard rules embedded in Lead Planner prompt:</p>
+
+    <table class="std">
+      <tr><th>Task type</th><th>Subagents</th></tr>
+      <tr><td>Chat question, no case context</td><td>0 (Lead Planner direct)</td></tr>
+      <tr><td>Pre-visit coverage check</td><td>0 (Lead Planner via Plan a Visit Skill)</td></tr>
+      <tr><td>Cost estimation</td><td>0 (Lead Planner via Cost Estimation Skill)</td></tr>
+      <tr><td>Clean bill check (no findings expected)</td><td>2 (Bill Detective + Math Person)</td></tr>
+      <tr><td>Bill check with finding</td><td>3 (Bill Detective + Math Person + Code Validator)</td></tr>
+      <tr><td>Active appeal</td><td>5 (all subagents)</td></tr>
+    </table>
+
+    <p>Lead Planner has judgment on ambiguous middle cases. Deviations from hard rules logged for review.</p>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Subagent return payloads to Lead Planner are minimal</strong> — pointers, not dumps. Rich detail to case file.</li>
+      <li><strong>Lead Planner writes its plan to case file before complex work.</strong> Plan includes anticipated next steps.</li>
+      <li><strong>Effort scaling explicit in Lead Planner prompt.</strong> Reasoning required when deviating (logged).</li>
+      <li><strong>Context budget targets:</strong> &lt;80K tokens per subagent invocation, hard ceiling 130K. Past 130K, subagent pre-compacts (writes intermediate work to case file, reloads only what's needed).</li>
+      <li><strong>Citation chains preserved across compaction.</strong> Write findings with embedded source IDs to Postgres before SDK auto-compaction can drop the original chunks.</li>
+      <li><strong>No subagent operates on stale plans.</strong> Subagents read current plan from case file before working.</li>
+    </ol>
+  </section>
+
+  <!-- 13: CITATIONS -->
+  <section id="citations">
+    <div class="section-marker">Section 13 · Citation enforcement</div>
+    <h2 class="section-title">Three-layer enforcement; Layers 1 + 2 at V1</h2>
+
+    <h3>Layer 1 — Generation-time discipline (prompt-level)</h3>
+
+    <p>Every Skill and subagent prompt that generates a legal claim must enforce:</p>
+
+    <ul class="bullets">
+      <li>"No legal claim is asserted without a retrieved source"</li>
+      <li>"Every cited authority must include the source ID of the chunk it came from"</li>
+      <li>"If you cannot find a retrieved source for a claim, omit the claim rather than assert it without a citation"</li>
+    </ul>
+
+    <p>Carried in: Document Generation Skill, Negotiation &amp; Strategy Skill, Bill Error Detection Skill, Coverage Connection &amp; FHIR Skill, Legal Researcher subagent prompt, Strategist subagent prompt.</p>
+
+    <h3>Layer 2 — Programmatic citation resolution (Stop hook)</h3>
+
+    <p>Standard citation format used everywhere — defined and locked at V1. Suggested:</p>
+
+    <pre><code># Format: [authority §section, source_id]
+# Example: "[ERISA §503, src_a8f3e7]"
+# OR using Anthropic's Citations feature where possible
+
+# Stop hook flow:
+# 1. Parse generated output for citation markers
+# 2. For each marker, resolve source_id against chunks retrieved this session
+# 3. If unresolved, reject output and trigger regeneration
+# 4. After 3 failed regeneration attempts, flag for human review</code></pre>
+
+    <h3>Layer 3 — Faithfulness check (V1.1+)</h3>
+
+    <p>Deferred to V1.1. Substitute at V1: <strong>Brock manually reviews every generated appeal letter before send.</strong> Earlier trigger if any "right form wrong substance" failures appear in production.</p>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Every generated legal claim has a citation.</strong> No exceptions. Enforced in Skill and subagent prompts.</li>
+      <li><strong>Citation format consistent and machine-parseable.</strong> Standard format defined and locked at V1.</li>
+      <li><strong>Every retrieved chunk carries a source ID</strong> that gets logged at retrieval and embedded into citations.</li>
+      <li><strong>Layer 2 is a hard ship gate.</strong> Output fails Layer 2 = output does not ship. After 3 failed attempts, flagged for review and user gets a polite "taking longer than usual" message.</li>
+      <li><strong>Manual human review of every generated appeal letter at V1.</strong> Brock reviews each one before send.</li>
+      <li><strong>Regulation Researcher cron writes <code>last_verified_date</code> to every chunk.</strong> Citation resolver flags chunks with <code>last_verified_date</code> older than 90 days as "stale source."</li>
+      <li><strong>Anthropic's Citations feature in the Messages API used</strong> wherever possible to make Layer 2 cheaper and more reliable.</li>
+    </ol>
+  </section>
+
+  <!-- 14: VOICE -->
+  <section id="voice">
+    <div class="section-marker">Section 14 · Voice tiering</div>
+    <h2 class="section-title">Three-tier voice framework</h2>
+
+    <h3>The tiers</h3>
+
+    <table class="std">
+      <tr><th>Tier</th><th>Type of claim</th><th>Voice rule</th></tr>
+      <tr><td><strong>A</strong></td><td>Factual claims from structured data (numbers, codes, dates, names)</td><td><strong>Assert directly. No hedging.</strong> Values come from Math Person, Bill Detective findings, document parsing, or knowledge collection lookups.</td></tr>
+      <tr><td><strong>B</strong></td><td>Legal interpretation with strong source support</td><td><strong>Confident framing + qualifier + citation.</strong> Use "appears to," "qualifies for," "is entitled to" + cited authority. Always cite.</td></tr>
+      <tr><td><strong>C</strong></td><td>Strategic recommendation</td><td><strong>Frame as recommendation with reasoning.</strong> "I recommend X because Y." Never predict outcomes.</td></tr>
+    </table>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Tier A facts come from structured inputs only.</strong> No numeric value, dollar amount, percentage, code, date, or named entity in any generated output is invented by the model. Document Generation Skill explicitly forbids emitting unstructured numbers.</li>
+      <li><strong>Tier B claims use standard qualifiers and always cite.</strong> "Appears to," "qualifies for," "is entitled to," "violates" + citation. Forbidden: "definitely," "guaranteed to," "absolutely" (overclaim); "may possibly," "could potentially," "might be" (underclaim).</li>
+      <li><strong>Tier C recommendations include reasoning, not just instructions.</strong> "I recommend X because Y" — never just "Do X."</li>
+      <li><strong>Forbidden: outcome predictions.</strong> "Your appeal will succeed." None of these. Acceptable: "Cases like this typically resolve within 30 days [internal data]."</li>
+      <li><strong>Skill and subagent prompts enforce tier rules.</strong> Confident voice eval (§21) tests for tier-rule violations.</li>
+      <li><strong>When uncertainty is genuine, name it specifically</strong> — "I can't tell from your EOB whether the radiologist was in-network; I'm checking the provider directory now" — not vague waving.</li>
+    </ol>
+  </section>
+
+  <!-- 15: REFUSALS -->
+  <section id="refusals">
+    <div class="section-marker">Section 15 · Out-of-scope handling</div>
+    <h2 class="section-title">Clean decline with no routing across all categories</h2>
+
+    <p>Five categories — clinical/treatment advice, mental health crisis, legal beyond billing, financial advice, state-specific procedural nuance. All five handled with clean decline. No routing to external resources. No "see a doctor," no "find a financial advisor," no 988.</p>
+
+    <h3>Disclaimer strategy</h3>
+
+    <p><strong>Permanent footer:</strong> "Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice." One line, always visible.</p>
+
+    <p><strong>Contextual modal</strong> appears only on declined queries. No per-message disclaimers on routine output.</p>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Five categories, clean decline.</strong> No routing for any of them.</li>
+      <li><strong>Crisis detection classifier (Haiku-based)</strong> screens chat input for crisis language. Positive signal triggers the decline template before normal processing.</li>
+      <li><strong>Refusals are always returned to Tyndale's scope.</strong> Decline language emphasizes what Tyndale handles ("I'm a medical billing tool"), redirecting energy back to in-scope work.</li>
+      <li><strong>One permanent footer disclaimer.</strong> "Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice."</li>
+      <li><strong>Contextual modal only on declined queries.</strong> Not on routine interactions.</li>
+      <li><strong>No per-message disclaimers on routine output.</strong></li>
+      <li><strong>Refusal templates eval'd as ship gate.</strong> Refusal correctness rate ≥ 98% across all five categories (§21).</li>
+      <li><strong>Decline language emphasizes scope</strong> ("I handle X"), not just refusal ("I can't help with Y"). Refusals communicate what Tyndale is built for.</li>
+    </ol>
+  </section>
+
+  <!-- 16: ROUTING -->
+  <section id="routing">
+    <div class="section-marker">Section 16 · Model routing</div>
+    <h2 class="section-title">LiteLLM self-hosted; Claude-only fallback for user-facing</h2>
+
+    <h3>Routing policy by surface</h3>
+
+    <table class="std">
+      <tr><th>Surface</th><th>Primary</th><th>Fallback chain</th><th>Cross-provider OK?</th></tr>
+      <tr><td>Lead Planner</td><td>Anthropic direct (Sonnet 4.6)</td><td>AWS Bedrock → Azure Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Bill Detective</td><td>Anthropic direct (Sonnet 4.6)</td><td>Bedrock → Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Math Person</td><td>Anthropic direct (Sonnet 4.6)</td><td>Bedrock → Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Legal Researcher</td><td>Anthropic direct (Sonnet 4.6)</td><td>Bedrock → Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Strategist</td><td>Anthropic direct (Opus 4.7)</td><td>Bedrock → Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Document Generation Skill</td><td>Anthropic direct (Sonnet 4.6)</td><td>Bedrock → Foundry → fail loud</td><td><strong>No</strong></td></tr>
+      <tr><td>Code Validator</td><td>Anthropic direct (Haiku 4.5)</td><td>Bedrock → Foundry → fail loud</td><td>Yes (deterministic answer from tables anyway)</td></tr>
+      <tr><td>Intent classifier (internal)</td><td>Haiku 4.5</td><td>gpt-5-mini via Azure</td><td>Yes</td></tr>
+      <tr><td>Bill OCR</td><td>Azure Document Intelligence</td><td>Azure OpenAI Vision</td><td>Yes</td></tr>
+    </table>
+
+    <h3>Maintenance-mode behavior</h3>
+
+    <p>If all three Claude paths exhausted on a user-facing surface:</p>
+
+    <pre><code>User-facing message:
+"We're experiencing temporary issues with our AI service. Your case
+is queued and we'll be back to you within the hour. If this is urgent
+(deadline within 24 hours), please reply to this message and a human
+will reach out."
+
+Queue persists in Postgres. Processed oldest-first when service restores.
+Users notified when their result is ready.</code></pre>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>LiteLLM self-hosted inside Azure VPC.</strong> No public ingress. Same VPC as FastAPI monolith.</li>
+      <li><strong>Claude-only fallback for clinical, legal, and user-facing reasoning paths.</strong> No cross-provider fallback.</li>
+      <li><strong>Cross-provider fallback acceptable only for non-user-facing utility paths.</strong></li>
+      <li><strong>Maintenance-mode message on full fallback exhaustion.</strong> Queue persists in Postgres.</li>
+      <li><strong>Model versions pinned to dated IDs.</strong> Never floating aliases. Model upgrades via eval-gated PR.</li>
+      <li><strong>Prompt caching enforced by default.</strong> See §17.</li>
+      <li><strong>Quarterly silent-invalidator audit.</strong></li>
+      <li><strong>LiteLLM proxy is a critical credential broker.</strong> Hardened: short-lived API keys rotated weekly, per-route allow-lists, request-level audit logging, fail-closed on missing or malformed config.</li>
+    </ol>
+  </section>
+
+  <!-- 17: CACHING -->
+  <section id="caching">
+    <div class="section-marker">Section 17 · Prompt caching</div>
+    <h2 class="section-title">Two-tier caching strategy</h2>
+
+    <table class="std">
+      <tr><th>Cache tier</th><th>Contents</th><th>TTL</th></tr>
+      <tr><td>1-hour</td><td>Subagent system prompts, Skill descriptions, tool definitions, voice/safety scaffolding, static reference data</td><td>1 hour</td></tr>
+      <tr><td>5-minute</td><td>Retrieved RAG chunks for current session, case file state, user context</td><td>5 minutes</td></tr>
+      <tr><td>Uncached</td><td>User's current message, model's current response, intermediate work product</td><td>—</td></tr>
+    </table>
+
+    <h3>Prompt structure (order matters)</h3>
+
+    <pre><code>[1-hour cache: subagent system prompt]
+[1-hour cache: Skill descriptions]
+[1-hour cache: tool definitions]
+[1-hour cache: voice + safety scaffolding]
+[5-min cache: retrieved chunks for this session]
+[5-min cache: case file state]
+[5-min cache: user context]
+[uncached: current user message]
+[uncached: current generation]</code></pre>
+
+    <p>Any change to a more-stable block invalidates everything below. LiteLLM proxy enforces structure.</p>
+
+    <h3>Cache hit rate targets per stage</h3>
+
+    <table class="std">
+      <tr><th>Stage</th><th>Subs</th><th>Target hit rate</th></tr>
+      <tr><td>1</td><td>250</td><td>≥40%</td></tr>
+      <tr><td>2</td><td>2,500</td><td>≥60%</td></tr>
+      <tr><td>3</td><td>10,000</td><td>≥75%</td></tr>
+      <tr><td>4</td><td>50,000</td><td>≥85%</td></tr>
+      <tr><td>5</td><td>100K+</td><td>≥90%</td></tr>
+    </table>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Two-tier caching as specified.</strong></li>
+      <li><strong>Prompt structure enforced by LiteLLM proxy.</strong> Subagent code submits dynamic content; proxy assembles full prompt with cached prefixes in correct order.</li>
+      <li><strong>Silent invalidator audit quarterly.</strong> Check timestamps, request IDs, user-context placeholders in stable cache blocks.</li>
+      <li><strong>Cache tier boundaries annotated in every prompt template.</strong> CI fails if dynamic content appears in 1-hour blocks.</li>
+      <li><strong>Cache hit rate targets monitored per stage.</strong> Drops below target by ≥10 points trigger cost-optimization review.</li>
+      <li><strong>No caching of PHI-rich content beyond strict minimum.</strong> Case file state cached for 5 min only; user bill OCR text cached only for session duration.</li>
+      <li><strong>Workspace-level cache isolation.</strong> Production and staging run in separate Anthropic workspaces.</li>
+      <li><strong>Tool definition changes batched</strong> in deploy windows during low-traffic hours.</li>
+      <li><strong>Skill or system-prompt edits batched</strong> in scheduled deploy windows.</li>
+      <li><strong>Cache warming after deploy.</strong> Deploys include a cache-warming step that pre-writes new prefixes before user traffic hits them.</li>
+    </ol>
+  </section>
+
+  <!-- 18: PHI / LOGGING -->
+  <section id="phi">
+    <div class="section-marker">Section 18 · PHI scrubbing &amp; logging</div>
+    <h2 class="section-title">Dual-stream logging with Presidio scrubbing</h2>
+
+    <h3>Two streams</h3>
+
+    <table class="std">
+      <tr><th>Stream</th><th>Storage</th><th>Contains PHI?</th><th>Retention</th></tr>
+      <tr><td>Application log</td><td>Azure Monitor</td><td>No (Presidio-scrubbed)</td><td>30–90 days</td></tr>
+      <tr><td>Encrypted audit log</td><td>Postgres <code>audit_events</code> with AES-GCM</td><td>Yes</td><td>7 years</td></tr>
+    </table>
+
+    <h3>Audit log schema</h3>
+
+    <pre><code>audit_events
+├── event_id (UUID, primary key)
+├── timestamp
+├── event_type (tool_invocation | subagent_call | model_call | user_action | system_action)
+├── actor (subagent name | user_id | system_process)
+├── case_file_id (when applicable)
+├── user_id (when applicable)
+├── payload_encrypted (AES-GCM encrypted full payload)
+├── payload_hash (SHA-256 for tamper detection)
+├── model_version (pinned model ID if model call)
+├── skill_version (pinned Skill commit SHA if Skill involved)
+├── prompt_template_version
+├── retrieved_chunks (array of chunk IDs for citation reconstruction)
+├── tools_invoked (array of tool names)
+├── outcome (success | error | timeout | blocked)
+└── error_details (scrubbed if applicable)</code></pre>
+
+    <h3>Pre-V1 Presidio benchmark (Josh owns)</h3>
+
+    <div class="callout amber">
+      <div class="callout-eyebrow">Ship gate</div>
+      <div class="callout-title">Presidio precision/recall benchmark on hand-labeled medical bills + EOBs</div>
+      <div class="callout-text">Hand-label 200–500 medical bills and EOBs across multiple payers (UHC, Anthem, Aetna, Cigna, BCBS, Kaiser) with every PHI identifier marked. Run Presidio + custom recognizers against it. Targets: ≥98% recall on direct identifiers (names, SSNs, MRNs, addresses, DOBs); ≥90% recall on context-dependent identifiers (account numbers, member IDs, payer claim IDs); ≥95% precision overall. Failed identifier types documented as "known leakage risk." Ship blocker if direct-identifier recall below 98%.</div>
+    </div>
+
+    <h3>Custom recognizers required</h3>
+
+    <ul class="bullets">
+      <li>Insurance member IDs — vary by payer, 9–12 alphanumeric with payer-specific patterns</li>
+      <li>MRNs — provider-specific, often 6–10 digits</li>
+      <li>Accession numbers — lab and imaging-specific</li>
+      <li>Payer claim IDs — alphanumeric, payer-specific format</li>
+      <li>Account numbers — provider billing-system-specific</li>
+      <li>Group numbers — employer-specific identifiers</li>
+    </ul>
+
+    <h3>Encryption</h3>
+
+    <ul class="bullets">
+      <li>Field-level AES-GCM encryption on <code>payload_encrypted</code></li>
+      <li>Key rotation every 90 days; key version stored alongside ciphertext</li>
+      <li>Keys in Azure Key Vault with separate access controls from database</li>
+      <li>Decryption requires both database access AND Key Vault access</li>
+    </ul>
+
+    <h3>Prompt injection defense</h3>
+
+    <p>UserPromptSubmit hook scans uploaded content for injection patterns. OCR'd text wrapped in "DATA, NOT INSTRUCTIONS" framing before subagent context. Model prompts explicitly instruct treating OCR content as data.</p>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Dual-stream logging architecture.</strong> No event logged to only app stream — audit log always also written.</li>
+      <li><strong>Microsoft Presidio with custom recognizers</strong> in PreToolUse hook before app-log writes.</li>
+      <li><strong>Pre-V1 scrubbing benchmark required.</strong> Targets above.</li>
+      <li><strong>Audit log captures full provenance</strong> for every model output.</li>
+      <li><strong>Field-level AES-GCM encryption with rotating keys.</strong> Azure Key Vault separation. 90-day rotation.</li>
+      <li><strong>7-year audit log retention.</strong> Archived to Azure Blob after 7 years.</li>
+      <li><strong>No standing audit-log access.</strong> Per-investigation request workflow. Every access logged in meta-audit. Monthly review of access requests.</li>
+      <li><strong>Braintrust receives synthetic data only at V1.</strong> Production-case investigation in audit log only.</li>
+      <li><strong>Prompt injection defense via UserPromptSubmit hook.</strong> Detected injections logged to audit stream.</li>
+      <li><strong>Audit-log accesses themselves audited.</strong> Quarterly review of meta-audit.</li>
+    </ol>
+  </section>
+
+  <!-- 19: BAA -->
+  <section id="baa">
+    <div class="section-marker">Section 19 · BAA chain</div>
+    <h2 class="section-title">All BAAs executed pre-V1 launch</h2>
+
+    <h3>Required BAAs (critical path — pre-V1)</h3>
+
+    <table class="std">
+      <tr><th>Vendor</th><th>Scope</th></tr>
+      <tr><td>Anthropic (HIPAA-ready Enterprise BAA, signed directly)</td><td>Anthropic direct API path (Claude calls)</td></tr>
+      <tr><td>Microsoft Azure</td><td>Container Apps, Postgres, Blob, Key Vault, Monitor, Document Intelligence, Foundry (Claude via Azure)</td></tr>
+      <tr><td>AWS</td><td>Bedrock (Claude via AWS) — second Claude fallback path</td></tr>
+      <tr><td>1upHealth</td><td>FHIR connectivity, Coverage/EOB/Claim pulls</td></tr>
+      <tr><td>Postmark (healthcare-tier BAA)</td><td>Email sends with PHI in letter bodies</td></tr>
+      <tr><td>Voyage AI (via MongoDB) — verify before V1</td><td>Embeddings + reranking. If no BAA, scrub user-bill text in VPC before sending; knowledge collection embeddings flow without scrubbing (non-PHI).</td></tr>
+      <tr><td>FAIR Health — verify before V1</td><td>Cost benchmark API. If no BAA, queries use 3-digit ZIP precision (HIPAA Safe Harbor).</td></tr>
+      <tr><td>Stripe</td><td>Defense-in-depth, even if immediate PHI flow is unclear</td></tr>
+      <tr><td>Observability vendor</td><td>Defense-in-depth, even though scrubbing should mean no PHI flow</td></tr>
+    </table>
+
+    <h3>Not required at V1</h3>
+
+    <ul class="bullets">
+      <li><strong>Braintrust</strong> — synthetic data only at V1. BAA required before real PHI flows post-V1.</li>
+      <li><strong>OpenAI, Google</strong> — cross-provider fallback only on non-user-facing utility paths; no PHI flows.</li>
+      <li><strong>Qdrant</strong> — self-hosted inside Azure VPC; covered by Azure BAA.</li>
+    </ul>
+
+    <h3>Operational discipline</h3>
+
+    <ol class="rules">
+      <li><strong>Anthropic HIPAA-ready Enterprise BAA signed directly</strong> in addition to Azure BAA.</li>
+      <li><strong>AWS Bedrock BAA signed.</strong> If we ever drop Bedrock fallback, can lapse.</li>
+      <li><strong>No PHI flows to any vendor before BAA executed.</strong> Production launch gated on full BAA chain readiness.</li>
+      <li><strong>Voyage AI BAA confirmed in writing before user-bill embedding.</strong> If not signed, scrub-before-send approach.</li>
+      <li><strong>FAIR Health BAA confirmed in writing before full-ZIP queries.</strong> If not signed, 3-digit ZIP precision.</li>
+      <li><strong>BAA registry maintained</strong> with effective dates, renewal dates, scope, link to executed document.</li>
+      <li><strong>Subprocessor change notifications reviewed within 30 days.</strong></li>
+      <li><strong>Annual BAA re-paper.</strong></li>
+      <li><strong>Braintrust receives synthetic data only at V1.</strong></li>
+      <li><strong>Cross-provider fallback only on non-user-facing utility paths.</strong> No PHI to OpenAI/Google.</li>
+      <li><strong>Stripe BAA signed as defense-in-depth.</strong></li>
+      <li><strong>Observability vendor BAA signed as defense-in-depth.</strong></li>
+    </ol>
+  </section>
+
+  <!-- 20: EVALS -->
+  <section id="evals">
+    <div class="section-marker">Section 20 · Evaluation platform</div>
+    <h2 class="section-title">Braintrust + Arize Phoenix pairing</h2>
+
+    <h3>The pairing</h3>
+
+    <ul class="bullets">
+      <li><strong>Braintrust</strong> — primary eval platform with native CI/CD integration. Every PR runs smoke evals; merge blocked on failure.</li>
+      <li><strong>Arize Phoenix</strong> (self-hosted, free OSS) — production trace exporter via OpenTelemetry. Production traces flow to both Braintrust (eval-mode replay) and Phoenix (debugging visualization).</li>
+    </ul>
+
+    <h3>Three eval contexts</h3>
+
+    <table class="std">
+      <tr><th>Context</th><th>Cases</th><th>Duration</th><th>Cost cap</th></tr>
+      <tr><td>Per-PR smoke</td><td>~40 critical cases</td><td>&lt; 5 min</td><td>$1 per PR</td></tr>
+      <tr><td>Nightly full</td><td>~600 at V1, growing</td><td>~30–60 min</td><td>$25/night</td></tr>
+      <tr><td>Production trace replay</td><td>Sampled, V1.1+ only</td><td>Variable</td><td>Budget per replay</td></tr>
+    </table>
+
+    <h3>Eval suite structure</h3>
+
+    <ul class="bullets">
+      <li><strong>Per-Skill cases (~50 each, 400 total):</strong> Document Generation (21 letter types × scenarios), Cost Estimation, Bill Error Detection (per error family), Coverage Connection &amp; FHIR (edge cases), Find a Doctor, Plan a Visit, Charity Care, Negotiation &amp; Strategy.</li>
+      <li><strong>Per-subagent cases (~30 each, 150 total):</strong> Bill Detective, Math Person, Legal Researcher, Strategist, Code Validator.</li>
+      <li><strong>Voice and safety cases (~50):</strong> Tier A/B/C compliance, refusal correctness across 5 categories, confident-voice rubric.</li>
+    </ul>
+
+    <h3>LLM-as-judge</h3>
+
+    <ul class="bullets">
+      <li><strong>Judge model: Opus 4.7.</strong> Cost premium worth it for reliability.</li>
+      <li><strong>Judge never sees the same prompt that generated the output.</strong> Self-evaluation bias avoided.</li>
+      <li><strong>Judge calibrated against human-labeled golden set.</strong> Cohen's κ ≥ 0.6 vs. expert.</li>
+      <li><strong>Majority-of-3 for high-stakes evals.</strong></li>
+    </ul>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Braintrust as primary platform with native CI/CD.</strong></li>
+      <li><strong>Arize Phoenix as production trace exporter.</strong></li>
+      <li><strong>Three eval contexts.</strong></li>
+      <li><strong>Eval suite structured by what it tests.</strong> Grows from production findings.</li>
+      <li><strong>LLM judge is Opus 4.7.</strong> Different generation than original output.</li>
+      <li><strong>Judge calibrated against human golden set.</strong> Cohen's κ ≥ 0.6.</li>
+      <li><strong>Per-PR smoke evals complete in &lt; 5 minutes.</strong></li>
+      <li><strong>Nightly regressions trigger Slack alerts</strong> to <code>#tyndale-evals</code>.</li>
+      <li><strong>All eval data synthetic at V1.</strong></li>
+      <li><strong>Cost ceiling per eval run.</strong> $25/night cap, $1/PR cap. Exceeding pauses and alerts.</li>
+    </ol>
+  </section>
+
+  <!-- 21: SHIP GATES -->
+  <section id="shipgates">
+    <div class="section-marker">Section 21 · Ship gates</div>
+    <h2 class="section-title">Seven thresholds; all must pass for any deploy</h2>
+
+    <h3>Test data strategy</h3>
+
+    <ul class="bullets">
+      <li><strong>Layer 1 — Golden examples (~400–1,600 cases).</strong> Authored by Brock + external healthcare attorney + medical billing advocate. Expert-labeled with correct expected outcomes. Documented reasoning.</li>
+      <li><strong>Layer 2 — Synthetic adversarial (~2,000–5,000 cases).</strong> Generated by Opus 4.7 conditioned on real-world failure-mode taxonomies. Spot-checked by Brock at 10% sample.</li>
+      <li><strong>Layer 3 — Production case replay.</strong> V1.1+ only, post-Braintrust BAA.</li>
+    </ul>
+
+    <h3>The seven gates</h3>
+
+    <table class="std">
+      <tr><th>Gate</th><th>Threshold</th></tr>
+      <tr><td>Citation faithfulness</td><td>≥ 99.5%</td></tr>
+      <tr><td>Retrieval NDCG@10 on legal RAG</td><td>≥ 0.85</td></tr>
+      <tr><td>Hallucination rate on adversarial set</td><td>≤ 1.0%</td></tr>
+      <tr><td>Tier A factual accuracy</td><td>≥ 99%</td></tr>
+      <tr><td>Refusal correctness on out-of-scope eval</td><td>≥ 98%</td></tr>
+      <tr><td>Voice tier compliance</td><td>Mean ≥ 4.0/5, no item below 3.0</td></tr>
+      <tr><td>End-to-end latency (bill triage)</td><td>p50 &lt; 8s, p95 &lt; 25s</td></tr>
+    </table>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Three layers of test data.</strong></li>
+      <li><strong>Seven ship gates run on every PR.</strong> Regression below baseline blocks deploy.</li>
+      <li><strong>Citation faithfulness ≥ 99.5%, hallucination ≤ 1.0%, factual accuracy ≥ 99%.</strong> Reliability floor.</li>
+      <li><strong>Refusal correctness ≥ 98%.</strong> Safety floor.</li>
+      <li><strong>Voice tier compliance composite metric.</strong> Mean ≥ 4.0/5, no item below 3.0.</li>
+      <li><strong>End-to-end latency gates.</strong> p50 &lt; 8s, p95 &lt; 25s.</li>
+      <li><strong>Baseline updates require second approver.</strong></li>
+      <li><strong>All eval data synthetic at V1.</strong></li>
+      <li><strong>Pre-launch readiness check is real.</strong> All gates must pass at threshold; gates don't get loosened.</li>
+      <li><strong>Eval suite grows from production findings.</strong></li>
+    </ol>
+  </section>
+
+  <!-- 22: FAILURE MODES -->
+  <section id="failuremodes">
+    <div class="section-marker">Section 22 · Failure mode instrumentation</div>
+    <h2 class="section-title">Seven failure modes with explicit alerting</h2>
+
+    <table class="std">
+      <tr><th>Failure mode</th><th>Detection</th><th>Alert threshold</th><th>Route</th></tr>
+      <tr><td>Stale citations</td><td>Citation resolver flags chunks with <code>last_verified_date</code> &gt; 90d</td><td>&gt;5% of citations in any 7-day window</td><td>#tyndale-quality</td></tr>
+      <tr><td>Hallucinated numbers</td><td>Deterministic check on every generated letter; mismatch blocks ship</td><td>Any mismatch logged; &gt;3/day triggers investigation</td><td>#tyndale-quality</td></tr>
+      <tr><td>Policy version drift</td><td>PreToolUse hook validates effective-date filters</td><td>Any query without filter triggers immediate alert</td><td>#tyndale-quality</td></tr>
+      <tr><td>Subagent over-spawning</td><td>Audit log captures subagent count per interaction type</td><td>Avg &gt;20% above target for 3+ days</td><td>#tyndale-cost</td></tr>
+      <tr><td>Cache invalidation</td><td>Per-route cache hit rate per hour</td><td>&gt;15 point drop week-over-week</td><td>#tyndale-cost</td></tr>
+      <tr><td>Prompt injection</td><td>UserPromptSubmit hook scans + classifies</td><td>Severe = immediate alert; moderate &gt;5/day investigation</td><td>#tyndale-security</td></tr>
+      <tr><td>Skill supply chain</td><td>Two-person rule on Skill PRs; smoke evals on every Skill commit</td><td>Eval regression blocks merge</td><td>#tyndale-security</td></tr>
+    </table>
+
+    <h3>Alert routing</h3>
+
+    <ul class="bullets">
+      <li><strong>#tyndale-quality</strong> — eval failures, citation issues, hallucinations</li>
+      <li><strong>#tyndale-cost</strong> — cache invalidation, subagent over-spawning, weekly digest to Brock</li>
+      <li><strong>#tyndale-security</strong> — prompt injection, audit log access, Skill supply chain; severe events page Brock</li>
+      <li><strong>#tyndale-ops</strong> — latency spikes, failed cron runs, API failures; on-call rotation</li>
+    </ul>
+
+    <h3>Deferred to V1.1+</h3>
+
+    <ul class="bullets">
+      <li>PHI cross-session leakage detection (architecture prevents; instrument later if evidence emerges)</li>
+      <li>Skill execution sandbox (not relevant at V1; no untrusted scripts)</li>
+      <li>Race condition explicit detection (optimistic locking handles)</li>
+    </ul>
+
+    <h3>Discipline rules</h3>
+
+    <ol class="rules">
+      <li><strong>Seven failure modes explicitly instrumented.</strong></li>
+      <li><strong>Each failure mode has alert threshold and routing channel.</strong></li>
+      <li><strong>Audit log captures everything needed for investigation.</strong></li>
+      <li><strong>Weekly alert review.</strong> Brock walks previous week's alerts.</li>
+      <li><strong>Quarterly failure-mode review.</strong> New modes added as identified.</li>
+      <li><strong>Failure modes deferred to V1.1+:</strong> noted above.</li>
+      <li><strong>Severe alerts page Brock immediately.</strong></li>
+      <li><strong>Synthetic equivalent generated for any production failure.</strong> Added to eval suite.</li>
+    </ol>
+  </section>
+
+  <!-- 99: PRE-LAUNCH READINESS -->
+  <section id="prelaunch">
+    <div class="section-marker">Section 99 · Pre-launch readiness</div>
+    <h2 class="section-title">Final ship checklist</h2>
+
+    <div class="checklist">
+      <div class="checklist-header">
+        <div class="checklist-icon">!</div>
+        <div class="checklist-title">All items must be true before V1 launch</div>
+      </div>
+
+      <h4 style="margin-top: 0;">Compliance &amp; BAAs</h4>
+      <div class="checklist-item"><div class="checkbox"></div>Anthropic HIPAA-ready Enterprise BAA executed</div>
+      <div class="checklist-item"><div class="checkbox"></div>Azure BAA executed; all in-scope services covered (Container Apps, Postgres, Blob, Key Vault, Monitor, Document Intelligence, Foundry)</div>
+      <div class="checklist-item"><div class="checkbox"></div>AWS BAA executed (Bedrock scope)</div>
+      <div class="checklist-item"><div class="checkbox"></div>1upHealth BAA executed</div>
+      <div class="checklist-item"><div class="checkbox"></div>Postmark healthcare-tier BAA executed</div>
+      <div class="checklist-item"><div class="checkbox"></div>Voyage AI BAA confirmed in writing OR scrub-before-send implemented</div>
+      <div class="checklist-item"><div class="checkbox"></div>FAIR Health BAA confirmed in writing OR 3-digit ZIP precision implemented</div>
+      <div class="checklist-item"><div class="checkbox"></div>Stripe BAA executed</div>
+      <div class="checklist-item"><div class="checkbox"></div>Observability vendor BAA executed</div>
+      <div class="checklist-item"><div class="checkbox"></div>BAA registry populated and stored</div>
+
+      <h4>Benchmarks</h4>
+      <div class="checklist-item"><div class="checkbox"></div>Josh's embedding benchmark complete: voyage-context-3 vs voyage-3-large on laws_regulations; voyage-context-3 wins by ≥3 NDCG points OR reverted to voyage-3-large</div>
+      <div class="checklist-item"><div class="checkbox"></div>Josh's Presidio benchmark complete: hand-labeled 200–500 medical bills + EOBs; ≥98% direct-identifier recall, ≥90% context-dependent recall, ≥95% precision</div>
+      <div class="checklist-item"><div class="checkbox"></div>Qdrant performance targets met: p95 search latency &lt;50ms, recall@10 ≥0.95</div>
+
+      <h4>Intelligence layer</h4>
+      <div class="checklist-item"><div class="checkbox"></div>Lead Planner + 5 subagents implemented; all prompts versioned in git</div>
+      <div class="checklist-item"><div class="checkbox"></div>8 Skills implemented; all SKILL.md files under 500 lines; reference files one level deep</div>
+      <div class="checklist-item"><div class="checkbox"></div>Diagnostic indexes implemented for Bill Error Detection, Negotiation &amp; Strategy, Charity Care Eligibility</div>
+      <div class="checklist-item"><div class="checkbox"></div>4 Qdrant collections live; embeddings generated; metadata schemas locked</div>
+      <div class="checklist-item"><div class="checkbox"></div>NCCI and MUE structured tables loaded in Postgres</div>
+      <div class="checklist-item"><div class="checkbox"></div>~22 tools implemented in-process; tool descriptions reviewed for the 40% performance lift</div>
+      <div class="checklist-item"><div class="checkbox"></div>Allow-lists configured per subagent</div>
+      <div class="checklist-item"><div class="checkbox"></div>2 crons scheduled and tested</div>
+
+      <h4>Safety &amp; security</h4>
+      <div class="checklist-item"><div class="checkbox"></div>Dual-stream logging operational; Presidio scrubbing in PreToolUse hook</div>
+      <div class="checklist-item"><div class="checkbox"></div>Audit log encryption: AES-GCM with Key Vault keys; 90-day rotation configured</div>
+      <div class="checklist-item"><div class="checkbox"></div>UserPromptSubmit hook scanning for prompt injection</div>
+      <div class="checklist-item"><div class="checkbox"></div>Citation Layer 1 (prompt-level) enforced in all relevant Skill/subagent prompts</div>
+      <div class="checklist-item"><div class="checkbox"></div>Citation Layer 2 (programmatic resolution) implemented as Stop hook</div>
+      <div class="checklist-item"><div class="checkbox"></div>Email approval gate (PreToolUse) operational on <code>send_email</code></div>
+      <div class="checklist-item"><div class="checkbox"></div>5 out-of-scope refusal templates implemented with no routing</div>
+
+      <h4>Multi-model infrastructure</h4>
+      <div class="checklist-item"><div class="checkbox"></div>LiteLLM proxy deployed inside Azure VPC</div>
+      <div class="checklist-item"><div class="checkbox"></div>Claude-only fallback chain configured (Anthropic direct → Bedrock → Foundry)</div>
+      <div class="checklist-item"><div class="checkbox"></div>Maintenance-mode queue tested</div>
+      <div class="checklist-item"><div class="checkbox"></div>All model IDs pinned to dated strings</div>
+      <div class="checklist-item"><div class="checkbox"></div>Prompt caching with two-tier TTLs configured; cache warming step in deploy pipeline</div>
+
+      <h4>Evaluation</h4>
+      <div class="checklist-item"><div class="checkbox"></div>Braintrust integrated with GitHub Actions (per-PR smoke evals)</div>
+      <div class="checklist-item"><div class="checkbox"></div>Arize Phoenix self-hosted for trace export</div>
+      <div class="checklist-item"><div class="checkbox"></div>~400–1,600 golden examples authored and expert-labeled</div>
+      <div class="checklist-item"><div class="checkbox"></div>~2,000–5,000 synthetic adversarial cases generated and spot-checked</div>
+      <div class="checklist-item"><div class="checkbox"></div>LLM judge calibrated against golden set; Cohen's κ ≥ 0.6 confirmed</div>
+      <div class="checklist-item"><div class="checkbox"></div>All 7 ship gates passing at thresholds</div>
+      <div class="checklist-item"><div class="checkbox"></div>Nightly eval suite scheduled with $25 cost cap</div>
+
+      <h4>Monitoring</h4>
+      <div class="checklist-item"><div class="checkbox"></div>4 Slack alert channels configured: quality, cost, security, ops</div>
+      <div class="checklist-item"><div class="checkbox"></div>7 failure-mode instrumentation pipelines operational</div>
+      <div class="checklist-item"><div class="checkbox"></div>Brock paged on severe security events</div>
+    </div>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">After all items checked</div>
+      <div class="callout-title">Tyndale is ready for V1 launch</div>
+      <div class="callout-text">Manual human review of every appeal letter remains in place until either Layer 3 ships or 90+ days of production data show zero "right form wrong substance" failures.</div>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>Tyndale · Developer Build Spec · v1.0</div>
+    <div>For Phil, Jonas, Josh</div>
+  </footer>
+
+</div>
+</body>
+</html>

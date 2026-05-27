@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyndale V1-Lite — Build Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-cream: #F5F1EA; --bg-cream-soft: #FAF7F2; --surface: #FFFFFF;
+    --teal: #1F4E4A; --teal-deep: #173D3A; --teal-soft: #E0EAE8; --teal-tint: #F0F5F4;
+    --sage: #3DAA7E; --sage-deep: #2E8862; --sage-soft: #E5F2EB; --sage-tint: #F2F8F4;
+    --amber: #E08A3C; --amber-deep: #C26F26; --amber-soft: #FBEBD8;
+    --rose: #C75252; --rose-soft: #F7E0E0;
+    --ink: #0F2A28; --ink-soft: #2A3A38; --ink-muted: #5A6A68; --ink-faint: #B8C0BF;
+    --border: #E4DFD5; --border-soft: #EFEAE0; --border-card: #ECE6D9;
+    --shadow-card: 0 1px 2px rgba(15,42,40,0.04), 0 4px 12px rgba(15,42,40,0.05);
+    --radius-sm: 8px; --radius: 14px; --radius-lg: 20px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg-cream); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; padding: 56px 32px 96px; }
+  .page { max-width: 1080px; margin: 0 auto; }
+  .doc-header { border-bottom: 1px solid var(--border); padding-bottom: 36px; margin-bottom: 40px; }
+  .doc-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal); margin-bottom: 14px; }
+  .doc-title { font-size: 46px; font-weight: 700; line-height: 1.04; letter-spacing: -0.025em; margin-bottom: 20px; }
+  .doc-subtitle { font-size: 17px; color: var(--ink-muted); line-height: 1.6; max-width: 760px; }
+  .header-logo-mark { width: 56px; height: 56px; margin-bottom: 20px; }
+
+  .howto { background: white; border: 1px solid var(--border-card); border-radius: var(--radius); padding: 32px; margin-bottom: 48px; box-shadow: var(--shadow-card); }
+  .howto-title { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
+  .howto p { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 12px; max-width: none; }
+  .howto p strong { color: var(--ink); }
+  code { font-family: var(--font-mono); font-size: 13px; background: var(--bg-cream-soft); padding: 2px 6px; border-radius: 4px; color: var(--teal-deep); }
+
+  section { margin-bottom: 40px; }
+  .section-marker { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal); margin-bottom: 12px; display: flex; gap: 16px; align-items: center; }
+  .section-marker::before { content: ''; width: 28px; height: 1px; background: var(--teal); display: inline-block; }
+  .section-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 14px; }
+  .section-lede { font-size: 15px; color: var(--ink-muted); line-height: 1.6; max-width: 760px; margin-bottom: 28px; }
+
+  .phase { background: white; border: 1px solid var(--border-card); border-radius: var(--radius); padding: 30px; margin-bottom: 22px; box-shadow: var(--shadow-card); }
+  .phase-header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border-soft); }
+  .phase-num { width: 48px; height: 48px; background: var(--teal); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 15px; font-weight: 700; flex-shrink: 0; }
+  .phase-num.reuse { background: var(--sage-deep); }
+  .phase-num.new { background: var(--amber-deep); }
+  .phase-meta { flex: 1; }
+  .phase-title { font-size: 18px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 3px; }
+  .phase-summary { font-size: 12.5px; color: var(--ink-muted); }
+  .phase-tag { font-family: var(--font-mono); font-size: 10px; padding: 4px 10px; border-radius: 100px; font-weight: 600; letter-spacing: 0.04em; }
+  .phase-tag.reuse { background: var(--sage-soft); color: var(--sage-deep); }
+  .phase-tag.new { background: var(--amber-soft); color: var(--amber-deep); }
+
+  .task-list { display: grid; gap: 8px; }
+  .task { display: grid; grid-template-columns: 1fr auto; gap: 16px; padding: 13px 16px; border-radius: 10px; background: var(--bg-cream-soft); border: 1px solid var(--border-soft); align-items: center; text-decoration: none; color: var(--ink); transition: all 0.15s; }
+  .task:hover { background: white; border-color: var(--teal-soft); transform: translateY(-1px); box-shadow: var(--shadow-card); }
+  .task.reuse { background: var(--sage-tint); }
+  .task-content { display: flex; flex-direction: column; gap: 2px; }
+  .task-name { font-size: 14.5px; font-weight: 600; letter-spacing: -0.005em; }
+  .task-summary { font-size: 12.5px; color: var(--ink-muted); }
+  .task-cta { font-family: var(--font-mono); font-size: 11px; color: var(--teal); font-weight: 600; }
+  .task-cta.reuse { color: var(--sage-deep); }
+
+  .callout { background: white; border: 1px solid var(--border-card); border-left: 4px solid var(--teal); border-radius: var(--radius-sm); padding: 22px 28px; margin: 24px 0; box-shadow: var(--shadow-card); }
+  .callout.sage { border-left-color: var(--sage); }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout-eyebrow { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--teal); font-weight: 600; margin-bottom: 6px; }
+  .callout.sage .callout-eyebrow { color: var(--sage-deep); }
+  .callout.amber .callout-eyebrow { color: var(--amber-deep); }
+  .callout-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .callout-text { font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+
+  .handoff { background: var(--rose-soft); border: 1px solid var(--rose); border-radius: var(--radius); padding: 30px; margin-top: 28px; }
+  .handoff h3 { font-size: 19px; font-weight: 700; margin-bottom: 14px; }
+  .handoff-list { list-style: none; padding: 0; margin: 0; }
+  .handoff-list li { padding: 8px 0 8px 28px; position: relative; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+  .handoff-list li::before { content: '→'; position: absolute; left: 0; top: 8px; color: var(--rose); font-weight: 700; }
+  .handoff-list li strong { color: var(--ink); }
+
+  .doc-footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; font-size: 12px; color: var(--ink-muted); font-family: var(--font-mono); display: flex; justify-content: space-between; }
+  @media (max-width: 700px) { body { padding: 32px 16px 48px; } .doc-title { font-size: 32px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <svg class="header-logo-mark" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="none" stroke="#1F4E4A" stroke-width="3"/><rect x="26" y="20" width="28" height="36" rx="3" fill="#1F4E4A"/><line x1="32" y1="30" x2="48" y2="30" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="48" y2="36" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="42" x2="42" y2="42" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><path d="M34 50 L38 54 L48 44" stroke="#3DAA7E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <div class="doc-eyebrow">Tyndale · V1-Lite Build Kit</div>
+    <h1 class="doc-title">Build the lean version first.</h1>
+    <p class="doc-subtitle">A re-sequenced task set that builds V1-Lite — document upload, 3-agent intelligence layer, no letter generation, plus a feedback loop from day one. Green tasks reuse files from the full Build Kit unchanged. Amber tasks are new to V1-Lite. Read the V1-Lite Scope &amp; Forward-Compatibility Spec before starting.</p>
+  </header>
+
+  <div class="howto">
+    <div class="howto-title">How to use this kit</div>
+    <p><strong>Green tasks are reused from the full Build Kit.</strong> You already have these task files (Tasks 01–08, 12–15, 17–18, 23–26, 28–29). Run them exactly as written. They're shared by both versions.</p>
+    <p><strong>Amber tasks are new — they live in this kit's <code>tasks/</code> folder</strong> with an <code>L</code> prefix (L01, L02...). Open each, paste into Claude Code, verify with "done when."</p>
+    <p><strong>Same repository.</strong> V1-Lite builds in the same <code>tyndale-intelligence-layer</code> repo as the full version. New V1-Lite files are marked with a <code>v1lite</code> tag in their headers so it's clear what's lean-mode vs full. Nothing conflicts.</p>
+    <p><strong>The order matters.</strong> Foundations first (reused), then the upload path, then the collapsed agents, then the feedback loop, then the web shell. Dependencies are noted in each task.</p>
+  </div>
+
+  <!-- PHASE L1 -->
+  <section>
+    <div class="section-marker">Phase L1 · Foundations (reused)</div>
+    <h2 class="section-title">Reuse the foundation, Skills, and collections you already built</h2>
+    <p class="section-lede">These task files are shared with the full Build Kit. Run them as written — no V1-Lite changes.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num reuse">↻</div>
+        <div class="phase-meta"><div class="phase-title">Reused from the full Build Kit</div><div class="phase-summary">Open these from your existing build_kit/tasks/ folder</div></div>
+        <div class="phase-tag reuse">REUSE</div>
+      </div>
+      <div class="task-list">
+        <a class="task reuse" href="../build_kit/tasks/01_repo_setup.md"><div class="task-content"><div class="task-name">Tasks 01–07 — Foundation files</div><div class="task-summary">Repo, principles, voice tiering, refusals, citations, glossary, discipline rules</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/08_skill_bill_error_detection.md"><div class="task-content"><div class="task-name">Task 08 — Bill Error Detection Skill</div><div class="task-summary">Identical — the heart of V1-Lite's value</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/12_skill_cost_estimation.md"><div class="task-content"><div class="task-name">Task 12 — Cost Estimation Skill</div><div class="task-summary">Identical</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/13_skill_coverage_fhir.md"><div class="task-content"><div class="task-name">Task 13 — Coverage Connection Skill</div><div class="task-summary">Build in manual-upload mode; FHIR sections scaffolded but inactive (see L04)</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/14_skill_find_a_doctor.md"><div class="task-content"><div class="task-name">Tasks 14–15 — Find a Doctor, Plan a Visit</div><div class="task-summary">Optional in V1-Lite — include if time allows</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/17_subagent_bill_detective.md"><div class="task-content"><div class="task-name">Tasks 17–18 — Bill Detective, Math Person prompts</div><div class="task-summary">Identical subagent prompts</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/23_collection_schemas.md"><div class="task-content"><div class="task-name">Tasks 23–25 — Knowledge collections</div><div class="task-summary">All four collections, schemas, ingestion, fixtures — identical</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/26_golden_examples_structure.md"><div class="task-content"><div class="task-name">Task 26 — Golden examples structure</div><div class="task-summary">Identical — now fed by the feedback loop (L08–L10)</div></div><div class="task-cta reuse">Reuse →</div></a>
+        <a class="task reuse" href="../build_kit/tasks/28_synthetic_generation_prompts.md"><div class="task-content"><div class="task-name">Tasks 28–29 — Synthetic generation</div><div class="task-summary">Identical</div></div><div class="task-cta reuse">Reuse →</div></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE L2 -->
+  <section>
+    <div class="section-marker">Phase L2 · New for V1-Lite</div>
+    <h2 class="section-title">The upload path, collapsed agent, and web shell</h2>
+    <p class="section-lede">These tasks are new to V1-Lite. They live in this kit's tasks/ folder.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num new">L</div>
+        <div class="phase-meta"><div class="phase-title">V1-Lite-specific tasks</div><div class="phase-summary">8 new task files · Brock + Claude Code</div></div>
+        <div class="phase-tag new">NEW</div>
+      </div>
+      <div class="task-list">
+        <a class="task" href="tasks/L01_orientation.md"><div class="task-content"><div class="task-name">L01 — V1-Lite orientation &amp; markers</div><div class="task-summary">How V1-Lite files coexist with full in the same repo</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L02_upload_extraction_tools.md"><div class="task-content"><div class="task-name">L02 — Document upload &amp; extraction tools</div><div class="task-summary">upload_extract_coverage / _eob matching the FHIR return shapes</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L03_manual_coverage_mode.md"><div class="task-content"><div class="task-name">L03 — Coverage Connection: manual mode</div><div class="task-summary">The V1-Lite delta to the Coverage Connection Skill</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L04_collapsed_lead_planner.md"><div class="task-content"><div class="task-name">L04 — Collapsed Lead Planner prompt</div><div class="task-summary">Folds in legal research + strategy guidance; no letter drafting</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L05_feedback_consent_schema.md"><div class="task-content"><div class="task-name">L05 — Feedback capture &amp; consent schema</div><div class="task-summary">Thumbs, structured reasons, outcomes, separate improvement consent</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L06_deidentify_and_promote.md"><div class="task-content"><div class="task-name">L06 — De-identify &amp; promote pipeline</div><div class="task-summary">Presidio gate → triage → golden-example promotion</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L07_encounter_verification.md"><div class="task-content"><div class="task-name">L07 — Encounter verification flow</div><div class="task-summary">Translate line items to plain language; user confirms the service happened</div></div><div class="task-cta">Open →</div></a>
+        <a class="task" href="tasks/L08_web_app_shell.md"><div class="task-content"><div class="task-name">L08 — Mobile-friendly web app shell</div><div class="task-summary">Upload-centric responsive UI scaffold (Brock starts, Phil finishes)</div></div><div class="task-cta">Open →</div></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE L3 -->
+  <section>
+    <div class="section-marker">Phase L3 · Wrap-up</div>
+    <h2 class="section-title">V1-Lite handoff</h2>
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num new">L</div>
+        <div class="phase-meta"><div class="phase-title">Handoff &amp; upgrade map</div><div class="phase-summary">1 task file · Brock + Claude Code</div></div>
+        <div class="phase-tag new">NEW</div>
+      </div>
+      <div class="task-list">
+        <a class="task" href="tasks/L09_v1lite_handoff.md"><div class="task-content"><div class="task-name">L09 — V1-Lite handoff brief &amp; upgrade map</div><div class="task-summary">What ships in V1-Lite, what the team builds, how to expand to full</div></div><div class="task-cta">Open →</div></a>
+      </div>
+    </div>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">The shape of the work</div>
+      <div class="callout-title">V1-Lite is roughly half the build kit, reusing the other half</div>
+      <div class="callout-text">You reuse ~18 of the original 32 task files unchanged, add 8 V1-Lite-specific ones, and defer ~9 (letter generation Skills, the Strategist/Legal Researcher/Code Validator standalone subagents, full eval volume) until the upgrade. The deferred tasks aren't discarded — they're your full-Tyndale backlog, ready when V1-Lite is live and generating data.</div>
+    </div>
+  </section>
+
+  <!-- ENGINEERING HANDOFF -->
+  <section>
+    <div class="section-marker">Engineering · What the team builds for V1-Lite</div>
+    <h2 class="section-title">The runtime work for V1-Lite</h2>
+    <p class="section-lede">Same as the full version's engineering work, minus the deferred pieces, plus the upload path and feedback loop.</p>
+
+    <div class="handoff">
+      <h3>V1-Lite engineering scope (Phil, Jonas, Josh)</h3>
+      <ul class="handoff-list">
+        <li><strong>Web app (Phil):</strong> mobile-friendly, upload-centric. The L07 scaffold gets production-hardened — auth, file handling, responsive polish, accessibility.</li>
+        <li><strong>FastAPI monolith (Jonas):</strong> hosts the 3-agent layer, hooks, tool layer. Same as full minus the 3 deferred subagents.</li>
+        <li><strong>Upload + OCR pipeline (Jonas):</strong> Azure Document Intelligence for extraction, confidence scoring, the upload_extract_* tools.</li>
+        <li><strong>Qdrant + 4 collections (Josh):</strong> identical to full. Run ingestion.</li>
+        <li><strong>PHI spine (Jonas + Josh):</strong> dual-stream logging, Presidio scrubbing, encrypted audit log, citation Layer 2 — all required day one.</li>
+        <li><strong>Feedback loop (Jonas):</strong> capture schema, consent flow, de-identification pipeline, triage queue, golden-example promotion. Forward-compatible with full.</li>
+        <li><strong>LiteLLM Claude-only routing (Jonas):</strong> identical to full.</li>
+        <li><strong>Stripe (Jonas):</strong> $11.99/mo &amp; $100/yr unlimited — same as full V1.</li>
+        <li><strong>NOT in V1-Lite:</strong> FHIR OAuth, Legal Researcher / Strategist / Code Validator subagents, Document Generation / Negotiation / Charity Care Skills, the gated send-email path. All deferred to the full upgrade.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>Tyndale · V1-Lite Build Kit · v1.0</div>
+    <div>~18 reused tasks · 9 new tasks · ~9 deferred to full</div>
+  </footer>
+
+</div>
+</body>
+</html>

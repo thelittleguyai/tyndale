@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyndale Intelligence Layer — Claude Code &amp; Cowork Build Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-cream: #F5F1EA;
+    --bg-cream-soft: #FAF7F2;
+    --surface: #FFFFFF;
+    --teal: #1F4E4A;
+    --teal-deep: #173D3A;
+    --teal-soft: #E0EAE8;
+    --teal-tint: #F0F5F4;
+    --sage: #3DAA7E;
+    --sage-deep: #2E8862;
+    --sage-soft: #E5F2EB;
+    --sage-tint: #F2F8F4;
+    --amber: #E08A3C;
+    --amber-deep: #C26F26;
+    --amber-soft: #FBEBD8;
+    --rose: #C75252;
+    --rose-soft: #F7E0E0;
+    --ink: #0F2A28;
+    --ink-soft: #2A3A38;
+    --ink-muted: #5A6A68;
+    --ink-faint: #B8C0BF;
+    --border: #E4DFD5;
+    --border-soft: #EFEAE0;
+    --border-card: #ECE6D9;
+    --shadow-card: 0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05);
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 20px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg-cream);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 56px 32px 96px;
+  }
+  .page { max-width: 1080px; margin: 0 auto; }
+
+  .doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 36px;
+    margin-bottom: 56px;
+  }
+  .doc-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 14px;
+  }
+  .doc-title {
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 20px;
+  }
+  .doc-subtitle {
+    font-size: 17px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 760px;
+  }
+  .header-logo-mark { width: 56px; height: 56px; margin-bottom: 20px; }
+
+  section { margin-bottom: 64px; }
+  .section-marker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .section-marker::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--teal);
+    display: inline-block;
+  }
+  .section-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .section-lede {
+    font-size: 15.5px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 760px;
+    margin-bottom: 32px;
+  }
+
+  p { margin-bottom: 14px; max-width: 760px; color: var(--ink-soft); }
+  p strong { color: var(--ink); font-weight: 700; }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--bg-cream-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--teal-deep);
+  }
+
+  /* HOW TO USE BLOCK */
+  .howto {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 64px;
+    box-shadow: var(--shadow-card);
+  }
+  .howto-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .howto p { font-size: 14.5px; }
+
+  /* PHASE BLOCK */
+  .phase {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .phase-num {
+    width: 48px;
+    height: 48px;
+    background: var(--teal);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .phase-meta { flex: 1; }
+  .phase-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    margin-bottom: 3px;
+  }
+  .phase-summary {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+  .phase-tag {
+    background: var(--sage-soft);
+    color: var(--sage-deep);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .phase-tag.dev {
+    background: var(--rose-soft);
+    color: var(--rose);
+  }
+
+  /* TASK LIST */
+  .task-list { display: grid; gap: 8px; }
+  .task {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--bg-cream-soft);
+    border: 1px solid var(--border-soft);
+    align-items: center;
+    transition: all 0.15s;
+    text-decoration: none;
+    color: var(--ink);
+  }
+  .task:hover {
+    background: white;
+    border-color: var(--teal-soft);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-card);
+  }
+  .task-num {
+    width: 28px;
+    height: 28px;
+    background: white;
+    color: var(--teal);
+    border: 1px solid var(--teal-soft);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .task-content { display: flex; flex-direction: column; gap: 2px; }
+  .task-name {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .task-summary {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+  }
+  .task-cta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--teal);
+    font-weight: 600;
+  }
+
+  /* HANDOFF BLOCK */
+  .handoff {
+    background: var(--rose-soft);
+    border: 1px solid var(--rose);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-top: 32px;
+  }
+  .handoff h3 {
+    color: var(--ink);
+    margin-bottom: 16px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .handoff-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .handoff-list li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .handoff-list li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    color: var(--rose);
+    font-weight: 700;
+  }
+  .handoff-list li strong { color: var(--ink); }
+
+  /* CALLOUT */
+  .callout {
+    background: white;
+    border: 1px solid var(--border-card);
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius-sm);
+    padding: 22px 28px;
+    margin: 24px 0;
+    box-shadow: var(--shadow-card);
+    max-width: 820px;
+  }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.sage { border-left-color: var(--sage); }
+  .callout-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .callout.amber .callout-eyebrow { color: var(--amber-deep); }
+  .callout.sage .callout-eyebrow { color: var(--sage-deep); }
+  .callout-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .callout-text {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  pre {
+    background: var(--ink);
+    color: #DDE3E2;
+    padding: 16px 22px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    margin: 16px 0;
+    max-width: 760px;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  /* PROGRESS BAR */
+  .progress {
+    background: var(--bg-cream-soft);
+    border-radius: 100px;
+    height: 8px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-bar {
+    background: linear-gradient(90deg, var(--teal), var(--sage));
+    height: 100%;
+    width: 0%;
+    border-radius: 100px;
+  }
+
+  .doc-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+    margin-top: 80px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media (max-width: 700px) {
+    body { padding: 32px 16px 48px; }
+    .doc-title { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <svg class="header-logo-mark" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="none" stroke="#1F4E4A" stroke-width="3"/><rect x="26" y="20" width="28" height="36" rx="3" fill="#1F4E4A"/><line x1="32" y1="30" x2="48" y2="30" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="48" y2="36" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="42" x2="42" y2="42" stroke="#F5F1EA" stroke-width="2.5" stroke-linecap="round"/><path d="M34 50 L38 54 L48 44" stroke="#3DAA7E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <div class="doc-eyebrow">Tyndale · Claude Code &amp; Cowork Build Kit</div>
+    <h1 class="doc-title">Build it yourself, then hand it off.</h1>
+    <p class="doc-subtitle">A sequenced set of tasks you can hand to Claude Code and Cowork to build the parts of Tyndale's intelligence layer that don't require deep engineering judgment. Each task has a paste-ready prompt and a "done when" verification step. The phases that require Phil, Jonas, or Josh are flagged clearly at the end.</p>
+  </header>
+
+  <!-- HOW TO USE -->
+  <div class="howto">
+    <div class="howto-title">How to use this kit</div>
+    <p><strong>Each task is a self-contained Markdown file in <code>tasks/</code>.</strong> Open the file, copy the entire contents, and paste it into a Claude Code session. Claude Code will execute the task. When it finishes, run the "done when" verification at the bottom of the task file to confirm the work succeeded.</p>
+    <p><strong>Tasks are sequenced.</strong> Do them in order. Task 06 references files produced by Tasks 01–05; if you skip ahead, Claude Code won't have what it needs.</p>
+    <p><strong>Work in your own git repo.</strong> Before starting, set up a new git repository for Tyndale's intelligence layer (e.g., <code>tyndale-intelligence-layer</code>). Each task commits its output. By the end of Phase 7, you'll have a complete repository ready to hand to Phil, Jonas, and Josh.</p>
+    <p><strong>If something feels wrong, stop and ask.</strong> Claude Code is powerful but not infallible. If a task's output looks wrong to you — content, structure, anything — pause and ask Claude in the conversation thread you're using to plan this. Don't blindly proceed.</p>
+  </div>
+
+  <!-- PHASE 1 -->
+  <section>
+    <div class="section-marker">Phase 1 · Foundation files</div>
+    <h2 class="section-title">The reference documents everything else references</h2>
+    <p class="section-lede">These are the cross-cutting documents that every Skill, subagent prompt, and tool description references. Build them first because they're inputs to everything else.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">1</div>
+        <div class="phase-meta">
+          <div class="phase-title">Foundation reference files</div>
+          <div class="phase-summary">7 files · ~3–4 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/01_repo_setup.md">
+          <div class="task-num">01</div>
+          <div class="task-content">
+            <div class="task-name">Initialize the repository</div>
+            <div class="task-summary">Create the git repo with directory structure for the intelligence layer</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/02_principles.md">
+          <div class="task-num">02</div>
+          <div class="task-content">
+            <div class="task-name">Write the principles reference file</div>
+            <div class="task-summary">Codify the six operating principles P1–P6 as reference/principles.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/03_voice_tiering.md">
+          <div class="task-num">03</div>
+          <div class="task-content">
+            <div class="task-name">Write the voice tiering reference file</div>
+            <div class="task-summary">Three-tier framework spec with examples — reference/voice_tiering.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/04_refusal_templates.md">
+          <div class="task-num">04</div>
+          <div class="task-content">
+            <div class="task-name">Write the refusal templates</div>
+            <div class="task-summary">Five out-of-scope categories with clean-decline copy — reference/refusals.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/05_citation_format.md">
+          <div class="task-num">05</div>
+          <div class="task-content">
+            <div class="task-name">Write the citation format spec</div>
+            <div class="task-summary">Standard citation format and source ID structure — reference/citations.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/06_tyndale_glossary.md">
+          <div class="task-num">06</div>
+          <div class="task-content">
+            <div class="task-name">Write the Tyndale glossary</div>
+            <div class="task-summary">Standard terms for codes, payers, statutes used across all prompts — reference/glossary.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/07_discipline_rules.md">
+          <div class="task-num">07</div>
+          <div class="task-content">
+            <div class="task-name">Consolidate all discipline rules</div>
+            <div class="task-summary">Extract every discipline rule from all 22 decisions into reference/discipline_rules.md</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 2 -->
+  <section>
+    <div class="section-marker">Phase 2 · Skill scaffolding</div>
+    <h2 class="section-title">The eight Skills with directory structure</h2>
+    <p class="section-lede">Each Skill is a directory. SKILL.md is the entry point. Reference files at one level deep. For three Skills, a diagnostic index sits at the top.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">2</div>
+        <div class="phase-meta">
+          <div class="phase-title">All 8 Skills authored</div>
+          <div class="phase-summary">8 task files · ~12–16 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/08_skill_bill_error_detection.md">
+          <div class="task-num">08</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Bill Error Detection (with diagnostic index)</div>
+            <div class="task-summary">SKILL.md + 00_diagnostic_index.md + 18 reference files across 4 categories</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/09_skill_document_generation.md">
+          <div class="task-num">09</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Document Generation (21 letter types)</div>
+            <div class="task-summary">SKILL.md + 21 letter-type reference files with templates and examples</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/10_skill_negotiation_strategy.md">
+          <div class="task-num">10</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Negotiation &amp; Strategy (with diagnostic index)</div>
+            <div class="task-summary">SKILL.md + diagnostic index + appeal-path reference files</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/11_skill_charity_care.md">
+          <div class="task-num">11</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Charity Care Eligibility (with diagnostic index)</div>
+            <div class="task-summary">SKILL.md + diagnostic index + IRS 501(r) reference files</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/12_skill_cost_estimation.md">
+          <div class="task-num">12</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Cost Estimation</div>
+            <div class="task-summary">SKILL.md + reference files for FAIR Health, Medicare RVU benchmarking</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/13_skill_coverage_fhir.md">
+          <div class="task-num">13</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Coverage Connection &amp; FHIR</div>
+            <div class="task-summary">SKILL.md + FHIR parsing reference files + edge case playbooks</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/14_skill_find_a_doctor.md">
+          <div class="task-num">14</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Find a Doctor</div>
+            <div class="task-summary">SKILL.md + in-network search + quality data reference files</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/15_skill_plan_a_visit.md">
+          <div class="task-num">15</div>
+          <div class="task-content">
+            <div class="task-name">Skill: Plan a Visit</div>
+            <div class="task-summary">SKILL.md + prior-auth, referral, prep reference files</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 3 -->
+  <section>
+    <div class="section-marker">Phase 3 · Subagent system prompts</div>
+    <h2 class="section-title">Six prompts for Lead Planner and five specialists</h2>
+    <p class="section-lede">Each subagent has a versioned system prompt that references the Phase 1 foundation files and the Phase 2 Skills. Each subagent's allow-list of tools is specified in its prompt.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">3</div>
+        <div class="phase-meta">
+          <div class="phase-title">All 6 subagent prompts authored</div>
+          <div class="phase-summary">6 task files · ~6–8 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/16_subagent_lead_planner.md">
+          <div class="task-num">16</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Lead Planner</div>
+            <div class="task-summary">Sonnet 4.6. Coordinator with effort-scaling rules and case-file plan-to-memory pattern.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/17_subagent_bill_detective.md">
+          <div class="task-num">17</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Bill Detective</div>
+            <div class="task-summary">Sonnet 4.6. Consults Bill Error Detection Skill. Tool allow-list specified.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/18_subagent_math_person.md">
+          <div class="task-num">18</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Math Person</div>
+            <div class="task-summary">Sonnet 4.6. Coverage math + EOB narrative + cost estimation.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/19_subagent_legal_researcher.md">
+          <div class="task-num">19</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Legal Researcher</div>
+            <div class="task-summary">Sonnet 4.6. RAG-heavy. Cite faithfully or omit the claim.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/20_subagent_strategist.md">
+          <div class="task-num">20</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Strategist</div>
+            <div class="task-summary">Opus 4.7. Picks appeal frameworks; sequences steps; writes plans.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/21_subagent_code_validator.md">
+          <div class="task-num">21</div>
+          <div class="task-content">
+            <div class="task-name">Subagent: Code Validator</div>
+            <div class="task-summary">Haiku 4.5. Lean tool list. Returns deterministic validity checks.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 4 -->
+  <section>
+    <div class="section-marker">Phase 4 · Tool descriptions</div>
+    <h2 class="section-title">~22 tool description files</h2>
+    <p class="section-lede">Anthropic's published data: rewriting tool descriptions cut downstream task completion time by 40%. These descriptions matter. Brock authors them with Claude Code's help; the engineers implement the actual tool code.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">4</div>
+        <div class="phase-meta">
+          <div class="phase-title">All tool descriptions written</div>
+          <div class="phase-summary">1 task file · ~3–4 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/22_tool_descriptions.md">
+          <div class="task-num">22</div>
+          <div class="task-content">
+            <div class="task-name">All 22 tool descriptions</div>
+            <div class="task-summary">One markdown file per tool category in tools/descriptions/. What it does, when to use, when NOT to use, args, returns.</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 5 -->
+  <section>
+    <div class="section-marker">Phase 5 · Knowledge collection scaffolding</div>
+    <h2 class="section-title">Schema definitions and ingestion script templates</h2>
+    <p class="section-lede">The actual data ingestion (loading 80K billing codes into Qdrant, running embedding generation) requires engineering. But the schemas, the ingestion script templates, and the test fixtures can be authored ahead of time.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">5</div>
+        <div class="phase-meta">
+          <div class="phase-title">Knowledge collection scaffolding</div>
+          <div class="phase-summary">3 task files · ~3–4 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/23_collection_schemas.md">
+          <div class="task-num">23</div>
+          <div class="task-content">
+            <div class="task-name">Collection metadata schemas</div>
+            <div class="task-summary">JSON schemas for all 4 collections + rerank instructions</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/24_ingestion_templates.md">
+          <div class="task-num">24</div>
+          <div class="task-content">
+            <div class="task-name">Ingestion script templates</div>
+            <div class="task-summary">Python script templates for each collection with source-specific logic stubbed out</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/25_test_fixtures.md">
+          <div class="task-num">25</div>
+          <div class="task-content">
+            <div class="task-name">Test fixtures for collections</div>
+            <div class="task-summary">Small representative samples (~20 rows per collection) for local development testing</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 6 -->
+  <section>
+    <div class="section-marker">Phase 6 · Eval test data</div>
+    <h2 class="section-title">Golden examples + synthetic adversarial generation</h2>
+    <p class="section-lede">The eval suite needs ~400–1,600 golden examples and ~2,000–5,000 synthetic adversarial cases. Brock can author the golden examples directly. Synthetic generation needs Claude Code to write the prompts and orchestrate Opus 4.7 to actually generate the cases.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">6</div>
+        <div class="phase-meta">
+          <div class="phase-title">Eval test data</div>
+          <div class="phase-summary">4 task files · ~6–10 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/26_golden_examples_structure.md">
+          <div class="task-num">26</div>
+          <div class="task-content">
+            <div class="task-name">Golden examples folder structure</div>
+            <div class="task-summary">Directory + JSON schema for golden examples; template files for each Skill and subagent</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/27_golden_examples_authoring.md">
+          <div class="task-num">27</div>
+          <div class="task-content">
+            <div class="task-name">Golden examples authoring (Brock-led)</div>
+            <div class="task-summary">~400 cases authored by Brock; structured prompts for the contracted attorney and billing advocate</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/28_synthetic_generation_prompts.md">
+          <div class="task-num">28</div>
+          <div class="task-content">
+            <div class="task-name">Synthetic adversarial generation prompts</div>
+            <div class="task-summary">Opus 4.7 generation prompts for each failure-mode taxonomy</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/29_synthetic_generation_runner.md">
+          <div class="task-num">29</div>
+          <div class="task-content">
+            <div class="task-name">Synthetic generation runner script</div>
+            <div class="task-summary">Python script that runs the generation prompts and produces the 2,000–5,000 cases</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 7 -->
+  <section>
+    <div class="section-marker">Phase 7 · Documentation</div>
+    <h2 class="section-title">README, contributor guide, BAA tracker</h2>
+    <p class="section-lede">The last set of Brock-buildable work — onboarding documentation for the developers, the BAA checklist (operational, not technical), and the project's README.</p>
+
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-num">7</div>
+        <div class="phase-meta">
+          <div class="phase-title">Documentation set</div>
+          <div class="phase-summary">3 task files · ~3 hours · Brock + Claude Code</div>
+        </div>
+        <div class="phase-tag">Brock</div>
+      </div>
+
+      <div class="task-list">
+        <a class="task" href="tasks/30_readme.md">
+          <div class="task-num">30</div>
+          <div class="task-content">
+            <div class="task-name">Project README</div>
+            <div class="task-summary">High-level overview + architecture diagram + getting-started for Phil, Jonas, Josh</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/31_baa_tracker.md">
+          <div class="task-num">31</div>
+          <div class="task-content">
+            <div class="task-name">BAA tracker document</div>
+            <div class="task-summary">Spreadsheet-ready template for tracking all 12 BAAs with status and renewal dates</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+        <a class="task" href="tasks/32_handoff_brief.md">
+          <div class="task-num">32</div>
+          <div class="task-content">
+            <div class="task-name">Engineering handoff brief</div>
+            <div class="task-summary">What's built vs. what Phil/Jonas/Josh need to build, with decision-rationale references</div>
+          </div>
+          <div class="task-cta">Open task →</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 8 — HANDOFF -->
+  <section>
+    <div class="section-marker">Phase 8 · Hand off to developers</div>
+    <h2 class="section-title">What Phil, Jonas, and Josh actually build</h2>
+    <p class="section-lede">Phase 1–7 produced the scaffolding, the content, the documentation, and the test data. Phase 8 is the engineering work that turns it into a running system. This phase is not in this build kit — it's the developer build spec (Document 2 in the deliverables set).</p>
+
+    <div class="handoff">
+      <h3>The engineering work that requires Phil, Jonas, Josh</h3>
+      <ul class="handoff-list">
+        <li><strong>FastAPI application architecture.</strong> The Python monolith hosting Lead Planner, subagents, hooks, and the tool layer. Production-grade error handling, request lifecycle, dependency injection.</li>
+        <li><strong>Claude Agent SDK integration.</strong> Wiring the subagents, hooks (UserPromptSubmit, PreToolUse, PostToolUse, Stop), and effort-scaling logic.</li>
+        <li><strong>LiteLLM proxy deployment and hardening.</strong> Self-hosted inside Azure VPC. Short-lived keys, rotated weekly. Per-route allow-lists. Audit-log integration. Fail-closed on misconfig.</li>
+        <li><strong>HIPAA-compliant audit log.</strong> Postgres schema with AES-GCM field-level encryption. Azure Key Vault integration. 90-day rotation. Gated access workflow.</li>
+        <li><strong>Qdrant deployment on Azure Container Apps.</strong> Self-hosted inside VPC. Daily snapshots. Performance targets enforced.</li>
+        <li><strong>FHIR OAuth (SMART on FHIR + 1upHealth).</strong> Token management, refresh flow, FHIR resource parsing for Coverage, EOB, Claim.</li>
+        <li><strong>Hook implementations.</strong> Presidio scrubbing, prompt injection detection, citation Layer 2 resolution, approval-token validation.</li>
+        <li><strong>Stripe integration.</strong> Subscription tiers ($11.99/$100 unlimited at V1; Family $29.99 within 90 days; Chronic Care at Stage 3).</li>
+        <li><strong>Postgres schema migrations.</strong> Case files, findings, deadlines, audit log, NCCI/MUE structured tables.</li>
+        <li><strong>Azure infrastructure setup.</strong> Container Apps, VPC, Key Vault, Postgres Flexible Server, Blob, Monitor.</li>
+        <li><strong>BAA contract execution.</strong> Sign Anthropic, Azure, AWS, 1upHealth, Postmark, Voyage, FAIR Health, Stripe, observability vendor BAAs.</li>
+        <li><strong>Pre-V1 Presidio benchmark execution.</strong> Hand-labeled 200–500 medical bills/EOBs corpus; targets per developer spec.</li>
+        <li><strong>Pre-V1 embedding benchmark.</strong> voyage-context-3 vs voyage-3-large on laws_regulations; 100-query legal eval set.</li>
+        <li><strong>Eval platform integration.</strong> Braintrust + Arize Phoenix wiring. Per-PR smoke evals in GitHub Actions. Nightly suite.</li>
+      </ul>
+    </div>
+
+    <div class="callout sage">
+      <div class="callout-eyebrow">What this kit gives the developers</div>
+      <div class="callout-title">Everything except the runtime</div>
+      <div class="callout-text">By the time Phase 7 completes, Phil/Jonas/Josh receive: every Skill written, every subagent system prompt versioned, every tool description authored, every voice and refusal rule codified, every collection schema specified, ~400 expert-labeled golden examples plus ~2,000+ synthetic adversarial cases ready for the eval suite, the BAA tracker populated, and a complete handoff brief explaining what's built and why. Their job is to wire it into a running production system.</div>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>Tyndale · Build Kit · v1.0</div>
+    <div>32 tasks · 7 phases · ~36–48 hours of Brock + Claude Code time</div>
+  </footer>
+
+</div>
+</body>
+</html>
