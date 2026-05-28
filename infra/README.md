@@ -101,18 +101,21 @@ Apps consumption costs (~$0.000024 per vCPU-second beyond free quota).
 ## CI/CD deploys
 
 The dev environment has two GitHub Actions workflows that ship code to the
-already-provisioned infra:
+already-provisioned infra. Both use the same shape: Docker build → GHCR push →
+`az containerapp update`.
 
 - `.github/workflows/deploy-runtime.yml` — builds `runtime/Dockerfile`, pushes
   to GHCR (`ghcr.io/thelittleguyai/tyndale/runtime:<sha>`), and rolls the
-  `tyndale-dev-runtime` Container App to the new image.
-- `.github/workflows/deploy-web-marketing.yml` — builds the Next.js marketing
-  landing at the workspace root (so `@tyndale/shared` resolves) and uploads
-  `.next` to the `tyndale-dev-marketing-swa` Static Web App.
+  `tyndale-dev-runtime` Container App (internal CAE) to the new image.
+- `.github/workflows/deploy-web-marketing.yml` — builds
+  `apps/web-marketing/Dockerfile` from the repo root (so the npm workspace dep
+  `@tyndale/shared` resolves), pushes to GHCR
+  (`ghcr.io/thelittleguyai/tyndale/web-marketing:<sha>`), and rolls the
+  `tyndale-dev-marketing` Container App (external CAE) to the new image.
 
 Both fire on push to `main` for the relevant paths plus manual
-`workflow_dispatch`. No auto-deploy on PR merge from forks (the SWA action
-posts preview URLs for fork PRs but that's the only fork-triggered behavior).
+`workflow_dispatch`. Both run inside the GitHub `dev` environment so OIDC
+subjects + secrets are env-scoped.
 
 ### One-time setup
 
@@ -130,16 +133,15 @@ posts preview URLs for fork PRs but that's the only fork-triggered behavior).
    grants the SP `Contributor` on `tyndale-dev-rg` (RG-scoped, NOT
    subscription-wide), and prints the four GitHub secrets to add.
 
-3. Add the four secrets at the **environment level** (NOT the repo level), at
+3. Add the three secrets at the **environment level** (NOT the repo level), at
    `https://github.com/thelittleguyai/tyndale/settings/environments/dev`:
-   - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (runtime
-     deploy OIDC)
-   - `AZURE_STATIC_WEB_APPS_API_TOKEN` (SWA deploy — the SWA action doesn't
-     support OIDC, so this is a token)
+   - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (both deploy
+     workflows use OIDC end-to-end; no per-service tokens needed).
 
-4. The Container App's `image` attribute is now owned by CI — `lifecycle.
-   ignore_changes` in `compute.tf` prevents subsequent `terraform apply`s
-   from reverting CI's image to the placeholder.
+4. Both Container Apps (`tyndale-dev-runtime`, `tyndale-dev-marketing`) have
+   `lifecycle.ignore_changes = [template[0].container[0].image]` in
+   `compute.tf` — CI owns their image attribute; subsequent
+   `terraform apply`s won't revert to the placeholder.
 
 ### Rollback
 
@@ -149,14 +151,23 @@ posts preview URLs for fork PRs but that's the only fork-triggered behavior).
 - Web-marketing: re-run the workflow against an older commit, or use the SWA
   portal's deployment history.
 
-### Caveat — SWA Next.js hybrid bypassed
+### After the custom domain attaches
 
-The marketing landing's deploy uses `skip_app_build: true`, which bypasses
-SWA's Oryx Next.js hybrid runtime. API routes (incl. `api/auth/[...nextauth]`)
-may 404 in the dev deploy. Phase 1B's NextAuth scaffold has no providers
-configured (no `GOOGLE_CLIENT_ID` env → empty providers array), so this is a
-functional no-op until Phase 2 — revisit the hybrid build path when auth
-actually needs to be live.
+The first `terraform apply` with `enable_marketing_custom_domain = true` binds
+`dev.tyndaleapp.net` to the marketing Container App with
+`certificate_binding_type = "Disabled"` — HTTP only at first. To get HTTPS:
+
+1. In the Azure portal, navigate to `tyndale-dev-marketing` Container App →
+   **Custom domains** → click `dev.tyndaleapp.net` → **Add managed certificate**.
+   Azure provisions a free Let's Encrypt cert (takes a few minutes).
+2. Bind the cert to the custom domain (the portal can do both in one click).
+3. The `lifecycle.ignore_changes` on `azurerm_container_app_custom_domain` in
+   `compute.tf` prevents subsequent `terraform apply`s from reverting the
+   cert binding.
+
+Alternatively, Terraform-manage the cert later via
+`azurerm_container_app_environment_managed_certificate` + updating the
+custom domain resource's `container_app_environment_certificate_id`.
 
 ## Security/HIPAA contact review
 

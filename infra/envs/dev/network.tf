@@ -23,6 +23,24 @@ resource "azurerm_subnet" "container_apps" {
   }
 }
 
+# Subnet for the EXTERNAL Container Apps Environment (marketing landing).
+# Public-facing; must NOT overlap with the internal-only CAE's subnet. Also
+# requires Microsoft.App/environments delegation.
+resource "azurerm_subnet" "container_apps_external" {
+  name                 = "${local.name_prefix}-snet-container-apps-ext"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.50.4.0/23"]
+
+  delegation {
+    name = "Microsoft.App/environments"
+    service_delegation {
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
 # Subnet for Postgres Flexible Server delegation.
 resource "azurerm_subnet" "postgres" {
   name                 = "${local.name_prefix}-snet-postgres"

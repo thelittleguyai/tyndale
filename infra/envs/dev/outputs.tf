@@ -13,13 +13,18 @@ output "dns_zone_id" {
 }
 
 output "marketing_dev_url" {
-  value       = var.enable_swa_custom_domain ? "https://dev.${var.dns_zone_name}" : "https://${azurerm_static_web_app.marketing_dev.default_host_name} (custom domain disabled — set enable_swa_custom_domain = true after DNS propagates)"
-  description = "Dev marketing landing URL. Shows the SWA default hostname until the custom domain is enabled + DNS is live."
+  value       = var.enable_marketing_custom_domain ? "https://dev.${var.dns_zone_name}" : "https://${azurerm_container_app.marketing.ingress[0].fqdn} (custom domain disabled — set enable_marketing_custom_domain = true after DNS propagates)"
+  description = "Dev marketing landing URL. Shows the Container App FQDN until the custom domain is attached."
 }
 
-output "marketing_dev_swa_default_hostname" {
-  value       = azurerm_static_web_app.marketing_dev.default_host_name
-  description = "SWA default hostname before custom domain propagates."
+output "marketing_dev_container_app_fqdn" {
+  value       = azurerm_container_app.marketing.ingress[0].fqdn
+  description = "Marketing Container App's external FQDN."
+}
+
+output "marketing_dev_custom_domain_verification_id" {
+  value       = azurerm_container_app_environment.external.custom_domain_verification_id
+  description = "Verification ID Azure expects in the asuid.dev TXT record (Terraform sets this automatically)."
 }
 
 output "postgres_fqdn" {

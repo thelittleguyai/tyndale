@@ -45,6 +45,20 @@ resource "azurerm_role_assignment" "runtime_kv_secrets_user" {
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
 }
 
+# --- Same pattern for the marketing Container App ----------------------------
+resource "azurerm_user_assigned_identity" "marketing" {
+  name                = "${local.name_prefix}-marketing-identity"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = local.region
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "marketing_kv_secrets_user" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.marketing.principal_id
+}
+
 # --- Key Vault secrets -------------------------------------------------------
 # Naming: SCREAMING-KEBAB matches the env var name with dashes instead of
 # underscores (KV name rules), so the mapping is mechanical.

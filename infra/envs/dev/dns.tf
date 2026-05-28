@@ -1,20 +1,34 @@
 # Public DNS zone for tyndaleapp.net.
-# After first terraform apply, output the nameservers and update the
-# registrar's NS records to point at Azure's nameservers.
+# Registrar (Route 53 Domains) NS records must point at the name_servers
+# attribute of this zone (output: dns_zone_nameservers).
 resource "azurerm_dns_zone" "main" {
   name                = var.dns_zone_name
   resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
 }
 
-# CNAME for dev.tyndaleapp.net → Static Web App default hostname
-# Validation TXT record is created automatically by Azure when the custom
-# domain is attached to the SWA.
+# CNAME for dev.tyndaleapp.net → marketing Container App FQDN.
 resource "azurerm_dns_cname_record" "dev" {
   name                = "dev"
   zone_name           = azurerm_dns_zone.main.name
   resource_group_name = azurerm_resource_group.main.name
   ttl                 = 300
-  record              = azurerm_static_web_app.marketing_dev.default_host_name
+  record              = azurerm_container_app.marketing.ingress[0].fqdn
   tags                = local.tags
+}
+
+# TXT record asuid.dev.tyndaleapp.net = Container App Environment's custom
+# domain verification ID. Azure looks this up when attaching the custom
+# domain to verify domain ownership. Required before the
+# azurerm_container_app_custom_domain resource can succeed.
+resource "azurerm_dns_txt_record" "asuid_dev" {
+  name                = "asuid.dev"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  tags                = local.tags
+
+  record {
+    value = azurerm_container_app_environment.external.custom_domain_verification_id
+  }
 }

@@ -19,6 +19,6 @@ voyage_api_key             = "pa-REPLACE_ME"
 google_oauth_client_id     = "REPLACE_ME.apps.googleusercontent.com"
 google_oauth_client_secret = "GOCSPX-REPLACE_ME"
 
-# Flip to true on a later apply once the registrar's NS records point at
-# Azure's nameservers AND DNS has propagated (see variables.tf).
-# enable_swa_custom_domain = true
+# Flip to true on a follow-up apply, after DNS records propagate publicly
+# (see variables.tf).
+# enable_marketing_custom_domain = true

@@ -28,7 +28,6 @@ fi
 
 APP_NAME="tyndale-github-actions-dev"
 RG="tyndale-dev-rg"
-SWA_NAME="tyndale-dev-marketing-swa"
 
 az account set --subscription "$SUBSCRIPTION_ID"
 TENANT_ID="$(az account show --query tenantId -o tsv)"
@@ -93,14 +92,6 @@ else
   echo "    granted: Contributor on $RG"
 fi
 
-# --- 4. Fetch SWA deployment token ---
-echo "==> SWA deployment token ($SWA_NAME)"
-SWA_TOKEN="$(az staticwebapp secrets list --name "$SWA_NAME" --resource-group "$RG" --query "properties.apiKey" -o tsv)"
-if [ -z "$SWA_TOKEN" ]; then
-  echo "ERROR: could not fetch SWA deployment token. Is $SWA_NAME deployed yet?" >&2
-  exit 1
-fi
-
 cat <<EOF
 
 =========================================================================
@@ -111,19 +102,23 @@ GitHub Actions deploy setup complete.
    (one click: "New environment" → name it "dev" → save; no protection
     rules needed for dev)
 
-2. Add these four secrets at the ENVIRONMENT level (NOT repo level), at:
+2. Add these three secrets at the ENVIRONMENT level (NOT repo level), at:
      https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/environments/dev
 
-   AZURE_CLIENT_ID                  = ${APP_ID}
-   AZURE_TENANT_ID                  = ${TENANT_ID}
-   AZURE_SUBSCRIPTION_ID            = ${SUBSCRIPTION_ID}
-   AZURE_STATIC_WEB_APPS_API_TOKEN  = ${SWA_TOKEN}
+   AZURE_CLIENT_ID         = ${APP_ID}
+   AZURE_TENANT_ID         = ${TENANT_ID}
+   AZURE_SUBSCRIPTION_ID   = ${SUBSCRIPTION_ID}
 
 Auth model:
   - OIDC SP scoped to Contributor on ${RG} only (not subscription-wide).
   - Federated trust matches three GitHub subjects: environment:dev (the one
     the current workflows use), ref:refs/heads/main, and pull_request.
-  - SWA token is per-SWA; rotate with:
-      az staticwebapp secrets reset-api-key --name ${SWA_NAME} --resource-group ${RG}
+  - Both deploy workflows (runtime + web-marketing) now use OIDC end-to-end;
+    no per-service tokens needed. (Earlier versions used an SWA API token
+    for the marketing deploy — no longer applicable since the marketing
+    landing moved off SWA onto a Container App.)
+
+NOTE: If you previously added AZURE_STATIC_WEB_APPS_API_TOKEN at the env
+level, you can delete it — nothing reads it anymore.
 =========================================================================
 EOF

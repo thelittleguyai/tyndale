@@ -62,10 +62,10 @@ variable "google_oauth_client_secret" {
   description = "Google OAuth 2.0 client secret for the marketing landing's NextAuth sign-in."
 }
 
-variable "enable_swa_custom_domain" {
+variable "enable_marketing_custom_domain" {
   type        = bool
   default     = false
-  description = "Attach the dev.tyndaleapp.net custom domain to the Static Web App. Set to true ONLY after the registrar's NS records are pointed at Azure's nameservers AND DNS has propagated; otherwise Azure's CNAME validation fails the apply. Flow: first apply with this false → terraform output dns_zone_nameservers → update registrar → wait for propagation → set to true and re-apply."
+  description = "Attach the dev.tyndaleapp.net custom domain to the marketing Container App. Set to true ONLY after DNS records (CNAME + asuid TXT) have propagated publicly; otherwise Azure's domain validation fails the apply. Flow: first apply with this false → DNS records get created in Azure DNS → wait for public propagation (a few minutes once the registrar NS points at Azure DNS) → set to true and re-apply."
 }
 
 variable "common_tags" {
