@@ -1,6 +1,16 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
-# Provide postgres_admin_password via TF_VAR_postgres_admin_password env var
-# at apply time — do NOT put it here.
+# terraform.tfvars is gitignored so secrets stay off the repo, but the file
+# still sits on your laptop in plaintext — treat it accordingly.
 
-azure_subscription_id = "00000000-0000-0000-0000-000000000000"
-azure_tenant_id       = "00000000-0000-0000-0000-000000000000"
+azure_subscription_id   = "00000000-0000-0000-0000-000000000000"
+azure_tenant_id         = "00000000-0000-0000-0000-000000000000"
+
+# Postgres admin password. Azure requires 8-128 chars with characters from 3
+# of: uppercase, lowercase, numbers, non-alphanumeric; cannot contain the
+# admin username (default "tyndale_admin"). Alternative to writing it here:
+# export TF_VAR_postgres_admin_password='...' before terraform apply.
+postgres_admin_password = "REPLACE_WITH_STRONG_PASSWORD"
+
+# Flip to true on a later apply once the registrar's NS records point at
+# Azure's nameservers AND DNS has propagated (see variables.tf).
+# enable_swa_custom_domain = true

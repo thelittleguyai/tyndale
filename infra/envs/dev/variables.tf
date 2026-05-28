@@ -35,7 +35,7 @@ variable "postgres_admin_username" {
 variable "postgres_admin_password" {
   type        = string
   sensitive   = true
-  description = "Postgres administrator password. Provide via TF_VAR_postgres_admin_password env var, NOT terraform.tfvars."
+  description = "Postgres administrator password. Provide via terraform.tfvars (gitignored) or the TF_VAR_postgres_admin_password env var. Azure requires 8-128 chars with characters from 3 of: uppercase, lowercase, numbers, non-alphanumeric; cannot contain the admin username."
 }
 
 variable "enable_swa_custom_domain" {

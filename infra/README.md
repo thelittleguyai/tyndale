@@ -33,8 +33,10 @@ infra/
 3. Update `infra/envs/dev/backend.tf` with the `storage_account_name` from the
    bootstrap output.
 
-4. Copy `terraform.tfvars.example` to `terraform.tfvars` and fill in the
-   subscription_id + tenant_id. Provide `postgres_admin_password` via env var:
+4. Copy `terraform.tfvars.example` to `terraform.tfvars` (gitignored) and fill
+   in `subscription_id`, `tenant_id`, and `postgres_admin_password`. The
+   password lives in `terraform.tfvars` so you don't have to re-export it
+   every apply; if you'd rather keep it out of any file, alternatively:
    ```
    export TF_VAR_postgres_admin_password='<strong-password>'
    ```
