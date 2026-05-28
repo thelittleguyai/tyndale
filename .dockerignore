@@ -1,0 +1,51 @@
+# Repo-root .dockerignore — applies to every `docker build` whose context is `.`
+# (e.g. apps/web-marketing/Dockerfile, runtime/Dockerfile when built from root).
+#
+# Goal: ship a predictable, slim build context. No host-OS node_modules or
+# build caches sneaking into Linux images.
+
+# Node / npm / Next.js
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/coverage
+**/.cache
+**/*.tsbuildinfo
+
+# Python
+**/__pycache__
+**/.venv
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Terraform
+infra/**/.terraform
+infra/**/.terraform.lock.hcl
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/terraform.tfvars
+
+# Local env / secrets
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+*.log
+.vscode
+.idea
+*.swp
+
+# VCS
+.git
+.gitignore
+.github
+
+# Spec / docs / phase markdown — large, not needed at build time
+docs/tyndale-spec
+Tyndale\ Final

@@ -12,6 +12,16 @@
 FROM node:20-slim AS builder
 WORKDIR /repo
 
+# Disable Next.js telemetry phone-home during build (no network needed).
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build-time placeholder for AUTH_SECRET. Auth.js v5 evaluates NextAuth(config)
+# at module load when route handlers are statically analyzed; in production
+# mode it complains about a missing AUTH_SECRET. The *real* AUTH_SECRET comes
+# from the Container App env at runtime — this value only exists to satisfy
+# the build-time check and is never used to sign anything.
+ENV AUTH_SECRET=build-only-placeholder-replaced-at-runtime-by-container-app-env
+
 # Install workspace deps from root (npm sets up the @tyndale/shared symlink at
 # apps/web-marketing/node_modules/@tyndale/shared → packages/shared/).
 COPY package.json package-lock.json ./
