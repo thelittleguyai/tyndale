@@ -38,10 +38,27 @@ COPY apps/web-marketing apps/web-marketing
 # quirk with optional native deps). Harmless if already installed.
 RUN npm install --no-save --include=optional @next/swc-linux-x64-gnu @next/swc-linux-x64-musl || true
 
+# Pre-build diagnostics — visible in the docker buildx log regardless of
+# whether the build later succeeds or fails. Cheap and chatty.
+WORKDIR /repo/apps/web-marketing
+RUN echo "==== node / npm ====" && node --version && npm --version \
+ && echo "==== @tyndale/shared symlink ====" \
+ && ls -la /repo/apps/web-marketing/node_modules/@tyndale/ 2>&1 || true \
+ && echo "==== shared package.json ====" \
+ && cat /repo/packages/shared/package.json \
+ && echo "==== shared src files ====" \
+ && ls -la /repo/packages/shared/src/ \
+ && echo "==== next.config.mjs ====" \
+ && cat next.config.mjs \
+ && echo "==== marketing package.json ====" \
+ && cat package.json \
+ && echo "==== next info ====" \
+ && (npx --yes next info 2>&1 | head -40 || true)
+
 # Run next build directly so any error from the build script propagates with
 # full stderr (npm --workspace can swallow output from the inner script).
-WORKDIR /repo/apps/web-marketing
-RUN npm run build
+# Force-flush stderr by piping through cat so buildkit captures the full tail.
+RUN sh -c 'npm run build 2>&1; status=$?; echo "--- next build exit status: $status ---"; exit $status'
 WORKDIR /repo
 
 # ---- Stage 2: runtime --------------------------------------------------------
