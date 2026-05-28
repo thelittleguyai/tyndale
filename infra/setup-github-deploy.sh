@@ -52,9 +52,15 @@ else
 fi
 
 # --- 2. Federated OIDC credentials (idempotent — skip if name exists) ---
+# Three subjects covered:
+#   * environment:dev — workflows that declare `environment: dev` (current
+#                       deploy-runtime + deploy-web-marketing workflows)
+#   * ref:refs/heads/main — workflows on main that don't use a GitHub env
+#   * pull_request        — future PR-triggered jobs (e.g. SWA preview deploys)
 echo "==> Federated OIDC credentials"
 existing_creds="$(az ad app federated-credential list --id "$APP_ID" --query '[].name' -o tsv 2>/dev/null || true)"
-for SUB in "repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main" \
+for SUB in "repo:${GITHUB_OWNER}/${GITHUB_REPO}:environment:dev" \
+           "repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main" \
            "repo:${GITHUB_OWNER}/${GITHUB_REPO}:pull_request"; do
   NAME="$(echo "$SUB" | tr ':/' '-')"
   if echo "$existing_creds" | grep -qx "$NAME"; then
@@ -100,16 +106,23 @@ cat <<EOF
 =========================================================================
 GitHub Actions deploy setup complete.
 
-Add these four secrets at:
-  https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/secrets/actions
+1. Create the GitHub environment named "dev" (if it doesn't already exist):
+     https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/environments
+   (one click: "New environment" → name it "dev" → save; no protection
+    rules needed for dev)
 
-  AZURE_CLIENT_ID                  = ${APP_ID}
-  AZURE_TENANT_ID                  = ${TENANT_ID}
-  AZURE_SUBSCRIPTION_ID            = ${SUBSCRIPTION_ID}
-  AZURE_STATIC_WEB_APPS_API_TOKEN  = ${SWA_TOKEN}
+2. Add these four secrets at the ENVIRONMENT level (NOT repo level), at:
+     https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/environments/dev
+
+   AZURE_CLIENT_ID                  = ${APP_ID}
+   AZURE_TENANT_ID                  = ${TENANT_ID}
+   AZURE_SUBSCRIPTION_ID            = ${SUBSCRIPTION_ID}
+   AZURE_STATIC_WEB_APPS_API_TOKEN  = ${SWA_TOKEN}
 
 Auth model:
   - OIDC SP scoped to Contributor on ${RG} only (not subscription-wide).
+  - Federated trust matches three GitHub subjects: environment:dev (the one
+    the current workflows use), ref:refs/heads/main, and pull_request.
   - SWA token is per-SWA; rotate with:
       az staticwebapp secrets reset-api-key --name ${SWA_NAME} --resource-group ${RG}
 =========================================================================

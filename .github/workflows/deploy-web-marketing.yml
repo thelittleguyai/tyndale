@@ -40,6 +40,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: dev   # scopes secrets to the GitHub `dev` environment so the
+                       # AZURE_STATIC_WEB_APPS_API_TOKEN comes from there
     steps:
       - name: Checkout
         uses: actions/checkout@v4

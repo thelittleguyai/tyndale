@@ -116,19 +116,28 @@ posts preview URLs for fork PRs but that's the only fork-triggered behavior).
 
 ### One-time setup
 
-1. Run `./infra/setup-github-deploy.sh <subscription_id>` from the repo root.
-   It creates an Azure AD app, federated OIDC credentials for the GitHub repo,
-   grants the SP `Contributor` on `tyndale-dev-rg` (RG-scoped, NOT subscription-
-   wide), and prints the four GitHub secrets to add.
+1. **Create a `dev` GitHub environment** at
+   `https://github.com/thelittleguyai/tyndale/settings/environments`
+   (one click: "New environment" → "dev" → save; no protection rules needed).
+   The workflows declare `environment: dev` so their secrets come from this
+   environment, not the repo-level secret store. When staging/production
+   land later, each gets its own environment + secrets without name
+   collisions.
 
-2. Add the four secrets at
-   `https://github.com/thelittleguyai/tyndale/settings/secrets/actions`:
+2. Run `./infra/setup-github-deploy.sh <subscription_id>` from the repo root.
+   It creates an Azure AD app, federated OIDC credentials trusting three
+   GitHub subjects (`environment:dev`, `ref:refs/heads/main`, `pull_request`),
+   grants the SP `Contributor` on `tyndale-dev-rg` (RG-scoped, NOT
+   subscription-wide), and prints the four GitHub secrets to add.
+
+3. Add the four secrets at the **environment level** (NOT the repo level), at
+   `https://github.com/thelittleguyai/tyndale/settings/environments/dev`:
    - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (runtime
      deploy OIDC)
    - `AZURE_STATIC_WEB_APPS_API_TOKEN` (SWA deploy — the SWA action doesn't
      support OIDC, so this is a token)
 
-3. The Container App's `image` attribute is now owned by CI — `lifecycle.
+4. The Container App's `image` attribute is now owned by CI — `lifecycle.
    ignore_changes` in `compute.tf` prevents subsequent `terraform apply`s
    from reverting CI's image to the placeholder.
 

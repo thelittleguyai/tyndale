@@ -41,6 +41,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: dev   # scopes secrets to the GitHub `dev` environment and makes
+                       # the OIDC subject claim repo:OWNER/REPO:environment:dev
     steps:
       - name: Checkout
         uses: actions/checkout@v4
