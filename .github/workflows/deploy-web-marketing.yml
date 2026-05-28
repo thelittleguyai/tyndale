@@ -1,0 +1,68 @@
+name: deploy-web-marketing
+
+# Builds the Next.js marketing landing at workspace root (so npm workspace deps
+# like @tyndale/shared resolve), then deploys the .next output to the dev SWA.
+#
+# Triggers:
+#   - push to main touching apps/web-marketing/** or packages/shared/** or this workflow
+#   - manual workflow_dispatch
+#
+# Auth:
+#   - SWA deployment token via secrets.AZURE_STATIC_WEB_APPS_API_TOKEN
+#     (fetched by infra/setup-github-deploy.sh; rotate with
+#      `az staticwebapp secrets reset-api-key`)
+#
+# Caveat (V1-Lite): we run the build ourselves and pass skip_app_build:true to the
+# SWA action, which means SWA's Oryx Next.js hybrid runtime is bypassed and the
+# deployment is treated as a static-ish upload. The api/auth/[...nextauth] route
+# may 404 in this dev deploy. Phase 1B's NextAuth scaffold has no providers
+# configured (no GOOGLE_CLIENT_ID env → empty providers array), so the 404 is
+# functionally a no-op until Phase 2 wires real auth — revisit the hybrid build
+# path then.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web-marketing/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-web-marketing.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-marketing
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write  # SWA action reserves this for PR preview comments (unused here)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install workspace deps
+        run: npm ci
+
+      - name: Build web-marketing
+        run: npm --workspace=apps/web-marketing run build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'apps/web-marketing'
+          output_location: '.next'
+          skip_app_build: true
+          skip_api_build: true

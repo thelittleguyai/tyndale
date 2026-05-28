@@ -1,0 +1,91 @@
+name: deploy-runtime
+
+# Builds the FastAPI runtime image from runtime/Dockerfile, pushes it to GHCR,
+# then rolls the dev Container App to the new SHA-tagged image.
+#
+# Triggers:
+#   - push to main touching runtime/** or packages/shared/** or this workflow
+#   - manual workflow_dispatch (always allowed on main)
+#
+# Auth:
+#   - GHCR push: built-in GITHUB_TOKEN with packages:write
+#   - Azure: OIDC federation via secrets.AZURE_CLIENT_ID / TENANT_ID / SUBSCRIPTION_ID
+#     (created by infra/setup-github-deploy.sh)
+#
+# Rollback: `az containerapp update --image ghcr.io/.../runtime:<previous-sha>`
+# or via the Azure portal's revision list.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-runtime.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-runtime
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write  # GHCR push
+  id-token: write  # Azure OIDC
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/runtime
+  CONTAINER_APP: tyndale-dev-runtime
+  RESOURCE_GROUP: tyndale-dev-rg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./runtime
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:dev-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --output none
+          echo "Updated $CONTAINER_APP -> $IMAGE:${{ github.sha }}"
+
+      - name: Show recent revisions
+        run: |
+          az containerapp revision list \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "sort_by([], &properties.createdTime)[-3:].{name:name, active:properties.active, replicas:properties.replicas, image:properties.template.containers[0].image, created:properties.createdTime}" \
+            -o table

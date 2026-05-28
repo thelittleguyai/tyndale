@@ -98,6 +98,57 @@ Apps consumption costs (~$0.000024 per vCPU-second beyond free quota).
 - Phil has Contributor or Owner role on the subscription
 - `state-backend-bootstrap.sh` has run successfully
 
+## CI/CD deploys
+
+The dev environment has two GitHub Actions workflows that ship code to the
+already-provisioned infra:
+
+- `.github/workflows/deploy-runtime.yml` — builds `runtime/Dockerfile`, pushes
+  to GHCR (`ghcr.io/thelittleguyai/tyndale/runtime:<sha>`), and rolls the
+  `tyndale-dev-runtime` Container App to the new image.
+- `.github/workflows/deploy-web-marketing.yml` — builds the Next.js marketing
+  landing at the workspace root (so `@tyndale/shared` resolves) and uploads
+  `.next` to the `tyndale-dev-marketing-swa` Static Web App.
+
+Both fire on push to `main` for the relevant paths plus manual
+`workflow_dispatch`. No auto-deploy on PR merge from forks (the SWA action
+posts preview URLs for fork PRs but that's the only fork-triggered behavior).
+
+### One-time setup
+
+1. Run `./infra/setup-github-deploy.sh <subscription_id>` from the repo root.
+   It creates an Azure AD app, federated OIDC credentials for the GitHub repo,
+   grants the SP `Contributor` on `tyndale-dev-rg` (RG-scoped, NOT subscription-
+   wide), and prints the four GitHub secrets to add.
+
+2. Add the four secrets at
+   `https://github.com/thelittleguyai/tyndale/settings/secrets/actions`:
+   - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (runtime
+     deploy OIDC)
+   - `AZURE_STATIC_WEB_APPS_API_TOKEN` (SWA deploy — the SWA action doesn't
+     support OIDC, so this is a token)
+
+3. The Container App's `image` attribute is now owned by CI — `lifecycle.
+   ignore_changes` in `compute.tf` prevents subsequent `terraform apply`s
+   from reverting CI's image to the placeholder.
+
+### Rollback
+
+- Runtime: `az containerapp update --name tyndale-dev-runtime --resource-group
+  tyndale-dev-rg --image ghcr.io/thelittleguyai/tyndale/runtime:<previous-sha>`
+  (or use the Azure portal's revision list to traffic-shift to an older revision).
+- Web-marketing: re-run the workflow against an older commit, or use the SWA
+  portal's deployment history.
+
+### Caveat — SWA Next.js hybrid bypassed
+
+The marketing landing's deploy uses `skip_app_build: true`, which bypasses
+SWA's Oryx Next.js hybrid runtime. API routes (incl. `api/auth/[...nextauth]`)
+may 404 in the dev deploy. Phase 1B's NextAuth scaffold has no providers
+configured (no `GOOGLE_CLIENT_ID` env → empty providers array), so this is a
+functional no-op until Phase 2 — revisit the hybrid build path when auth
+actually needs to be live.
+
 ## Security/HIPAA contact review
 
 The VPC config, Key Vault access controls, LiteLLM proxy hardening, and

@@ -25,7 +25,7 @@ resource "azurerm_container_app" "runtime" {
 
     container {
       name   = "runtime"
-      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder until Phil pushes the real image
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; CI rolls this to ghcr.io/.../runtime:<sha>
       cpu    = 0.5
       memory = "1Gi"
 
@@ -50,6 +50,13 @@ resource "azurerm_container_app" "runtime" {
       latest_revision = true
       percentage      = 100
     }
+  }
+
+  # The image is rolled by .github/workflows/deploy-runtime.yml on each push to main.
+  # Ignoring it here prevents subsequent `terraform apply`s from reverting to the
+  # placeholder above; the runtime image is owned by CI from now on.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
   }
 }
 
