@@ -32,7 +32,17 @@ RUN npm ci
 # Copy source and build the marketing app (hybrid Next.js — SSR + API routes).
 COPY packages/shared packages/shared
 COPY apps/web-marketing apps/web-marketing
-RUN npm --workspace=apps/web-marketing run build
+
+# Belt-and-suspenders: ensure the Linux SWC binary is present even if the
+# lockfile was generated on a non-Linux host and missed it (a known npm
+# quirk with optional native deps). Harmless if already installed.
+RUN npm install --no-save --include=optional @next/swc-linux-x64-gnu @next/swc-linux-x64-musl || true
+
+# Run next build directly so any error from the build script propagates with
+# full stderr (npm --workspace can swallow output from the inner script).
+WORKDIR /repo/apps/web-marketing
+RUN npm run build
+WORKDIR /repo
 
 # ---- Stage 2: runtime --------------------------------------------------------
 FROM node:20-slim AS runner
