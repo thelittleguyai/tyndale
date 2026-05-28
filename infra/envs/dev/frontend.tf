@@ -11,13 +11,19 @@ resource "azurerm_static_web_app" "marketing_dev" {
   # App settings consumed by Next.js / NextAuth at runtime. SWA Free tier
   # doesn't support KV-reference app settings (Standard tier only), so values
   # are passed in directly; Terraform marks them sensitive in tfstate.
-  # NEXTAUTH_URL switches between the SWA default hostname and the custom
-  # domain depending on var.enable_swa_custom_domain so callbacks stay valid.
+  #
+  # NEXTAUTH_URL is intentionally NOT set here: Auth.js v5 (the version in
+  # apps/web-marketing/src/lib/auth.ts) auto-detects the URL from the inbound
+  # request headers, so for V1-Lite the SWA default hostname and the future
+  # dev.tyndaleapp.net both work without explicit config. If a later phase
+  # needs NEXTAUTH_URL pinned (e.g. for external OAuth callback URLs), add it
+  # via a null_resource + `az staticwebapp appsettings set` after the SWA
+  # exists — an inline reference to default_host_name here triggers a
+  # self-referential-block error.
   app_settings = {
     GOOGLE_CLIENT_ID     = var.google_oauth_client_id
     GOOGLE_CLIENT_SECRET = var.google_oauth_client_secret
     AUTH_SECRET          = random_password.nextauth_secret.result
-    NEXTAUTH_URL         = var.enable_swa_custom_domain ? "https://dev.${var.dns_zone_name}" : "https://${azurerm_static_web_app.marketing_dev.default_host_name}"
   }
 }
 
