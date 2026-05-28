@@ -1,0 +1,4 @@
+# Synthetic adversarial case generator — runtime deps for run_synthetic_generation.py
+# (Imported lazily, so --help / --dry-run / --list work without these installed.)
+anthropic>=0.40.0
+jsonschema>=4.0.0

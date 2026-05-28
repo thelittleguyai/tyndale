@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Golden Eval Example",
+  "type": "object",
+  "required": ["id", "category", "input", "expected_output_traits", "author", "authored_date"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^gold_[a-z0-9_]{4,}$",
+      "description": "Unique identifier, e.g., 'gold_bundling_001'"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "bill_error_detection",
+        "document_generation",
+        "negotiation_strategy",
+        "charity_care_eligibility",
+        "cost_estimation",
+        "coverage_connection_fhir",
+        "find_a_doctor",
+        "plan_a_visit",
+        "lead_planner",
+        "bill_detective",
+        "math_person",
+        "legal_researcher",
+        "strategist",
+        "code_validator",
+        "tier_a_factual",
+        "tier_b_legal",
+        "tier_c_strategic",
+        "refusal_correctness",
+        "confident_voice_rubric"
+      ]
+    },
+    "subcategory": {
+      "type": "string",
+      "description": "Optional subcategory (e.g., 'bundling' under bill_error_detection)"
+    },
+    "input": {
+      "type": "object",
+      "required": ["user_message"],
+      "properties": {
+        "user_message": {
+          "type": "string",
+          "description": "What the user types/says"
+        },
+        "attached_documents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File paths to attached bills/EOBs/etc."
+        },
+        "case_file_state": {
+          "type": "object",
+          "description": "Optional pre-existing case file state"
+        },
+        "user_profile": {
+          "type": "object",
+          "description": "User context (plan, demographics, state)"
+        }
+      }
+    },
+    "expected_output_traits": {
+      "type": "object",
+      "description": "What the correct output looks like",
+      "properties": {
+        "should_contain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific phrases or claims that must appear"
+        },
+        "should_not_contain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Phrases or behaviors that must not appear (e.g., 'definitely', outcome predictions)"
+        },
+        "required_citations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Authorities that must be cited"
+        },
+        "voice_tier_compliance": {
+          "type": "object",
+          "description": "Per-tier requirements"
+        },
+        "anticipated_next_steps_required": {
+          "type": "boolean",
+          "description": "Whether output must include P2 surfacing"
+        },
+        "factual_assertions": {
+          "type": "array",
+          "items": { "type": "object" },
+          "description": "Specific factual claims that must be correct (e.g., 'member responsibility = $560')"
+        }
+      }
+    },
+    "expert_reasoning": {
+      "type": "string",
+      "description": "Why this is the correct answer; the reasoning trail that justifies the expected output"
+    },
+    "author": {
+      "type": "string",
+      "enum": ["brock", "contracted_attorney", "billing_advocate", "synthetic_opus47"]
+    },
+    "authored_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "reviewed_by": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard", "adversarial"]
+    },
+    "notes": {
+      "type": "string",
+      "description": "Author notes about edge cases, etc."
+    }
+  }
+}

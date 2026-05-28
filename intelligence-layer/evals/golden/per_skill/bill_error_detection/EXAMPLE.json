@@ -1,0 +1,39 @@
+{
+  "id": "gold_bundling_example_001",
+  "category": "bill_error_detection",
+  "subcategory": "bundling",
+  "input": {
+    "user_message": "My doctor billed for both a wound repair and a separate excision on the same visit. Is that right?",
+    "attached_documents": ["test_data/bills/bundling_example.pdf"],
+    "case_file_state": {},
+    "user_profile": { "plan_type": "commercial", "state": "UT" }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "appears to violate",
+      "NCCI",
+      "CPT 12031",
+      "CPT 11402"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "your appeal will succeed",
+      "may possibly"
+    ],
+    "required_citations": ["NCCI PTP edit"],
+    "voice_tier_compliance": {
+      "tier_a_assertions": "must include billed codes",
+      "tier_b_legal": "must cite NCCI",
+      "tier_c_recommendation": "must propose next step"
+    },
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      { "claim": "CPT 12031 and CPT 11402 are bundled per NCCI", "must_be_true": true }
+    ]
+  },
+  "expert_reasoning": "The user describes a classic NCCI PTP edit scenario. CPT 12031 (intermediate wound repair) and CPT 11402 (excision benign lesion 1.1-2.0cm) are bundled — the excision is included in the repair on the same site. The correct output identifies the bundling, cites NCCI, and proposes a re-adjudication request.",
+  "author": "brock",
+  "authored_date": "2026-05-19",
+  "difficulty": "medium",
+  "notes": "Could also flag modifier 59 if used inappropriately to unbundle — but that's a separate eval."
+}
