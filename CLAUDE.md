@@ -145,3 +145,5 @@ This directive is permanent. It supersedes any per-prompt UI guidance that contr
 
 Phase 0 closure complete: monorepo skeleton, root configs, docs scaffold, integration
 contracts published, source spec imported.
+
+Operational: BAA tracker at intelligence-layer/operational/baa_tracker.md.

@@ -1,0 +1,4 @@
+# Executed BAAs contain confidential vendor contract terms — never commit them.
+# baa_tracker.md references their existence; the signed PDFs stay off-repo
+# (Brock's secure vault) and in this gitignored directory only.
+baa_documents/
