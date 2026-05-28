@@ -27,7 +27,7 @@ infra/
 2. Bootstrap the state backend (creates the `tyndale-tfstate-rg` resource
    group and the state container):
    ```
-   ./infra/state-backend-bootstrap.sh <subscription_id> eastus2
+   ./infra/state-backend-bootstrap.sh <subscription_id> centralus
    ```
 
 3. Update `infra/envs/dev/backend.tf` with the `storage_account_name` from the

@@ -3,7 +3,7 @@
 resource "azurerm_static_web_app" "marketing_dev" {
   name                = "${local.name_prefix}-marketing-swa"
   resource_group_name = azurerm_resource_group.main.name
-  location            = "eastus2" # SWA Free tier locations are limited; eastus2 supported
+  location            = "centralus" # SWA Free tier locations are limited; centralus supported
   sku_tier            = "Free"
   sku_size            = "Free"
   tags                = local.tags

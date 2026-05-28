@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SUBSCRIPTION_ID="${1:-}"
-LOCATION="${2:-eastus2}"
+LOCATION="${2:-centralus}"
 
 if [ -z "$SUBSCRIPTION_ID" ]; then
   echo "Usage: $0 <subscription_id> [location]"

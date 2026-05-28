@@ -16,7 +16,7 @@ variable "environment" {
 
 variable "location" {
   type        = string
-  default     = "eastus2"
+  default     = "centralus"
   description = "Azure region."
 }
 
