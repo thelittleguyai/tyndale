@@ -7,7 +7,7 @@ terraform {
     # Alternatively, supply at init time:
     #   terraform init -backend-config="storage_account_name=tyndaletfstateXXXXXX"
     resource_group_name  = "tyndale-tfstate-rg"
-    storage_account_name = "tyndaletfstate______" # placeholder; Phil fills after bootstrap
+    storage_account_name = "tyndaletfstatecc83a5" # deterministic suffix from sub 0ef28be6-…f941d; verify this matches the bootstrap script's output
     container_name       = "tfstate"
     key                  = "dev.tfstate"
   }

@@ -60,14 +60,14 @@ resource "azurerm_storage_account" "main" {
 # Container for Qdrant snapshots (daily snapshot target per developer spec D9)
 resource "azurerm_storage_container" "qdrant_snapshots" {
   name                  = "qdrant-snapshots"
-  storage_account_name  = azurerm_storage_account.main.name
+  storage_account_id    = azurerm_storage_account.main.id # renamed from storage_account_name in azurerm 4.x
   container_access_type = "private"
 }
 
 # Container for uploaded user documents
 resource "azurerm_storage_container" "uploads" {
   name                  = "uploads"
-  storage_account_name  = azurerm_storage_account.main.name
+  storage_account_id    = azurerm_storage_account.main.id # renamed from storage_account_name in azurerm 4.x
   container_access_type = "private"
 }
 
@@ -89,10 +89,14 @@ resource "azurerm_key_vault" "main" {
 
   rbac_authorization_enabled = true # Use RBAC, not access policies (renamed from enable_rbac_authorization in azurerm 4.x)
 
+  # Dev env: default_action = "Allow" because the container_apps subnet is delegated
+  # to Microsoft.App/environments, which precludes Microsoft.KeyVault service endpoints
+  # on the same subnet. RBAC (rbac_authorization_enabled = true above) still enforces
+  # auth on every secret-plane call. Production should switch to a private endpoint
+  # + default_action = "Deny" model.
   network_acls {
-    default_action             = "Deny"
-    bypass                     = "AzureServices"
-    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
+    default_action = "Allow"
+    bypass         = "AzureServices"
   }
 
   tags = local.tags

@@ -13,8 +13,8 @@ output "dns_zone_id" {
 }
 
 output "marketing_dev_url" {
-  value       = "https://dev.${var.dns_zone_name}"
-  description = "Dev marketing landing URL (after DNS propagation)."
+  value       = var.enable_swa_custom_domain ? "https://dev.${var.dns_zone_name}" : "https://${azurerm_static_web_app.marketing_dev.default_host_name} (custom domain disabled — set enable_swa_custom_domain = true after DNS propagates)"
+  description = "Dev marketing landing URL. Shows the SWA default hostname until the custom domain is enabled + DNS is live."
 }
 
 output "marketing_dev_swa_default_hostname" {

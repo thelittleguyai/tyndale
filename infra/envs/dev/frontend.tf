@@ -10,8 +10,13 @@ resource "azurerm_static_web_app" "marketing_dev" {
 }
 
 # Attach custom domain dev.tyndaleapp.net to the SWA.
-# This requires the CNAME record (dns.tf) to be created first; depends_on enforces order.
+# Gated behind var.enable_swa_custom_domain (default false) because Azure validates
+# the CNAME via public DNS, which requires the registrar's NS records to be pointed
+# at Azure's nameservers AND for DNS to have propagated. The first apply will create
+# the DNS zone + CNAME record but leave this resource off; flip the variable to true
+# on a later apply once DNS is live. See variables.tf for the full flow.
 resource "azurerm_static_web_app_custom_domain" "dev" {
+  count             = var.enable_swa_custom_domain ? 1 : 0
   static_web_app_id = azurerm_static_web_app.marketing_dev.id
   domain_name       = "dev.${var.dns_zone_name}"
   validation_type   = "cname-delegation"

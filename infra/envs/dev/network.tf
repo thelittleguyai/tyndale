@@ -6,12 +6,21 @@ resource "azurerm_virtual_network" "main" {
   tags                = local.tags
 }
 
-# Subnet for Container Apps Environment. Container Apps requires a /23 minimum.
+# Subnet for Container Apps Environment. Container Apps requires a /23 minimum
+# AND must be delegated to Microsoft.App/environments.
 resource "azurerm_subnet" "container_apps" {
   name                 = "${local.name_prefix}-snet-container-apps"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.50.0.0/23"]
+
+  delegation {
+    name = "Microsoft.App/environments"
+    service_delegation {
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
 }
 
 # Subnet for Postgres Flexible Server delegation.

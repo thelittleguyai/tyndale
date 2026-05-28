@@ -38,6 +38,12 @@ variable "postgres_admin_password" {
   description = "Postgres administrator password. Provide via TF_VAR_postgres_admin_password env var, NOT terraform.tfvars."
 }
 
+variable "enable_swa_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Attach the dev.tyndaleapp.net custom domain to the Static Web App. Set to true ONLY after the registrar's NS records are pointed at Azure's nameservers AND DNS has propagated; otherwise Azure's CNAME validation fails the apply. Flow: first apply with this false → terraform output dns_zone_nameservers → update registrar → wait for propagation → set to true and re-apply."
+}
+
 variable "common_tags" {
   type = map(string)
   default = {
