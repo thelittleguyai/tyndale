@@ -30,3 +30,13 @@ __pycache__
 .terraform
 *.tfstate*
 .terragrunt-cache
+
+# Terraform local state and overrides (infra/)
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/.terraform/
+infra/**/.terraform.lock.hcl
+infra/**/terraform.tfvars
+infra/**/*_override.tf
+infra/**/override.tf
+infra/**/crash.log

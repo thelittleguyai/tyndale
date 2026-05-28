@@ -1,0 +1,106 @@
+# Postgres Flexible — Burstable B1ms (cheapest production-shape tier)
+resource "azurerm_postgresql_flexible_server" "main" {
+  name                   = "${local.name_prefix}-postgres-flex-${random_string.suffix.result}"
+  resource_group_name    = azurerm_resource_group.main.name
+  location               = local.region
+  version                = "16"
+  sku_name               = "B_Standard_B1ms"
+  storage_mb             = 32768
+  storage_tier           = "P4"
+  administrator_login    = var.postgres_admin_username
+  administrator_password = var.postgres_admin_password
+
+  backup_retention_days        = 7
+  geo_redundant_backup_enabled = false # dev: no geo-redundant backups
+  zone                         = "1"
+
+  delegated_subnet_id = azurerm_subnet.postgres.id
+  private_dns_zone_id = azurerm_private_dns_zone.postgres.id
+
+  public_network_access_enabled = false # dev: no public access
+
+  tags = local.tags
+
+  depends_on = [
+    azurerm_private_dns_zone_virtual_network_link.postgres
+  ]
+}
+
+resource "azurerm_postgresql_flexible_server_database" "tyndale" {
+  name      = "tyndale"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  collation = "en_US.utf8"
+  charset   = "UTF8"
+}
+
+# Storage Account — Standard LRS Hot for cheap dev
+resource "azurerm_storage_account" "main" {
+  name                     = "tyndale${local.env}${random_string.suffix.result}"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = local.region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  account_kind             = "StorageV2"
+  access_tier              = "Hot"
+  min_tls_version          = "TLS1_2"
+
+  allow_nested_items_to_be_public = false
+  shared_access_key_enabled       = true # dev: simpler; production should use Entra ID
+
+  blob_properties {
+    versioning_enabled = true
+    delete_retention_policy {
+      days = 7
+    }
+  }
+
+  tags = local.tags
+}
+
+# Container for Qdrant snapshots (daily snapshot target per developer spec D9)
+resource "azurerm_storage_container" "qdrant_snapshots" {
+  name                  = "qdrant-snapshots"
+  storage_account_name  = azurerm_storage_account.main.name
+  container_access_type = "private"
+}
+
+# Container for uploaded user documents
+resource "azurerm_storage_container" "uploads" {
+  name                  = "uploads"
+  storage_account_name  = azurerm_storage_account.main.name
+  container_access_type = "private"
+}
+
+# Key Vault — Standard tier
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_key_vault" "main" {
+  name                = "${local.name_prefix}-kv-${random_string.suffix.result}"
+  location            = local.region
+  resource_group_name = azurerm_resource_group.main.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
+
+  enabled_for_disk_encryption     = false
+  enabled_for_deployment          = false
+  enabled_for_template_deployment = false
+  purge_protection_enabled        = false # dev: skip purge protection for cheap cleanup
+  soft_delete_retention_days      = 7
+
+  rbac_authorization_enabled = true # Use RBAC, not access policies (renamed from enable_rbac_authorization in azurerm 4.x)
+
+  network_acls {
+    default_action             = "Deny"
+    bypass                     = "AzureServices"
+    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
+  }
+
+  tags = local.tags
+}
+
+# Grant the deploying identity Key Vault Administrator for setup
+resource "azurerm_role_assignment" "kv_admin_deployer" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
