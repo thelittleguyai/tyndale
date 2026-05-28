@@ -7,6 +7,18 @@ resource "azurerm_static_web_app" "marketing_dev" {
   sku_tier            = "Free"
   sku_size            = "Free"
   tags                = local.tags
+
+  # App settings consumed by Next.js / NextAuth at runtime. SWA Free tier
+  # doesn't support KV-reference app settings (Standard tier only), so values
+  # are passed in directly; Terraform marks them sensitive in tfstate.
+  # NEXTAUTH_URL switches between the SWA default hostname and the custom
+  # domain depending on var.enable_swa_custom_domain so callbacks stay valid.
+  app_settings = {
+    GOOGLE_CLIENT_ID     = var.google_oauth_client_id
+    GOOGLE_CLIENT_SECRET = var.google_oauth_client_secret
+    AUTH_SECRET          = random_password.nextauth_secret.result
+    NEXTAUTH_URL         = var.enable_swa_custom_domain ? "https://dev.${var.dns_zone_name}" : "https://${azurerm_static_web_app.marketing_dev.default_host_name}"
+  }
 }
 
 # Attach custom domain dev.tyndaleapp.net to the SWA.

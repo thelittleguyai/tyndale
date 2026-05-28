@@ -11,6 +11,14 @@ azure_tenant_id         = "00000000-0000-0000-0000-000000000000"
 # export TF_VAR_postgres_admin_password='...' before terraform apply.
 postgres_admin_password = "REPLACE_WITH_STRONG_PASSWORD"
 
+# --- Application secrets ----------------------------------------------------
+# Stored in Key Vault on apply; consumed by the runtime Container App (env
+# vars via KV references) and the marketing SWA (app settings).
+anthropic_api_key          = "sk-ant-REPLACE_ME"
+voyage_api_key             = "pa-REPLACE_ME"
+google_oauth_client_id     = "REPLACE_ME.apps.googleusercontent.com"
+google_oauth_client_secret = "GOCSPX-REPLACE_ME"
+
 # Flip to true on a later apply once the registrar's NS records point at
 # Azure's nameservers AND DNS has propagated (see variables.tf).
 # enable_swa_custom_domain = true

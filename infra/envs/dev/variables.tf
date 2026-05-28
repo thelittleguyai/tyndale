@@ -38,6 +38,30 @@ variable "postgres_admin_password" {
   description = "Postgres administrator password. Provide via terraform.tfvars (gitignored) or the TF_VAR_postgres_admin_password env var. Azure requires 8-128 chars with characters from 3 of: uppercase, lowercase, numbers, non-alphanumeric; cannot contain the admin username."
 }
 
+variable "anthropic_api_key" {
+  type        = string
+  sensitive   = true
+  description = "Anthropic API key for the runtime (Claude calls)."
+}
+
+variable "voyage_api_key" {
+  type        = string
+  sensitive   = true
+  description = "Voyage AI API key for embeddings + reranking (knowledge layer)."
+}
+
+variable "google_oauth_client_id" {
+  type        = string
+  sensitive   = true
+  description = "Google OAuth 2.0 client ID for the marketing landing's NextAuth sign-in. Not strictly secret (exposed to the browser) but treated as sensitive in tfstate."
+}
+
+variable "google_oauth_client_secret" {
+  type        = string
+  sensitive   = true
+  description = "Google OAuth 2.0 client secret for the marketing landing's NextAuth sign-in."
+}
+
 variable "enable_swa_custom_domain" {
   type        = bool
   default     = false
