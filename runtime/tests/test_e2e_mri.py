@@ -34,6 +34,18 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.fixture
+def force_fixture_path(monkeypatch):
+    """Force the orchestrator to take the fixture short-circuit regardless
+    of whatever is in the developer's .env.local. Tests that assert against
+    fixture values should depend on this."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "use_real_claude", False)
+    yield
+
+
 # ---------- Tier 1 — upload route ----------------------------------------------
 
 
@@ -92,8 +104,11 @@ async def test_upload_two_uploads_create_distinct_cases(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_audit_fixture_returns_three_numbers(client: AsyncClient) -> None:
-    """With USE_REAL_CLAUDE off (default), audit returns the MRI fixture."""
+async def test_audit_fixture_returns_three_numbers(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    """With USE_REAL_CLAUDE off (forced via fixture), audit returns the MRI
+    canned response. Doesn't depend on what's in .env.local."""
     # Upload first to get a real case_file_id
     files = {"file": ("bill.txt", b"sample bill", "text/plain")}
     up = await client.post("/v1/upload", files=files)
@@ -130,7 +145,9 @@ async def test_audit_rejects_non_uuid(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_audit_get_idempotent(client: AsyncClient) -> None:
+async def test_audit_get_idempotent(
+    client: AsyncClient, force_fixture_path
+) -> None:
     """GET /v1/audit/{id} returns the persisted state (used by the mobile poll)."""
     files = {"file": ("bill.txt", b"sample", "text/plain")}
     up = await client.post("/v1/upload", files=files)

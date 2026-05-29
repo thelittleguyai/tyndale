@@ -28,6 +28,20 @@ from app.stubs.fixtures import mri_audit_fixture
 log = structlog.get_logger(__name__)
 
 
+def _has_real_anthropic_creds(settings) -> bool:
+    """Real key must look like sk-ant-... — placeholder strings ('<from
+    terraform output>', empty, unset) fall back to fixture instead of
+    hitting Anthropic with an invalid key."""
+    key = (settings.anthropic_api_key or "").strip()
+    if not key:
+        return False
+    if key.startswith("<"):
+        return False  # literal placeholder
+    if not key.startswith("sk-"):
+        return False  # not Anthropic-shaped
+    return True
+
+
 async def run_audit(case_file_id: str) -> AuditResult:
     settings = get_settings()
 
@@ -35,16 +49,16 @@ async def run_audit(case_file_id: str) -> AuditResult:
     if not settings.use_real_claude:
         log.info("orchestrator.fixture_fallback", reason="USE_REAL_CLAUDE=false", case_file_id=case_file_id)
         return mri_audit_fixture(case_file_id)
-    if not settings.anthropic_api_key and not settings.litellm_proxy_url:
+    if not _has_real_anthropic_creds(settings) and not settings.litellm_proxy_url:
         if settings.allow_fixture_fallback:
             log.warning(
                 "orchestrator.fixture_fallback",
-                reason="no ANTHROPIC_API_KEY and no LITELLM_PROXY_URL; allow_fixture_fallback=true",
+                reason="ANTHROPIC_API_KEY missing/placeholder and no LITELLM_PROXY_URL; allow_fixture_fallback=true",
                 case_file_id=case_file_id,
             )
             return mri_audit_fixture(case_file_id)
         raise RuntimeError(
-            "USE_REAL_CLAUDE=true but no ANTHROPIC_API_KEY / LITELLM_PROXY_URL and "
+            "USE_REAL_CLAUDE=true but no real ANTHROPIC_API_KEY / LITELLM_PROXY_URL and "
             "ALLOW_FIXTURE_FALLBACK=false"
         )
 
