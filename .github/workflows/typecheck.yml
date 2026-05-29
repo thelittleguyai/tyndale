@@ -1,0 +1,64 @@
+name: Typecheck
+
+# DL-38 durable fix: catch barrel-export regressions + type errors in the
+# frontend apps at PR time, not at runtime. Phase 2H lost the dashboard
+# export; Phase 2I caught the encounter export only because Phil ran tsc
+# locally. These jobs make that impossible to miss.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'apps/web-marketing/**'
+      - 'packages/shared/**'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'apps/web-marketing/**'
+      - 'packages/shared/**'
+      - '.github/workflows/typecheck.yml'
+
+jobs:
+  typecheck-mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm --workspace=apps/mobile run typecheck
+
+  typecheck-web-marketing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm --workspace=apps/web-marketing run typecheck
+
+  barrel-export-completeness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify packages/shared barrel export is complete
+        run: |
+          # Every .ts file in src/ (except index.ts) must be re-exported from
+          # index.ts. A missing entry is a silent ImportError waiting to happen.
+          cd packages/shared/src
+          fail=0
+          for f in *.ts; do
+            if [ "$f" != "index.ts" ]; then
+              base="${f%.ts}"
+              if ! grep -q "from './$base'" index.ts; then
+                echo "::error::Missing barrel export for '$base' in packages/shared/src/index.ts"
+                fail=1
+              fi
+            fi
+          done
+          exit $fail

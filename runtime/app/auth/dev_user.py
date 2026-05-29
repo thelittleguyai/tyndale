@@ -73,12 +73,12 @@ async def _ensure_dev_user_row(s: AsyncSession) -> None:
         await s.commit()
 
 
-async def current_user(session: AsyncSession = Depends(get_session)) -> CurrentUser:
-    """FastAPI dependency that resolves the current user.
+async def resolve_dev_user(session: AsyncSession) -> CurrentUser:
+    """Return the seeded dev/admin user (USE_REAL_AUTH=false path).
 
-    Phase 2H: always returns the dev user (after ensuring its row exists).
-    Phase 2K: swap to JWT validation from the Authorization header; this
-    function's signature + return shape stay stable so routes don't change.
+    Phase 2K moved the FastAPI dependency to app/auth/current_user.py, which
+    delegates here when real auth is off. This keeps local dev working without
+    Google creds.
     """
     await _ensure_dev_user_row(session)
     return CurrentUser(
@@ -87,3 +87,9 @@ async def current_user(session: AsyncSession = Depends(get_session)) -> CurrentU
         first_name=DEV_USER_FIRST_NAME,
         user_type=DEV_USER_TYPE,
     )
+
+
+# Backwards-compatible alias: some Depends(...) imports may still reference
+# this symbol from the dev module. The real dependency is current_user.py.
+async def current_user(session: AsyncSession = Depends(get_session)) -> CurrentUser:  # pragma: no cover
+    return await resolve_dev_user(session)

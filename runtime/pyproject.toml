@@ -21,6 +21,7 @@ dependencies = [
     "qdrant-client>=1.12",
     "jsonschema>=4.21",
     # Phase 2D walking skeleton — real Anthropic Claude + Azure Document Intelligence
+    "pyjwt>=2.8",  # Phase 2K — session + magic-link JWTs (HS256)
     "anthropic>=0.39",
     "azure-ai-documentintelligence>=1.0",
     "azure-core>=1.30",

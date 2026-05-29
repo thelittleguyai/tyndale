@@ -10,6 +10,7 @@ from app.db.models.feedback import (
     FeedbackTriageQueue,
 )
 from app.db.models.findings import Finding
+from app.db.models.magic_link import MagicLinkConsumed
 from app.db.models.users import User
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "FeedbackTriageQueue",
     "FeedbackDeidCandidate",
     "ConsentHistory",
+    "MagicLinkConsumed",
 ]

@@ -1,0 +1,61 @@
+"""The current_user FastAPI dependency (Phase 2K).
+
+USE_REAL_AUTH=true  → validate the session cookie (HS256 JWT, audience
+                      'session'); load the user row by id; 401 on any failure.
+USE_REAL_AUTH=false → return the seeded dev/admin user (preserves Phase 2H
+                      local-dev behavior without Google creds).
+
+Routes import this via `from app.auth import current_user`. Its return shape
+(CurrentUser) is unchanged from the dev stub, so no route code changed.
+"""
+
+from __future__ import annotations
+
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth.dev_user import CurrentUser, resolve_dev_user
+from app.auth.jwt import InvalidTokenError, verify_session_token
+from app.config import get_settings
+from app.db.models.users import User
+from app.db.session import get_session
+
+
+async def current_user(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> CurrentUser:
+    settings = get_settings()
+
+    if not settings.use_real_auth:
+        return await resolve_dev_user(session)
+
+    token = request.cookies.get(settings.session_cookie_name)
+    if not token:
+        raise HTTPException(status_code=401, detail="not authenticated")
+    try:
+        user_id = verify_session_token(token)
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="invalid or expired session") from None
+
+    import uuid
+
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="invalid session subject") from None
+
+    row = (await session.execute(select(User).where(User.user_id == uid))).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=401, detail="user not found") from None
+
+    # first_name isn't a column; derive from email local-part for now (real
+    # name comes from the OAuth profile when we persist it — Phase 3 polish).
+    first_name = (row.email or "").split("@")[0] or "there"
+    return CurrentUser(
+        user_id=row.user_id,
+        email=row.email,
+        first_name=first_name,
+        user_type=row.user_type,
+    )

@@ -62,6 +62,31 @@ class Settings(BaseSettings):
     # set 0 so freshly-created cases are eligible without time-travel.
     outcome_followup_days: int = 14
 
+    # --- Auth (Phase 2K) ------------------------------------------------------
+    # USE_REAL_AUTH=false keeps the dev-mode current_user stub (the seeded admin
+    # user) so local dev works without Google creds. MUST be true in production.
+    use_real_auth: bool = False
+    auth_secret: str | None = None  # HS256 signing key for session + magic-link JWTs
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str = "https://dev.tyndaleapp.net/v1/auth/callback"
+    sendgrid_api_key: str | None = None  # Email API Pro tier (BAA) per DL-18
+    sendgrid_from_email: str = "no-reply@tyndaleapp.net"
+    magic_link_ttl_minutes: int = 15
+    magic_link_base_url: str = "https://dev.tyndaleapp.net"  # where verify links point
+    session_cookie_name: str = "tyndale_session"
+    session_ttl_hours: int = 24 * 7  # 7 days
+    cookie_domain: str = "tyndaleapp.net"  # blank ("") for localhost dev
+    cookie_secure: bool = True  # false only for http://localhost
+    auth_success_redirect: str = "https://dev.tyndaleapp.net/signed-in"
+    # Rate limits for magic-link requests (sliding window, in-memory for V1-Lite).
+    magic_link_rate_per_email_hour: int = 5
+    magic_link_rate_per_ip_hour: int = 20
+
+    def has_real_auth_secret(self) -> bool:
+        key = (self.auth_secret or "").strip()
+        return bool(key) and not key.startswith("<")
+
     # --- Knowledge layer (Qdrant + Voyage AI) ---
     # qdrant_url: an http(s):// URL connects to a server (Docker/Azure); any other
     # value (a filesystem path or ":memory:") uses qdrant-client's embedded local

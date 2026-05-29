@@ -1,10 +1,14 @@
 """Auth layer.
 
-V1-Lite Phase 2H ships a *dev-mode* stub — every request resolves to a fixed
-hard-coded user. Real auth (Google + Email magic link, JWT validation,
-session persistence) lands in Phase 2K and swaps the dependency here. The
-dependency function shape — async, returns a typed ``CurrentUser`` —
-stays the same across the swap so routes don't need to change.
+Phase 2H shipped a dev-mode stub (every request resolved to a fixed admin
+user). Phase 2K swaps in real auth: ``current_user`` now validates a session
+cookie when USE_REAL_AUTH=true, and falls back to the seeded dev user when
+false (local dev without Google creds). The ``CurrentUser`` return shape is
+unchanged, so route code didn't change.
+
+Import surface:
+  from app.auth import CurrentUser, current_user
 """
 
-from app.auth.dev_user import CurrentUser, current_user  # noqa: F401
+from app.auth.current_user import current_user  # noqa: F401
+from app.auth.dev_user import CurrentUser  # noqa: F401

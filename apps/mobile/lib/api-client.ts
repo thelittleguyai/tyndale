@@ -291,3 +291,48 @@ export function makeFeedbackEvent(
     ...partial,
   };
 }
+
+// --- Auth (Phase 2K) --------------------------------------------------------
+
+export interface SessionResponse {
+  user: UserProfile | null;
+}
+
+/** POST /v1/auth/login — returns the Google consent URL to redirect to. */
+export async function getGoogleAuthUrl(): Promise<string> {
+  const res = await fetch(`${BASE_URL}/v1/auth/login`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`login init failed: ${res.status} ${await res.text()}`);
+  return ((await res.json()) as { authorization_url: string }).authorization_url;
+}
+
+/** POST /v1/auth/magic-link-request — always 200 (anti-enumeration); throws
+ * on 429 so the UI can surface a rate-limit message. */
+export async function requestMagicLink(email: string, return_url?: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/v1/auth/magic-link-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, return_url }),
+  });
+  if (res.status === 429) {
+    const retry = res.headers.get('Retry-After');
+    throw new Error(`Too many requests — try again in ${retry ?? 'a few'} seconds.`);
+  }
+  if (!res.ok) throw new Error(`magic link request failed: ${res.status}`);
+}
+
+/** GET /v1/auth/session — current session (user: null if not signed in). */
+export async function getAuthSession(): Promise<SessionResponse> {
+  const res = await fetch(`${BASE_URL}/v1/auth/session`, { credentials: 'include' });
+  if (res.status === 401) return { user: null };
+  if (!res.ok) throw new Error(`session fetch failed: ${res.status}`);
+  return (await res.json()) as SessionResponse;
+}
+
+/** POST /v1/auth/logout — clears the session cookie. */
+export async function logout(): Promise<void> {
+  await fetch(`${BASE_URL}/v1/auth/logout`, { method: 'POST', credentials: 'include' });
+}
