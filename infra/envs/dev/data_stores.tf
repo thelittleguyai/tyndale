@@ -33,6 +33,20 @@ resource "azurerm_postgresql_flexible_server_database" "tyndale" {
   charset   = "UTF8"
 }
 
+# Allow-list the extensions the schema needs. Azure Database for PostgreSQL
+# Flexible Server blocks CREATE EXTENSION unless the extension name is in the
+# server-level `azure.extensions` parameter — without this, the 0001 migration's
+# `CREATE EXTENSION IF NOT EXISTS pgcrypto` fails with:
+#   FeatureNotSupportedError: extension "pgcrypto" is not allow-listed ...
+# (pgcrypto is used by the 0001 migration; gen_random_uuid() is core in PG16 but
+# the extension is created defensively + may back future crypt()/digest() use.)
+# This is a dynamic parameter — applied without a server restart.
+resource "azurerm_postgresql_flexible_server_configuration" "azure_extensions" {
+  name      = "azure.extensions"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "PGCRYPTO"
+}
+
 # Storage Account — Standard LRS Hot for cheap dev
 resource "azurerm_storage_account" "main" {
   name                     = "tyndale${local.env}${random_string.suffix.result}"
