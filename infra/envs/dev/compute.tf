@@ -127,6 +127,78 @@ resource "azurerm_container_app" "runtime" {
   ]
 }
 
+# ===========================================================================
+# Container Apps Job — runs Alembic migrations + dev seed against the
+# VNet-only Postgres. Same internal CAE as the runtime CA so it can reach
+# the private Postgres FQDN; same UAMI so it can resolve the KV-backed
+# DATABASE_URL secret. CI rolls its image right before rolling the runtime
+# CA's image, so migrations land before the new code starts serving.
+# ===========================================================================
+resource "azurerm_container_app_job" "runtime_migrations" {
+  name                         = "${local.name_prefix}-runtime-migrations"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = local.region
+  tags                         = local.tags
+
+  replica_timeout_in_seconds = 600
+  replica_retry_limit        = 1
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.runtime.id]
+  }
+
+  # DATABASE_URL is what both alembic + the seed need. Same KV-backed
+  # secret the runtime CA uses, resolved through the same UAMI.
+  secret {
+    name                = "database-url"
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+
+  template {
+    container {
+      name   = "migrations"
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; CI rolls
+      cpu    = 0.5
+      memory = "1Gi"
+
+      # `alembic.ini` is at /app in the runtime image (Dockerfile WORKDIR);
+      # the alembic binary is on PATH via /app/.venv/bin. Seed script lives
+      # at /app/scripts/seed_dev_dashboard.py and is idempotent.
+      command = ["sh", "-c"]
+      args = [
+        "set -euo pipefail; alembic upgrade head; python scripts/seed_dev_dashboard.py"
+      ]
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+      env {
+        name  = "NODE_ENV"
+        value = "development"
+      }
+    }
+  }
+
+  # CI rolls the image to the same SHA the runtime CA gets. Ignore drift on
+  # subsequent terraform apply runs.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
+  depends_on = [
+    azurerm_role_assignment.runtime_kv_secrets_user
+  ]
+}
+
 # LiteLLM proxy Container App
 resource "azurerm_container_app" "litellm" {
   name                         = "${local.name_prefix}-litellm"

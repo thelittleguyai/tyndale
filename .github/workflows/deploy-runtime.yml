@@ -36,6 +36,7 @@ permissions:
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/runtime
   CONTAINER_APP: tyndale-dev-runtime
+  MIGRATION_JOB: tyndale-dev-runtime-migrations
   RESOURCE_GROUP: tyndale-dev-rg
 
 jobs:
@@ -75,6 +76,79 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # ─── Run migrations FIRST (Alembic + dev seed) ──────────────────────
+      # The migration job lives in the same internal CAE as the runtime so it
+      # can reach the VNet-only Postgres. We:
+      #   1. point the job at the new image SHA,
+      #   2. start a manual execution,
+      #   3. poll for completion (success / failure / timeout),
+      #   4. surface the job logs on failure, and FAIL the workflow so the
+      #      runtime CA never rolls to a code version whose migrations didn't
+      #      land.
+      - name: Update migrations job image
+        run: |
+          az containerapp job update \
+            --name "$MIGRATION_JOB" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --output none
+          echo "Updated $MIGRATION_JOB image -> $IMAGE:${{ github.sha }}"
+
+      - name: Run migrations
+        id: migrate
+        run: |
+          set -euo pipefail
+          EXECUTION=$(az containerapp job start \
+            --name "$MIGRATION_JOB" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "name" -o tsv)
+          echo "execution=$EXECUTION" >> "$GITHUB_OUTPUT"
+          echo "Started execution: $EXECUTION"
+
+          # Poll every 5s, up to 5 minutes.
+          for i in $(seq 1 60); do
+            STATUS=$(az containerapp job execution show \
+              --job-name "$MIGRATION_JOB" \
+              --name "$EXECUTION" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query "properties.status" -o tsv 2>/dev/null || echo "Pending")
+            echo "[$i/60] status=$STATUS"
+            case "$STATUS" in
+              Succeeded)
+                echo "Migrations succeeded."
+                exit 0
+                ;;
+              Failed|Stopped)
+                echo "Migrations $STATUS — see logs below."
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "Migration job did not complete within 5 minutes."
+          exit 1
+
+      - name: Show migration logs (on failure)
+        if: failure() && steps.migrate.outputs.execution != ''
+        run: |
+          az containerapp job execution show \
+            --job-name "$MIGRATION_JOB" \
+            --name "${{ steps.migrate.outputs.execution }}" \
+            --resource-group "$RESOURCE_GROUP" \
+            -o yaml || true
+          # Best-effort recent logs via Log Analytics (90s window).
+          WORKSPACE=$(az containerapp env show \
+            --name tyndale-dev-cae \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.appLogsConfiguration.logAnalyticsConfiguration.customerId" -o tsv 2>/dev/null || true)
+          if [ -n "$WORKSPACE" ]; then
+            az monitor log-analytics query \
+              --workspace "$WORKSPACE" \
+              --analytics-query "ContainerAppConsoleLogs_CL | where ContainerJobName_s == '$MIGRATION_JOB' | order by TimeGenerated desc | take 200 | project TimeGenerated, Log_s" \
+              -o table || true
+          fi
+
+      # ─── THEN roll the runtime CA to the new image ───────────────────────
       - name: Update Container App image
         run: |
           az containerapp update \
