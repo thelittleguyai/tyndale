@@ -102,3 +102,48 @@ export async function getAudit(case_file_id: string): Promise<AuditResult> {
   }
   return (await res.json()) as AuditResult;
 }
+
+// --- Dashboard ---------------------------------------------------------------
+
+import type {
+  CasesListPayload,
+  CoverageDetailPayload,
+  DashboardPayload,
+} from '@tyndale/shared';
+
+export type {
+  CasesListPayload,
+  CoverageDetailPayload,
+  CoverageMeter,
+  CoverageSummary,
+  DashboardPayload,
+  OpenCase,
+} from '@tyndale/shared';
+
+/** GET /v1/dashboard — the composite payload for the signed-in dashboard. */
+export async function getDashboard(): Promise<DashboardPayload> {
+  const res = await fetch(`${BASE_URL}/v1/dashboard`);
+  if (!res.ok) {
+    throw new Error(`dashboard fetch failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as DashboardPayload;
+}
+
+/** GET /v1/cases — list of the user's case files. */
+export async function getCases(): Promise<CasesListPayload> {
+  const res = await fetch(`${BASE_URL}/v1/cases`);
+  if (!res.ok) {
+    throw new Error(`cases fetch failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as CasesListPayload;
+}
+
+/** GET /v1/coverage — full coverage detail (case-detail screens consume; the
+ * dashboard uses the summary embedded inside getDashboard). */
+export async function getCoverage(): Promise<CoverageDetailPayload> {
+  const res = await fetch(`${BASE_URL}/v1/coverage`);
+  if (!res.ok) {
+    throw new Error(`coverage fetch failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as CoverageDetailPayload;
+}
