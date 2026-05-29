@@ -126,13 +126,27 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             )
         )
         # The three-number audit lives in the first finding's facts that has
-        # all three keys (typically Math Person's payer-side finding).
-        if three_numbers is None and {"provider_billed", "eob_member_responsibility", "tyndale_computed"} <= set(facts):
-            three_numbers = {
-                "provider_billed": float(facts["provider_billed"]),
-                "eob_member_responsibility": float(facts["eob_member_responsibility"]),
-                "tyndale_computed": float(facts["tyndale_computed"]),
-            }
+        # all three keys present AND numeric (typically Math Person's
+        # payer-side finding). Defensive against an agent writing the keys
+        # with None values when it couldn't extract one of the three.
+        if three_numbers is None:
+            pb = facts.get("provider_billed")
+            eob = facts.get("eob_member_responsibility")
+            tc = facts.get("tyndale_computed")
+            if pb is not None and eob is not None and tc is not None:
+                try:
+                    three_numbers = {
+                        "provider_billed": float(pb),
+                        "eob_member_responsibility": float(eob),
+                        "tyndale_computed": float(tc),
+                    }
+                except (TypeError, ValueError):
+                    log.warning(
+                        "orchestrator.three_number_coercion_failed",
+                        case_file_id=case_file_id,
+                        finding_id=str(f.finding_id),
+                        facts_subset={"pb": pb, "eob": eob, "tc": tc},
+                    )
 
     if three_numbers is None:
         # Real agents ran but didn't write the three-number finding — fall
