@@ -113,11 +113,16 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
 }
 
 # Full DATABASE_URL with embedded credentials — the runtime reads this as a
-# single env var rather than assembling it from parts. ?sslmode=require because
+# single env var rather than assembling it from parts. ?ssl=require because
 # Azure Postgres Flexible enforces TLS.
+#
+# urlencode() on the password is REQUIRED — Phil's actual password contains
+# '@' and ':' which collide with the URL grammar's user-info separators and
+# crash SQLAlchemy's URL parser with:
+#   ValueError: invalid literal for int() with base 10: '<password-tail>@host:port'
 resource "azurerm_key_vault_secret" "database_url" {
   name         = "DATABASE-URL"
-  value        = "postgresql+asyncpg://${var.postgres_admin_username}:${var.postgres_admin_password}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.tyndale.name}?ssl=require"
+  value        = "postgresql+asyncpg://${var.postgres_admin_username}:${urlencode(var.postgres_admin_password)}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.tyndale.name}?ssl=require"
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
