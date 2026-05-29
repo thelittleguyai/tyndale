@@ -33,11 +33,29 @@ class Settings(BaseSettings):
     database_url: str = Field(description="asyncpg DSN, e.g. postgresql+asyncpg://user:pw@host/db")
 
     # --- Optional integrations (warned if missing in production) ---
-    anthropic_api_key: str | None = None  # Phase 2
-    azure_doc_intelligence_endpoint: str | None = None  # Phase 2
-    azure_doc_intelligence_key: str | None = None  # Phase 2
-    litellm_proxy_url: str | None = None  # Phase 4
+    anthropic_api_key: str | None = None  # Phase 2D — Lead Planner + subagents
+    azure_doc_intelligence_endpoint: str | None = None  # Phase 2D — OCR
+    azure_doc_intelligence_key: str | None = None  # Phase 2D — OCR
+    litellm_proxy_url: str | None = None  # Phase 4 — proxy in front of Anthropic
+    litellm_master_key: str | None = None  # Phase 4 — proxy admin key
     azure_key_vault_url: str | None = None  # Phase 4 — audit-log encryption keys
+    azure_storage_account_url: str | None = None  # Phase 2D — uploaded document blobs
+    azure_storage_uploads_container: str = "uploads"
+
+    # --- Claude model assignments (locked per discipline rule D3) -------------
+    # Resolution order at call time:
+    #   1. claude_model_<role>_override (env var)
+    #   2. claude_default_model_<tier>
+    #   3. hard-coded fallback inside the agent
+    claude_default_model_sonnet: str = "claude-sonnet-4-6"
+    claude_default_model_opus: str = "claude-opus-4-7"
+    claude_default_model_haiku: str = "claude-haiku-4-5"
+    claude_model_lead_planner_override: str | None = None
+    claude_model_bill_detective_override: str | None = None
+    claude_model_math_person_override: str | None = None
+
+    # Where to write uploaded files when running fully local (no Azure Blob).
+    local_uploads_dir: str = "/tmp/tyndale_uploads"
 
     # --- Knowledge layer (Qdrant + Voyage AI) ---
     # qdrant_url: an http(s):// URL connects to a server (Docker/Azure); any other
@@ -57,6 +75,22 @@ class Settings(BaseSettings):
     use_real_claude: bool = False
     use_real_ocr: bool = False
     use_real_presidio: bool = False  # security spine flips to true in Phase 4
+
+    # Tighter knob: when use_real_claude is true but ANTHROPIC_API_KEY is unset
+    # (e.g. running locally without creds), the agents fall back to fixtures
+    # rather than raising. Set false in production.
+    allow_fixture_fallback: bool = True
+
+    def claude_model_for(self, role: str) -> str:
+        """Resolve the Claude model for a given role.
+
+        Roles: 'lead_planner' | 'bill_detective' | 'math_person'.
+        Falls back to claude_default_model_sonnet for the V1-Lite trio per D3.
+        """
+        override = getattr(self, f"claude_model_{role}_override", None)
+        if override:
+            return override
+        return self.claude_default_model_sonnet
 
     @property
     def cors_origins(self) -> list[str]:

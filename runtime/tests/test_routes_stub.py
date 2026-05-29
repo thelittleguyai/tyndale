@@ -55,12 +55,17 @@ async def test_feedback_with_consent_queues_triage(client):
     assert resp.json()["queued_for_triage"] is True
 
 
-async def test_upload_accepts_file(client):
-    content = b"fixture bill content"
+async def test_upload_creates_case_and_returns_uuid(client):
+    """Phase 2D — upload now persists the file + opens a real case file in
+    Postgres. The returned case_file_id is a freshly-minted UUID (no longer
+    the fixed MRI fixture id)."""
+    content = b"STUB OCR — fixture bill content."
     files = {"file": ("bill.txt", content, "text/plain")}
     resp = await client.post("/v1/upload", files=files)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["case_file_id"] == MRI_CASE_FILE_ID
-    assert body["document_id"]
+    # Real UUID, not the fixture id
+    uuid.UUID(body["case_file_id"])
+    uuid.UUID(body["document_id"])
     assert body["received_bytes"] == len(content)
+    assert body["filename"] == "bill.txt"
