@@ -22,9 +22,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # the build-time check and is never used to sign anything.
 ENV AUTH_SECRET=build-only-placeholder-replaced-at-runtime-by-container-app-env
 
-# Install workspace deps from root (npm sets up the @tyndale/shared symlink at
-# apps/web-marketing/node_modules/@tyndale/shared → packages/shared/).
-COPY package.json package-lock.json ./
+# Install workspace deps from root (npm hoists workspace symlinks to
+# /repo/node_modules/@tyndale/shared → packages/shared/).
+# tsconfig.base.json comes along now so the marketing tsconfig's
+# `extends: "../../tsconfig.base.json"` resolves at build time (TS5083 if missing).
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/web-marketing/package.json apps/web-marketing/
 COPY packages/shared/package.json packages/shared/
 RUN npm ci
