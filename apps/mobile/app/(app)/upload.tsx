@@ -4,15 +4,16 @@
  * Web: native <input type="file"> rendered as a styled label.
  * Native: expo-document-picker (Phase 2H wires camera + better UX).
  *
- * On successful POST /v1/upload, navigates to /audit/{case_file_id} which
- * kicks off the orchestrator and renders the three-number audit.
+ * On successful POST /v1/upload, kicks the line-item extraction (Phase 2I)
+ * then navigates to the encounter-verification screen, where the user confirms
+ * each line item before the audit finalizes.
  */
 
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { upload } from '../../lib/api-client';
+import { extractLineItems, upload } from '../../lib/api-client';
 
 export default function UploadScreen() {
   const router = useRouter();
@@ -28,8 +29,11 @@ export default function UploadScreen() {
     setProgress(`Uploading ${f.name} (${Math.round(f.size / 1024)} KB)…`);
     try {
       const res = await upload(f);
-      setProgress(`Uploaded. Opening case ${res.case_file_id.slice(0, 8)}…`);
-      router.push(`/audit/${res.case_file_id}`);
+      setProgress('Reading your bill…');
+      // Phase 2I: extract + translate line items, then go to encounter verification.
+      await extractLineItems(res.case_file_id);
+      setProgress(`Ready. Opening case ${res.case_file_id.slice(0, 8)}…`);
+      router.push(`/audit/${res.case_file_id}/encounter`);
     } catch (err: any) {
       setError(err?.message ?? String(err));
       setUploading(false);
@@ -53,7 +57,7 @@ export default function UploadScreen() {
           <Text className="mb-4 text-center text-base text-white/80">
             Drop a PDF or image, or click to pick a file
           </Text>
-          {/* @ts-expect-error react-native-web accepts native input via createElement */}
+          {/* react-native-web maps the DOM <input> through createElement on web */}
           <input
             type="file"
             accept="application/pdf,image/*"

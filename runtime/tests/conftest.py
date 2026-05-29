@@ -54,6 +54,24 @@ def _init_db() -> None:
 _init_db()
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def _dispose_app_engine():
+    """Dispose the app's engine after each test.
+
+    Routes/orchestrator/tools use app.db.base.AsyncSessionLocal (the default-
+    pool engine) directly, not the NullPool dependency override above.
+    pytest-asyncio gives each test its own event loop, so a pooled connection
+    opened in one test's loop is bound to that (now-closed) loop and explodes
+    with 'RuntimeError: Event loop is closed' when the next test reuses it.
+    Disposing after each test forces a fresh connection bound to the next
+    test's loop. Test-only — no production impact.
+    """
+    yield
+    from app.db.base import engine as app_engine
+
+    await app_engine.dispose()
+
+
 @pytest_asyncio.fixture
 async def client():
     transport = ASGITransport(app=app)

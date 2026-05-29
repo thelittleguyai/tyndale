@@ -9,7 +9,6 @@
  */
 
 const BASE_URL =
-  // @ts-expect-error process.env.EXPO_PUBLIC_* is injected by Metro
   process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 export interface UploadResponse {
@@ -146,4 +145,67 @@ export async function getCoverage(): Promise<CoverageDetailPayload> {
     throw new Error(`coverage fetch failed: ${res.status} ${await res.text()}`);
   }
   return (await res.json()) as CoverageDetailPayload;
+}
+
+// --- Encounter verification (Phase 2I) --------------------------------------
+
+import type {
+  AuditStatusResponse,
+  ConfirmationsAccepted,
+  ExtractResult,
+  LineItemConfirmation,
+} from '@tyndale/shared';
+
+export type {
+  AuditStatusResponse,
+  ConfirmationsAccepted,
+  ExtractResult,
+  LineItem,
+  LineItemConfirmation,
+  LineItemResponse,
+} from '@tyndale/shared';
+
+/** POST /v1/audit/{id}/extract — Bill Detective translates line items. */
+export async function extractLineItems(case_file_id: string): Promise<ExtractResult> {
+  const res = await fetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/extract`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw new Error(`extract failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as ExtractResult;
+}
+
+/** GET /v1/audit/{id}/line-items — idempotent fetch for the verification UI. */
+export async function getLineItems(case_file_id: string): Promise<ExtractResult> {
+  const res = await fetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/line-items`,
+  );
+  if (!res.ok) throw new Error(`line-items fetch failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as ExtractResult;
+}
+
+/** POST /v1/audit/{id}/confirmations — submit the full set; kicks finalize. */
+export async function submitConfirmations(
+  case_file_id: string,
+  confirmations: LineItemConfirmation[],
+): Promise<ConfirmationsAccepted> {
+  const res = await fetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmations }),
+    },
+  );
+  if (!res.ok) throw new Error(`confirmations failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as ConfirmationsAccepted;
+}
+
+/** GET /v1/audit/{id}/status — poll the case status. */
+export async function getAuditStatus(case_file_id: string): Promise<AuditStatusResponse> {
+  const res = await fetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/status`,
+  );
+  if (!res.ok) throw new Error(`status fetch failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as AuditStatusResponse;
 }

@@ -20,7 +20,9 @@ class CaseFile(Base):
     __tablename__ = "case_files"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('open', 'in_progress', 'resolved', 'archived')",
+            "status IN ('open', 'in_progress', 'encounter_verification_pending', "
+            "'encounter_verified', 'audit_running', 'audit_complete', "
+            "'resolved', 'archived')",
             name="ck_case_files_status",
         ),
     )
@@ -54,6 +56,15 @@ class CaseFile(Base):
     # research_log per Change Order 001 item 4. Each entry:
     # {timestamp, topic, what_was_checked, result_summary, finding_id|null}
     research_log: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # Phase 2I encounter verification — Bill Detective's plain-language line-item
+    # translations (each a LineItem dict; see app/schemas/encounter.py).
+    line_items: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # The user's per-line-item confirmations (each a LineItemConfirmation dict).
+    encounter_confirmations: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
     # Optimistic locking counter.

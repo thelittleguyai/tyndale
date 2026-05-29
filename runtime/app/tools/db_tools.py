@@ -214,3 +214,63 @@ register_tool(
     },
     _pg_list_due,
 )
+
+
+# --- pg_store_line_item (Phase 2I — encounter verification, translate mode) --
+async def _pg_store_line_item(args: dict[str, Any]) -> dict[str, Any]:
+    """Append one plain-language-translated line item to case_files.line_items.
+
+    Bill Detective calls this once per charged line item in 'translate' mode.
+    The encounter-verification UI reads these back via GET .../line-items.
+    """
+    case_file_id = _uuid(args["case_file_id"])
+    line_item_id = str(uuid4())
+    item = {
+        "line_item_id": line_item_id,
+        "code": args.get("code", ""),
+        "code_system": args.get("code_system", "CPT"),
+        "raw_description": args.get("raw_description", ""),
+        "plain_language_translation": args.get("plain_language_translation", ""),
+        "plain_language_context": args.get("plain_language_context", ""),
+        "high_risk": bool(args.get("high_risk", False)),
+        "billed_amount": args.get("billed_amount"),
+        "units": args.get("units"),
+    }
+    async with AsyncSessionLocal() as s:
+        cf = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == case_file_id))).scalar_one_or_none()
+        if cf is None:
+            return {"error": f"case_file {case_file_id} not found"}
+        # JSONB list reassignment (SQLAlchemy doesn't track in-place mutation).
+        cf.line_items = [*(cf.line_items or []), item]
+        await s.commit()
+    return {"line_item_id": line_item_id, "stored": True}
+
+
+register_tool(
+    "pg_store_line_item",
+    {
+        "description": (
+            "Persist ONE charged line item with its plain-language translation (Phase 2I "
+            "encounter verification, translate mode). Call once per line item on the bill. "
+            "plain_language_translation + plain_language_context describe WHAT HAPPENED — a "
+            "fact the user can confirm — NEVER a clinical judgment about necessity. Set "
+            "high_risk=true for E/M levels, time-based codes, and other upcoding/phantom-prone codes."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "case_file_id": {"type": "string"},
+                "code": {"type": "string"},
+                "code_system": {"type": "string", "enum": ["CPT", "HCPCS", "ICD-10"]},
+                "raw_description": {"type": "string"},
+                "plain_language_translation": {"type": "string"},
+                "plain_language_context": {"type": "string"},
+                "high_risk": {"type": "boolean"},
+                "billed_amount": {"type": "number"},
+                "units": {"type": "integer"},
+            },
+            "required": ["case_file_id", "code", "plain_language_translation"],
+        },
+    },
+    _pg_store_line_item,
+)

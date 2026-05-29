@@ -35,6 +35,9 @@ class FeedbackOutcome(BaseModel):
 
 
 class ValueConfirmation(BaseModel):
+    # confirmation_kind distinguishes a generic extracted-value confirmation
+    # from an encounter line-item confirmation (Phase 2I / L07 step 4).
+    confirmation_kind: Literal["extracted_value", "encounter_lineitem"] | None = None
     field: str | None = None
     tyndale_extracted: str | None = None
     user_corrected: str | None = None

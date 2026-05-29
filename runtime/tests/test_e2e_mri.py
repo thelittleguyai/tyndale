@@ -161,6 +161,113 @@ async def test_audit_get_idempotent(
     assert body["case_file_id"] == case_id
 
 
+# ---------- Tier 2b — two-phase encounter-verification flow (Phase 2I) -------
+
+
+async def _poll_status(client: AsyncClient, case_id: str, tries: int = 15) -> str:
+    """Poll /status until audit_complete (or give up). With ASGITransport the
+    finalize BackgroundTask has usually already run by the time /confirmations
+    returns, so this resolves on the first try — the loop is just defensive."""
+    import asyncio
+
+    st = "unknown"
+    for _ in range(tries):
+        r = await client.get(f"/v1/audit/{case_id}/status")
+        st = r.json()["status"]
+        if st == "audit_complete":
+            return st
+        await asyncio.sleep(0.2)
+    return st
+
+
+async def _upload_and_extract(client: AsyncClient) -> tuple[str, list[dict]]:
+    files = {"file": ("bill.txt", b"sample bill", "text/plain")}
+    up = await client.post("/v1/upload", files=files)
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+    ex = await client.post(f"/v1/audit/{case_id}/extract")
+    assert ex.status_code == 200, ex.text
+    body = ex.json()
+    assert body["status"] == "encounter_verification_pending"
+    assert body["intro_message"]
+    assert len(body["line_items"]) >= 1
+    return case_id, body["line_items"]
+
+
+@pytest.mark.asyncio
+async def test_extract_produces_plain_language_line_items(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    """/extract returns line items with plain-language translations + high_risk flags."""
+    _case_id, line_items = await _upload_and_extract(client)
+    for item in line_items:
+        assert item["plain_language_translation"], "every line item needs a plain-language translation"
+        assert "high_risk" in item
+        assert item["code"]
+    # At least one high-risk item exists (so the mismatch path is exercisable).
+    assert any(it["high_risk"] for it in line_items)
+
+
+@pytest.mark.asyncio
+async def test_two_phase_flow_all_yes(client: AsyncClient, force_fixture_path) -> None:
+    """All 'yes' confirmations → audit completes with the three numbers, no mismatch."""
+    case_id, line_items = await _upload_and_extract(client)
+    confirmations = [
+        {"line_item_id": it["line_item_id"], "response": "yes", "user_note": None}
+        for it in line_items
+    ]
+    cf = await client.post(f"/v1/audit/{case_id}/confirmations", json={"confirmations": confirmations})
+    assert cf.status_code == 200, cf.text
+    assert cf.json()["mismatches"] == 0
+
+    status = await _poll_status(client, case_id)
+    assert status == "audit_complete", f"status stuck at {status}"
+
+    res = await client.get(f"/v1/audit/{case_id}")
+    assert res.status_code == 200, res.text
+    audit = res.json()["audit"]
+    assert audit["provider_billed"] == 1200.0
+    assert audit["eob_member_responsibility"] == 1200.0
+    assert audit["tyndale_computed"] == 560.0
+    types = [f["finding_type"] for f in res.json()["findings"]]
+    assert "encounter_mismatch" not in types
+
+
+@pytest.mark.asyncio
+async def test_two_phase_flow_mismatch_creates_finding(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    """A 'no' on a high-risk line item → an encounter_mismatch finding appears."""
+    case_id, line_items = await _upload_and_extract(client)
+    high = next((it for it in line_items if it["high_risk"]), line_items[0])
+    confirmations = []
+    for it in line_items:
+        is_target = it["line_item_id"] == high["line_item_id"]
+        confirmations.append({
+            "line_item_id": it["line_item_id"],
+            "response": "no" if is_target else "yes",
+            "user_note": "I was only there 20 minutes" if is_target else None,
+        })
+    cf = await client.post(f"/v1/audit/{case_id}/confirmations", json={"confirmations": confirmations})
+    assert cf.status_code == 200, cf.text
+    assert cf.json()["mismatches"] >= 1
+
+    status = await _poll_status(client, case_id)
+    assert status == "audit_complete", f"status stuck at {status}"
+
+    res = await client.get(f"/v1/audit/{case_id}")
+    types = [f["finding_type"] for f in res.json()["findings"]]
+    assert "encounter_mismatch" in types, f"expected an encounter_mismatch finding, got {types}"
+
+
+@pytest.mark.asyncio
+async def test_confirmations_empty_returns_400(client: AsyncClient, force_fixture_path) -> None:
+    """Submitting an empty confirmations list is a 400."""
+    case_id, _ = await _upload_and_extract(client)
+    r = await client.post(f"/v1/audit/{case_id}/confirmations", json={"confirmations": []})
+    assert r.status_code == 400
+
+
 # ---------- Tier 3 — real Claude + DI (skipped unless creds are set) -----------
 
 
