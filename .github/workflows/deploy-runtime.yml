@@ -98,27 +98,40 @@ jobs:
         id: migrate
         run: |
           set -euo pipefail
+          # `az containerapp job start` returns the execution object; its
+          # `.name` is the execution name. If that ever comes back empty
+          # (CLI return-shape drift), fall back to the most-recent execution.
           EXECUTION=$(az containerapp job start \
             --name "$MIGRATION_JOB" \
             --resource-group "$RESOURCE_GROUP" \
-            --query "name" -o tsv)
+            --query "name" -o tsv 2>/dev/null || true)
+          if [ -z "$EXECUTION" ]; then
+            sleep 3
+            EXECUTION=$(az containerapp job execution list \
+              --name "$MIGRATION_JOB" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query "sort_by([], &properties.startTime)[-1].name" -o tsv)
+          fi
           echo "execution=$EXECUTION" >> "$GITHUB_OUTPUT"
           echo "Started execution: $EXECUTION"
 
           # Poll every 5s, up to 5 minutes.
+          # CLI flags: --name is the JOB name, --job-execution-name is the
+          # execution. (The earlier --job-name/--name combo errored every
+          # iteration and the fallback masked it as a permanent 'Pending'.)
           for i in $(seq 1 60); do
             STATUS=$(az containerapp job execution show \
-              --job-name "$MIGRATION_JOB" \
-              --name "$EXECUTION" \
+              --name "$MIGRATION_JOB" \
+              --job-execution-name "$EXECUTION" \
               --resource-group "$RESOURCE_GROUP" \
-              --query "properties.status" -o tsv 2>/dev/null || echo "Pending")
+              --query "properties.status" -o tsv 2>/dev/null || echo "Unknown")
             echo "[$i/60] status=$STATUS"
             case "$STATUS" in
               Succeeded)
                 echo "Migrations succeeded."
                 exit 0
                 ;;
-              Failed|Stopped)
+              Failed|Stopped|Degraded)
                 echo "Migrations $STATUS — see logs below."
                 exit 1
                 ;;
@@ -132,8 +145,8 @@ jobs:
         if: failure() && steps.migrate.outputs.execution != ''
         run: |
           az containerapp job execution show \
-            --job-name "$MIGRATION_JOB" \
-            --name "${{ steps.migrate.outputs.execution }}" \
+            --name "$MIGRATION_JOB" \
+            --job-execution-name "${{ steps.migrate.outputs.execution }}" \
             --resource-group "$RESOURCE_GROUP" \
             -o yaml || true
           # Best-effort recent logs via Log Analytics (90s window).
