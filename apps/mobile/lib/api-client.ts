@@ -209,3 +209,85 @@ export async function getAuditStatus(case_file_id: string): Promise<AuditStatusR
   if (!res.ok) throw new Error(`status fetch failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as AuditStatusResponse;
 }
+
+// --- Feedback + consent (Phase 2J) ------------------------------------------
+
+import type {
+  CaseFeedbackPayload,
+  ConsentHistoryPayload,
+  FeedbackAck,
+  FeedbackEvent,
+  OutcomePromptsPayload,
+  UserProfile,
+} from '@tyndale/shared';
+
+export type {
+  CaseFeedbackPayload,
+  ConsentHistoryPayload,
+  FeedbackAck,
+  FeedbackEvent,
+  FeedbackType,
+  OutcomePrompt,
+  OutcomePromptsPayload,
+  ResolvedValue,
+  StructuredReason,
+  ThumbsValue,
+  UserProfile,
+} from '@tyndale/shared';
+
+/** POST /v1/feedback — store a feedback event (consent read server-side). */
+export async function submitFeedback(event: FeedbackEvent): Promise<FeedbackAck> {
+  const res = await fetch(`${BASE_URL}/v1/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  });
+  if (!res.ok) throw new Error(`feedback failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as FeedbackAck;
+}
+
+/** GET /v1/feedback/case/{id} — restore per-target rating state. */
+export async function getCaseFeedback(case_file_id: string): Promise<CaseFeedbackPayload> {
+  const res = await fetch(
+    `${BASE_URL}/v1/feedback/case/${encodeURIComponent(case_file_id)}`,
+  );
+  if (!res.ok) throw new Error(`case feedback failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as CaseFeedbackPayload;
+}
+
+/** GET /v1/feedback/outcome-prompts — eligible outcome follow-ups. */
+export async function getOutcomePrompts(): Promise<OutcomePromptsPayload> {
+  const res = await fetch(`${BASE_URL}/v1/feedback/outcome-prompts`);
+  if (!res.ok) throw new Error(`outcome prompts failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as OutcomePromptsPayload;
+}
+
+/** GET /v1/user/me — current user profile (dev-stub auth until Phase 2K). */
+export async function getUserProfile(): Promise<UserProfile> {
+  const res = await fetch(`${BASE_URL}/v1/user/me`);
+  if (!res.ok) throw new Error(`profile fetch failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as UserProfile;
+}
+
+/** PATCH /v1/user/me — flip improvement consent (immediate). */
+export async function updateConsent(improvement_consent: boolean): Promise<UserProfile> {
+  const res = await fetch(`${BASE_URL}/v1/user/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ improvement_consent }),
+  });
+  if (!res.ok) throw new Error(`consent update failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as UserProfile;
+}
+
+/** Small helper to build a FeedbackEvent with id + timestamp filled in. */
+export function makeFeedbackEvent(
+  partial: Omit<FeedbackEvent, 'event_id' | 'timestamp'>,
+): FeedbackEvent {
+  return {
+    event_id:
+      (globalThis.crypto?.randomUUID?.() ?? `evt_${Date.now()}_${Math.round(Math.random() * 1e9)}`),
+    timestamp: new Date().toISOString(),
+    ...partial,
+  };
+}

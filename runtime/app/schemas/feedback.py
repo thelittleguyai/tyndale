@@ -58,6 +58,67 @@ class FeedbackEventIn(BaseModel):
     free_text: str | None = None
     outcome: FeedbackOutcome | None = None
     value_confirmation: ValueConfirmation | None = None
+    # improvement_consent on the request body is IGNORED by the server — the
+    # POST /v1/feedback route reads the user's current consent from the users
+    # table at insert time (never trust the client's claimed value).
     improvement_consent: bool = False
     promoted_to_eval: bool = False
     linked_golden_example_id: str | None = None
+
+
+# --- Phase 2J response/query shapes -----------------------------------------
+class FeedbackAck(BaseModel):
+    event_id: str
+    feedback_event_id: str
+    queued_for_deid: bool
+
+
+class FeedbackEventOut(BaseModel):
+    """Projection of a stored feedback_event for the audit-results screen to
+    restore per-target rating state across navigation."""
+
+    feedback_event_id: str
+    feedback_type: str
+    response_id: str | None = None
+    thumbs: Literal["up", "down"] | None = None
+    structured_reason: list[str] | None = None
+    created_at: str
+
+
+class CaseFeedbackPayload(BaseModel):
+    case_file_id: str
+    events: list[FeedbackEventOut] = Field(default_factory=list)
+
+
+class OutcomePrompt(BaseModel):
+    case_file_id: str
+    days_since_recommendation: int
+    finding_summary: str = Field(description="e.g. 'Cost sharing miscalculation with UnitedHealthcare'")
+
+
+class OutcomePromptsPayload(BaseModel):
+    prompts: list[OutcomePrompt] = Field(default_factory=list)
+
+
+class UserProfile(BaseModel):
+    id: str
+    first_name: str
+    email: str
+    user_type: Literal["user", "admin"]
+    improvement_consent: bool
+    created_at: str
+
+
+class ConsentUpdate(BaseModel):
+    improvement_consent: bool
+
+
+class ConsentHistoryEntry(BaseModel):
+    changed_at: str
+    from_consent: bool
+    to_consent: bool
+
+
+class ConsentHistoryPayload(BaseModel):
+    user_id: str
+    history: list[ConsentHistoryEntry] = Field(default_factory=list)

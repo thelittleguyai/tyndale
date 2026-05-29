@@ -36,6 +36,11 @@ from app.db.models.users import User  # noqa: E402
 _DEV_CASE_ID = uuid.UUID("00000000-0000-0000-0000-00000000ca5e")
 _DEV_FINDING_ID = uuid.UUID("00000000-0000-0000-0000-0000000f1d11")
 _DEV_DEADLINE_ID = uuid.UUID("00000000-0000-0000-0000-0000000dead1")
+# Phase 2J — a second case that's eligible for the dashboard outcome follow-up
+# card: audit_complete, a scripted recommendation given 15 days ago, no outcome
+# reported yet, last_outcome_check_at NULL.
+_DEV_OUTCOME_CASE_ID = uuid.UUID("00000000-0000-0000-0000-00000000ca5f")
+_DEV_OUTCOME_FINDING_ID = uuid.UUID("00000000-0000-0000-0000-0000000f1d12")
 
 # Screenshot reference values
 _COVERAGE = {
@@ -175,6 +180,63 @@ async def go() -> None:
             print(f"+ deadline {_DEV_DEADLINE_ID}")
         else:
             print(f"= deadline {_DEV_DEADLINE_ID} (exists)")
+
+        # Phase 2J — outcome-followup-eligible case (audit_complete, scripted
+        # recommendation given 15 days ago, no outcome reported). Renders the
+        # dashboard's "how did it go?" card.
+        oc = (await s.execute(
+            select(CaseFile).where(CaseFile.case_file_id == _DEV_OUTCOME_CASE_ID)
+        )).scalar_one_or_none()
+        fifteen_days_ago = datetime.now(timezone.utc) - timedelta(days=15)
+        if oc is None:
+            s.add(
+                CaseFile(
+                    case_file_id=_DEV_OUTCOME_CASE_ID,
+                    user_id=DEV_USER_ID,
+                    status="audit_complete",
+                    documents=[{
+                        "document_id": str(uuid.uuid4()),
+                        "filename": "anthem_bill_2026-05-14.pdf",
+                        "document_type": "bill",
+                    }],
+                    coverage=_COVERAGE,
+                    eobs=[],
+                    created_at=fifteen_days_ago,
+                    updated_at=fifteen_days_ago,
+                    last_outcome_check_at=None,
+                )
+            )
+            print(f"+ outcome-case {_DEV_OUTCOME_CASE_ID}")
+        else:
+            oc.status = "audit_complete"
+            oc.last_outcome_check_at = None
+            print(f"= outcome-case {_DEV_OUTCOME_CASE_ID} (exists)")
+        await s.flush()
+
+        ocf = (await s.execute(
+            select(Finding).where(Finding.finding_id == _DEV_OUTCOME_FINDING_ID)
+        )).scalar_one_or_none()
+        if ocf is None:
+            s.add(
+                Finding(
+                    finding_id=_DEV_OUTCOME_FINDING_ID,
+                    case_file_id=_DEV_OUTCOME_CASE_ID,
+                    finding_type="payer_side",
+                    category="cost_sharing_miscalculation",
+                    subagent_source="math_person",
+                    voice_tier="C",
+                    facts={"payer_name": "UnitedHealthcare", "gap": 320.0},
+                    recommendation={
+                        "action": "Call UnitedHealthcare and request a corrected EOB.",
+                        "reasoning": "Independent figure is below the EOB's claimed amount.",
+                    },
+                    created_at=fifteen_days_ago,
+                    updated_at=fifteen_days_ago,
+                )
+            )
+            print(f"+ outcome-finding {_DEV_OUTCOME_FINDING_ID}")
+        else:
+            print(f"= outcome-finding {_DEV_OUTCOME_FINDING_ID} (exists)")
 
         await s.commit()
         print("seed complete")

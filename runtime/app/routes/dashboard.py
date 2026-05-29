@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.greeting import compose_status_greeting
 from app.auth import CurrentUser, current_user
+from app.crons.outcome_followup import scan_for_outcome_followups
 from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
@@ -205,10 +206,23 @@ async def get_dashboard(
         [oc.model_dump(mode="json") for oc in open_cases]
     )
 
+    # Phase 2J — inline the outcome follow-up prompts so the dashboard gets
+    # them in one round trip.
+    followups = await scan_for_outcome_followups(user_id=str(user.user_id))
+    outcome_prompts = [
+        {
+            "case_file_id": f.case_file_id,
+            "days_since_recommendation": f.days_since_recommendation,
+            "finding_summary": f.finding_summary,
+        }
+        for f in followups
+    ]
+
     return DashboardPayload(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
         coverage=coverage_summary,
         amount_saved_ytd=amount_saved,
         open_cases=open_cases,
+        outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,
     )

@@ -12,7 +12,17 @@ from app.hooks import log_stub_warnings
 from app.middleware.cors import add_cors
 from app.middleware.error_handler import add_error_handlers
 from app.middleware.request_logger import RequestLoggerMiddleware
-from app.routes import audit, cases, coverage, dashboard, encounter, feedback, health, upload
+from app.routes import (
+    audit,
+    cases,
+    coverage,
+    dashboard,
+    encounter,
+    feedback,
+    health,
+    upload,
+    user,
+)
 
 structlog.configure(
     processors=[
@@ -49,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(cases.router, prefix="/v1")
     app.include_router(coverage.router, prefix="/v1")
     app.include_router(encounter.router, prefix="/v1")
+    app.include_router(user.router, prefix="/v1")
     return app
 
 

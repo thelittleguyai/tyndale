@@ -66,6 +66,11 @@ class DashboardPayload(BaseModel):
     coverage: CoverageSummary
     amount_saved_ytd: float
     open_cases: list[OpenCase] = Field(default_factory=list)
+    # Phase 2J — cases eligible for an outcome follow-up prompt (scripted
+    # recommendation given > N days ago, no outcome reported yet). Each item is
+    # an app.schemas.feedback.OutcomePrompt dict; inlined as dict to avoid a
+    # cross-schema import cycle.
+    outcome_prompts: list[dict] = Field(default_factory=list)
     status_forward_greeting: str | None = None
 
 

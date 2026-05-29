@@ -44,11 +44,19 @@ export interface OpenCase {
   next_deadline_label: string | null;
 }
 
+export interface OutcomePromptInline {
+  case_file_id: string;
+  days_since_recommendation: number;
+  finding_summary: string;
+}
+
 export interface DashboardPayload {
   user: UserBrief;
   coverage: CoverageSummary;
   amount_saved_ytd: number;
   open_cases: OpenCase[];
+  /** Phase 2J — cases eligible for an outcome follow-up prompt. */
+  outcome_prompts: OutcomePromptInline[];
   status_forward_greeting: string | null;
 }
 

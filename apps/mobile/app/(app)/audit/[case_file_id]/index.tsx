@@ -15,11 +15,16 @@ import { useLocalSearchParams } from 'expo-router';
 import {
   AuditResult,
   FindingOut,
+  ThumbsValue,
   getAudit,
   getAuditStatus,
+  getCaseFeedback,
 } from '../../../../lib/api-client';
+import { ThumbsRating } from '../../../../components/thumbs-rating';
 
 const POLL_INTERVAL_MS = 3000;
+// Stable response_id for the composed-summary thumbs (distinct from findings).
+const COMPOSED_RESPONSE_ID = 'composed_response';
 
 export default function AuditResultScreen() {
   const params = useLocalSearchParams<{ case_file_id: string }>();
@@ -28,7 +33,24 @@ export default function AuditResultScreen() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [status, setStatus] = useState<string>('audit_running');
   const [error, setError] = useState<string | null>(null);
+  // response_id -> latest thumbs, restored from prior feedback on this case.
+  const [ratings, setRatings] = useState<Record<string, ThumbsValue>>({});
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Restore any existing thumbs for this case so a refresh keeps them.
+  useEffect(() => {
+    getCaseFeedback(case_file_id)
+      .then((cf) => {
+        const map: Record<string, ThumbsValue> = {};
+        for (const e of cf.events) {
+          if (e.feedback_type === 'thumbs' && e.response_id && e.thumbs) {
+            map[e.response_id] = e.thumbs; // last write wins (events are time-ordered)
+          }
+        }
+        setRatings(map);
+      })
+      .catch(() => {/* non-fatal */});
+  }, [case_file_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +120,15 @@ export default function AuditResultScreen() {
         <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
           <Text className="mb-2 text-xs uppercase tracking-wider text-white/40">Summary</Text>
           <Text className="text-base leading-6 text-white/90">{result.summary}</Text>
+          <View className="mt-4 flex-row items-center justify-between border-t border-white/10 pt-3">
+            <Text className="text-xs text-white/45">Was this helpful?</Text>
+            <ThumbsRating
+              target={{ type: 'response', id: COMPOSED_RESPONSE_ID }}
+              caseFileId={case_file_id}
+              existingRating={ratings[COMPOSED_RESPONSE_ID] ?? null}
+              size={20}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -105,7 +136,14 @@ export default function AuditResultScreen() {
       {result.findings.length === 0 ? (
         <Text className="text-sm text-white/60">No findings recorded.</Text>
       ) : (
-        result.findings.map((f) => <FindingCard key={f.finding_id} finding={f} />)
+        result.findings.map((f) => (
+          <FindingCard
+            key={f.finding_id}
+            finding={f}
+            caseFileId={case_file_id}
+            existingRating={ratings[f.finding_id] ?? null}
+          />
+        ))
       )}
 
       <Text className="mt-12 text-center text-xs text-white/40">
@@ -137,7 +175,15 @@ function ThreeNumberRow({
   );
 }
 
-function FindingCard({ finding }: { finding: FindingOut }) {
+function FindingCard({
+  finding,
+  caseFileId,
+  existingRating,
+}: {
+  finding: FindingOut;
+  caseFileId: string;
+  existingRating: ThumbsValue | null;
+}) {
   const tier = finding.voice_tier;
   const lc = (finding.legal_claim ?? {}) as any;
   const rec = (finding.recommendation ?? {}) as any;
@@ -152,19 +198,27 @@ function FindingCard({ finding }: { finding: FindingOut }) {
       }
     >
       <View className="mb-2 flex-row items-center justify-between">
-        <Text className="text-xs uppercase tracking-wider text-white/40">
+        <Text className="flex-1 pr-2 text-xs uppercase tracking-wider text-white/40">
           {finding.finding_type.replace(/_/g, ' ')} · {finding.category}
         </Text>
-        <View
-          className={
-            tier === 'A'
-              ? 'rounded-md bg-white/10 px-2 py-0.5'
-              : tier === 'B'
-                ? 'rounded-md bg-sage/20 px-2 py-0.5'
-                : 'rounded-md bg-amber/20 px-2 py-0.5'
-          }
-        >
-          <Text className="text-[10px] font-semibold tracking-wider text-white">TIER {tier}</Text>
+        <View className="flex-row items-center gap-2">
+          <View
+            className={
+              tier === 'A'
+                ? 'rounded-md bg-white/10 px-2 py-0.5'
+                : tier === 'B'
+                  ? 'rounded-md bg-sage/20 px-2 py-0.5'
+                  : 'rounded-md bg-amber/20 px-2 py-0.5'
+            }
+          >
+            <Text className="text-[10px] font-semibold tracking-wider text-white">TIER {tier}</Text>
+          </View>
+          <ThumbsRating
+            target={{ type: 'finding', id: finding.finding_id }}
+            caseFileId={caseFileId}
+            existingRating={existingRating}
+            size={15}
+          />
         </View>
       </View>
 

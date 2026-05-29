@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # Where to write uploaded files when running fully local (no Azure Blob).
     local_uploads_dir: str = "/tmp/tyndale_uploads"
 
+    # Phase 2J — how long after a scripted recommendation before the dashboard
+    # prompts the user for an outcome report. Default 14 days (per L05); tests
+    # set 0 so freshly-created cases are eligible without time-travel.
+    outcome_followup_days: int = 14
+
     # --- Knowledge layer (Qdrant + Voyage AI) ---
     # qdrant_url: an http(s):// URL connects to a server (Docker/Azure); any other
     # value (a filesystem path or ":memory:") uses qdrant-client's embedded local

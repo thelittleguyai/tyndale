@@ -268,6 +268,213 @@ async def test_confirmations_empty_returns_400(client: AsyncClient, force_fixtur
     assert r.status_code == 400
 
 
+# ---------- Tier 2c — feedback + consent (Phase 2J) --------------------------
+
+
+async def _run_to_audit_complete(client: AsyncClient) -> str:
+    """Full two-phase flow (all 'yes') -> audit_complete. Returns case_id."""
+    case_id, line_items = await _upload_and_extract(client)
+    confirmations = [
+        {"line_item_id": it["line_item_id"], "response": "yes", "user_note": None}
+        for it in line_items
+    ]
+    await client.post(f"/v1/audit/{case_id}/confirmations", json={"confirmations": confirmations})
+    await _poll_status(client, case_id)
+    return case_id
+
+
+def _thumbs_event(case_id: str, response_id: str, thumbs: str) -> dict:
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    return {
+        "event_id": str(_uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "case_file_id": case_id,
+        "feedback_type": "thumbs",
+        "response_id": response_id,
+        "thumbs": thumbs,
+    }
+
+
+async def _set_consent(client: AsyncClient, value: bool) -> None:
+    r = await client.patch("/v1/user/me", json={"improvement_consent": value})
+    assert r.status_code == 200, r.text
+
+
+@pytest.mark.asyncio
+async def test_thumbs_up_creates_event_consent_false_by_default(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    await _set_consent(client, False)
+    case_id = await _run_to_audit_complete(client)
+    r = await client.post("/v1/feedback", json=_thumbs_event(case_id, "composed_response", "up"))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # consent is false by default -> NOT queued for de-id
+    assert body["queued_for_deid"] is False
+    # event is retrievable for the case
+    cf = await client.get(f"/v1/feedback/case/{case_id}")
+    assert any(e["thumbs"] == "up" for e in cf.json()["events"])
+
+
+@pytest.mark.asyncio
+async def test_thumbs_down_with_structured_correction_creates_two_events(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    await _set_consent(client, False)
+    case_id = await _run_to_audit_complete(client)
+    # thumbs-down
+    await client.post("/v1/feedback", json=_thumbs_event(case_id, "f1", "down"))
+    # structured correction
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    sc = {
+        "event_id": str(_uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "case_file_id": case_id,
+        "feedback_type": "structured_correction",
+        "response_id": "f1",
+        "structured_reason": ["wrong_number", "confusing"],
+        "free_text": "the math looked off",
+    }
+    r = await client.post("/v1/feedback", json=sc)
+    assert r.status_code == 200, r.text
+    cf = await client.get(f"/v1/feedback/case/{case_id}")
+    types = sorted(e["feedback_type"] for e in cf.json()["events"])
+    assert "thumbs" in types and "structured_correction" in types
+
+
+@pytest.mark.asyncio
+async def test_consent_flip_to_true_enqueues_prior_events(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    """false->true retroactively enqueues ALL the user's events to triage."""
+    from sqlalchemy import func, select
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.feedback import FeedbackEvent, FeedbackTriageQueue
+    from app.auth.dev_user import DEV_USER_ID
+
+    await _set_consent(client, False)
+    case_id = await _run_to_audit_complete(client)
+    await client.post("/v1/feedback", json=_thumbs_event(case_id, "f1", "up"))
+    await client.post("/v1/feedback", json=_thumbs_event(case_id, "f2", "down"))
+
+    await _set_consent(client, True)
+
+    async with AsyncSessionLocal() as s:
+        n_events = (await s.execute(
+            select(func.count()).select_from(FeedbackEvent).where(FeedbackEvent.user_id == DEV_USER_ID)
+        )).scalar_one()
+        # every one of the user's events should now have a triage row
+        eids = (await s.execute(
+            select(FeedbackEvent.id).where(FeedbackEvent.user_id == DEV_USER_ID)
+        )).scalars().all()
+        n_queued = (await s.execute(
+            select(func.count()).select_from(FeedbackTriageQueue)
+            .where(FeedbackTriageQueue.feedback_event_id.in_(eids))
+        )).scalar_one()
+    assert n_events > 0
+    assert n_queued == n_events, f"{n_queued} queued != {n_events} events"
+
+
+@pytest.mark.asyncio
+async def test_consent_flip_to_false_dequeues_but_keeps_deid_candidates(
+    client: AsyncClient, force_fixture_path
+) -> None:
+    """true->false drops pending triage rows but leaves deid_candidates intact."""
+    from sqlalchemy import func, select
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.feedback import (
+        FeedbackDeidCandidate,
+        FeedbackEvent,
+        FeedbackTriageQueue,
+    )
+    from app.auth.dev_user import DEV_USER_ID
+
+    await _set_consent(client, True)
+    case_id = await _run_to_audit_complete(client)
+    await client.post("/v1/feedback", json=_thumbs_event(case_id, "f1", "up"))
+
+    # Simulate the security spine having already de-identified one event.
+    async with AsyncSessionLocal() as s:
+        an_event = (await s.execute(
+            select(FeedbackEvent).where(FeedbackEvent.user_id == DEV_USER_ID).limit(1)
+        )).scalar_one()
+        s.add(FeedbackDeidCandidate(
+            feedback_event_id=an_event.id, deid_payload={"x": 1}, passed=True
+        ))
+        await s.commit()
+
+    await _set_consent(client, False)
+
+    async with AsyncSessionLocal() as s:
+        eids = (await s.execute(
+            select(FeedbackEvent.id).where(FeedbackEvent.user_id == DEV_USER_ID)
+        )).scalars().all()
+        n_queued = (await s.execute(
+            select(func.count()).select_from(FeedbackTriageQueue)
+            .where(FeedbackTriageQueue.feedback_event_id.in_(eids))
+            .where(FeedbackTriageQueue.status == "queued")
+        )).scalar_one()
+        n_deid = (await s.execute(
+            select(func.count()).select_from(FeedbackDeidCandidate)
+            .where(FeedbackDeidCandidate.feedback_event_id.in_(eids))
+        )).scalar_one()
+    assert n_queued == 0, "pending triage rows should be removed on opt-out"
+    assert n_deid >= 1, "already-de-identified candidates must NOT be removed"
+
+
+@pytest.mark.asyncio
+async def test_outcome_prompts_returns_eligible_only(
+    client: AsyncClient, force_fixture_path, monkeypatch
+) -> None:
+    from app.config import get_settings
+
+    # threshold 0 days so a freshly-finalized case is immediately eligible.
+    monkeypatch.setattr(get_settings(), "outcome_followup_days", 0)
+
+    eligible_case = await _run_to_audit_complete(client)  # has a recommendation finding
+    # An ineligible case: uploaded + extracted but NOT finalized (status != audit_complete)
+    ineligible_case, _ = await _upload_and_extract(client)
+
+    r = await client.get("/v1/feedback/outcome-prompts")
+    assert r.status_code == 200, r.text
+    ids = {p["case_file_id"] for p in r.json()["prompts"]}
+    assert eligible_case in ids
+    assert ineligible_case not in ids
+
+
+@pytest.mark.asyncio
+async def test_outcome_report_dismisses_subsequent_prompts(
+    client: AsyncClient, force_fixture_path, monkeypatch
+) -> None:
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "outcome_followup_days", 0)
+
+    case_id = await _run_to_audit_complete(client)
+    # eligible before reporting
+    before = {p["case_file_id"] for p in (await client.get("/v1/feedback/outcome-prompts")).json()["prompts"]}
+    assert case_id in before
+
+    # report an outcome
+    r = await client.post("/v1/feedback", json={
+        "event_id": str(_uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "case_file_id": case_id,
+        "feedback_type": "outcome_report",
+        "outcome": {"resolved": "yes", "amount_saved": 640.0},
+    })
+    assert r.status_code == 200, r.text
+
+    after = {p["case_file_id"] for p in (await client.get("/v1/feedback/outcome-prompts")).json()["prompts"]}
+    assert case_id not in after, "reported case should no longer prompt"
+
+
 # ---------- Tier 3 — real Claude + DI (skipped unless creds are set) -----------
 
 

@@ -39,7 +39,13 @@ import {
   User as UserIcon,
 } from 'lucide-react-native';
 
-import { getDashboard, type DashboardPayload } from '../../lib/api-client';
+import {
+  getDashboard,
+  makeFeedbackEvent,
+  submitFeedback,
+  type DashboardPayload,
+  type ResolvedValue,
+} from '../../lib/api-client';
 import { HeroMotif } from '../../components/hero-motif';
 
 const formatUSD = (n: number) =>
@@ -126,6 +132,10 @@ export default function DashboardScreen() {
           />
         </View>
 
+        {(data?.outcome_prompts ?? []).length > 0 ? (
+          <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
+        ) : null}
+
         <ChatCTA onPress={() => router.push('/chat-placeholder')} />
 
         {error ? (
@@ -138,6 +148,99 @@ export default function DashboardScreen() {
         </Text>
       </View>
     </ScrollView>
+  );
+}
+
+// ─── Outcome follow-up (Phase 2J) ────────────────────────────────────────────
+function OutcomeFollowupCard({
+  prompt,
+  onDone,
+}: {
+  prompt: { case_file_id: string; days_since_recommendation: number; finding_summary: string };
+  onDone: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const answer = async (resolved: ResolvedValue) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await submitFeedback(
+        makeFeedbackEvent({
+          case_file_id: prompt.case_file_id,
+          feedback_type: 'outcome_report',
+          outcome: { resolved },
+        }),
+      );
+      onDone(); // server stamped last_outcome_check_at; reload drops the card
+    } catch {
+      setSubmitting(false);
+    }
+  };
+
+  const skip = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    // "Skip for now" still stamps last_outcome_check_at via an outcome_report
+    // with resolved='pending' so the card stops nagging this cycle.
+    try {
+      await submitFeedback(
+        makeFeedbackEvent({
+          case_file_id: prompt.case_file_id,
+          feedback_type: 'outcome_report',
+          outcome: { resolved: 'pending' },
+        }),
+      );
+      onDone();
+    } catch {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <View className="mt-6 rounded-2xl border border-amber/30 bg-navy-soft p-5">
+      <View className="mb-2 flex-row items-center gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-amber/20">
+          <Clock size={18} color="#E08A3C" />
+        </View>
+        <Text className="text-base font-bold text-white">Quick check-in: how did it go?</Text>
+      </View>
+      <Text className="mb-4 text-sm leading-6 text-white/70">
+        {prompt.days_since_recommendation} days ago I helped you with {prompt.finding_summary}. Did
+        it get resolved?
+      </Text>
+      <View className="flex-row flex-wrap gap-2">
+        <OutcomeButton label="Yes, resolved" tone="sage" onPress={() => answer('yes')} />
+        <OutcomeButton label="Partially" tone="amber" onPress={() => answer('partial')} />
+        <OutcomeButton label="No / not yet" tone="rose" onPress={() => answer('no')} />
+        <OutcomeButton label="Skip for now" tone="ink" onPress={skip} />
+      </View>
+    </View>
+  );
+}
+
+function OutcomeButton({
+  label,
+  tone,
+  onPress,
+}: {
+  label: string;
+  tone: 'sage' | 'amber' | 'rose' | 'ink';
+  onPress: () => void;
+}) {
+  const cls =
+    tone === 'sage'
+      ? 'bg-sage'
+      : tone === 'amber'
+        ? 'bg-amber'
+        : tone === 'rose'
+          ? 'bg-rose'
+          : 'bg-white/10';
+  const textCls = tone === 'ink' ? 'text-white/70' : 'text-ink';
+  return (
+    <Pressable onPress={onPress} className={`rounded-lg px-3 py-2 ${cls}`}>
+      <Text className={`text-xs font-bold ${textCls}`}>{label}</Text>
+    </Pressable>
   );
 }
 

@@ -67,5 +67,10 @@ class CaseFile(Base):
     encounter_confirmations: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
+    # Phase 2J — set when the user answers/skips an outcome follow-up prompt,
+    # so the dashboard stops re-prompting. NULL = never prompted/answered.
+    last_outcome_check_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     # Optimistic locking counter.
     version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
