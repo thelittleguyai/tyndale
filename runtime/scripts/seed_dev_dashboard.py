@@ -26,7 +26,7 @@ from sqlalchemy import select
 # Allow running from repo root: `uv run python runtime/scripts/seed_dev_dashboard.py`
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 
-from app.auth.dev_user import _DEV_USER_EMAIL, _DEV_USER_ID  # noqa: E402
+from app.auth.dev_user import DEV_USER_EMAIL, DEV_USER_ID, DEV_USER_TYPE  # noqa: E402
 from app.db.base import AsyncSessionLocal  # noqa: E402
 from app.db.models.case_files import CaseFile  # noqa: E402
 from app.db.models.deadlines import Deadline  # noqa: E402
@@ -57,19 +57,32 @@ _COVERAGE = {
 async def go() -> None:
     async with AsyncSessionLocal() as s:
         # Dev user --------------------------------------------------------
-        row = (await s.execute(select(User).where(User.user_id == _DEV_USER_ID))).scalar_one_or_none()
+        row = (await s.execute(select(User).where(User.user_id == DEV_USER_ID))).scalar_one_or_none()
         if row is None:
             s.add(
                 User(
-                    user_id=_DEV_USER_ID,
-                    email=_DEV_USER_EMAIL,
+                    user_id=DEV_USER_ID,
+                    email=DEV_USER_EMAIL,
+                    user_type=DEV_USER_TYPE,
                     service_consent=True,
                     improvement_consent=False,
                 )
             )
-            print(f"+ user {_DEV_USER_ID}")
+            print(f"+ user {DEV_USER_ID}  email={DEV_USER_EMAIL}  type={DEV_USER_TYPE}")
         else:
-            print(f"= user {_DEV_USER_ID} (exists)")
+            # Backfill email + user_type so changing the auth.dev_user
+            # constants is enough — re-running the seed picks up the change.
+            updates = []
+            if row.email != DEV_USER_EMAIL:
+                updates.append(f"email→{DEV_USER_EMAIL}")
+                row.email = DEV_USER_EMAIL
+            if row.user_type != DEV_USER_TYPE:
+                updates.append(f"user_type→{DEV_USER_TYPE}")
+                row.user_type = DEV_USER_TYPE
+            tag = f"= user {DEV_USER_ID} (exists)"
+            if updates:
+                tag += " — backfilled " + ", ".join(updates)
+            print(tag)
 
         # Dev case --------------------------------------------------------
         case = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == _DEV_CASE_ID))).scalar_one_or_none()
@@ -78,7 +91,7 @@ async def go() -> None:
             s.add(
                 CaseFile(
                     case_file_id=_DEV_CASE_ID,
-                    user_id=_DEV_USER_ID,
+                    user_id=DEV_USER_ID,
                     status="in_progress",
                     documents=[
                         {

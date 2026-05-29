@@ -15,45 +15,23 @@ Walking skeleton classification:
 from __future__ import annotations
 
 import base64
-import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, File, UploadFile
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
-from app.db.models.users import User
 from app.db.session import get_session
 from app.schemas.api_contract import UploadResponse
 from app.tools.ocr_tools import _bill_ocr_extract  # the registered fn
 
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
-
-
-# Stable dev user for the walking skeleton — real auth wires in Phase 4 (NextAuth → JWT).
-_DEV_USER_ID = uuid.UUID("00000000-0000-0000-0000-0000000000d1")
-_DEV_USER_EMAIL = "dev@tyndaleapp.local"
-
-
-async def _ensure_dev_user(s: AsyncSession) -> uuid.UUID:
-    row = (await s.execute(select(User).where(User.user_id == _DEV_USER_ID))).scalar_one_or_none()
-    if row is None:
-        s.add(
-            User(
-                user_id=_DEV_USER_ID,
-                email=_DEV_USER_EMAIL,
-                service_consent=True,
-                improvement_consent=False,
-            )
-        )
-        await s.flush()
-    return _DEV_USER_ID
 
 
 def _classify(ocr_text: str) -> str:
@@ -96,6 +74,7 @@ async def _persist(content: bytes, filename: str) -> str:
 async def upload(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
 ) -> UploadResponse:
     content = await file.read()
     filename = file.filename or "upload"
@@ -105,8 +84,9 @@ async def upload(
     ocr = await _bill_ocr_extract({"content_base64": base64.b64encode(content).decode(), "filename": filename})
     document_type = _classify(ocr.get("ocr_text") or "")
 
-    # Open a case + record the document
-    user_id = await _ensure_dev_user(session)
+    # Open a case + record the document. user.user_id comes from the dev
+    # auth stub today; Phase 2K swaps it for the real JWT subject.
+    user_id = user.user_id
     document_id = str(uuid.uuid4())
     doc_entry: dict[str, Any] = {
         "document_id": document_id,
