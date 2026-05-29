@@ -147,3 +147,6 @@ Phase 0 closure complete: monorepo skeleton, root configs, docs scaffold, integr
 contracts published, source spec imported.
 
 Operational: BAA tracker at intelligence-layer/operational/baa_tracker.md.
+
+Decision log canonical: DL-01 through DL-41 in docs/decision-log.md.
+Cowork numbers DL-NN-style entries chronologically as decisions land.

@@ -215,3 +215,179 @@ are managed by Brock outside Cowork's scope.
 Recording them here keeps their status visible — counsel blocks Phase 7 publication, and
 capacity affects the whole schedule — while ownership stays with Brock.
 **Reversibility:** locked
+
+## DL-20 — PostToolUse hook receives DB session via dependency injection
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1C
+**Decision:** The PostToolUse hook signature in `docs/integration-contracts.md` Section 2.1 originally didn't include a DB session parameter. Phil resolved this by having the runtime inject an async SQLAlchemy session via FastAPI's dependency-injection mechanism so the hook can write to `audit_events`.
+**Reasoning:** PostToolUse must write to Postgres to log the audit event; without a session, it couldn't. FastAPI's DI is already the runtime's standard pattern.
+**Reversibility:** locked unless the security/HIPAA contact has a different preferred approach.
+
+## DL-21 — Feedback table shapes designed by Phil
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1C
+**Decision:** The integration contracts referenced `feedback_events`, `feedback_triage_queue`, and `feedback_deid_candidates` tables but said "shapes defined by Jonas." Phil designed the schemas in `0001_initial.py` per the L05 capture schema, with foreign keys to `case_files` and a status enum (`pending|deidentified|promoted|discarded`).
+**Reasoning:** the L06 de-identification pipeline needs a stable handoff schema; pre-defining unblocks Phase 4 work and Phase 2I/J ahead of the security/HIPAA contact engaging.
+**Reversibility:** revisable if Jonas or the security/HIPAA contact has different shape requirements.
+
+## DL-22 — Gated-tool argument naming
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1C
+**Decision:** The PreToolUse hook validates `approval_token` for `send_email`/`doc_generate` gated tools and `effective_date` for `qdrant_search_laws_regulations` / `qdrant_search_payer_policies`. Phil committed to these exact arg names so the runtime, tools, and hook all agree.
+**Reasoning:** per the build kit, these hooks enforce specific invariants; consistent naming makes the contract enforceable across runtime + tools + hooks.
+**Reversibility:** locked.
+
+## DL-23 — Skill scaffolds intentionally shallow
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 2A
+**Decision:** The Skill scaffolds (Bill Error Detection, Coverage Connection, etc.) use placeholder `src_TBD` source IDs and representative legal citation language. Real attorney-verified citations and real Qdrant chunk source IDs fill in during Phase 5 + domain-expert engagement.
+**Reasoning:** per Tasks 08/10/13, scaffold-then-fill is the intended pattern; building attorney-verified content into Phase 2A would block the build on the attorney's timeline.
+**Reversibility:** locked at the scaffold stage; entries fill in as content lands.
+
+## DL-24 — MODES.md not built; v1-lite/universal/full-only conventions remain implicit
+
+**Date:** 2026-05-27
+**Decided by:** Brock via Cowork
+**Decision:** Tasks L02/L03/L04 reference a MODES.md file tracking which files belong to v1-lite vs universal vs full-only modes. The file is not built. The conventions are encoded implicitly in directory placement, file frontmatter where present, and the deferred-placeholder pattern used consistently across the build.
+**Reasoning:** a separate MODES.md is documentation overhead with limited payoff at this team size; the implicit conventions are sufficient.
+**Reversibility:** revisable if a future team member finds the implicit conventions ambiguous.
+
+## DL-25 — Marketing landing pivoted from Static Web Apps to external Container Apps environment
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1E deploy
+**Decision:** The Phase 1E spec called for Azure Static Web Apps Free tier for the marketing landing. In practice, SWA + hybrid Next.js + npm-workspace `@tyndale/shared` was incompatible — SWA's Oryx couldn't resolve the workspace dep without bypassing the hybrid runtime, which broke the NextAuth API route. Phil added a second Container Apps Environment (`tyndale-dev-cae-external`) for public-facing apps; the original internal CAE retains runtime/litellm/qdrant.
+**Reasoning:** shipping the hybrid Next.js runtime intact preserved the auth API path; the SWA Free-tier cost savings were marginal compared to the engineering effort to work around the hybrid limitation.
+**Reversibility:** revisable if SWA later supports hybrid Next.js + workspace deps natively, or if marketing pages collapse to static-export-only.
+
+## DL-26 — GitHub Actions CI/CD with OIDC + GHCR
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1E deploy
+**Decision:** Added `deploy-runtime` and `deploy-web-marketing` GitHub Actions workflows. Both authenticate to Azure via OIDC against the GitHub `dev` environment. Images are hosted on GHCR (public). Auto-deploys on push to `main` when the matching paths change.
+**Reasoning:** needed CI/CD to land the real runtime image as soon as Phase 2D wiring completes; GHCR was cheaper and simpler than Azure Container Registry for early dev.
+**Reversibility:** ACR migration is a config change if security/HIPAA contact wants registry traffic inside the VPC.
+
+## DL-27 — Custom domain TLS cert binding via az CLI null_resource
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 1E deploy
+**Decision:** The `azurerm_container_app_environment_managed_certificate` resource creates a binding/cert dependency cycle when paired with the custom-domain attachment. Phil wrapped `az containerapp hostname bind --validation-method HTTP` in a Terraform `null_resource` that does both halves atomically.
+**Reasoning:** pragmatic workaround for an AzureRM provider limitation; cert + binding land together.
+**Reversibility:** revisit when AzureRM gains a non-cycling pattern for cert + binding co-creation.
+
+## DL-28 — Opus 4.7 synthetic-generation cost estimate corrected to ~$85
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 2E
+**Decision:** The Phase 2E README quoted $10–25 for a full ~2,000-case synthetic generation run. The runner's per-token math against current Anthropic pricing came to ~$85. Updated cost expectation reflected in the synthetic README.
+**Reasoning:** original estimate was conservative against the wrong pricing tier; corrected before Brock approves the run.
+**Reversibility:** cost falls as pricing tiers shift; update again when Brock confirms enterprise-tier pricing.
+
+## DL-29 — Error-handler middleware logs structured exceptions
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 2D
+**Decision:** The `middleware/error_handler.py` was logging only `str(exc)`, which collapsed traceback information and slowed multi-iteration debugging. Replaced with `log.exception` (Python logging) + dev-mode traceback in the response body (production retains the JSON-only error response, no stack to client).
+**Reasoning:** structured exception logging cuts debug-loop time significantly on real-Claude integration work where the failure surfaces are varied.
+**Reversibility:** locked discipline; applies to all future runtime middleware.
+
+## DL-30 — Env-var validation uses startswith() discipline
+
+**Date:** 2026-05-27
+**Decided by:** Phil (CTO) during Phase 2D
+**Decision:** Env vars like `ANTHROPIC_API_KEY`, `AZURE_DOC_INTELLIGENCE_ENDPOINT`, and `DATABASE_URL` were being checked via truthiness. Placeholder strings like `<from terraform output>` passed truthiness and crashed the runtime at the first real call. Now use `startswith("https://")` for endpoints, `startswith("sk-")` for API keys, `startswith("postgresql+asyncpg://")` for connection strings.
+**Reasoning:** placeholder values are common in dev iteration; failing fast at config-load time beats crashing mid-request.
+**Reversibility:** locked across all future config validation.
+
+## DL-31 — Migrations-in-CI Container Apps Job pattern
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H deploy
+**Decision:** Database migrations run as a Container Apps Job (`tyndale-dev-runtime-migrations`) on every `deploy-runtime` CI run before the runtime CA rolls. The Job runs `alembic upgrade head` + the dev seed, gates the runtime roll on migration success, uses the same internal CAE (so it reaches VNet-only Postgres), same UAMI + KV-backed `DATABASE_URL`.
+**Reasoning:** manual `az containerapp exec` migrations were error-prone and broke CI/CD. Container Apps Jobs are the right Azure primitive for one-shot tasks. Verified CI green end-to-end in 1m35s build → migrate → roll.
+**Reversibility:** standard for staging + production; carry forward to those env configs.
+
+## DL-32 — user_type column with admin pre-seeded for Phase 2K auth swap
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** Alembic migration 0002 adds `users.user_type` (CHECK IN ('user', 'admin'), default 'user'). The dev seed creates `pfluegelcx@gmail.com` as `user_type='admin'`.
+**Reasoning:** Phase 2K's Google sign-in flow matches users on verified email; the admin user already exists with the right role, so the auth swap requires zero additional data migration.
+**Reversibility:** revisable; matches industry-standard user/admin role distinction.
+
+## DL-33 — DATABASE_URL urlencodes special characters in Postgres password
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** SQLAlchemy + asyncpg fails to parse `DATABASE_URL` when the Postgres password contains `@` or `:` or other URL-reserved characters. Passwords are now URL-encoded before being assembled into `DATABASE_URL` in Terraform locals.
+**Reasoning:** Azure Postgres password generation can include special characters; the URL parser misreads them as delimiters.
+**Reversibility:** locked across all envs.
+
+## DL-34 — Azure Key Vault references use versionless_id for Container App secrets
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** When binding Key Vault secrets to Container App secret references via Terraform, use `azurerm_key_vault_secret.<x>.versionless_id`, not `.id`. Version-pinned secret IDs trip an AzureRM provider inconsistent-plan bug.
+**Reasoning:** KV secrets rotate; references should follow the current version automatically, not pin to a specific version that won't exist after rotation.
+**Reversibility:** locked.
+
+## DL-35 — Postgres Flexible Server requires extensions allow-listed via azure.extensions
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** `CREATE EXTENSION pgcrypto` in Alembic migration 0001 fails on Azure Postgres Flexible Server unless 'pgcrypto' is listed in the `azure.extensions` server parameter. Terraform now sets the `azurerm_postgresql_flexible_server_configuration "azure.extensions"` value to include `pgcrypto` (plus any other extensions used).
+**Reasoning:** Azure Postgres Flex requires explicit allow-listing for security; this is by design but not obvious from the error message.
+**Reversibility:** locked; add new extensions to the configuration as they're needed.
+
+## DL-36 — Alembic down_revision matches actual revision IDs
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** Alembic `0002.down_revision` originally referenced `"0001_initial"` (the filename prefix) but the actual revision ID is `"0001"`. Migrations now use the bare ID, not the filename prefix.
+**Reasoning:** Alembic's down_revision is a revision ID, not a filename; the linter doesn't catch the mismatch but Alembic fails at runtime.
+**Reversibility:** locked discipline.
+
+## DL-37 — CI az polling uses explicit status flags
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2H
+**Decision:** The CI workflow's status-poll for the migration Job was using wrong `az` flags and printed a fake "Pending" 60×, masking the real outcome. Now uses `az containerapp job execution show --query 'properties.status' -o tsv` with explicit timeout and exit-on-Succeeded/Failed.
+**Reasoning:** silent status-poll failures cascade into hours of confused debugging; explicit polling with clean exits surfaces real failures fast.
+**Reversibility:** locked CI discipline.
+
+## DL-38 — packages/shared barrel-export discipline + mobile typecheck in CI gap
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2I
+**Decision:** `packages/shared/src/index.ts` barrel export must include every type module; missing exports don't surface as build errors when mobile isn't typechecked in CI (Phase 2H's dashboard export was lost; Phase 2I's encounter export was caught only because Phil ran the typecheck locally). Two-part discipline: (a) every new file under `packages/shared/src/` requires a corresponding `export * from './<module>'` in `src/index.ts`; (b) GitHub Actions runs `tsc --noEmit -p apps/mobile` + `apps/web-marketing` on every PR.
+**Reasoning:** silent barrel-export regressions cascade as runtime ImportErrors and consumed multiple iterations to debug. Mobile typecheck job in CI catches these on PR.
+**Reversibility:** locked. Mobile typecheck CI job lands in Phase 2K.
+
+## DL-39 — Structured persistence uses dedicated tools, not free-text parsing
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2I
+**Decision:** When a subagent needs to persist structured data (line items, findings, deadlines, plan state), it calls a dedicated typed tool like `pg_store_line_item` or `pg_upsert_finding` rather than producing free text the runtime parses. Phase 2I added `pg_store_line_item`; the same pattern applies to any future structured persistence.
+**Reasoning:** the tool registry pattern is already the contract between agent and runtime; using it for persistence keeps the boundary clean, validates argument shapes at call time, and gives the PreToolUse hook a natural place to scrub PHI before storage.
+**Reversibility:** locked.
+
+## DL-40 — pytest-asyncio + asyncpg event-loop fixture pattern
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2I
+**Decision:** Tests that share an async DB engine across many test cases require an autouse fixture in `conftest.py` that disposes the app engine after each test. pytest-asyncio's per-test event loops collide with asyncpg's default connection pool, producing `RuntimeError: Event loop is closed` on the second test. The autouse dispose is test-only and adds no production overhead.
+**Reasoning:** pytest-asyncio + asyncpg compatibility quirk; documented so future test authors don't re-debug it.
+**Reversibility:** revisit if pytest-asyncio + asyncpg add native compatibility.
+
+## DL-41 — GET /v1/audit/{id} returns assembled result, not 404-until-finalized
+
+**Date:** 2026-05-28
+**Decided by:** Phil (CTO) during Phase 2I
+**Decision:** The audit GET endpoint returns the current assembled result (which may be partial during the two-phase flow) rather than 404'ing until the audit is fully complete. Frontend gates rendering on `/audit/{id}/status == 'audit_complete'` before calling.
+**Reasoning:** keeps the legacy POST `/v1/audit` single-phase path working unchanged; avoids two different error semantics on the same URL.
+**Reversibility:** revisable if the API surface gets larger and explicit lifecycle endpoints make more sense.
