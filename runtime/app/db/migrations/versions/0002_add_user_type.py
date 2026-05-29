@@ -4,17 +4,19 @@ Adds a ``user_type`` text column constrained to {'user', 'admin'}, defaulted
 to 'user' so existing rows backfill non-destructively. Phase 2K real-auth
 wiring uses this column to gate admin-only routes once Google sign-in lands.
 
-Revision ID: 0002_add_user_type
-Revises:     0001_initial
+Revision ID: 0002
+Revises:     0001
 """
 
 from __future__ import annotations
 
 from alembic import op
 
-# Alembic identifiers
-revision = "0002_add_user_type"
-down_revision = "0001_initial"
+# Alembic identifiers — match the bare-number style 0001_initial.py declared
+# (its revision = "0001"). File name and revision ID are independent in Alembic;
+# the ID is what's stored in alembic_version + threaded into the dep chain.
+revision = "0002"
+down_revision = "0001"
 branch_labels = None
 depends_on = None
 
