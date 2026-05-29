@@ -10,17 +10,38 @@
 #     mirror the relevant secrets straight into app settings while still
 #     keeping them in KV for centralized storage.
 #
-# User-provided secrets (the four Phil supplies in terraform.tfvars):
+# User-provided secrets (supplied by Phil in terraform.tfvars):
 #   var.anthropic_api_key, var.voyage_api_key,
 #   var.google_oauth_client_id, var.google_oauth_client_secret
+#   var.sendgrid_api_key — OPTIONAL; empty string -> the KV secret and the
+#     runtime's SENDGRID_API_KEY env are both skipped (count=0 / dynamic),
+#     so the runtime logs the magic link instead of emailing it.
 #
 # Derived / auto-generated secrets:
-#   random_password.nextauth_secret      — 64-char random secret
+#   random_password.nextauth_secret      — 64-char random secret (marketing app)
+#   random_password.auth_secret          — 64-char random secret; the runtime's
+#     HS256 signing key for session + magic-link JWTs (env AUTH_SECRET). No
+#     external counterpart, so it is auto-generated rather than a tfvars input.
 #   azurerm_cognitive_account...primary_access_key — DI primary key
 #   azurerm_postgresql_flexible_server.main.fqdn   — for DATABASE_URL
 
 # --- Auto-generated NextAuth secret -------------------------------------------
 resource "random_password" "nextauth_secret" {
+  length      = 64
+  special     = true
+  min_lower   = 8
+  min_upper   = 8
+  min_numeric = 8
+  min_special = 4
+}
+
+# --- Auto-generated runtime AUTH_SECRET ---------------------------------------
+# The runtime's HS256 signing key for session + magic-link JWTs. No external
+# counterpart (unlike the Google secret), so Terraform owns it rather than a
+# human supplying it via tfvars. NOTE: this lives in tfstate and is owned by
+# Terraform — a state loss / regen rotates it and invalidates all live sessions.
+# Acceptable for dev; revisit for prod (generate-once + ignore_changes).
+resource "random_password" "auth_secret" {
   length      = 64
   special     = true
   min_lower   = 8
@@ -94,6 +115,24 @@ resource "azurerm_key_vault_secret" "google_oauth_client_secret" {
 resource "azurerm_key_vault_secret" "nextauth_secret" {
   name         = "NEXTAUTH-SECRET"
   value        = random_password.nextauth_secret.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+resource "azurerm_key_vault_secret" "auth_secret" {
+  name         = "AUTH-SECRET"
+  value        = random_password.auth_secret.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+# SendGrid key is OPTIONAL: count=0 when var.sendgrid_api_key is empty, because
+# Key Vault rejects empty secret values. With no secret created, the runtime's
+# SENDGRID_API_KEY env is also skipped (see compute.tf) and it logs the link.
+resource "azurerm_key_vault_secret" "sendgrid_api_key" {
+  count        = var.sendgrid_api_key != "" ? 1 : 0
+  name         = "SENDGRID-API-KEY"
+  value        = var.sendgrid_api_key
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }

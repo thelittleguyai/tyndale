@@ -19,6 +19,26 @@ voyage_api_key             = "pa-REPLACE_ME"
 google_oauth_client_id     = "REPLACE_ME.apps.googleusercontent.com"
 google_oauth_client_secret = "GOCSPX-REPLACE_ME"
 
+# --- Auth + email -----------------------------------------------------------
+# NOTE: there is intentionally NO auth_secret here. The runtime's JWT signing
+# key (env AUTH_SECRET) has no external counterpart, so Terraform auto-
+# generates it (random_password.auth_secret in secrets.tf) and stores it in
+# Key Vault. You never set it by hand.
+#
+# SendGrid magic-link email (Email API Pro tier under a BAA, per DL-18).
+# OPTIONAL: leave sendgrid_api_key empty ("") and the runtime LOGS the sign-in
+# link instead of emailing it — the KV secret + env wiring are skipped, so
+# apply works fine before you have a SendGrid account. Set the "SG.…" value to
+# send real email; sendgrid_from_email must be a verified SendGrid sender.
+sendgrid_api_key    = "" # e.g. "SG.xxxxxxxxxxxx" to enable real email
+sendgrid_from_email = "no-reply@tyndaleapp.net"
+
+# Real-auth toggle. false (default) = runtime keeps the seeded-admin stub, no
+# sign-in needed. true = require real Google / magic-link auth; also needs the
+# runtime reachable from the browser (ingress + CORS) and the Google redirect
+# URI registered. Flip on a follow-up apply once those are in place.
+use_real_auth = false
+
 # Flip to true on a follow-up apply, after DNS records propagate publicly
 # (see variables.tf).
 # enable_marketing_custom_domain = true

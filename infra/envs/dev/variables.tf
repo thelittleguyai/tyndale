@@ -62,6 +62,25 @@ variable "google_oauth_client_secret" {
   description = "Google OAuth 2.0 client secret for the marketing landing's NextAuth sign-in."
 }
 
+variable "sendgrid_api_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "SendGrid Email API key (Pro tier under a BAA, per DL-18) for sending magic-link sign-in emails. OPTIONAL: leave empty and the runtime logs the sign-in link instead of emailing it — the KV secret and the runtime's SENDGRID_API_KEY env wiring are both skipped, so apply succeeds without a SendGrid account. Set it to a real 'SG.…' value to send real email."
+}
+
+variable "sendgrid_from_email" {
+  type        = string
+  default     = "no-reply@tyndaleapp.net"
+  description = "From-address for magic-link emails. Must be a verified SendGrid sender (domain or single-sender) or SendGrid rejects the send. Not sensitive."
+}
+
+variable "use_real_auth" {
+  type        = bool
+  default     = false
+  description = "When false (dev default), the runtime keeps the seeded-admin stub and no sign-in/cookie is required. When true, the runtime requires real Google / magic-link auth — which also needs AUTH_SECRET (auto-generated, see secrets.tf), the runtime reachable from the browser (ingress + CORS-with-credentials), and the Google redirect URI registered. Flip on a follow-up apply once those are in place."
+}
+
 variable "enable_marketing_custom_domain" {
   type        = bool
   default     = false

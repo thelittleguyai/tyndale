@@ -47,6 +47,21 @@ resource "azurerm_container_app" "runtime" {
     key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  secret {
+    name                = "auth-secret"
+    key_vault_secret_id = azurerm_key_vault_secret.auth_secret.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+  # Only present when a SendGrid key was supplied; otherwise the runtime logs
+  # the magic link (dev stub). Gated on the same condition as the KV secret.
+  dynamic "secret" {
+    for_each = var.sendgrid_api_key != "" ? [1] : []
+    content {
+      name                = "sendgrid-api-key"
+      key_vault_secret_id = azurerm_key_vault_secret.sendgrid_api_key[0].versionless_id
+      identity            = azurerm_user_assigned_identity.runtime.id
+    }
+  }
 
   template {
     min_replicas = 0 # scale-to-zero for cheap dev
@@ -83,6 +98,15 @@ resource "azurerm_container_app" "runtime" {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         value = azurerm_application_insights.main.connection_string
       }
+      # Auth: false keeps the seeded-admin dev stub; true requires real sign-in.
+      env {
+        name  = "USE_REAL_AUTH"
+        value = tostring(var.use_real_auth)
+      }
+      env {
+        name  = "SENDGRID_FROM_EMAIL"
+        value = var.sendgrid_from_email
+      }
 
       # Secret env — bound to the secret blocks above.
       env {
@@ -100,6 +124,19 @@ resource "azurerm_container_app" "runtime" {
       env {
         name        = "DATABASE_URL"
         secret_name = "database-url"
+      }
+      env {
+        name        = "AUTH_SECRET"
+        secret_name = "auth-secret"
+      }
+      # Skipped entirely when no SendGrid key is supplied -> runtime logs the
+      # link. Same gating condition as the secret block + KV secret.
+      dynamic "env" {
+        for_each = var.sendgrid_api_key != "" ? [1] : []
+        content {
+          name        = "SENDGRID_API_KEY"
+          secret_name = "sendgrid-api-key"
+        }
       }
     }
   }
