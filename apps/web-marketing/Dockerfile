@@ -22,6 +22,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # the build-time check and is never used to sign anything.
 ENV AUTH_SECRET=build-only-placeholder-replaced-at-runtime-by-container-app-env
 
+# Public runtime API base + app URL, baked into the client bundle at BUILD time.
+# NEXT_PUBLIC_* are inlined by `next build`, so they MUST be present here — a
+# Container App runtime env var is too late (the bundle is already built). The
+# deploy workflow passes these via --build-arg; the defaults apply to local
+# `docker build`. RUNTIME_URL is where the signin pages call /v1/auth/*.
+ARG NEXT_PUBLIC_RUNTIME_URL=https://api.tyndaleapp.net
+ARG NEXT_PUBLIC_APP_URL=https://app.tyndaleapp.net
+ENV NEXT_PUBLIC_RUNTIME_URL=$NEXT_PUBLIC_RUNTIME_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 # Install workspace deps from root (npm hoists workspace symlinks to
 # /repo/node_modules/@tyndale/shared → packages/shared/).
 # tsconfig.base.json comes along now so the marketing tsconfig's

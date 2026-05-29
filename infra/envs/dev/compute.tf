@@ -13,8 +13,12 @@ resource "azurerm_container_app_environment" "main" {
 
 # Runtime FastAPI Container App
 resource "azurerm_container_app" "runtime" {
-  name                         = "${local.name_prefix}-runtime"
-  container_app_environment_id = azurerm_container_app_environment.main.id
+  name = "${local.name_prefix}-runtime"
+  # Runtime now lives in the EXTERNAL CAE so it can have a PUBLIC ingress
+  # (fronts api.tyndaleapp.net). Same VNet as the internal CAE, so it still
+  # reaches the VNet-only Postgres and the internal qdrant/litellm by FQDN.
+  # NOTE: changing the environment forces a replace of this Container App.
+  container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
   tags                         = local.tags
@@ -62,6 +66,13 @@ resource "azurerm_container_app" "runtime" {
       identity            = azurerm_user_assigned_identity.runtime.id
     }
   }
+  # Google OAuth client secret — the runtime now performs the OAuth exchange
+  # (it owns auth), so it needs the same secret the marketing app has.
+  secret {
+    name                = "google-oauth-client-secret"
+    key_vault_secret_id = azurerm_key_vault_secret.google_oauth_client_secret.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     min_replicas = 0 # scale-to-zero for cheap dev
@@ -107,6 +118,30 @@ resource "azurerm_container_app" "runtime" {
         name  = "SENDGRID_FROM_EMAIL"
         value = var.sendgrid_from_email
       }
+      # Google OAuth + public-URL config. The redirect URI and magic-link base
+      # URL MUST be the runtime's public host (api.tyndaleapp.net) so the
+      # browser lands on a reachable callback and the session cookie can be set
+      # on .tyndaleapp.net. CORS allows the web/app origins (with credentials).
+      env {
+        name  = "GOOGLE_CLIENT_ID"
+        value = var.google_oauth_client_id
+      }
+      env {
+        name  = "GOOGLE_REDIRECT_URI"
+        value = "https://api.${var.dns_zone_name}/v1/auth/callback"
+      }
+      env {
+        name  = "MAGIC_LINK_BASE_URL"
+        value = "https://api.${var.dns_zone_name}"
+      }
+      env {
+        name  = "AUTH_SUCCESS_REDIRECT"
+        value = "https://dev.${var.dns_zone_name}/signed-in"
+      }
+      env {
+        name  = "CORS_ALLOWED_ORIGINS"
+        value = "https://dev.${var.dns_zone_name},https://app.${var.dns_zone_name}"
+      }
 
       # Secret env — bound to the secret blocks above.
       env {
@@ -129,6 +164,10 @@ resource "azurerm_container_app" "runtime" {
         name        = "AUTH_SECRET"
         secret_name = "auth-secret"
       }
+      env {
+        name        = "GOOGLE_CLIENT_SECRET"
+        secret_name = "google-oauth-client-secret"
+      }
       # Skipped entirely when no SendGrid key is supplied -> runtime logs the
       # link. Same gating condition as the secret block + KV secret.
       dynamic "env" {
@@ -142,9 +181,10 @@ resource "azurerm_container_app" "runtime" {
   }
 
   ingress {
-    external_enabled = false # internal-only; SWA + Container App ingress wires later
-    target_port      = 4000
-    transport        = "http"
+    external_enabled           = true # PUBLIC — fronts api.tyndaleapp.net
+    target_port                = 4000
+    transport                  = "http"
+    allow_insecure_connections = false
 
     traffic_weight {
       latest_revision = true
@@ -460,5 +500,58 @@ resource "null_resource" "bind_marketing_cert" {
 
   depends_on = [
     azurerm_container_app_custom_domain.marketing_dev,
+  ]
+}
+
+# ===========================================================================
+# api.tyndaleapp.net → runtime Container App (external CAE). Same gated,
+# phased pattern as the marketing custom domain above:
+#   1. apply with enable_runtime_custom_domain = false → DNS records (api
+#      CNAME + asuid.api TXT) land; runtime is public on its raw
+#      *.azurecontainerapps.io FQDN.
+#   2. once api.tyndaleapp.net resolves, set enable_runtime_custom_domain =
+#      true → attaches the hostname (HTTP).
+#   3. set enable_runtime_managed_cert = true → provisions + binds the free
+#      managed TLS cert via `az containerapp hostname bind`.
+# The session-cookie auth REQUIRES this HTTPS subdomain — a raw
+# azurecontainerapps.io host cannot set a cookie on .tyndaleapp.net.
+# ===========================================================================
+resource "azurerm_container_app_custom_domain" "runtime_api" {
+  count                    = var.enable_runtime_custom_domain ? 1 : 0
+  name                     = "api.${var.dns_zone_name}"
+  container_app_id         = azurerm_container_app.runtime.id
+  certificate_binding_type = "Disabled"
+
+  depends_on = [
+    azurerm_dns_cname_record.api,
+    azurerm_dns_txt_record.asuid_api,
+  ]
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+resource "null_resource" "bind_runtime_cert" {
+  count = var.enable_runtime_custom_domain && var.enable_runtime_managed_cert ? 1 : 0
+
+  triggers = {
+    custom_domain_id = azurerm_container_app_custom_domain.runtime_api[0].id
+    container_app_id = azurerm_container_app.runtime.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      az containerapp hostname bind \
+        --hostname "api.${var.dns_zone_name}" \
+        --name "${azurerm_container_app.runtime.name}" \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --environment "${azurerm_container_app_environment.external.name}" \
+        --validation-method HTTP
+    EOT
+  }
+
+  depends_on = [
+    azurerm_container_app_custom_domain.runtime_api,
   ]
 }

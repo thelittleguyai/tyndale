@@ -93,6 +93,18 @@ variable "enable_marketing_managed_cert" {
   description = "Provision the free managed TLS cert for dev.tyndaleapp.net via `az containerapp hostname bind` and bind it to the custom domain. Requires enable_marketing_custom_domain to also be true and the HTTP binding to be live (dev.tyndaleapp.net must return a 301 from the CA so Azure's HTTP validator can verify ownership). Requires az CLI on the apply host. Flip true on a follow-up apply once HTTP works."
 }
 
+variable "enable_runtime_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Attach api.tyndaleapp.net to the runtime Container App. Same phased flow as the marketing domain: first apply lays the api CNAME + asuid.api TXT records (the runtime is reachable on its raw external FQDN meanwhile); flip true on a follow-up apply once api.tyndaleapp.net resolves publicly, then Azure can validate the hostname."
+}
+
+variable "enable_runtime_managed_cert" {
+  type        = bool
+  default     = false
+  description = "Provision + bind the free managed TLS cert for api.tyndaleapp.net via `az containerapp hostname bind`. Requires enable_runtime_custom_domain = true and the HTTP binding live. Requires az CLI on the apply host. The cookie-based auth needs this HTTPS host, so flip true once the HTTP binding works."
+}
+
 variable "common_tags" {
   type = map(string)
   default = {

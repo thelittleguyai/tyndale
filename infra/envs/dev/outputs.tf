@@ -53,7 +53,12 @@ output "document_intelligence_key_secret_name" {
 
 output "container_app_runtime_fqdn" {
   value       = azurerm_container_app.runtime.ingress[0].fqdn
-  description = "Runtime Container App FQDN (internal)."
+  description = "Runtime Container App external FQDN (api.tyndaleapp.net fronts this once the custom domain is attached)."
+}
+
+output "runtime_api_url" {
+  value       = var.enable_runtime_custom_domain ? "https://api.${var.dns_zone_name}" : "https://${azurerm_container_app.runtime.ingress[0].fqdn} (custom domain disabled — set enable_runtime_custom_domain = true after the api CNAME propagates)"
+  description = "Public runtime API URL. Shows the raw Container App FQDN until api.tyndaleapp.net is attached."
 }
 
 output "container_app_litellm_fqdn" {

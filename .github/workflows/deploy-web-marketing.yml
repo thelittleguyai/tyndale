@@ -65,6 +65,11 @@ jobs:
           context: .                                # repo root — workspace deps live up here
           file: apps/web-marketing/Dockerfile
           push: true
+          # NEXT_PUBLIC_* are baked into the client bundle at build time, so the
+          # runtime API URL must be a build-arg (not a Container App env var).
+          build-args: |
+            NEXT_PUBLIC_RUNTIME_URL=https://api.tyndaleapp.net
+            NEXT_PUBLIC_APP_URL=https://app.tyndaleapp.net
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:dev-latest
