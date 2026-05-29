@@ -297,9 +297,14 @@ resource "azurerm_container_app" "marketing" {
 # the variable to true on a follow-up apply once DNS propagates, then this
 # attaches dev.tyndaleapp.net to the marketing Container App.
 #
-# certificate_binding_type = "Disabled" means HTTP only at first attach.
-# Azure can provision a free managed TLS cert after; bind it in a follow-up
-# (see infra/README.md "After custom domain attaches" section).
+# certificate_binding_type = "Disabled" means HTTP only. The managed TLS
+# cert + HTTPS binding is provisioned by null_resource.bind_marketing_cert
+# below (gated by enable_marketing_managed_cert) — via `az containerapp
+# hostname bind`, which atomically provisions the free Let's Encrypt cert
+# AND binds it. Terraform can't do this declaratively because the managed
+# cert resource depends on the binding existing first (Azure HTTP-validates
+# the domain), but the binding wants to reference the cert ID, creating a
+# dependency cycle.
 resource "azurerm_container_app_custom_domain" "marketing_dev" {
   count                    = var.enable_marketing_custom_domain ? 1 : 0
   name                     = "dev.${var.dns_zone_name}"
@@ -312,9 +317,39 @@ resource "azurerm_container_app_custom_domain" "marketing_dev" {
   ]
 
   lifecycle {
-    # When a managed cert lands later, it'll change certificate_binding_type
-    # + add container_app_environment_certificate_id. Ignore drift on those
-    # so the manual cert attach doesn't get reverted.
+    # `az containerapp hostname bind` mutates these out-of-band. Ignore the
+    # drift so subsequent `terraform apply`s don't revert the cert binding.
     ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
   }
+}
+
+# Provisions the free managed TLS cert AND binds it to dev.tyndaleapp.net on
+# the marketing Container App. Requires az CLI on the apply host. Runs once
+# per binding change (triggered by the custom domain resource's ID).
+#
+# Flip enable_marketing_managed_cert = true in terraform.tfvars on a
+# follow-up apply once the HTTP binding above is healthy and dev.tyndaleapp.net
+# returns a 301 from the CA — Azure's HTTP validator needs to hit it.
+resource "null_resource" "bind_marketing_cert" {
+  count = var.enable_marketing_custom_domain && var.enable_marketing_managed_cert ? 1 : 0
+
+  triggers = {
+    custom_domain_id = azurerm_container_app_custom_domain.marketing_dev[0].id
+    container_app_id = azurerm_container_app.marketing.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      az containerapp hostname bind \
+        --hostname "dev.${var.dns_zone_name}" \
+        --name "${azurerm_container_app.marketing.name}" \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --environment "${azurerm_container_app_environment.external.name}" \
+        --validation-method HTTP
+    EOT
+  }
+
+  depends_on = [
+    azurerm_container_app_custom_domain.marketing_dev,
+  ]
 }

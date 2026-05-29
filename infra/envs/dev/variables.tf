@@ -65,7 +65,13 @@ variable "google_oauth_client_secret" {
 variable "enable_marketing_custom_domain" {
   type        = bool
   default     = false
-  description = "Attach the dev.tyndaleapp.net custom domain to the marketing Container App. Set to true ONLY after DNS records (CNAME + asuid TXT) have propagated publicly; otherwise Azure's domain validation fails the apply. Flow: first apply with this false → DNS records get created in Azure DNS → wait for public propagation (a few minutes once the registrar NS points at Azure DNS) → set to true and re-apply."
+  description = "Attach the dev.tyndaleapp.net custom domain to the marketing Container App (HTTP only). Set to true ONLY after DNS records (CNAME + asuid TXT) have propagated publicly; otherwise Azure's domain validation fails the apply. Flow: first apply with this false → DNS records get created in Azure DNS → wait for public propagation (a few minutes once the registrar NS points at Azure DNS) → set to true and re-apply."
+}
+
+variable "enable_marketing_managed_cert" {
+  type        = bool
+  default     = false
+  description = "Provision the free managed TLS cert for dev.tyndaleapp.net via `az containerapp hostname bind` and bind it to the custom domain. Requires enable_marketing_custom_domain to also be true and the HTTP binding to be live (dev.tyndaleapp.net must return a 301 from the CA so Azure's HTTP validator can verify ownership). Requires az CLI on the apply host. Flip true on a follow-up apply once HTTP works."
 }
 
 variable "common_tags" {
