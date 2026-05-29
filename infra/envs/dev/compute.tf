@@ -29,22 +29,22 @@ resource "azurerm_container_app" "runtime" {
   # KV-backed secrets, resolved at Container App revision creation via the UAMI.
   secret {
     name                = "anthropic-api-key"
-    key_vault_secret_id = azurerm_key_vault_secret.anthropic_api_key.id
+    key_vault_secret_id = azurerm_key_vault_secret.anthropic_api_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
   secret {
     name                = "voyage-api-key"
-    key_vault_secret_id = azurerm_key_vault_secret.voyage_api_key.id
+    key_vault_secret_id = azurerm_key_vault_secret.voyage_api_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
   secret {
     name                = "azure-doc-intelligence-key"
-    key_vault_secret_id = azurerm_key_vault_secret.azure_doc_intelligence_key.id
+    key_vault_secret_id = azurerm_key_vault_secret.azure_doc_intelligence_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
   secret {
     name                = "database-url"
-    key_vault_secret_id = azurerm_key_vault_secret.database_url.id
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
 
@@ -158,7 +158,7 @@ resource "azurerm_container_app_job" "runtime_migrations" {
   # secret the runtime CA uses, resolved through the same UAMI.
   secret {
     name                = "database-url"
-    key_vault_secret_id = azurerm_key_vault_secret.database_url.id
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
 
@@ -300,12 +300,12 @@ resource "azurerm_container_app" "marketing" {
 
   secret {
     name                = "google-oauth-client-secret"
-    key_vault_secret_id = azurerm_key_vault_secret.google_oauth_client_secret.id
+    key_vault_secret_id = azurerm_key_vault_secret.google_oauth_client_secret.versionless_id
     identity            = azurerm_user_assigned_identity.marketing.id
   }
   secret {
     name                = "nextauth-secret"
-    key_vault_secret_id = azurerm_key_vault_secret.nextauth_secret.id
+    key_vault_secret_id = azurerm_key_vault_secret.nextauth_secret.versionless_id
     identity            = azurerm_user_assigned_identity.marketing.id
   }
 
