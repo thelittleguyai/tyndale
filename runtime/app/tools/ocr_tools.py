@@ -35,16 +35,31 @@ def _read_bytes(args: dict[str, Any]) -> tuple[bytes, str]:
 
 
 def _di_client():
-    """Lazy-import the Azure DI client so import-time doesn't require the SDK."""
+    """Lazy-import the Azure DI client so import-time doesn't require the SDK.
+
+    Returns None for any of:
+      * endpoint or key unset
+      * endpoint doesn't start with https:// (e.g. literal placeholder
+        '<from terraform output>' values that got copied into .env.local)
+    so callers can fall back to the stub instead of crashing on a bogus URL.
+    """
     settings = get_settings()
-    if not (settings.azure_doc_intelligence_endpoint and settings.azure_doc_intelligence_key):
+    endpoint = settings.azure_doc_intelligence_endpoint or ""
+    key = settings.azure_doc_intelligence_key or ""
+    if not endpoint.startswith("https://") or not key or key.startswith("<"):
+        log.warning(
+            "ocr.di_endpoint_or_key_invalid_falling_back_to_stub",
+            endpoint_set=bool(endpoint),
+            endpoint_looks_real=endpoint.startswith("https://"),
+            key_set=bool(key),
+        )
         return None
     from azure.ai.documentintelligence import DocumentIntelligenceClient
     from azure.core.credentials import AzureKeyCredential
 
     return DocumentIntelligenceClient(
-        endpoint=settings.azure_doc_intelligence_endpoint,
-        credential=AzureKeyCredential(settings.azure_doc_intelligence_key),
+        endpoint=endpoint,
+        credential=AzureKeyCredential(key),
     )
 
 
