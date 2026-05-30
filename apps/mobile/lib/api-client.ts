@@ -28,6 +28,22 @@ export interface UploadResponse {
   note?: string;
 }
 
+/** A file to upload — a Blob (web) or expo-document-picker's native shape. */
+export type UploadFilePart = Blob | { uri: string; name: string; mimeType?: string };
+
+export interface UploadedDoc {
+  document_id: string;
+  filename: string;
+  document_type: string;
+  classification_confidence: number;
+  size_bytes: number;
+}
+
+export interface MultiUploadResponse {
+  case_file_id: string;
+  uploads: UploadedDoc[];
+}
+
 export interface Citation {
   authority: string;
   section?: string | null;
@@ -63,28 +79,40 @@ export interface AuditResult {
 }
 
 /**
- * POST /v1/upload — multipart upload. Accepts a Blob (web) or a
- * { uri, name, mimeType } shape (native expo-document-picker output).
+ * POST /v1/upload — multipart upload of N files in one request (Phase 2L).
+ * Accepts Blobs (web) or expo-document-picker shapes (native). Optionally
+ * attaches to an existing case via caseFileId. All files land on one case file.
  */
-export async function upload(
-  file: Blob | { uri: string; name: string; mimeType?: string },
-): Promise<UploadResponse> {
+export async function uploadDocuments(
+  files: UploadFilePart[],
+  caseFileId?: string,
+): Promise<MultiUploadResponse> {
   const form = new FormData();
-  if (file instanceof Blob) {
-    form.append('file', file, (file as any).name ?? 'upload');
-  } else {
-    // React Native FormData accepts this shape
-    form.append('file', {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType ?? 'application/octet-stream',
-    } as any);
+  for (const f of files) {
+    if (f instanceof Blob) {
+      form.append('files', f, (f as any).name ?? 'upload');
+    } else {
+      form.append('files', {
+        uri: f.uri,
+        name: f.name,
+        type: f.mimeType ?? 'application/octet-stream',
+      } as any);
+    }
   }
+  if (caseFileId) form.append('case_file_id', caseFileId);
   const res = await cfetch(`${BASE_URL}/v1/upload`, { method: 'POST', body: form });
   if (!res.ok) {
     throw new Error(`upload failed: ${res.status} ${await res.text()}`);
   }
-  return (await res.json()) as UploadResponse;
+  return (await res.json()) as MultiUploadResponse;
+}
+
+/** Backwards-compat single-file helper — wraps uploadDocuments. */
+export async function uploadDocument(
+  file: UploadFilePart,
+  caseFileId?: string,
+): Promise<MultiUploadResponse> {
+  return uploadDocuments([file], caseFileId);
 }
 
 /** POST /v1/audit — kick off the audit. */

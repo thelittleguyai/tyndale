@@ -94,10 +94,12 @@ export default function EncounterVerificationScreen() {
       </Pressable>
 
       <View className="mb-5 rounded-2xl bg-teal-deep p-5">
-        <Text className="text-2xl font-bold text-white">Let's double-check this bill</Text>
-        <Text className="mt-2 text-sm leading-6 text-white/80">
-          {extract?.intro_message ??
-            'Insurers and billing systems make mistakes, so I want to make sure you were actually billed for what you got. Tap each line to confirm — and "not sure" is always a real option.'}
+        <Text className="text-3xl font-bold leading-tight text-white">
+          Can you confirm what you were seen for?
+        </Text>
+        <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-white/75">
+          Sometimes the bill doesn't reflect what actually occurred. That's why we try to confirm
+          with you what actually happened during the visit.
         </Text>
       </View>
 
@@ -186,6 +188,20 @@ function LineItemCard({
       <Text className="text-base font-medium text-white">{item.plain_language_translation}</Text>
       {item.plain_language_context ? (
         <Text className="mt-1 text-xs italic text-white/50">{item.plain_language_context}</Text>
+      ) : null}
+
+      {item.example_scenarios?.length ? (
+        <View className="mt-3 rounded-xl bg-sage/10 p-3">
+          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-sage">
+            For this kind of visit, you'd typically have:
+          </Text>
+          {item.example_scenarios.map((s, i) => (
+            <View key={i} className="mb-1 flex-row gap-2">
+              <Text className="text-sage">•</Text>
+              <Text className="flex-1 text-sm leading-5 text-white/75">{s}</Text>
+            </View>
+          ))}
+        </View>
       ) : null}
 
       <View className="mt-3 flex-row gap-2">

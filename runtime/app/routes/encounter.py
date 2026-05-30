@@ -63,12 +63,15 @@ async def get_line_items(case_file_id: str) -> ExtractResult:
     if not cf.line_items:
         # Not extracted yet — run extraction now (idempotent).
         return await extract_line_items(case_file_id)
+    from app.agents.example_scenarios import backfill_scenarios
     from app.schemas.encounter import DEFAULT_INTRO_MESSAGE, LineItem
 
+    # Phase 2L: backfill example scenarios for rows persisted before 2L.
+    items = backfill_scenarios([dict(it) for it in cf.line_items])
     return ExtractResult(
         case_file_id=case_file_id,
         status="encounter_verification_pending",
-        line_items=[LineItem(**it) for it in cf.line_items],
+        line_items=[LineItem(**it) for it in items],
         intro_message=DEFAULT_INTRO_MESSAGE,
     )
 

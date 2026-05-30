@@ -33,6 +33,14 @@ class LineItem(BaseModel):
         default="",
         description="Informational, non-leading context, e.g. 'Appendectomies are usually under two hours'",
     )
+    example_scenarios: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Phase 2L — 3-5 factual, second-person past-tense scenarios of what a typical "
+            "patient would have experienced for this category of service ('You'd typically "
+            "have spent 1-2 hours in the ER'). Aids recall; NEVER a clinical judgment."
+        ),
+    )
     high_risk: bool = Field(
         default=False,
         description="E/M levels, time-based codes, etc. — where upcoding/phantom risk concentrates",

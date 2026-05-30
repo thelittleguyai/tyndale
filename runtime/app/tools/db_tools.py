@@ -232,6 +232,7 @@ async def _pg_store_line_item(args: dict[str, Any]) -> dict[str, Any]:
         "raw_description": args.get("raw_description", ""),
         "plain_language_translation": args.get("plain_language_translation", ""),
         "plain_language_context": args.get("plain_language_context", ""),
+        "example_scenarios": list(args.get("example_scenarios") or []),
         "high_risk": bool(args.get("high_risk", False)),
         "billed_amount": args.get("billed_amount"),
         "units": args.get("units"),
@@ -254,7 +255,10 @@ register_tool(
             "encounter verification, translate mode). Call once per line item on the bill. "
             "plain_language_translation + plain_language_context describe WHAT HAPPENED — a "
             "fact the user can confirm — NEVER a clinical judgment about necessity. Set "
-            "high_risk=true for E/M levels, time-based codes, and other upcoding/phantom-prone codes."
+            "high_risk=true for E/M levels, time-based codes, and other upcoding/phantom-prone codes. "
+            "example_scenarios: 3-5 factual, second-person past-tense things a typical patient would "
+            "have experienced for this category ('You'd typically have spent 1-2 hours in the ER') — "
+            "aids recall; same hard line, never a clinical judgment."
         ),
         "input_schema": {
             "type": "object",
@@ -265,6 +269,7 @@ register_tool(
                 "raw_description": {"type": "string"},
                 "plain_language_translation": {"type": "string"},
                 "plain_language_context": {"type": "string"},
+                "example_scenarios": {"type": "array", "items": {"type": "string"}},
                 "high_risk": {"type": "boolean"},
                 "billed_amount": {"type": "number"},
                 "units": {"type": "integer"},

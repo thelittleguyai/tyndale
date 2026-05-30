@@ -14,6 +14,12 @@ export interface LineItem {
   plain_language_translation: string;
   /** Informational, non-leading context. May be empty. */
   plain_language_context: string;
+  /**
+   * Phase 2L — 3-5 factual, second-person past-tense scenarios of what a typical
+   * patient would have experienced for this category of service. Aids recall;
+   * never a clinical judgment.
+   */
+  example_scenarios: string[];
   /** E/M levels, time-based codes — where upcoding/phantom risk concentrates. */
   high_risk: boolean;
   billed_amount: number | null;

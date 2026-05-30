@@ -33,6 +33,7 @@ from app.schemas.encounter import (
     LineItem,
     LineItemConfirmation,
 )
+from app.agents.example_scenarios import backfill_scenarios
 from app.stubs.fixtures import mri_audit_fixture
 
 log = structlog.get_logger(__name__)
@@ -246,13 +247,20 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     line_items = list(cf.line_items) if (cf and cf.line_items) else []
     if not line_items:
         line_items = _fixture_line_items()
-        async with AsyncSessionLocal() as s:
-            row = (await s.execute(
-                select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-            )).scalar_one_or_none()
-            if row is not None:
-                row.line_items = line_items
-                await s.commit()
+
+    # Phase 2L: every line item must carry example scenarios for the encounter
+    # UI (the translate pass may omit them; fixtures + pre-2L rows predate them).
+    backfill_scenarios(line_items)
+
+    # Persist the (possibly backfilled) line items so the idempotent
+    # GET .../line-items re-fetch and the diagnose pass both see the scenarios.
+    async with AsyncSessionLocal() as s:
+        row = (await s.execute(
+            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
+        )).scalar_one_or_none()
+        if row is not None:
+            row.line_items = line_items
+            await s.commit()
 
     await _set_status(case_file_id, "encounter_verification_pending")
     return ExtractResult(

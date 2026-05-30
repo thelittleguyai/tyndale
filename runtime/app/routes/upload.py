@@ -1,15 +1,18 @@
-"""POST /v1/upload — persists the file, opens a case file, runs quick OCR
-classification, returns case_file_id + document_id + document_type.
+"""POST /v1/upload — multi-document upload (Phase 2L).
 
-Walking skeleton storage:
-  * If azure_storage_account_url is set → upload to Azure Blob ``uploads`` container.
-  * Otherwise → write to ``settings.local_uploads_dir`` (default /tmp/tyndale_uploads).
+Accepts N files in one multipart request (bill + EOB + insurance card + plan
+summary, per the acceptance narrative "Maya uploads four crumpled photos"),
+persists + classifies each, and attaches them all to one case file — a new case,
+or an existing one via case_file_id.
 
-Walking skeleton classification:
-  * Runs Azure Document Intelligence (or stub if USE_REAL_OCR=false) on the
-    bytes and classifies as 'bill' | 'eob' | 'insurance_card' | 'other' by
-    simple keyword scan on the OCR text. Phase 2H replaces this with the
-    upload_classify_document tool + encounter-verification UI confirmation.
+Backwards compat (14-day window per the phase prompt): the old singular shape
+(file=...) is still accepted and returns the legacy single-file response; a
+deprecation warning is logged.
+
+Storage / classification stay the walking-skeleton approach (Azure Blob or local
+/tmp; keyword OCR classify with a heuristic confidence). Per-file + total request
+size are bounded by Phase 2K.2 (per-file here, total request in the size-limit
+middleware).
 """
 
 from __future__ import annotations
@@ -18,31 +21,41 @@ import base64
 import uuid
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
 from app.db.session import get_session
-from app.schemas.api_contract import UploadResponse
+from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
 from app.tools.ocr_tools import _bill_ocr_extract  # the registered fn
 
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
 
 
-def _classify(ocr_text: str) -> str:
+def _classify(ocr_text: str) -> tuple[str, float]:
+    """Return (document_type, classification_confidence). Walking-skeleton keyword
+    scan; Phase 2H/4 replaces with the upload_classify_document tool + a real model."""
     t = ocr_text.upper()
     if "EXPLANATION OF BENEFITS" in t or "EOB" in t or "MEMBER RESPONSIBILITY" in t:
-        return "eob"
+        return "eob", 0.9
     if "MEMBER ID" in t or "GROUP NUMBER" in t or "RX BIN" in t:
-        return "insurance_card"
+        return "insurance_card", 0.9
+    if "SUMMARY OF BENEFITS" in t or "PLAN SUMMARY" in t or "BENEFIT SUMMARY" in t:
+        return "plan_summary", 0.85
+    if "ADVERSE BENEFIT DETERMINATION" in t or "DENIAL" in t or "DENIED" in t or "NOT COVERED" in t:
+        return "denial_letter", 0.8
+    if "COLLECTION" in t or "PAST DUE" in t or "FINAL NOTICE" in t or "DELINQUENT" in t:
+        return "collections_notice", 0.8
     if "AMOUNT DUE" in t or "BILLED" in t or "STATEMENT" in t or "CPT" in t:
-        return "bill"
-    return "other"
+        return "bill", 0.85
+    return "other", 0.4
 
 
 async def _persist(content: bytes, filename: str) -> str:
@@ -70,67 +83,101 @@ async def _persist(content: bytes, filename: str) -> str:
     return str(path)
 
 
-@router.post("/upload", response_model=UploadResponse)
-async def upload(
-    file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_session),
-    user: CurrentUser = Depends(current_user),
-) -> UploadResponse:
-    content = await file.read()
-    # Per-file size limit (Phase 2K.2 / DL-46). The request-size middleware caps
-    # the whole multipart body; this caps the individual file. V1-Lite has no
-    # chunked upload — a smaller file is the only recourse.
+async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], UploadedDoc]:
+    """Persist + classify one file. Returns (case-file document entry, API doc)."""
     settings = get_settings()
     if len(content) > settings.max_upload_file_bytes:
         raise HTTPException(
             status_code=413,
             detail=(
-                f"File exceeds the {settings.max_upload_file_bytes}-byte per-file limit. "
-                "Upload a smaller file."
+                f"'{filename}' exceeds the {settings.max_upload_file_bytes}-byte per-file limit. "
+                "Upload a smaller file — V1-Lite does not support chunked upload."
             ),
         )
-    filename = file.filename or "upload"
-
-    # Persist + classify
     uri = await _persist(content, filename)
     ocr = await _bill_ocr_extract({"content_base64": base64.b64encode(content).decode(), "filename": filename})
-    document_type = _classify(ocr.get("ocr_text") or "")
-
-    # Open a case + record the document. user.user_id comes from the dev
-    # auth stub today; Phase 2K swaps it for the real JWT subject.
-    user_id = user.user_id
+    document_type, confidence = _classify(ocr.get("ocr_text") or "")
     document_id = str(uuid.uuid4())
-    doc_entry: dict[str, Any] = {
+    entry: dict[str, Any] = {
         "document_id": document_id,
         "filename": filename,
         "uri": uri,
         "document_type": document_type,
+        "classification_confidence": confidence,
         "byte_count": len(content),
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
     }
-
-    case = CaseFile(
-        user_id=user_id,
-        status="open",
-        documents=[doc_entry],
+    api_doc = UploadedDoc(
+        document_id=document_id,
+        filename=filename,
+        document_type=document_type,
+        classification_confidence=confidence,
+        size_bytes=len(content),
     )
-    session.add(case)
+    return entry, api_doc
+
+
+@router.post("/upload")
+async def upload(
+    files: list[UploadFile] = File(default=[]),
+    file: UploadFile | None = File(default=None),  # deprecated singular form (14-day compat)
+    case_file_id: str | None = Form(default=None),
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+):
+    # Backwards compat: the old single-file shape (file=...). Returns the legacy
+    # response so in-flight clients don't break.
+    singular = file is not None and not files
+    incoming = [file] if singular else list(files)
+    if not incoming:
+        raise HTTPException(status_code=400, detail="no files provided")
+    if singular:
+        log.warning("upload.deprecated_singular_file_form", note="use files=[...] (Phase 2L)")
+
+    # Attach to an existing case, or open a new one.
+    case: CaseFile | None = None
+    if case_file_id:
+        try:
+            cf_uuid = UUID(case_file_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="case_file_id must be a UUID") from None
+        case = (await session.execute(select(CaseFile).where(CaseFile.case_file_id == cf_uuid))).scalar_one_or_none()
+        # 404 covers both not-found and not-owned (anti-enumeration).
+        if case is None or case.user_id != user.user_id:
+            raise HTTPException(status_code=404, detail="case_file not found")
+
+    documents: list[dict[str, Any]] = list(case.documents) if case else []
+    uploaded: list[UploadedDoc] = []
+    for f in incoming:
+        content = await f.read()
+        entry, api_doc = await _process_one(content, f.filename or "upload")
+        documents.append(entry)
+        uploaded.append(api_doc)
+
+    if case is None:
+        case = CaseFile(user_id=user.user_id, status="open", documents=documents)
+        session.add(case)
+    else:
+        case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation
     await session.flush()
-    case_file_id = str(case.case_file_id)
+    cfid = str(case.case_file_id)
     await session.commit()
 
     log.info(
-        "upload.created_case",
-        case_file_id=case_file_id,
-        document_id=document_id,
-        document_type=document_type,
-        filename=filename,
-        byte_count=len(content),
+        "upload.processed",
+        case_file_id=cfid,
+        file_count=len(uploaded),
+        document_types=[d.document_type for d in uploaded],
+        attached_to_existing=case_file_id is not None,
     )
-    return UploadResponse(
-        case_file_id=case_file_id,
-        document_id=document_id,
-        filename=filename,
-        received_bytes=len(content),
-        note=f"document_type={document_type}",
-    )
+
+    if singular:
+        first = uploaded[0]
+        return UploadResponse(
+            case_file_id=cfid,
+            document_id=first.document_id,
+            filename=first.filename,
+            received_bytes=first.size_bytes,
+            note=f"document_type={first.document_type}",
+        )
+    return MultiUploadResponse(case_file_id=cfid, uploads=uploaded)
