@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
 
 import {
   getAuthSession,
@@ -15,24 +14,19 @@ import {
   requestMagicLink,
   type UserProfile,
 } from './api-client';
+// Platform-split token store: session-store.web.ts (localStorage shim) on web,
+// session-store.ts (expo-secure-store) on native. This keeps expo-secure-store
+// — which throws at module-eval on web — out of the web bundle, so the app
+// doesn't white-screen.
+import { clearSessionToken, getSessionToken, storeSessionToken } from './session-store';
+
+export { clearSessionToken, getSessionToken, storeSessionToken };
 
 export const googleAuthConfig = {
   webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
 } as const;
-
-const SESSION_KEY = 'tyndale.session';
-
-export async function storeSessionToken(token: string): Promise<void> {
-  await SecureStore.setItemAsync(SESSION_KEY, token);
-}
-export async function getSessionToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(SESSION_KEY);
-}
-export async function clearSessionToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(SESSION_KEY);
-}
 
 /** Email magic-link request (real in Phase 2K). */
 export async function requestEmailMagicLink(email: string, returnUrl?: string): Promise<void> {

@@ -75,7 +75,7 @@ resource "azurerm_container_app" "runtime" {
   }
 
   template {
-    min_replicas = 0 # scale-to-zero for cheap dev
+    min_replicas = 1 # kept warm — avoids 20-30s cold-start latency on user requests
     max_replicas = 2
 
     container {
@@ -387,7 +387,7 @@ resource "azurerm_container_app" "marketing" {
   }
 
   template {
-    min_replicas = 0 # scale-to-zero idle
+    min_replicas = 1 # kept warm — avoids cold-start latency on user requests
     max_replicas = 3
 
     container {
@@ -570,7 +570,7 @@ resource "azurerm_container_app" "app" {
   tags                         = local.tags
 
   template {
-    min_replicas = 0 # scale-to-zero idle
+    min_replicas = 1 # kept warm — avoids cold-start latency on user requests
     max_replicas = 3
 
     container {
