@@ -2,6 +2,7 @@
 
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
+from app.db.models.cms_ingestion_state import CmsIngestionState
 from app.db.models.consent_history import ConsentHistory
 from app.db.models.deadlines import Deadline
 from app.db.models.feedback import (
@@ -24,4 +25,5 @@ __all__ = [
     "FeedbackDeidCandidate",
     "ConsentHistory",
     "MagicLinkConsumed",
+    "CmsIngestionState",
 ]

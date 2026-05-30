@@ -9,6 +9,13 @@ policies) for the policy chunks governing coverage of a service.
 ## When to use
 - To check whether a service is covered/medically-necessary under the relevant payer's policy,
   or to ground a wrongful-denial finding.
+- **Medicare coverage questions hit this same tool with `payer="CMS"`.** CMS National and
+  Local Coverage Determinations (NCDs/LCDs) are ingested into this collection with
+  `payer="CMS"` and `plan_type="Medicare"` (Phase CO-2A). NCDs carry `jurisdiction="federal"`;
+  LCDs carry `jurisdiction="state_<XX>"` and a `mac` on the source policy.
+  - Example: `qdrant_search_payer_policies(query="screening mammography frequency Medicare",
+    payer="CMS", effective_date="2026-05-30")` → returns NCD 220.4 + relevant LCDs, each
+    filtered to the date of service.
 
 ## When NOT to use
 - For statutes/regulations (use `qdrant_search_laws_regulations`); for code descriptors (use
