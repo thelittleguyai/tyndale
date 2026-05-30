@@ -431,3 +431,139 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** Runtime hardened to fill the post-DL-42 public-ingress gap. Rate limiting expanded to all routes (per-IP baseline, per-user when authenticated, per-route caps on expensive ops). Security headers middleware (HSTS, X-Frame-Options, etc.). Request size limits (25 MB total / 20 MB per file / 1 MB JSON). Error response hardening (no traceback in prod; correlation_id + request_id for log lookup). JWT validation made explicit (algorithm allow-list, audience, issuer, required claims). CORS explicit allow-list (never wildcard). Session cookie uses the `__Secure-` prefix over HTTPS with a 30-day legacy-name read grace. Basic PHI-pattern log filter as a bridge before Presidio. IP-allowlist middleware ready for admin paths. Two deliberate deviations preserve the live deployment: (1) JWT `aud`/`iss` VALUES kept as `session`/`tyndale` (not renamed) so existing sessions aren't invalidated — the explicit-validation security property is what matters and is satisfied; (2) the `__Secure-` prefix is applied only when `cookie_secure` so local http dev/tests aren't broken.
 **Reasoning:** developer-spec D9 assumed internal-only ingress; DL-42 made the runtime public; the gap had to be filled before exposing real user traffic. Phase 4 (security/HIPAA contact) takes over Presidio, encrypted audit log, Redis rate limiter, and WAF. See `docs/runtime-hardening.md`.
 **Reversibility:** locked at the application layer; Phase 4 infrastructure work (WAF, Redis) replaces specific pieces over time.
+
+## DL-47 — No PHI in emails, ever (runtime invariant)
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Email must stay free of protected health information as the product grows. Magic-link sign-in, account notifications, and generic "your report is ready" messages are permitted. Anything referencing a bill, a diagnosis, a care-related dollar amount, case details, or any health information is NOT permitted. Encoded as a runtime invariant: a PreToolUse hook on the `send_email` tool scans content for PHI patterns and rejects before send. Not convention.
+**Reasoning:** firm architectural rule — also justifies SendGrid's exclusion from the BAA list (only safe to exclude *because* email is guaranteed PHI-free).
+**Reversibility:** locked. If ever changed, a SendGrid BAA becomes required.
+
+## DL-48 — Apple Developer enrollment: NO; web-only for V1-Lite
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Web app only to start. Native iOS app and Apple Developer enrollment are deferred indefinitely. Phase 3 (mobile polish + native iOS submission prep + Apple Sign-In) dropped from the Cowork queue. `app.tyndaleapp.net` is the V1-Lite product surface.
+**Reasoning:** reduces scope and avoids App Store Guideline 4.8's Apple Sign-In dependency until native mobile becomes a real product priority.
+**Reversibility:** revisable if native mobile becomes a Full V1+ priority.
+
+## DL-49 — BAA list of 5 (Anthropic, Azure, AWS, Voyage AI, 1upHealth)
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Five V1-launch-critical BAAs: Anthropic (HIPAA-eligible enterprise tier), Azure, AWS, Voyage AI, 1upHealth. **Stripe permanently excluded** — payment processing walled off; anonymized IDs (UUIDs) only, never bill details / diagnoses / health information. **SendGrid excluded** because email is guaranteed PHI-free per DL-47. **Observability vendor BAA conditional** on Phase 4 PHI scrubbing proving PHI can't reach logs — verify "PHI-free logs" before signing or skipping.
+**Reasoning:** scoped BAA chain to what actually receives PHI; walls off Stripe entirely; uses the no-PHI-in-emails rule to avoid an unnecessary SendGrid BAA.
+**Reversibility:** Stripe and SendGrid exclusions are locked unless the architectural rules that justify them change.
+
+## DL-50 — Trilliant replaces FAIR Health; hands-off pattern
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Trilliant is the chosen vendor for procedure-level price-estimate data, replacing FAIR Health in all prior planning. Contract pending. **Cowork does not ping Brock on Trilliant** — Brock surfaces when contract is live. Until live, cost estimation runs on Medicare PFS + Hospital MRF + TiC; Trilliant slots in behind the pricing interface when available.
+**Reasoning:** clean vendor swap; Brock owns the commercial conversation without Cowork chase-up overhead.
+**Reversibility:** revisable if Trilliant doesn't materialize and an alternative vendor is needed.
+
+## DL-51 — MCG and InterQual never scraped
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** MCG and InterQual proprietary medical-necessity criteria are paywalled. Do NOT scrape or republish. Capture only payers' own published policies and PA lists for the payer-policy ingestion pipeline.
+**Reasoning:** copyright + license violation risk if scraped; not worth the exposure.
+**Reversibility:** locked unless a licensed access path becomes available.
+
+## DL-52 — No Stedi / no real-time eligibility
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Stedi and any real-time eligibility (270/271) integration are removed from V1-Lite + CO-002 scope. No eligibility vendor, no payer enrollment, no NPI-gating logic. The user's benefits, deductible, and out-of-pocket status come entirely from the guided capture in CO-002 Item 1.
+**Reasoning:** D2C app has no billing-provider NPI of its own; per-payer Stedi enrollment friction is high; guided capture covers the data need without the eligibility-vendor overhead.
+**Reversibility:** revisable far down the road if real-time eligibility becomes meaningfully valuable.
+
+## DL-53 — TiC MRFs ingested in initial cost-data pipeline
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Insurer Transparency-in-Coverage MRFs are part of the initial cost-estimation pipeline, not deferred. Aggressive ghost-rate filtering required (~84–92% of TiC rows are ghost rates and must be filtered before any TiC data informs a user-facing estimate). Reversed from CO-002 v1's "trigger later."
+**Reasoning:** broadens cost coverage to ambulatory/outpatient/clinic settings that hospital MRFs miss; worth the ingestion + filtering investment up-front.
+**Reversibility:** locked into the initial pipeline.
+
+## DL-54 — CPT placeholders across all features until license clears
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Until the CPT licensing path resolves (Brock confirming whether Trilliant's AMA license covers Tyndale's display, or falling back to AMA Information Provider tier), all user-facing surfaces showing procedure descriptions use placeholder descriptors ("MRI of the head") rather than the official CPT descriptor + code number. Internal storage of codes (which are facts on bills) is fine; display to users is gated. Swap in real descriptors once the AMA path lands. Do not block other feature work on CPT licensing.
+**Reasoning:** unblocks Items 1–4 from CPT-licensing timing; only Item 5 (appeals) stays OFF until CPT data is live (per DL-55).
+**Reversibility:** automatic on CPT license clearing.
+
+## DL-55 — Appeals built in shadow mode + feature OFF until CPT data live
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Appeals / network-deficiency document generation is built in shadow mode now (generates silently, routes to admin console for Brock's review), but the feature flag is **OFF** — no generation against real CPT data, nothing shown to users — until Trilliant or AMA CPT data is up and running.
+**Reasoning:** appeals is the highest-liability output; AI hallucination of policy/medical claims is the central risk; shadow mode + feature-off-until-CPT-data + Brock manual review (per DL-56) layered mitigation.
+**Reversibility:** Brock flips ON per document type when ready (DL-56).
+
+## DL-56 — Appeals promotion = Brock's manual per-document-type call
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Promotion of an appeal / network-deficiency document type from shadow mode to user-facing is Brock's manual call, per document type. No metric-threshold auto-promotion. The admin console surfaces review volume + correctness + ungrounded-claim flags to *inform* Brock's decision, but the flip is his explicit call.
+**Reasoning:** preserves human judgment on a high-liability surface; per-type promotion (internal appeal first, external review next, DOI complaint after, etc.) lets each document type clear its own bar.
+**Reversibility:** locked — auto-promotion is not on the table.
+
+## DL-57 — V1-Lite launch path protected; CO-002 parallel; resourcing handled
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** CO-002 features build in parallel with the V1-Lite launch path. The launch path is protected — CO-002 work must not delay launch gates (security/HIPAA contact engagement, CPT licensing path, 5 BAAs). Resourcing is handled (Phil + Brock's developers + Claude Code + Cowork autonomous); do not re-raise dev capacity as a blocker.
+**Reasoning:** clear separation between launch-critical work and feature-expansion work; explicit guardrail against feature work starving launch attention.
+**Reversibility:** locked for the V1-Lite launch window.
+
+## DL-58 — Continuous expansion mandate (hospitals past 100, payers past 7, TiC past Tier-1)
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** Starting sets are not ceilings. Hospital MRF ingestion starts with top 100 hospitals by volume and continues expanding in waves. Payer-policy scraping starts with the core 7 (Aetna CPBs, Cigna, UHC, Anthem/Elevance, Humana, Centene/Wellcare, Molina) and continues expanding to additional payers. TiC ingestion starts with the same Tier-1 commercial payers and continues expanding. Treat all three as continuously expanding coverage over time.
+**Reasoning:** establishes that breadth-of-coverage work is ongoing, not one-off; gives Cowork explicit authority to keep expanding without re-asking.
+**Reversibility:** expansion pace can be tuned but the mandate itself is locked.
+
+## DL-59 — ≥90% structural extraction confidence quality bar for new payer/source promotion
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** A newly-scraped payer / newly-ingested data source must pass ≥90% structural extraction confidence on a 20-policy (or equivalent sample) before entering live retrieval. New sources land in a `staging` partition first; promotion to `live` happens after the sample passes. Failed sources are flagged for review / extraction-prompt tuning before re-attempt. Applies to the DL-58 continuous expansion mandate.
+**Reasoning:** safeguards retrieval quality of the core sources from contamination by long-tail expansion failures.
+**Reversibility:** the 90% threshold is the starting point; tunable as the pipeline matures.
+
+## DL-60 — Admin console at admin.tyndaleapp.net subdomain + dual-layer auth
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** The admin console lives on a separate `admin.tyndaleapp.net` subdomain (not `app.tyndaleapp.net/admin/*`). Dual-layer authentication: (a) application-layer `current_user.user_type == 'admin'` check on every admin route, (b) network-layer Container Apps ingress IP allowlist via Application Gateway. Non-admin attempts to access return 404 (anti-enumeration). Brock-only at launch; security/HIPAA contact gets scoped admin access when they engage. Brock provides the allowed-IP list when admin console work starts.
+**Reasoning:** separate subdomain is cleaner + safer + isolates admin failure modes from the user product; dual-layer auth + 404-not-403 follows the Phase 2K.2 hardening posture.
+**Reversibility:** locked.
+
+## DL-61 — Public-examples corpus compiled by Cowork; per-example source/license tagging required; "fair use" NOT settled
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** The corpus of public example documents that Tyndale's appeals/network-deficiency generation draws from is compiled by Cowork from public sources (state Department of Insurance complaint archives, PatientAdvocate.org, Kaiser Family Foundation samples, AAEM-PG templates, state AG health-care complaint examples). Each example is stored with frontmatter capturing: `source_url`, `source_organization`, `license`, `document_type`, `state`, `date_added`. Per-example source/license tagging is REQUIRED, not optional. Treat examples as internal reference material to shape how Tyndale writes its own documents — **NOT as a settled legal determination that "fair use" applies.** Revisit with counsel before appeals ever becomes a fully user-facing feature.
+**Reasoning:** unblocks appeals development without counsel engagement, but preserves the option to remove/replace anything problematic later by keeping full source/license metadata; honest about the legal posture (deferred, not eliminated).
+**Reversibility:** corpus contents are removable on counsel's later review; the per-example tagging discipline is locked.
+
+## DL-62 — Eval-generation cost at standard Anthropic pricing (~$85)
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** The synthetic eval generation run (~2,250 cases per Phase 2E's design) proceeds at standard Anthropic pricing (~$85 one-time). Do not chase enterprise pricing for this specifically; if Brock is already in an Anthropic BAA/enterprise-tier conversation, the pricing question can be raised there, otherwise ignore.
+**Reasoning:** cost is small enough to not warrant a separate procurement effort; enterprise pricing is a bigger conversation.
+**Reversibility:** revisable once enterprise pricing is known.
+
+## DL-63 — TiC ghost-rate filtering as tunable starting posture
+
+**Date:** 2026-05-30
+**Decided by:** Brock via CO-002 FINAL
+**Decision:** TiC MRF rows are filtered using these starting heuristics: rate ≠ 0; rate within 30%–500% of Medicare allowable for the same code+region; rate present in ≥2 distinct payer files (single-occurrence rates flagged as likely-ghost). Surviving rows enter the `transparency_rates` table weighted by a `confidence_score` (number of corroborating sources, distance from Medicare median, recency). Specific thresholds are a starting point to tune once real estimates can be compared against real bills — not a permanent setting.
+**Reasoning:** explicit starting posture so the pipeline can ingest now; explicit "tunable" framing so iteration is expected.
+**Reversibility:** thresholds tuned as production data accumulates.

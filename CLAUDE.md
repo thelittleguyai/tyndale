@@ -148,5 +148,6 @@ contracts published, source spec imported.
 
 Operational: BAA tracker at intelligence-layer/operational/baa_tracker.md.
 
-Decision log canonical: DL-01 through DL-46 in docs/decision-log.md.
+Decision log canonical: DL-01 through DL-63 in docs/decision-log.md.
 Cowork numbers DL-NN-style entries chronologically as decisions land.
+CO-002 FINAL approved 2026-05-30; Sprint A in flight.
