@@ -134,9 +134,11 @@ resource "azurerm_container_app" "runtime" {
         name  = "MAGIC_LINK_BASE_URL"
         value = "https://api.${var.dns_zone_name}"
       }
+      # Land sign-in directly on the product dashboard, skipping the marketing
+      # /signed-in interstitial.
       env {
         name  = "AUTH_SUCCESS_REDIRECT"
-        value = "https://dev.${var.dns_zone_name}/signed-in"
+        value = "https://app.${var.dns_zone_name}"
       }
       env {
         name  = "CORS_ALLOWED_ORIGINS"

@@ -11,6 +11,15 @@
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
+// Every runtime call must send the session cookie. The runtime enforces real
+// auth, and the app + API live on different .tyndaleapp.net subdomains (cross-
+// origin), so without credentials:'include' the cookie isn't sent and the call
+// 401s ("not authenticated"). Routing all calls through this wrapper guarantees
+// it — a missing include is exactly why the dashboard fetch returned 401.
+function cfetch(input: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, { credentials: 'include', ...init });
+}
+
 export interface UploadResponse {
   case_file_id: string;
   document_id: string;
@@ -71,7 +80,7 @@ export async function upload(
       type: file.mimeType ?? 'application/octet-stream',
     } as any);
   }
-  const res = await fetch(`${BASE_URL}/v1/upload`, { method: 'POST', body: form });
+  const res = await cfetch(`${BASE_URL}/v1/upload`, { method: 'POST', body: form });
   if (!res.ok) {
     throw new Error(`upload failed: ${res.status} ${await res.text()}`);
   }
@@ -80,7 +89,7 @@ export async function upload(
 
 /** POST /v1/audit — kick off the audit. */
 export async function postAudit(case_file_id: string): Promise<AuditResult> {
-  const res = await fetch(`${BASE_URL}/v1/audit`, {
+  const res = await cfetch(`${BASE_URL}/v1/audit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ case_file_id }),
@@ -121,7 +130,7 @@ export type {
 
 /** GET /v1/dashboard — the composite payload for the signed-in dashboard. */
 export async function getDashboard(): Promise<DashboardPayload> {
-  const res = await fetch(`${BASE_URL}/v1/dashboard`);
+  const res = await cfetch(`${BASE_URL}/v1/dashboard`);
   if (!res.ok) {
     throw new Error(`dashboard fetch failed: ${res.status} ${await res.text()}`);
   }
@@ -130,7 +139,7 @@ export async function getDashboard(): Promise<DashboardPayload> {
 
 /** GET /v1/cases — list of the user's case files. */
 export async function getCases(): Promise<CasesListPayload> {
-  const res = await fetch(`${BASE_URL}/v1/cases`);
+  const res = await cfetch(`${BASE_URL}/v1/cases`);
   if (!res.ok) {
     throw new Error(`cases fetch failed: ${res.status} ${await res.text()}`);
   }
@@ -140,7 +149,7 @@ export async function getCases(): Promise<CasesListPayload> {
 /** GET /v1/coverage — full coverage detail (case-detail screens consume; the
  * dashboard uses the summary embedded inside getDashboard). */
 export async function getCoverage(): Promise<CoverageDetailPayload> {
-  const res = await fetch(`${BASE_URL}/v1/coverage`);
+  const res = await cfetch(`${BASE_URL}/v1/coverage`);
   if (!res.ok) {
     throw new Error(`coverage fetch failed: ${res.status} ${await res.text()}`);
   }
@@ -237,7 +246,7 @@ export type {
 
 /** POST /v1/feedback — store a feedback event (consent read server-side). */
 export async function submitFeedback(event: FeedbackEvent): Promise<FeedbackAck> {
-  const res = await fetch(`${BASE_URL}/v1/feedback`, {
+  const res = await cfetch(`${BASE_URL}/v1/feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(event),
@@ -257,21 +266,21 @@ export async function getCaseFeedback(case_file_id: string): Promise<CaseFeedbac
 
 /** GET /v1/feedback/outcome-prompts — eligible outcome follow-ups. */
 export async function getOutcomePrompts(): Promise<OutcomePromptsPayload> {
-  const res = await fetch(`${BASE_URL}/v1/feedback/outcome-prompts`);
+  const res = await cfetch(`${BASE_URL}/v1/feedback/outcome-prompts`);
   if (!res.ok) throw new Error(`outcome prompts failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as OutcomePromptsPayload;
 }
 
 /** GET /v1/user/me — current user profile (dev-stub auth until Phase 2K). */
 export async function getUserProfile(): Promise<UserProfile> {
-  const res = await fetch(`${BASE_URL}/v1/user/me`);
+  const res = await cfetch(`${BASE_URL}/v1/user/me`);
   if (!res.ok) throw new Error(`profile fetch failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as UserProfile;
 }
 
 /** PATCH /v1/user/me — flip improvement consent (immediate). */
 export async function updateConsent(improvement_consent: boolean): Promise<UserProfile> {
-  const res = await fetch(`${BASE_URL}/v1/user/me`, {
+  const res = await cfetch(`${BASE_URL}/v1/user/me`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ improvement_consent }),
@@ -300,7 +309,7 @@ export interface SessionResponse {
 
 /** POST /v1/auth/login — returns the Google consent URL to redirect to. */
 export async function getGoogleAuthUrl(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/v1/auth/login`, {
+  const res = await cfetch(`${BASE_URL}/v1/auth/login`, {
     method: 'POST',
     credentials: 'include',
   });
@@ -311,7 +320,7 @@ export async function getGoogleAuthUrl(): Promise<string> {
 /** POST /v1/auth/magic-link-request — always 200 (anti-enumeration); throws
  * on 429 so the UI can surface a rate-limit message. */
 export async function requestMagicLink(email: string, return_url?: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/v1/auth/magic-link-request`, {
+  const res = await cfetch(`${BASE_URL}/v1/auth/magic-link-request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -326,7 +335,7 @@ export async function requestMagicLink(email: string, return_url?: string): Prom
 
 /** GET /v1/auth/session — current session (user: null if not signed in). */
 export async function getAuthSession(): Promise<SessionResponse> {
-  const res = await fetch(`${BASE_URL}/v1/auth/session`, { credentials: 'include' });
+  const res = await cfetch(`${BASE_URL}/v1/auth/session`, { credentials: 'include' });
   if (res.status === 401) return { user: null };
   if (!res.ok) throw new Error(`session fetch failed: ${res.status}`);
   return (await res.json()) as SessionResponse;
@@ -334,5 +343,5 @@ export async function getAuthSession(): Promise<SessionResponse> {
 
 /** POST /v1/auth/logout — clears the session cookie. */
 export async function logout(): Promise<void> {
-  await fetch(`${BASE_URL}/v1/auth/logout`, { method: 'POST', credentials: 'include' });
+  await cfetch(`${BASE_URL}/v1/auth/logout`, { method: 'POST', credentials: 'include' });
 }

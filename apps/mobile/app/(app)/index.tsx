@@ -35,7 +35,7 @@ import {
   MessageSquare,
   Plus,
   Search,
-  Settings,
+  ShieldCheck,
   User as UserIcon,
 } from 'lucide-react-native';
 
@@ -257,20 +257,25 @@ function Header({ firstName }: { firstName: string }) {
       </View>
       <View className="flex-row items-center gap-2">
         <Pressable
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push('/admin')}
+          accessibilityRole="button"
           className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5"
         >
-          <Settings size={14} color="rgba(255,255,255,0.7)" />
+          <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
           <Text className="text-xs font-semibold text-white/80">Admin</Text>
         </Pressable>
-        <View className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5">
+        <Pressable
+          onPress={() => router.push('/settings')}
+          accessibilityRole="button"
+          className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5"
+        >
           <View className="h-5 w-5 items-center justify-center rounded-full bg-amber/80">
             <Text className="text-[10px] font-bold text-ink">
               {firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <Text className="text-xs font-medium text-white/90">{firstName} Fluegel</Text>
-        </View>
+        </Pressable>
         <Pressable
           onPress={() => router.replace('/sign-in')}
           className="rounded-full bg-white/5 px-3 py-1.5"
