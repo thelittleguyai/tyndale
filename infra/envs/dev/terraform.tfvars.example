@@ -50,3 +50,11 @@ use_real_auth = false
 #   3) enable_runtime_managed_cert  = true  (binds the managed TLS cert)
 # enable_runtime_custom_domain = true
 # enable_runtime_managed_cert  = true
+
+# Public product app at app.tyndaleapp.net (Expo static web export). Same phased
+# apply as the others:
+#   1) leave both false   -> app goes public on its raw FQDN; app CNAME lands
+#   2) enable_app_custom_domain = true  (after app.tyndaleapp.net resolves)
+#   3) enable_app_managed_cert  = true  (binds the managed TLS cert)
+# enable_app_custom_domain = true
+# enable_app_managed_cert  = true

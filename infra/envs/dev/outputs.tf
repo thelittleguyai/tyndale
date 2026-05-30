@@ -61,6 +61,16 @@ output "runtime_api_url" {
   description = "Public runtime API URL. Shows the raw Container App FQDN until api.tyndaleapp.net is attached."
 }
 
+output "app_url" {
+  value       = var.enable_app_custom_domain ? "https://app.${var.dns_zone_name}" : "https://${azurerm_container_app.app.ingress[0].fqdn} (custom domain disabled — set enable_app_custom_domain = true after the app CNAME propagates)"
+  description = "Public product app URL. Shows the raw Container App FQDN until app.tyndaleapp.net is attached."
+}
+
+output "container_app_app_fqdn" {
+  value       = azurerm_container_app.app.ingress[0].fqdn
+  description = "Product app Container App external FQDN (app.tyndaleapp.net fronts this once the custom domain is attached)."
+}
+
 output "container_app_litellm_fqdn" {
   value       = azurerm_container_app.litellm.ingress[0].fqdn
   description = "LiteLLM proxy FQDN (internal)."

@@ -57,3 +57,27 @@ resource "azurerm_dns_txt_record" "asuid_api" {
     value = azurerm_container_app_environment.external.custom_domain_verification_id
   }
 }
+
+# CNAME for app.tyndaleapp.net → product app Container App FQDN (external CAE).
+resource "azurerm_dns_cname_record" "app" {
+  name                = "app"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  record              = azurerm_container_app.app.ingress[0].fqdn
+  tags                = local.tags
+}
+
+# TXT asuid.app = external CAE's custom-domain verification ID. Azure checks
+# this when attaching app.tyndaleapp.net.
+resource "azurerm_dns_txt_record" "asuid_app" {
+  name                = "asuid.app"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  tags                = local.tags
+
+  record {
+    value = azurerm_container_app_environment.external.custom_domain_verification_id
+  }
+}

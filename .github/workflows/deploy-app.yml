@@ -1,0 +1,99 @@
+name: deploy-app
+
+# Builds the Expo static web export (apps/mobile/Dockerfile, context = repo root
+# so workspace deps resolve), pushes it to GHCR, and rolls the dev product app
+# Container App (app.tyndaleapp.net) to the new image.
+#
+# Triggers:
+#   - push to main touching apps/mobile/** or packages/shared/** or this workflow
+#   - manual workflow_dispatch
+#
+# Auth:
+#   - GHCR push: built-in GITHUB_TOKEN with packages:write
+#   - Azure: OIDC federation via env-scoped secrets AZURE_CLIENT_ID / TENANT_ID /
+#     SUBSCRIPTION_ID
+#
+# Rollback:
+#   az containerapp update --name tyndale-dev-app --resource-group tyndale-dev-rg \
+#     --image ghcr.io/.../app:<previous-sha>
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-app.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write  # GHCR push
+  id-token: write  # Azure OIDC
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/app
+  CONTAINER_APP: tyndale-dev-app
+  RESOURCE_GROUP: tyndale-dev-rg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev   # scopes OIDC subject to repo:OWNER/REPO:environment:dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .                                # repo root — workspace deps live up here
+          file: apps/mobile/Dockerfile
+          push: true
+          # EXPO_PUBLIC_* is inlined into the bundle at export time, so the API
+          # base URL must be a build-arg (not a Container App env var).
+          build-args: |
+            EXPO_PUBLIC_API_BASE_URL=https://api.tyndaleapp.net
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:dev-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --output none
+          echo "Updated $CONTAINER_APP -> $IMAGE:${{ github.sha }}"
+
+      - name: Show recent revisions
+        run: |
+          az containerapp revision list \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "sort_by([], &properties.createdTime)[-3:].{name:name, active:properties.active, replicas:properties.replicas, image:properties.template.containers[0].image, created:properties.createdTime}" \
+            -o table

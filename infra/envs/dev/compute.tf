@@ -555,3 +555,90 @@ resource "null_resource" "bind_runtime_cert" {
     azurerm_container_app_custom_domain.runtime_api,
   ]
 }
+
+# ===========================================================================
+# Tyndale product app — Expo static web export served by nginx. Public at
+# app.tyndaleapp.net (external CAE). No secrets: the API base URL is baked into
+# the JS bundle at build time, and the runtime issues the session cookie on
+# .tyndaleapp.net (shared across dev./app./api.). CI rolls the image.
+# ===========================================================================
+resource "azurerm_container_app" "app" {
+  name                         = "${local.name_prefix}-app"
+  container_app_environment_id = azurerm_container_app_environment.external.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  template {
+    min_replicas = 0 # scale-to-zero idle
+    max_replicas = 3
+
+    container {
+      name   = "app"
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; CI rolls this to ghcr.io/.../app:<sha>
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+  }
+
+  ingress {
+    external_enabled           = true
+    target_port                = 80 # nginx
+    transport                  = "http"
+    allow_insecure_connections = false
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  # CI rolls the image on each push to main touching apps/mobile/**.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+}
+
+# app.tyndaleapp.net → product app CA. Same phased pattern as the others:
+#   1. apply with enable_app_custom_domain = false → DNS records land
+#   2. enable_app_custom_domain = true  → attach hostname (HTTP)
+#   3. enable_app_managed_cert  = true  → provision + bind managed TLS
+resource "azurerm_container_app_custom_domain" "app" {
+  count                    = var.enable_app_custom_domain ? 1 : 0
+  name                     = "app.${var.dns_zone_name}"
+  container_app_id         = azurerm_container_app.app.id
+  certificate_binding_type = "Disabled"
+
+  depends_on = [
+    azurerm_dns_cname_record.app,
+    azurerm_dns_txt_record.asuid_app,
+  ]
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+resource "null_resource" "bind_app_cert" {
+  count = var.enable_app_custom_domain && var.enable_app_managed_cert ? 1 : 0
+
+  triggers = {
+    custom_domain_id = azurerm_container_app_custom_domain.app[0].id
+    container_app_id = azurerm_container_app.app.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      az containerapp hostname bind \
+        --hostname "app.${var.dns_zone_name}" \
+        --name "${azurerm_container_app.app.name}" \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --environment "${azurerm_container_app_environment.external.name}" \
+        --validation-method HTTP
+    EOT
+  }
+
+  depends_on = [
+    azurerm_container_app_custom_domain.app,
+  ]
+}

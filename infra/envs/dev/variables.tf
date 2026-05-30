@@ -105,6 +105,18 @@ variable "enable_runtime_managed_cert" {
   description = "Provision + bind the free managed TLS cert for api.tyndaleapp.net via `az containerapp hostname bind`. Requires enable_runtime_custom_domain = true and the HTTP binding live. Requires az CLI on the apply host. The cookie-based auth needs this HTTPS host, so flip true once the HTTP binding works."
 }
 
+variable "enable_app_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Attach app.tyndaleapp.net to the product app Container App (Expo static web export). Same phased flow as the other domains: first apply lays the app CNAME + asuid.app TXT records; flip true on a follow-up apply once app.tyndaleapp.net resolves publicly."
+}
+
+variable "enable_app_managed_cert" {
+  type        = bool
+  default     = false
+  description = "Provision + bind the free managed TLS cert for app.tyndaleapp.net via `az containerapp hostname bind`. Requires enable_app_custom_domain = true and the HTTP binding live. Requires az CLI on the apply host."
+}
+
 variable "common_tags" {
   type = map(string)
   default = {
