@@ -148,5 +148,5 @@ contracts published, source spec imported.
 
 Operational: BAA tracker at intelligence-layer/operational/baa_tracker.md.
 
-Decision log canonical: DL-01 through DL-42 in docs/decision-log.md.
+Decision log canonical: DL-01 through DL-46 in docs/decision-log.md.
 Cowork numbers DL-NN-style entries chronologically as decisions land.

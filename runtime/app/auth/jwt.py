@@ -62,10 +62,16 @@ def verify_session_token(token: str) -> str:
         payload = jwt.decode(
             token,
             _secret(),
-            algorithms=[_ALGO],
-            audience=_AUD_SESSION,
+            algorithms=[_ALGO],  # explicit allow-list — defeats alg-confusion ("none"/RS256)
+            audience=_AUD_SESSION,  # a magic-link token (aud=magic_link) is rejected here
             issuer=_ISSUER,
-            options={"require": ["exp", "iat", "sub", "aud", "iss"]},
+            options={
+                "require": ["exp", "iat", "sub", "aud", "iss"],
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_aud": True,
+                "verify_iss": True,
+            },
         )
     except jwt.PyJWTError as exc:  # expired, bad sig, wrong aud/iss, missing claim
         raise InvalidTokenError(str(exc)) from exc
@@ -104,9 +110,15 @@ def verify_magic_link_token(token: str) -> dict[str, Any]:
             token,
             _secret(),
             algorithms=[_ALGO],
-            audience=_AUD_MAGIC,
+            audience=_AUD_MAGIC,  # a session token (aud=session) is rejected here
             issuer=_ISSUER,
-            options={"require": ["exp", "iat", "jti", "aud", "iss", "email"]},
+            options={
+                "require": ["exp", "iat", "jti", "aud", "iss", "email"],
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_aud": True,
+                "verify_iss": True,
+            },
         )
     except jwt.PyJWTError as exc:
         raise InvalidTokenError(str(exc)) from exc

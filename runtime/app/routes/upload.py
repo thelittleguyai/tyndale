@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser, current_user
@@ -77,6 +77,18 @@ async def upload(
     user: CurrentUser = Depends(current_user),
 ) -> UploadResponse:
     content = await file.read()
+    # Per-file size limit (Phase 2K.2 / DL-46). The request-size middleware caps
+    # the whole multipart body; this caps the individual file. V1-Lite has no
+    # chunked upload — a smaller file is the only recourse.
+    settings = get_settings()
+    if len(content) > settings.max_upload_file_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"File exceeds the {settings.max_upload_file_bytes}-byte per-file limit. "
+                "Upload a smaller file."
+            ),
+        )
     filename = file.filename or "upload"
 
     # Persist + classify

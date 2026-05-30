@@ -31,7 +31,13 @@ async def current_user(
     if not settings.use_real_auth:
         return await resolve_dev_user(session)
 
-    token = request.cookies.get(settings.session_cookie_name)
+    # Read the new __Secure- name OR the legacy name (grace period, DL-46) so
+    # the cutover doesn't log existing sessions out.
+    token = None
+    for name in settings.session_cookie_read_names:
+        token = request.cookies.get(name)
+        if token:
+            break
     if not token:
         raise HTTPException(status_code=401, detail="not authenticated")
     try:

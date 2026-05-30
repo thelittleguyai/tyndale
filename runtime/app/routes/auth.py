@@ -50,8 +50,11 @@ _OAUTH_STATE_COOKIE = "tyndale_oauth_state"
 # --- cookie helpers ----------------------------------------------------------
 def _set_session_cookie(response: Response, token: str) -> None:
     settings = get_settings()
+    # Write the effective name (__Secure-tyndale_session over HTTPS;
+    # tyndale_session on plain-http dev). current_user reads BOTH names so
+    # existing tyndale_session cookies keep working through the grace period.
     response.set_cookie(
-        key=settings.session_cookie_name,
+        key=settings.session_cookie_write_name,
         value=token,
         max_age=settings.session_ttl_hours * 3600,
         httponly=True,
@@ -64,11 +67,13 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 def _clear_session_cookie(response: Response) -> None:
     settings = get_settings()
-    response.delete_cookie(
-        key=settings.session_cookie_name,
-        domain=settings.cookie_domain or None,
-        path="/",
-    )
+    # Clear every accepted name (new + legacy) so logout fully signs out.
+    for name in settings.session_cookie_read_names:
+        response.delete_cookie(
+            key=name,
+            domain=settings.cookie_domain or None,
+            path="/",
+        )
 
 
 def _profile(user) -> UserProfile:

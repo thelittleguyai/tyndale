@@ -83,9 +83,68 @@ class Settings(BaseSettings):
     magic_link_rate_per_email_hour: int = 5
     magic_link_rate_per_ip_hour: int = 20
 
+    # --- Hardening (Phase 2K.2 / DL-46) --------------------------------------
+    # Fills the gap from DL-42 (runtime went public at api.tyndaleapp.net). All
+    # rate limits are in-memory per-replica (Phase 4 → Redis). Disabled in the
+    # test suite via RATE_LIMIT_ENABLED=false.
+    rate_limit_enabled: bool = True
+    rate_limit_per_ip_per_minute: int = 100
+    rate_limit_per_ip_per_hour: int = 1000
+    rate_limit_per_user_per_minute: int = 200
+    rate_limit_per_user_per_hour: int = 2000
+    # Per-route hourly caps for expensive ops (per authenticated user, else IP).
+    rate_limit_upload_per_hour: int = 20
+    rate_limit_extract_per_hour: int = 20
+    rate_limit_finalize_per_hour: int = 20
+    rate_limit_confirmations_per_hour: int = 50
+    # Trust the first IP from this many X-Forwarded-For hops (Container Apps' LB
+    # prepends 1). Never trust an unbounded XFF chain.
+    trust_forwarded_for_hops: int = 1
+
+    security_headers_enabled: bool = True
+
+    # Request body size limits (bytes).
+    max_request_body_bytes: int = 25 * 1024 * 1024  # 25 MB — multipart ceiling
+    max_json_body_bytes: int = 1 * 1024 * 1024  # 1 MB — JSON bodies
+    max_upload_file_bytes: int = 20 * 1024 * 1024  # 20 MB — per uploaded file
+
+    # Admin IP allowlist (comma-separated CIDR; empty = no restriction). Applies
+    # to /v1/admin/* — preventive; no admin routes exist yet.
+    admin_allowed_ips: str = ""
+
+    # __Secure- cookie prefix (OWASP / RFC 6265bis). Applied to the session
+    # cookie name ONLY when cookie_secure is true — a __Secure- cookie sent over
+    # plain http is rejected by browsers, which would break local dev/tests.
+    session_cookie_secure_prefix: bool = True
+
     def has_real_auth_secret(self) -> bool:
         key = (self.auth_secret or "").strip()
         return bool(key) and not key.startswith("<")
+
+    # --- Cookie naming (Phase 2K.2) ------------------------------------------
+    @property
+    def session_cookie_write_name(self) -> str:
+        """Name used to SET the session cookie. Gets the __Secure- prefix only
+        over HTTPS (cookie_secure); plain-http dev keeps the bare name."""
+        base = self.session_cookie_name
+        if self.cookie_secure and self.session_cookie_secure_prefix and not base.startswith("__Secure-"):
+            return f"__Secure-{base}"
+        return base
+
+    @property
+    def session_cookie_read_names(self) -> list[str]:
+        """Names accepted when READING the session cookie: the current write
+        name + the legacy bare name (30-day grace so existing sessions survive
+        the __Secure- cutover without logging anyone out — DL-46)."""
+        out: list[str] = []
+        for n in (self.session_cookie_write_name, self.session_cookie_name):
+            if n not in out:
+                out.append(n)
+        return out
+
+    @property
+    def admin_allowed_cidrs(self) -> list[str]:
+        return [c.strip() for c in self.admin_allowed_ips.split(",") if c.strip()]
 
     # --- Knowledge layer (Qdrant + Voyage AI) ---
     # qdrant_url: an http(s):// URL connects to a server (Docker/Azure); any other

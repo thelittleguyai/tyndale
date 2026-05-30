@@ -16,6 +16,9 @@ os.environ.setdefault(
 )
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("NODE_ENV", "development")
+# Phase 2K.2: rate limiting OFF by default so the broader suite (which fires many
+# requests) isn't throttled. test_hardening.py turns it on per-test.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
