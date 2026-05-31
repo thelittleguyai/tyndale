@@ -117,6 +117,28 @@ variable "enable_app_managed_cert" {
   description = "Provision + bind the free managed TLS cert for app.tyndaleapp.net via `az containerapp hostname bind`. Requires enable_app_custom_domain = true and the HTTP binding live. Requires az CLI on the apply host."
 }
 
+# --- Phase CO-6A admin console (admin.tyndaleapp.net) -----------------------
+variable "admin_allowed_ip_ranges" {
+  type = list(string)
+  # PLACEHOLDER (RFC 5737 TEST-NET-3) — matches NO real traffic. Because the
+  # admin ingress uses Allow-only restrictions, Azure denies every IP not in
+  # this list, so the default LOCKS EVERYONE OUT (including Brock). DL-60.
+  default     = ["203.0.113.0/24"]
+  description = "FLAG FOR BROCK: CIDR ranges allowed to reach admin.tyndaleapp.net (his home/office + VPN/travel fallback). The default is a TEST-NET placeholder that blocks ALL traffic — set real CIDRs in terraform.tfvars BEFORE `terraform apply` or Brock is locked out of his own admin console."
+}
+
+variable "enable_admin_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Attach admin.tyndaleapp.net to the admin Container App. Same phased flow as the other domains: first apply lays the admin CNAME + asuid.admin TXT records; flip true on a follow-up apply once admin.tyndaleapp.net resolves publicly."
+}
+
+variable "enable_admin_managed_cert" {
+  type        = bool
+  default     = false
+  description = "Provision + bind the free managed TLS cert for admin.tyndaleapp.net via `az containerapp hostname bind`. Requires enable_admin_custom_domain = true and the HTTP binding live. Requires az CLI on the apply host."
+}
+
 variable "common_tags" {
   type = map(string)
   default = {

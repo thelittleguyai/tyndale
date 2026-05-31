@@ -19,6 +19,7 @@ from app.middleware.request_logger import RequestLoggerMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routes import (
+    admin,
     audit,
     auth,
     cases,
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(user.router, prefix="/v1")
     app.include_router(auth.router, prefix="/v1")
     app.include_router(intake.router, prefix="/v1")
+    app.include_router(admin.router, prefix="/v1")
     return app
 
 

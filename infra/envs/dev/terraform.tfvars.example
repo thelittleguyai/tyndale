@@ -58,3 +58,19 @@ use_real_auth = false
 #   3) enable_app_managed_cert  = true  (binds the managed TLS cert)
 # enable_app_custom_domain = true
 # enable_app_managed_cert  = true
+
+# --- Phase CO-6A admin console (admin.tyndaleapp.net) -----------------------
+# ████ FLAG FOR BROCK — REQUIRED BEFORE APPLY ████
+# The admin console uses a NETWORK-layer IP allowlist (DL-60). The default in
+# variables.tf is a TEST-NET placeholder (203.0.113.0/24) that blocks ALL real
+# traffic — INCLUDING BROCK'S. Set Brock's real CIDRs here BEFORE `terraform
+# apply`, or the admin console is unreachable by everyone. Use /32 for single
+# IPs (e.g. "198.51.100.23/32"); include home/office + a VPN/travel fallback.
+# admin_allowed_ip_ranges = ["198.51.100.23/32", "203.0.113.10/32"]
+#
+# Phased custom-domain + cert apply (same as the others):
+#   1) leave both false   -> admin goes public on its raw FQDN; admin CNAME lands
+#   2) enable_admin_custom_domain = true  (after admin.tyndaleapp.net resolves)
+#   3) enable_admin_managed_cert  = true  (binds the managed TLS cert)
+# enable_admin_custom_domain = true
+# enable_admin_managed_cert  = true

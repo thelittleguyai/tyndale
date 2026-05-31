@@ -1,0 +1,98 @@
+name: deploy-admin
+
+# Builds the Next.js admin console image from apps/admin/Dockerfile (context is
+# repo root so workspace deps resolve), pushes it to GHCR, and rolls the dev
+# admin Container App. Mirrors deploy-web-marketing.yml.
+#
+# NOTE: the admin Container App's NETWORK-layer IP allowlist (DL-60) is set in
+# Terraform (var.admin_allowed_ip_ranges) — this workflow only ships the image.
+#
+# Triggers:
+#   - push to main touching apps/admin/** or packages/shared/** or this workflow
+#   - manual workflow_dispatch
+#
+# Rollback:
+#   az containerapp update --name tyndale-dev-admin \
+#     --resource-group tyndale-dev-rg \
+#     --image ghcr.io/.../admin:<previous-sha>
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/admin/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-admin.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write  # GHCR push
+  id-token: write  # Azure OIDC
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/admin
+  CONTAINER_APP: tyndale-dev-admin
+  RESOURCE_GROUP: tyndale-dev-rg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev   # scopes OIDC subject to repo:OWNER/REPO:environment:dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push admin image
+        uses: docker/build-push-action@v6
+        with:
+          context: .                                # repo root — workspace deps live up here
+          file: apps/admin/Dockerfile
+          push: true
+          # NEXT_PUBLIC_* are baked into the client bundle at build time.
+          build-args: |
+            NEXT_PUBLIC_RUNTIME_URL=https://api.tyndaleapp.net
+            NEXT_PUBLIC_PLAUSIBLE_DOMAIN=admin.tyndaleapp.net
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:dev-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --output none
+          echo "Updated $CONTAINER_APP -> $IMAGE:${{ github.sha }}"
+
+      - name: Show recent revisions
+        run: |
+          az containerapp revision list \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "sort_by([], &properties.createdTime)[-3:].{name:name, active:properties.active, replicas:properties.replicas, image:properties.template.containers[0].image, created:properties.createdTime}" \
+            -o table

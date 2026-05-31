@@ -142,7 +142,7 @@ resource "azurerm_container_app" "runtime" {
       }
       env {
         name  = "CORS_ALLOWED_ORIGINS"
-        value = "https://dev.${var.dns_zone_name},https://app.${var.dns_zone_name}"
+        value = "https://dev.${var.dns_zone_name},https://app.${var.dns_zone_name},https://admin.${var.dns_zone_name}"
       }
 
       # Secret env — bound to the secret blocks above.
@@ -642,5 +642,165 @@ resource "null_resource" "bind_app_cert" {
 
   depends_on = [
     azurerm_container_app_custom_domain.app,
+  ]
+}
+
+# ===========================================================================
+# Phase CO-6A — admin console (admin.tyndaleapp.net), Brock-only. (DL-60)
+#
+# Dual-layer auth:
+#   (1) APP layer    — runtime /v1/admin/* requires user_type='admin' (404 else).
+#   (2) NETWORK layer — the ingress IP allowlist below.
+#
+# ████████████████████  FLAG FOR BROCK — IP ALLOWLIST  ████████████████████
+# `var.admin_allowed_ip_ranges` defaults to an RFC-5737 TEST-NET placeholder
+# (203.0.113.0/24) that matches NO real traffic. Because at least one "Allow"
+# restriction is present, Azure DENIES every source IP not in the list — so with
+# the default, the admin console is unreachable by EVERYONE, INCLUDING BROCK.
+# Brock MUST set his real CIDRs (home/office + VPN/travel fallback) in
+# terraform.tfvars (admin_allowed_ip_ranges) BEFORE `terraform apply`, or he
+# locks himself out of his own console.
+# ██████████████████████████████████████████████████████████████████████████
+resource "azurerm_container_app" "admin" {
+  name                         = "${local.name_prefix}-admin"
+  container_app_environment_id = azurerm_container_app_environment.external.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.marketing.id]
+  }
+
+  secret {
+    name                = "google-oauth-client-secret"
+    key_vault_secret_id = azurerm_key_vault_secret.google_oauth_client_secret.versionless_id
+    identity            = azurerm_user_assigned_identity.marketing.id
+  }
+  secret {
+    name                = "nextauth-secret"
+    key_vault_secret_id = azurerm_key_vault_secret.nextauth_secret.versionless_id
+    identity            = azurerm_user_assigned_identity.marketing.id
+  }
+
+  template {
+    min_replicas = 1 # kept warm
+    max_replicas = 2
+
+    container {
+      name   = "admin"
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; CI rolls to ghcr.io/.../admin:<sha>
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+      env {
+        name  = "PORT"
+        value = "3000"
+      }
+      env {
+        name  = "NEXT_PUBLIC_RUNTIME_URL"
+        value = "https://api.${var.dns_zone_name}"
+      }
+      env {
+        name  = "NEXT_PUBLIC_PLAUSIBLE_DOMAIN"
+        value = "admin.${var.dns_zone_name}"
+      }
+      env {
+        name  = "AUTH_URL"
+        value = "https://admin.${var.dns_zone_name}"
+      }
+      env {
+        name  = "GOOGLE_CLIENT_ID"
+        value = var.google_oauth_client_id
+      }
+      env {
+        name        = "GOOGLE_CLIENT_SECRET"
+        secret_name = "google-oauth-client-secret"
+      }
+      env {
+        name        = "AUTH_SECRET"
+        secret_name = "nextauth-secret"
+      }
+    }
+  }
+
+  ingress {
+    external_enabled           = true
+    target_port                = 3000
+    transport                  = "http"
+    allow_insecure_connections = false
+
+    # NETWORK-layer allowlist (DL-60). All restrictions are "Allow", so Azure
+    # default-DENIES every other source IP (mixing Allow+Deny is invalid for
+    # Container Apps — a single Allow set is the correct deny-by-default pattern).
+    # SEE THE FLAG-FOR-BROCK BANNER ABOVE: the default range blocks everyone.
+    dynamic "ip_security_restriction" {
+      for_each = var.admin_allowed_ip_ranges
+      content {
+        action           = "Allow"
+        name             = "admin-allow-${ip_security_restriction.key}"
+        ip_address_range = ip_security_restriction.value
+        description      = "Brock-provided admin allowlist entry"
+      }
+    }
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
+  depends_on = [
+    azurerm_role_assignment.marketing_kv_secrets_user
+  ]
+}
+
+# admin.tyndaleapp.net custom domain — same phased pattern as the others.
+resource "azurerm_container_app_custom_domain" "admin" {
+  count                    = var.enable_admin_custom_domain ? 1 : 0
+  name                     = "admin.${var.dns_zone_name}"
+  container_app_id         = azurerm_container_app.admin.id
+  certificate_binding_type = "Disabled"
+
+  depends_on = [
+    azurerm_dns_cname_record.admin,
+    azurerm_dns_txt_record.asuid_admin,
+  ]
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+resource "null_resource" "bind_admin_cert" {
+  count = var.enable_admin_custom_domain && var.enable_admin_managed_cert ? 1 : 0
+
+  triggers = {
+    custom_domain_id = azurerm_container_app_custom_domain.admin[0].id
+    container_app_id = azurerm_container_app.admin.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      az containerapp hostname bind \
+        --hostname "admin.${var.dns_zone_name}" \
+        --name "${azurerm_container_app.admin.name}" \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --environment "${azurerm_container_app_environment.external.name}" \
+        --validation-method HTTP
+    EOT
+  }
+
+  depends_on = [
+    azurerm_container_app_custom_domain.admin,
   ]
 }

@@ -81,3 +81,27 @@ resource "azurerm_dns_txt_record" "asuid_app" {
     value = azurerm_container_app_environment.external.custom_domain_verification_id
   }
 }
+
+# CNAME for admin.tyndaleapp.net → admin console Container App FQDN (Phase CO-6A).
+resource "azurerm_dns_cname_record" "admin" {
+  name                = "admin"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  record              = azurerm_container_app.admin.ingress[0].fqdn
+  tags                = local.tags
+}
+
+# TXT asuid.admin = external CAE's custom-domain verification ID. Azure checks
+# this when attaching admin.tyndaleapp.net.
+resource "azurerm_dns_txt_record" "asuid_admin" {
+  name                = "asuid.admin"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  tags                = local.tags
+
+  record {
+    value = azurerm_container_app_environment.external.custom_domain_verification_id
+  }
+}

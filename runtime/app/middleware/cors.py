@@ -17,7 +17,11 @@ from app.config import Settings
 
 log = structlog.get_logger(__name__)
 
-_DEV_ORIGINS = ("http://localhost:3000", "http://localhost:8081")
+_DEV_ORIGINS = ("http://localhost:3000", "http://localhost:8081", "http://localhost:3001")
+# Phase CO-6A: the admin console is a first-party subdomain; allow it even before
+# the CORS_ALLOWED_ORIGINS env var is updated in infra (defense-in-depth — the
+# network-layer IP allowlist + admin gate are the real access controls).
+_ADMIN_ORIGIN = "https://admin.tyndaleapp.net"
 _ALLOW_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 _ALLOW_HEADERS = ["Authorization", "Content-Type", "X-Request-ID", "X-Requested-With"]
 
@@ -26,6 +30,8 @@ def add_cors(app: FastAPI, settings: Settings) -> None:
     origins = [o for o in settings.cors_origins if o != "*"]  # never wildcard with credentials
     if "*" in settings.cors_origins:
         log.warning("cors.wildcard_rejected", node_env=settings.node_env)
+    if _ADMIN_ORIGIN not in origins:
+        origins.append(_ADMIN_ORIGIN)
     if settings.node_env == "development":
         for dev_origin in _DEV_ORIGINS:
             if dev_origin not in origins:
