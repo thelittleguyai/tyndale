@@ -77,6 +77,8 @@ Router) for the product, with a small sibling Next.js project for the marketing/
 small team; Next.js is kept only for the static marketing landing where SEO matters. Phil
 owns the stack decision and will ramp on RN with team support.
 **Reversibility:** locked
+**Narrowed by:** DL-48 — native iOS and Apple Developer enrollment deferred indefinitely;
+web-only at app.tyndaleapp.net is the V1-Lite product surface.
 
 ## DL-07 — Single monorepo in tyndale.git
 **Date:** 2026-05-27
@@ -144,6 +146,8 @@ V1-Lite web launch.
 web launch; deferring it to the iOS submission removes it from the web-launch critical path
 while still landing before the native app needs it.
 **Reversibility:** locked
+**Superseded by:** DL-48 — Apple Developer enrollment = NO; Phase 3 (mobile/iOS/Apple
+Sign-In) dropped from the Cowork queue.
 
 ## DL-13 — Change Order 001 (4 behavioral additions) accepted into V1-Lite
 **Date:** 2026-05-27
@@ -205,6 +209,9 @@ API Pro — a HIPAA-eligible tier with BAA.
 HIPAA-eligible tier; SendGrid's standard tier does not include a BAA. Phil and Brock jointly
 settled the domain and the email vendor/tier.
 **Reversibility:** locked
+**Reversed by:** DL-47 + DL-49 — no PHI in emails (runtime invariant) → SendGrid excluded
+from the BAA list. The Email API Pro tier choice stands operationally (it's still the tier
+we use); the BAA requirement is dropped.
 
 ## DL-19 — Counsel engagement + dev team capacity managed outside Cowork
 **Date:** 2026-05-27
@@ -567,3 +574,27 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** TiC MRF rows are filtered using these starting heuristics: rate ≠ 0; rate within 30%–500% of Medicare allowable for the same code+region; rate present in ≥2 distinct payer files (single-occurrence rates flagged as likely-ghost). Surviving rows enter the `transparency_rates` table weighted by a `confidence_score` (number of corroborating sources, distance from Medicare median, recency). Specific thresholds are a starting point to tune once real estimates can be compared against real bills — not a permanent setting.
 **Reasoning:** explicit starting posture so the pipeline can ingest now; explicit "tunable" framing so iteration is expected.
 **Reversibility:** thresholds tuned as production data accumulates.
+
+## DL-64 — PHI/security regex discipline: broaden over narrow
+
+**Date:** 2026-05-30
+**Decided by:** Phil (CTO) during Phase CO-8
+**Decision:** When writing detection regexes for PHI or other security-critical content (in PreToolUse hooks, log filters, validation middleware), default to the broader pattern. The spec for CO-8 specified a CPT regex `\b(?:9[0-9]{4}|0[0-9]{4})\b` (covering only 90000–99999 and 00000–09999) which would have missed CPT 27447 from the same prompt's own test. The implementation uses `\b\d{5}\b` (any 5-digit numeric) instead. Same discipline applied to MRN/ACCT/CLAIM patterns (case-insensitive variants).
+**Reasoning:** for guardrails where the cost asymmetry is "false positive forces using a template = mild friction; false negative leaks PHI = breach," the broader regex is the safe default. Spec'd narrow regexes get corrected at implementation time.
+**Reversibility:** locked discipline for any security/PHI detection pattern.
+
+## DL-65 — Hook pattern: sync evaluate + async guard split for audit writes
+
+**Date:** 2026-05-30
+**Decided by:** Phil (CTO) during Phase CO-8
+**Decision:** PreToolUse hooks that need to write audit events split into two functions: (a) a pure synchronous `evaluate_*()` returning the decision (approved=True/False + block_reason), and (b) an async `guard_*(input, session)` wrapping the evaluator with audit-log persistence. The sync hook calls the evaluator for the decision (so blocks hold even without a session); the async runtime path calls the guard for full audit. Tests target the evaluator directly; the async path's audit write is covered by a separate audit test.
+**Reasoning:** the Claude Agent SDK's PreToolUse hooks are synchronous + session-less by design; audit writes require an async SQLAlchemy session. Pretending the hook could do both directly (as the CO-8 prompt's pseudocode did) would break at runtime. The split is the architecturally honest pattern; future PreToolUse hooks adopt the same shape.
+**Reversibility:** locked pattern across all future PreToolUse hook implementations.
+
+## DL-66 — Migration discipline: backfill existing rows when adding required-status columns
+
+**Date:** 2026-05-30
+**Decided by:** Phil (CTO) during Phase CO-1A
+**Decision:** When an Alembic migration adds a NOT NULL column representing a workflow status that defaults to "not started" (e.g., `intake_status DEFAULT 'not_started'`), the migration MUST also backfill existing rows to the appropriate "already complete" value where the workflow concept didn't exist before the migration. CO-1A's migration 0009 backfills existing case files to `intake_status='complete'` rather than re-onboarding every existing user into the new wizard. Same pattern applies to any future status-column addition.
+**Reasoning:** literal `DEFAULT 'not_started'` is correct for new rows but hostile to existing users who completed their version of the workflow before the column existed. Backfill is the user-respecting default.
+**Reversibility:** locked discipline; check on every status-adding migration.
