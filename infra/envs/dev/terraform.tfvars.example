@@ -42,6 +42,7 @@ use_real_auth = false
 # Flip to true on a follow-up apply, after DNS records propagate publicly
 # (see variables.tf).
 # enable_marketing_custom_domain = true
+# enable_marketing_managed_cert  = true
 
 # Public runtime API at api.tyndaleapp.net — required for real Google/magic-link
 # auth (the session cookie needs an HTTPS .tyndaleapp.net host). Phased apply:
