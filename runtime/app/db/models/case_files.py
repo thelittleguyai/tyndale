@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Integer, Text, func, text
+from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, Integer, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +25,11 @@ class CaseFile(Base):
             "'resolved', 'archived')",
             name="ck_case_files_status",
         ),
+        CheckConstraint(
+            "intake_status IN ('not_started', 'in_progress', 'complete')",
+            name="ck_case_files_intake_status",
+        ),
+        Index("idx_case_files_intake_status", "intake_status"),
     )
 
     case_file_id: Mapped[uuid.UUID] = mapped_column(
@@ -74,3 +79,12 @@ class CaseFile(Base):
     )
     # Optimistic locking counter.
     version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    # Phase CO-1A guided intake. intake_status gates the wizard (new users land in
+    # it; 'complete' users go straight to the dashboard). intake_current_step is the
+    # wizard step name to resume at. visit_context is the free-text "what were you
+    # seen for?" answer (DL-54: no CPT codes echoed back to the user).
+    intake_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'not_started'")
+    )
+    intake_current_step: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visit_context: Mapped[str | None] = mapped_column(Text, nullable=True)

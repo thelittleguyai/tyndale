@@ -5,4 +5,5 @@ export * from './design-tokens';
 export * from './dashboard';
 export * from './encounter';
 export * from './feedback';
+export * from './intake';
 export { default } from './design-tokens';

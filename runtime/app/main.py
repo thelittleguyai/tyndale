@@ -27,6 +27,7 @@ from app.routes import (
     encounter,
     feedback,
     health,
+    intake,
     upload,
     user,
 )
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(encounter.router, prefix="/v1")
     app.include_router(user.router, prefix="/v1")
     app.include_router(auth.router, prefix="/v1")
+    app.include_router(intake.router, prefix="/v1")
     return app
 
 

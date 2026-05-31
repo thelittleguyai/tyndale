@@ -65,6 +65,10 @@ class DashboardPayload(BaseModel):
     user: UserBrief
     coverage: CoverageSummary
     amount_saved_ytd: float
+    # Phase CO-1A — drives the intake gate. 'complete' users see the dashboard;
+    # others are routed into the wizard (resuming at intake_current_step).
+    intake_status: str = "complete"
+    intake_current_step: str | None = None
     open_cases: list[OpenCase] = Field(default_factory=list)
     # Phase 2J — cases eligible for an outcome follow-up prompt (scripted
     # recommendation given > N days ago, no outcome reported yet). Each item is

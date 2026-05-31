@@ -54,6 +54,9 @@ export interface DashboardPayload {
   user: UserBrief;
   coverage: CoverageSummary;
   amount_saved_ytd: number;
+  /** Phase CO-1A — drives the intake gate. 'complete' → dashboard; else wizard. */
+  intake_status: string;
+  intake_current_step: string | null;
   open_cases: OpenCase[];
   /** Phase 2J — cases eligible for an outcome follow-up prompt. */
   outcome_prompts: OutcomePromptInline[];

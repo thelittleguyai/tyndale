@@ -115,7 +115,10 @@ register_tool(
             "type": "object",
             "properties": {
                 "case_file_id": {"type": "string"},
-                "finding_type": {"type": "string", "enum": ["payer_side", "provider_side", "encounter_mismatch"]},
+                "finding_type": {
+                    "type": "string",
+                    "enum": ["payer_side", "provider_side", "encounter_mismatch"],
+                },
                 "category": {"type": "string"},
                 "facts": {"type": "object"},
                 "legal_claim": {"type": "object"},
@@ -238,7 +241,9 @@ async def _pg_store_line_item(args: dict[str, Any]) -> dict[str, Any]:
         "units": args.get("units"),
     }
     async with AsyncSessionLocal() as s:
-        cf = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == case_file_id))).scalar_one_or_none()
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == case_file_id))
+        ).scalar_one_or_none()
         if cf is None:
             return {"error": f"case_file {case_file_id} not found"}
         # JSONB list reassignment (SQLAlchemy doesn't track in-place mutation).
@@ -278,4 +283,104 @@ register_tool(
         },
     },
     _pg_store_line_item,
+)
+
+
+# --- Intake wizard structured persistence (Phase CO-1A, DL-39) ---------------
+async def _merge_coverage(case_file_id: "UUID", fields: dict[str, Any]) -> dict[str, Any]:
+    """Merge non-null fields into case_files.coverage JSONB (the single source of
+    benefits state per DL-52). Returns {stored, keys} or an error dict."""
+    clean = {k: v for k, v in fields.items() if v is not None}
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == case_file_id))
+        ).scalar_one_or_none()
+        if cf is None:
+            return {"error": f"case_file {case_file_id} not found"}
+        cf.coverage = {**(cf.coverage or {}), **clean}
+        await s.commit()
+    return {"stored": True, "keys": sorted(clean.keys())}
+
+
+async def _pg_store_insurance_card_extraction(args: dict[str, Any]) -> dict[str, Any]:
+    """Persist high-confidence insurance-card fields to case_files.coverage."""
+    fields = {
+        "payer_name": args.get("payer_name") or args.get("payer"),
+        "member_id": args.get("member_id"),
+        "group_number": args.get("group_number"),
+        "plan_name": args.get("plan_name"),
+    }
+    return await _merge_coverage(_uuid(args["case_file_id"]), fields)
+
+
+async def _pg_store_sbc_extraction(args: dict[str, Any]) -> dict[str, Any]:
+    """Persist high-confidence Summary-of-Benefits fields to case_files.coverage."""
+    fields = {
+        "deductible_amount": args.get("deductible_amount"),
+        "deductible_family": args.get("deductible_family"),
+        "oop_max_amount": args.get("oop_max_amount"),
+        "oop_max_family": args.get("oop_max_family"),
+        "coinsurance_percent": args.get("coinsurance_percent"),
+        "coinsurance_out_of_network": args.get("coinsurance_out_of_network"),
+        "copay_pcp": args.get("copay_pcp"),
+        "copay_specialist": args.get("copay_specialist"),
+        "copay_er": args.get("copay_er"),
+        "copay_urgent_care": args.get("copay_urgent_care"),
+        "prior_auth_required_categories": args.get("prior_auth_required_categories"),
+    }
+    return await _merge_coverage(_uuid(args["case_file_id"]), fields)
+
+
+register_tool(
+    "pg_store_insurance_card_extraction",
+    {
+        "description": (
+            "Persist insurance-card fields (payer, member_id, group_number, plan_name) "
+            "to case_files.coverage (Phase CO-1A intake). Pass only fields confident "
+            "enough to store silently; low-confidence fields go back to the wizard for "
+            "a trivial yes/no confirmation instead."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "case_file_id": {"type": "string"},
+                "payer_name": {"type": "string"},
+                "member_id": {"type": "string"},
+                "group_number": {"type": "string"},
+                "plan_name": {"type": "string"},
+            },
+            "required": ["case_file_id"],
+        },
+    },
+    _pg_store_insurance_card_extraction,
+)
+
+register_tool(
+    "pg_store_sbc_extraction",
+    {
+        "description": (
+            "Persist Summary-of-Benefits-and-Coverage (SBC) plan terms — deductible, "
+            "OOP max, coinsurance, copays, prior-auth categories — to case_files.coverage "
+            "(Phase CO-1A intake). Code-free category labels only (DL-54)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "case_file_id": {"type": "string"},
+                "deductible_amount": {"type": "number"},
+                "deductible_family": {"type": "number"},
+                "oop_max_amount": {"type": "number"},
+                "oop_max_family": {"type": "number"},
+                "coinsurance_percent": {"type": "number"},
+                "coinsurance_out_of_network": {"type": "number"},
+                "copay_pcp": {"type": "number"},
+                "copay_specialist": {"type": "number"},
+                "copay_er": {"type": "number"},
+                "copay_urgent_care": {"type": "number"},
+                "prior_auth_required_categories": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["case_file_id"],
+        },
+    },
+    _pg_store_sbc_extraction,
 )

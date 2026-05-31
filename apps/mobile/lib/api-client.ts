@@ -373,3 +373,87 @@ export async function getAuthSession(): Promise<SessionResponse> {
 export async function logout(): Promise<void> {
   await cfetch(`${BASE_URL}/v1/auth/logout`, { method: 'POST', credentials: 'include' });
 }
+
+// --- Intake wizard (Phase CO-1A) --------------------------------------------
+
+import type {
+  IntakeCompletionSummary,
+  IntakeStateResponse,
+  IntakeStepAck,
+} from '@tyndale/shared';
+
+export type {
+  ConfirmationPrompt,
+  IntakeCapturedData,
+  IntakeCompletionSummary,
+  IntakeStatus,
+  IntakeStateResponse,
+  IntakeStep,
+  IntakeStepAck,
+} from '@tyndale/shared';
+
+async function intakeJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await cfetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as T;
+}
+
+/** GET /v1/intake/state — resume point + captured/missing (creates the user's
+ * first case file if they have none — the new-user entry point). */
+export async function getIntakeState(caseFileId?: string): Promise<IntakeStateResponse> {
+  const q = caseFileId ? `?case_file_id=${encodeURIComponent(caseFileId)}` : '';
+  const res = await cfetch(`${BASE_URL}/v1/intake/state${q}`);
+  if (!res.ok) throw new Error(`intake state failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as IntakeStateResponse;
+}
+
+/** POST /v1/intake/step/{step}/manual-entry — persist a step's typed fields. */
+export async function intakeManualEntry(
+  step: string,
+  fields: Record<string, unknown>,
+  caseFileId: string,
+): Promise<IntakeStepAck> {
+  return intakeJson(`/v1/intake/step/${encodeURIComponent(step)}/manual-entry`, {
+    case_file_id: caseFileId,
+    ...fields,
+  });
+}
+
+/** POST /v1/intake/step/{step}/skip — advance, persist nothing. */
+export async function intakeSkipStep(step: string, caseFileId: string): Promise<IntakeStepAck> {
+  return intakeJson(`/v1/intake/step/${encodeURIComponent(step)}/skip`, {
+    case_file_id: caseFileId,
+  });
+}
+
+/** POST /v1/intake/step/insurance-card/extract — OCR a card; returns low-confidence
+ * fields as trivial yes/no confirmations. */
+export async function intakeExtractInsuranceCard(
+  documentId: string,
+  caseFileId: string,
+): Promise<IntakeStepAck> {
+  return intakeJson('/v1/intake/step/insurance-card/extract', {
+    case_file_id: caseFileId,
+    document_id: documentId,
+  });
+}
+
+/** POST /v1/intake/visit-context — store the free-text "what were you seen for". */
+export async function setVisitContext(
+  visitContext: string,
+  caseFileId: string,
+): Promise<IntakeStepAck> {
+  return intakeJson('/v1/intake/visit-context', {
+    case_file_id: caseFileId,
+    visit_context: visitContext,
+  });
+}
+
+/** POST /v1/intake/complete — validate + mark complete, return the summary. */
+export async function completeIntake(caseFileId: string): Promise<IntakeCompletionSummary> {
+  return intakeJson('/v1/intake/complete', { case_file_id: caseFileId });
+}

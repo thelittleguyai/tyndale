@@ -79,11 +79,7 @@ def _coverage_summary_from_jsonb(coverage_jsonb: dict | None) -> CoverageSummary
         )
 
     extracted = bool(deductible or oop_max or copays)
-    status: Any = (
-        "extracted"
-        if extracted
-        else ("pending" if coverage_jsonb else "missing")
-    )
+    status: Any = "extracted" if extracted else ("pending" if coverage_jsonb else "missing")
     return CoverageSummary(
         deductible=deductible,
         oop_max=oop_max,
@@ -98,6 +94,22 @@ def _most_recent_coverage_jsonb(cases: list[CaseFile]) -> dict | None:
         if case.coverage:
             return case.coverage
     return None
+
+
+def _intake_state(cases: list[CaseFile]) -> tuple[str, str | None]:
+    """Drive the intake gate (Phase CO-1A) from the user's most recent case.
+
+    No cases yet → ('not_started', 'welcome') so a brand-new user is routed into
+    the wizard. Otherwise the most recent case's intake_status + resume step.
+    """
+    if not cases:
+        return "not_started", "welcome"
+    case = max(cases, key=lambda c: c.created_at or datetime.now(timezone.utc))
+    status = getattr(case, "intake_status", "complete") or "complete"
+    step = getattr(case, "intake_current_step", None)
+    if status != "complete" and not step:
+        step = "welcome"
+    return status, step
 
 
 # --- Open cases / deadlines / amount-saved ----------------------------------
@@ -115,18 +127,26 @@ async def _open_cases_payload(
         # Headline — first prefer the most recent finding's category;
         # fall back to a doc-driven label.
         findings = (
-            await s.execute(
-                select(Finding)
-                .where(Finding.case_file_id == case.case_file_id)
-                .order_by(Finding.created_at.desc())
-                .limit(1)
+            (
+                await s.execute(
+                    select(Finding)
+                    .where(Finding.case_file_id == case.case_file_id)
+                    .order_by(Finding.created_at.desc())
+                    .limit(1)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if findings:
             f = findings[0]
-            headline = f"{f.category.replace('_', ' ').capitalize()} ({f.finding_type.replace('_', '-')})"
+            headline = (
+                f"{f.category.replace('_', ' ').capitalize()} ({f.finding_type.replace('_', '-')})"
+            )
         elif case.documents:
-            first_doc = case.documents[0] if isinstance(case.documents, list) and case.documents else {}
+            first_doc = (
+                case.documents[0] if isinstance(case.documents, list) and case.documents else {}
+            )
             doc_type = (first_doc or {}).get("document_type") or "document"
             headline = f"Uploaded {doc_type} — audit pending"
         else:
@@ -138,14 +158,18 @@ async def _open_cases_payload(
 
         # Next pending deadline
         deadline_rows = (
-            await s.execute(
-                select(Deadline)
-                .where(Deadline.case_file_id == case.case_file_id)
-                .where(Deadline.status == "pending")
-                .order_by(Deadline.deadline_date.asc())
-                .limit(1)
+            (
+                await s.execute(
+                    select(Deadline)
+                    .where(Deadline.case_file_id == case.case_file_id)
+                    .where(Deadline.status == "pending")
+                    .order_by(Deadline.deadline_date.asc())
+                    .limit(1)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         d = deadline_rows[0] if deadline_rows else None
 
         out.append(
@@ -169,11 +193,16 @@ async def _amount_saved_ytd(s: AsyncSession, cases: list[CaseFile]) -> float:
     year = datetime.now(timezone.utc).year
     case_ids = [c.case_file_id for c in cases]
     rows = (
-        await s.execute(
-            select(Finding).where(Finding.case_file_id.in_(case_ids))
-            .where(Finding.finding_type == "payer_side")
+        (
+            await s.execute(
+                select(Finding)
+                .where(Finding.case_file_id.in_(case_ids))
+                .where(Finding.finding_type == "payer_side")
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     total = 0.0
     for f in rows:
         if f.created_at and f.created_at.year != year:
@@ -195,16 +224,17 @@ async def get_dashboard(
 ) -> DashboardPayload:
     # Load all the user's cases once.
     cases = (
-        await session.execute(select(CaseFile).where(CaseFile.user_id == user.user_id))
-    ).scalars().all()
+        (await session.execute(select(CaseFile).where(CaseFile.user_id == user.user_id)))
+        .scalars()
+        .all()
+    )
 
     coverage_summary = _coverage_summary_from_jsonb(_most_recent_coverage_jsonb(cases))
+    intake_status, intake_current_step = _intake_state(cases)
     open_cases = await _open_cases_payload(session, str(user.user_id), cases)
     amount_saved = await _amount_saved_ytd(session, cases)
 
-    greeting = await compose_status_greeting(
-        [oc.model_dump(mode="json") for oc in open_cases]
-    )
+    greeting = await compose_status_greeting([oc.model_dump(mode="json") for oc in open_cases])
 
     # Phase 2J — inline the outcome follow-up prompts so the dashboard gets
     # them in one round trip.
@@ -222,6 +252,8 @@ async def get_dashboard(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
         coverage=coverage_summary,
         amount_saved_ytd=amount_saved,
+        intake_status=intake_status,
+        intake_current_step=intake_current_step,
         open_cases=open_cases,
         outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,

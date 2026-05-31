@@ -1,0 +1,56 @@
+import { useState } from 'react';
+import { Text, TextInput, View } from 'react-native';
+
+import { setVisitContext } from '../../lib/api-client';
+import { WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+
+const MAX = 500;
+
+export default function VisitContextStep() {
+  const { caseId, state, loading, error } = useWizard();
+  const [text, setText] = useState(state?.captured_data.visit_context ?? '');
+  const [busy, setBusy] = useState(false);
+
+  if (loading) return <WizardLoading />;
+
+  const onContinue = async () => {
+    if (!caseId) return;
+    setBusy(true);
+    try {
+      await setVisitContext(text.slice(0, MAX), caseId);
+      goToStep('complete');
+    } catch {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <WizardShell
+      step="visit-context"
+      title="In your own words, what was this visit for?"
+      subtitle="Don't worry about medical terms — just describe what happened. 'I went to the ER with chest pain' or 'I had a check-up and got blood work done.'"
+      why="This helps me understand the context of your bill. The right care at the right level should cost a predictable amount; if there's a mismatch, I'll catch it."
+      onContinue={onContinue}
+      busy={busy}
+      error={error}
+      skippable
+      onSkip={onContinue}
+    >
+      <View>
+        <TextInput
+          value={text}
+          onChangeText={(t) => setText(t.slice(0, MAX))}
+          placeholder="Tell me what happened…"
+          placeholderTextColor="rgba(255,255,255,0.3)"
+          multiline
+          numberOfLines={5}
+          className="min-h-[120px] rounded-xl border border-white/15 bg-black/20 p-3 text-base leading-6 text-white"
+          textAlignVertical="top"
+        />
+        <Text className="mt-1 self-end text-xs text-white/40">
+          {text.length}/{MAX}
+        </Text>
+      </View>
+    </WizardShell>
+  );
+}
