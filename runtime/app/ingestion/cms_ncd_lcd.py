@@ -441,15 +441,39 @@ async def _get(url: str, params: dict | None = None) -> httpx.Response:
             return resp
 
 
+def _json_or_none(resp: httpx.Response, url: str) -> object | None:
+    """Parse a response as JSON, or log + return None.
+
+    VERIFIED 2026-05-30: the assumed MCD report endpoints 302-redirect to HTML —
+    CMS has no simple public JSON list API; the real source is the MCD downloadable
+    databases (a follow-up pipeline). Until those are wired, the index fetch
+    degrades LOUDLY to "0 discovered" rather than crashing the cron."""
+    ctype = resp.headers.get("content-type", "")
+    if "json" not in ctype.lower():
+        log.warning(
+            "cms.index.not_json",
+            url=url,
+            status=resp.status_code,
+            content_type=ctype,
+            note="MCD endpoint did not return JSON — endpoints need verification (downloadable DBs)",
+        )
+        return None
+    try:
+        return resp.json()
+    except ValueError:
+        log.warning("cms.index.bad_json", url=url)
+        return None
+
+
 async def fetch_ncd_index() -> list[NcdSummary]:
-    resp = await _get(NCD_INDEX_URL)
-    return parse_ncd_index(resp.json())
+    payload = _json_or_none(await _get(NCD_INDEX_URL), NCD_INDEX_URL)
+    return parse_ncd_index(payload) if payload is not None else []
 
 
 async def fetch_lcd_index(state: str | None = None) -> list[LcdSummary]:
     params = {"state": state} if state else None
-    resp = await _get(LCD_INDEX_URL, params=params)
-    return parse_lcd_index(resp.json(), state=state)
+    payload = _json_or_none(await _get(LCD_INDEX_URL, params=params), LCD_INDEX_URL)
+    return parse_lcd_index(payload, state=state) if payload is not None else []
 
 
 async def fetch_ncd_document(ncd_id: str) -> NcdDocument:
