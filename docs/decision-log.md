@@ -598,3 +598,11 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** When an Alembic migration adds a NOT NULL column representing a workflow status that defaults to "not started" (e.g., `intake_status DEFAULT 'not_started'`), the migration MUST also backfill existing rows to the appropriate "already complete" value where the workflow concept didn't exist before the migration. CO-1A's migration 0009 backfills existing case files to `intake_status='complete'` rather than re-onboarding every existing user into the new wizard. Same pattern applies to any future status-column addition.
 **Reasoning:** literal `DEFAULT 'not_started'` is correct for new rows but hostile to existing users who completed their version of the workflow before the column existed. Backfill is the user-respecting default.
 **Reversibility:** locked discipline; check on every status-adding migration.
+
+## DL-67 — Medicare Conversion Factor requires annual operational bump
+
+**Date:** 2026-05-31
+**Decided by:** Phil (CTO) during Phase CO-3A
+**Decision:** The Medicare PFS adapter hardcodes the conversion factor (CF) as a default — currently 32.3465 for 2026. CMS publishes a new CF each year (typically in the Final Rule each November/December for the following year). The Medicare PFS ingestion path must be updated annually with the new CF. Operationally: (a) the constant `MEDICARE_CF_2026 = 32.3465` is replaced by `MEDICARE_CF_<year>` each January; (b) the `medicare_pfs_cron` logs a warning if `effective_year != current_year`, which surfaces as an admin-console alert; (c) a recurring annual calendar reminder for "Update Medicare CF" is part of the operational checklist.
+**Reasoning:** the CF directly drives Medicare allowable-amount calculations and the ghost-rate filter's anchor (DL-63). Using last year's CF in this year's estimates produces silent ~2-4% errors that compound across thousands of estimates. Better to fail loud than degrade silently — the warning forces the operational update.
+**Reversibility:** locked annual discipline; tied to CMS's publication cadence.
