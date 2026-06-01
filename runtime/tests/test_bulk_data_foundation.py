@@ -99,7 +99,7 @@ async def test_bulk_downloader_caches_unchanged_files(blob):
 # --------------------------------------------------------------------------- #
 # Parsers
 # --------------------------------------------------------------------------- #
-def _zip_bytes(files: dict[str, str]) -> bytes:
+def _zip_bytes(files: dict[str, str | bytes]) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         for name, body in files.items():
@@ -109,21 +109,49 @@ def _zip_bytes(files: dict[str, str]) -> bytes:
 
 @pytest.mark.asyncio
 async def test_cms_mcd_parser_extracts_records_from_bulk_zip(blob):
+    # Mirror the real 3-level nested export: all_data -> {ncd,current_lcd}.zip ->
+    # *_csv.zip -> the denormalized NCD/LCD CSVs (+ the LCD HCPCS join table).
+    ncd_csv = _zip_bytes(
+        {
+            "ncd_trkg.csv": (
+                "NCD_id,NCD_mnl_sect,NCD_mnl_sect_title,NCD_efctv_dt,itm_srvc_desc,indctn_lmtn\n"
+                '1,"220.4","Screening Mammography","2002-01-01 00:00:00",'
+                '"Screening mammography","77067 covered once per year."\n'
+            )
+        }
+    )
+    lcd_csv = _zip_bytes(
+        {
+            "lcd.csv": (
+                "lcd_id,title,rev_eff_date,indication,coding_guidelines\n"
+                '"33392","MRI of the Knee","2020-07-01 00:00:00",'
+                '"MRI knee medically necessary.","See covered codes."\n'
+            ),
+            "lcd_x_hcpc_code.csv": 'lcd_id,hcpc_code_id\n"33392","73721"\n',
+        }
+    )
     zb = _zip_bytes(
         {
-            "ncd_list.csv": "ncd_id,title,effective_date\n220.4,Mammograms,2002-01-01\n",
-            "ncd_text.csv": "ncd_id,text\n220.4,Screening mammography 77067 covered once per year.\n",
-            "lcd_list.csv": "lcd_id,title,contractor,state\nL33392,MRI Knee,Noridian,CA\n",
-            "lcd_text.csv": "lcd_id,text\nL33392,MRI knee 73721 medically necessary.\n",
+            "ncd.zip": _zip_bytes({"ncd_csv.zip": ncd_csv, "readme_first.txt": "x"}),
+            "current_lcd.zip": _zip_bytes({"current_lcd_csv.zip": lcd_csv}),
+            # retired bundle must be skipped by the recursion (basename starts 'all_')
+            "all_lcd.zip": _zip_bytes(
+                {"all_lcd_csv.zip": _zip_bytes({"lcd.csv": "lcd_id\n99999\n"})}
+            ),
         }
     )
     await _stage(blob, "cms.zip", zb)
     recs = [r async for r in CmsMcdParser().parse_file("cms.zip", blob)]
     by_id = {r.policy_id: r for r in recs}
+    # NCD keyed by its citable manual section; HCPCS pulled from the body text.
     assert "220.4" in by_id and by_id["220.4"].policy_type == "NCD"
-    assert "77067" in by_id["220.4"].sections[0]["applicable_codes"]  # joined text → codes
+    assert "77067" in by_id["220.4"].sections[0]["applicable_codes"]
+    # LCD keyed L{lcd_id}; codes come from the lcd_x_hcpc_code join (not text).
     lcd = by_id["L33392"]
-    assert lcd.policy_type == "LCD" and lcd.mac == "Noridian" and lcd.state == "CA"
+    assert lcd.policy_type == "LCD"
+    assert "73721" in lcd.sections[0]["applicable_codes"]
+    # the retired all_lcd bundle was skipped (recursion ignores 'all_*')
+    assert "L99999" not in by_id
 
 
 @pytest.mark.asyncio
