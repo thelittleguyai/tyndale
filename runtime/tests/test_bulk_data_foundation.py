@@ -139,6 +139,28 @@ async def test_medicare_pfs_parser_computes_allowable_correctly(blob):
 
 
 @pytest.mark.asyncio
+async def test_medicare_pfs_parser_handles_real_pprrvu_shape(blob):
+    # Mirrors the real PPRRVU file: preamble rows, a "HCPCS" header with duplicate TOTAL
+    # columns (non-fac then fac), a CONV FACTOR column, and a status-only zero-RVU row.
+    csv_text = (
+        ",,2026 National Physician Fee Schedule RVU File January Release,,,,,\n"
+        ",,RELEASED 12/29/2025,,,,,\n"
+        "HCPCS,MOD,DESCRIPTION,CODE,WORK RVU,TOTAL,TOTAL,FACTOR\n"
+        "00100,,Anesthesia px,J,0.00,0.00,0.00,33.4009\n"
+        "70553,,MRI brain,A,5.00,10.00,8.00,33.4009\n"
+        "70553,26,MRI brain pro compt,A,3.00,4.00,3.00,33.4009\n"
+    )
+    await _stage(blob, "pprrvu.csv", csv_text.encode())
+    # Pass a deliberately wrong CF to prove the parser reads the file's CONV FACTOR column.
+    parser = MedicarePfsParser(year=2026, conversion_factor=99.0)
+    recs = [r async for r in parser.parse_file("pprrvu.csv", blob)]
+    assert len(recs) == 1  # preamble, zero-RVU (00100), and modifier row all skipped
+    assert recs[0].code == "70553"
+    assert recs[0].rate == round(10.00 * 33.4009, 2)  # non-fac TOTAL x file CF (not 99.0)
+    assert recs[0].raw_metadata["conversion_factor"] == 33.4009
+
+
+@pytest.mark.asyncio
 async def test_hospital_mrf_parser_extracts_negotiated_rates(blob):
     doc = {
         "standard_charge_information": [
@@ -403,3 +425,37 @@ async def test_real_tic_mrf_streaming_for_one_payer():
 
     p = load_tier1_payer_indices()[0]
     await ingest_tic_payer(p["payer"], year=2026, index_url=p["index_url"], max_files=1)
+
+
+@pytest.mark.asyncio
+async def test_pfs_zip_url_discovery_two_hop():
+    """CO-3A real-source fix: PFS index -> RVU26A item page -> the actual zip URL.
+
+    Exact anchor-text match must pick RVU26A (not RVU26AR or RVU25A).
+    """
+    from app.ingestion.medicare_pfs import discover_pfs_zip_url
+
+    index_html = (
+        '<a href="/medicare/payment/fee-schedules/physician/pfs-relative-value-files/rvu26ar">'
+        "RVU26AR</a>"
+        '<a href="/medicare/payment/fee-schedules/physician/pfs-relative-value-files/rvu25a">'
+        "RVU25A</a>"
+        '<a href="/medicare/payment/fee-schedules/physician/pfs-relative-value-files/rvu26a">'
+        "RVU26A</a>"
+    )
+    item_html = '<a href="/files/zip/rvu26a-updated-12-29-2025.zip">Download ZIP</a>'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/pfs-relative-value-files"):
+            return httpx.Response(200, text=index_html)
+        if path.endswith("/rvu26a"):
+            return httpx.Response(200, text=item_html)
+        return httpx.Response(404, text="not found")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        url = await discover_pfs_zip_url(2026, client=client)
+    finally:
+        await client.aclose()
+    assert url == "https://www.cms.gov/files/zip/rvu26a-updated-12-29-2025.zip"

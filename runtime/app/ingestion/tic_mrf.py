@@ -12,6 +12,9 @@ realistic flow loads all Tier-1 payers, then the surviving set stabilizes.
 
 from __future__ import annotations
 
+import argparse
+import asyncio
+
 import structlog
 
 from app.ingestion.blob_storage import BlobStorage
@@ -75,3 +78,44 @@ async def ingest_tic_payer(
 
     log.info("tic_mrf.ingested", payer=payer, kept=kept, ghosted=ghosted)
     return {"payer": payer, "kept": kept, "ghosted": ghosted}
+
+
+async def _run_sample(payer: str | None, limit: int, year: int) -> dict:
+    """Ingest one Tier-1 payer (max_files=limit bounds the download cost).
+
+    NOTE (CO-3A real-source gap): starter index_url values are landing pages, not the
+    JSON table-of-contents the streamer expects — and list_index parses HTML, not the
+    TiC JSON index — so this needs a real index URL AND a JSON-index parser before it
+    ingests. Wired to run and report the gap cleanly rather than crash.
+    """
+    from app.crons._cron_util import load_tier1_payer_indices
+
+    rows = load_tier1_payer_indices()
+    if payer:
+        rows = [r for r in rows if payer.lower() in r.get("payer", "").lower()]
+    if not rows:
+        return {"error": f"payer {payer!r} not found in tier1_payer_tic_indices.csv"}
+    row = rows[0]
+    try:
+        return await ingest_tic_payer(
+            row["payer"], year=year, index_url=row.get("index_url"), max_files=limit, staging=False
+        )
+    except Exception as e:  # noqa: BLE001 — report the real-source gap, don't crash
+        return {"payer": row["payer"], "error": f"{type(e).__name__}: {str(e)[:160]}"}
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="TiC MRF ingestion into transparency_rates")
+    p.add_argument("--mode", choices=["sample", "full"], default="sample")
+    p.add_argument("--limit", type=int, default=1, help="max in-network files to pull (cost guard)")
+    p.add_argument(
+        "--payer", type=str, default=None, help="substring match on the CSV payer column"
+    )
+    p.add_argument("--year", type=int, default=2026)
+    args = p.parse_args()
+    rep = asyncio.run(_run_sample(args.payer, args.limit, args.year))
+    print(f"[tic_mrf {args.mode}] {rep}")
+
+
+if __name__ == "__main__":
+    main()

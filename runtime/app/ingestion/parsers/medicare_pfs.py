@@ -23,20 +23,27 @@ from app.ingestion.parsers import BulkSourceParser, ParsedRecord, RateRecord
 
 log = structlog.get_logger(__name__)
 
-# CMS PFS conversion factor — verify per year (this is the documented 2026 value).
-DEFAULT_CONVERSION_FACTOR = 32.3465
+# CMS PFS conversion factor. The parser reads the authoritative value straight from the
+# PPRRVU file's CONV FACTOR column when present; this constant is only a fallback. CMS
+# publishes a new CF each year — 33.4009 for 2026 (confirmed from the live file); verify
+# annually per DL-67.
+DEFAULT_CONVERSION_FACTOR = 33.4009
 
-_HCPCS_ALIASES = ("hcpcs", "hcpcs_code", "code", "hcpcs cd")
+# "code" is deliberately NOT an HCPCS alias: the real PPRRVU file has a separate "CODE"
+# (status) column distinct from "HCPCS".
+_HCPCS_ALIASES = ("hcpcs", "hcpcs_code", "hcpcs cd")
+# The FIRST header column matching one of these is the total RVU. In the real PPRRVU the
+# column is simply "total" and there are two (non-facility then facility) — left-to-right
+# scanning selects the non-facility total, which is the office-setting allowable.
 _TOTAL_RVU_ALIASES = (
     "non_fac_total",
     "non-facility total",
     "nonfacility total",
     "total_rvu",
-    "fac_total",
-    "facility total",
     "total",
 )
 _MOD_ALIASES = ("modifier", "mod")
+_CF_ALIASES = ("factor", "conv factor", "conversion factor", "cf")
 
 
 def compute_allowable(total_rvu: float, conversion_factor: float, gpci: float = 1.0) -> float:
@@ -61,13 +68,6 @@ def _num(v: str | None) -> float | None:
         return None
 
 
-def _pick(row: dict, aliases: tuple[str, ...]) -> str | None:
-    for a in aliases:
-        if row.get(a) not in (None, ""):
-            return row[a]
-    return None
-
-
 class MedicarePfsParser(BulkSourceParser):
     source_name = "medicare_pfs"
 
@@ -77,30 +77,61 @@ class MedicarePfsParser(BulkSourceParser):
 
     async def parse_file(self, blob_path: str, blob_storage) -> AsyncIterator[ParsedRecord]:
         raw = await blob_storage.read_bytes(blob_path)
-        reader = csv.DictReader(io.StringIO(_decode(raw)))
+        rows = list(csv.reader(io.StringIO(_decode(raw))))
+
+        # The real PPRRVU file has ~9 preamble rows (title, copyright, release date) before
+        # the column-header row whose first cell is "HCPCS". Locate it (DictReader can't —
+        # the header carries duplicate "TOTAL"/"RVU" names that would collapse).
+        header_idx = next(
+            (
+                i
+                for i, row in enumerate(rows)
+                if row and (row[0] or "").strip().lower() in _HCPCS_ALIASES
+            ),
+            None,
+        )
+        if header_idx is None:
+            log.warning("medicare_pfs.no_header_row", blob_path=blob_path)
+            return
+        header = [(c or "").strip().lower() for c in rows[header_idx]]
+
+        def first_idx(aliases: tuple[str, ...]) -> int | None:
+            return next((i for i, name in enumerate(header) if name in aliases), None)
+
+        code_i = first_idx(_HCPCS_ALIASES)
+        total_i = first_idx(_TOTAL_RVU_ALIASES)  # first "TOTAL" = non-facility in PPRRVU
+        mod_i = first_idx(_MOD_ALIASES)
+        cf_i = first_idx(_CF_ALIASES)
+        if code_i is None or total_i is None:
+            log.warning("medicare_pfs.columns_missing", header=header[:12])
+            return
+
         seen: set[str] = set()
-        for row in reader:
-            r = {(k or "").strip().lower(): v for k, v in row.items()}
-            code = _pick(r, _HCPCS_ALIASES)
-            if not code:
+        for row in rows[header_idx + 1 :]:
+            if len(row) <= total_i:
                 continue
-            code = code.strip()
-            # Skip modifier-specific rows for the baseline (use the base code once).
-            mod = _pick(r, _MOD_ALIASES)
-            if mod and str(mod).strip():
+            code = (row[code_i] or "").strip()
+            if not code or code in seen:
                 continue
-            total_rvu = _num(_pick(r, _TOTAL_RVU_ALIASES))
-            if total_rvu is None or code in seen:
-                continue
+            if mod_i is not None and mod_i < len(row) and (row[mod_i] or "").strip():
+                continue  # skip modifier-specific rows; use the base code once
+            total_rvu = _num(row[total_i])
+            if not total_rvu or total_rvu <= 0:
+                continue  # status I/J/anesthesia rows carry no RVU-based allowable
+            cf = self.cf
+            if cf_i is not None and cf_i < len(row):
+                file_cf = _num(row[cf_i])
+                if file_cf and 10.0 <= file_cf <= 100.0:
+                    cf = file_cf  # authoritative CF straight from the file
             seen.add(code)
             yield RateRecord(
                 code=code,
-                rate=compute_allowable(total_rvu, self.cf),
+                rate=compute_allowable(total_rvu, cf),
                 rate_type="allowable",
                 source="medicare_pfs",
                 code_type="HCPCS",
                 payer=None,
                 location_zip3=None,  # national baseline (GPCI=1.0)
                 effective_year=self.year,
-                raw_metadata={"total_rvu": total_rvu, "conversion_factor": self.cf},
+                raw_metadata={"total_rvu": total_rvu, "conversion_factor": cf},
             )

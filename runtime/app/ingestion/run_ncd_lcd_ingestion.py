@@ -34,8 +34,8 @@ async def run_full_ingestion(**kwargs: Any) -> dict:
     return await mcd.ingest_from_bulk(**kwargs)
 
 
-async def run_sample_ingestion(**kwargs: Any) -> dict:
-    return await mcd.ingest_from_bulk(sample_limit=SAMPLE_LIMIT, **kwargs)
+async def run_sample_ingestion(limit: int | None = None, **kwargs: Any) -> dict:
+    return await mcd.ingest_from_bulk(sample_limit=limit or SAMPLE_LIMIT, **kwargs)
 
 
 async def run_incremental_ingestion(max_policies: int | None = None, **kwargs: Any) -> dict:
@@ -70,21 +70,24 @@ async def _record_run(source_id: str, report: dict) -> None:
         await s.commit()
 
 
-async def _amain(mode: str) -> dict:
+async def _amain(mode: str, limit: int | None = None) -> dict:
     if mode == "full":
         return await run_full_ingestion()
     if mode == "incremental":
-        return await run_incremental_ingestion()
+        return await run_incremental_ingestion(max_policies=limit)
     if mode == "sample":
-        return await run_sample_ingestion()
+        return await run_sample_ingestion(limit=limit)
     raise ValueError(f"unknown mode: {mode}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CMS NCD/LCD bulk ingestion into payer_policies")
     parser.add_argument("--mode", choices=["full", "incremental", "sample"], default="sample")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="sample/incremental: max policies to ingest"
+    )
     args = parser.parse_args()
-    rep = asyncio.run(_amain(args.mode))
+    rep = asyncio.run(_amain(args.mode, args.limit))
     print(
         f"[{args.mode}] attempted={rep['attempted']} succeeded={rep['succeeded']} "
         f"failed={rep['failed']} chunks_upserted={rep['chunks_upserted']}"

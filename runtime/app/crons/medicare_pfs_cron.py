@@ -20,8 +20,9 @@ log = structlog.get_logger(__name__)
 logger = logging.getLogger(__name__)
 
 # Medicare Conversion Factor effective year. CMS publishes a new CF annually (Final Rule,
-# ~Nov/Dec). Bump this each January per DL-67; the parser's DEFAULT_CONVERSION_FACTOR is the
-# matching value (32.3465 for 2026).
+# ~Nov/Dec). Bump this each January per DL-67. The PFS parser now reads the authoritative CF
+# straight from the PPRRVU file's CONV FACTOR column (33.4009 for 2026, confirmed live);
+# DEFAULT_CONVERSION_FACTOR is only the fallback when that column is absent.
 MEDICARE_CF_EFFECTIVE_YEAR = 2026
 
 
