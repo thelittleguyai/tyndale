@@ -512,3 +512,78 @@ async def test_hospital_mrf_url_discovery_via_cms_hpt_txt():
     finally:
         await client.aclose()
     assert url == "https://hosp.example.org/files/123_test_standardcharges.json"
+
+
+@pytest.mark.asyncio
+async def test_tic_toc_parser_extracts_in_network_locations():
+    """CO-3A: parse the CMS TiC table-of-contents (reporting_structure -> in_network_files)."""
+    from app.ingestion.tic_mrf import parse_tic_toc
+
+    toc = {
+        "reporting_entity_name": "Acme Health",
+        "reporting_structure": [
+            {
+                "reporting_plans": [{"plan_name": "PPO"}],
+                "in_network_files": [
+                    {"description": "PPO", "location": "https://cdn.acme/in_ppo.json.gz"},
+                    {"description": "HMO", "location": "https://cdn.acme/in_hmo.json.gz"},
+                ],
+            }
+        ],
+    }
+    locs = parse_tic_toc(json.dumps(toc).encode())
+    assert [u for _d, u in locs] == [
+        "https://cdn.acme/in_ppo.json.gz",
+        "https://cdn.acme/in_hmo.json.gz",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_tic_ingest_via_toc_index_e2e(blob):
+    """CO-3A: TOC JSON -> in-network URL -> download -> parse -> ghost filter -> persist."""
+    from types import SimpleNamespace
+
+    from app.ingestion.tic_mrf import ingest_tic_payer
+
+    file_url = "https://cdn.acme/in_ppo.json"
+    toc = {"reporting_structure": [{"in_network_files": [{"location": file_url}]}]}
+    innetwork = {
+        "reporting_entity_name": "Acme",
+        "in_network": [
+            {
+                "billing_code": "70553",
+                "billing_code_type": "CPT",
+                "negotiated_rates": [
+                    {
+                        "negotiated_prices": [
+                            {
+                                "negotiated_type": "negotiated",
+                                "negotiated_rate": 540.0,
+                                "billing_class": "professional",
+                            }
+                        ]
+                    }
+                ],
+            }
+        ],
+    }
+    await _stage(blob, "tic/toc.json", json.dumps(toc).encode())
+
+    class _FakeDL:
+        async def download(self, url, dest):
+            await blob.write_bytes(dest, json.dumps(innetwork).encode())
+            return SimpleNamespace(blob_path=dest)
+
+    res = await ingest_tic_payer(
+        "acme",
+        year=2026,
+        index_blob_path="tic/toc.json",
+        blob=blob,
+        downloader=_FakeDL(),
+        max_bytes=None,  # skip the network HEAD; the fake downloader serves the file
+        record_limit=100,
+        staging=True,
+    )
+    assert res["payer"] == "acme"
+    # the 70553 record flowed through TOC -> download -> parse -> ghost filter
+    assert res["kept"] + res["ghosted"] >= 1

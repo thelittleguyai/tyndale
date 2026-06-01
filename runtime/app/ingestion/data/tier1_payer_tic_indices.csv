@@ -1,7 +1,10 @@
 payer,index_url,last_updated_check
-# Tier-1 commercial payer Transparency-in-Coverage index (table-of-contents) URLs.
-# VERIFY each at implementation time — payers rotate these monthly. The index file
-# (JSON) lists the per-plan in-network rate files the TiC ingester then streams.
+# Tier-1 commercial payer Transparency-in-Coverage TABLE-OF-CONTENTS (TOC) URLs.
+# parse_tic_toc() reads reporting_structure[].in_network_files[].location from the TOC JSON.
+# WARNING: the URLs below are payer LANDING PAGES, not direct TOC-JSON — payers gate the real
+# TOC behind JS pages / dated CDN keys that rotate monthly, and the in-network files are
+# multi-GB. A live run needs the direct TOC-JSON URL per payer (verify at run time); a landing
+# page is reported as a clean parse error, not a crash.
 UnitedHealthcare,https://transparency-in-coverage.uhc.com/,2026-05-30
 Aetna,https://health1.aetna.com/app/public/#/one/index.html?page=machineReadableTransparencyInCoverage,2026-05-30
 Cigna,https://www.cigna.com/legal/compliance/machine-readable-files,2026-05-30
