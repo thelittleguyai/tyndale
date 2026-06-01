@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import structlog
 
 from app.crons._cron_util import audit_cron_run, load_top_100_hospitals
-from app.ingestion.hospital_mrf import ingest_hospital_mrf
+from app.ingestion.hospital_mrf import MrfTooLarge, ingest_hospital_mrf
 
 log = structlog.get_logger(__name__)
 
@@ -24,17 +24,24 @@ async def run_hospital_mrf_cron() -> dict:
     hospitals = load_top_100_hospitals()[:MAX_HOSPITALS_PER_RUN]
     ok = 0
     failed = 0
+    skipped = 0
     total_rates = 0
     for h in hospitals:
         try:
             n = await ingest_hospital_mrf(
                 h["hospital_id"],
-                h.get("mrf_url"),
+                h.get("mrf_url") or None,
+                domain=h.get("domain") or None,
                 hospital_zip3=h.get("zip3"),
                 staging=True,  # DL-59: land in staging first
             )
             total_rates += n
             ok += 1
+        except MrfTooLarge as e:
+            log.info(
+                "cron.hospital_mrf.skipped_large", hospital_id=h.get("hospital_id"), reason=str(e)
+            )
+            skipped += 1
         except Exception as e:  # noqa: BLE001 — per-hospital isolation
             log.warning(
                 "cron.hospital_mrf.one_failed", hospital_id=h.get("hospital_id"), error=str(e)
@@ -44,6 +51,7 @@ async def run_hospital_mrf_cron() -> dict:
         "phase": "co-3a",
         "started_at": started.isoformat(),
         "hospitals_ok": ok,
+        "hospitals_skipped": skipped,
         "hospitals_failed": failed,
         "rates_staged": total_rates,
     }

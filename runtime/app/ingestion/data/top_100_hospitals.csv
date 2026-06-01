@@ -1,14 +1,17 @@
-hospital_id,hospital_name,zip3,mrf_url
-# STARTER SET (NOT the full 100). Per DL-58 the top-100-by-discharges curation is a
-# data-entry follow-up: each hospital hosts its CMS-mandated machine-readable file
-# at its own path, so hospital_id (CMS CCN), zip3, and mrf_url MUST be verified per
-# hospital before a live run. The rows below are representative large systems with
-# best-known CCNs + MRF URL patterns — VERIFY each before ingesting.
-220071,Massachusetts General Hospital,021,https://www.massgeneral.org/notices/standard-charges
-050441,Cedars-Sinai Medical Center,900,https://www.cedars-sinai.org/billing-insurance/pricing-transparency.html
-330101,NewYork-Presbyterian Hospital,100,https://www.nyp.org/pricing-transparency
-360180,Cleveland Clinic,441,https://my.clevelandclinic.org/patients/billing-finance/pricing-transparency
-050625,UCLA Ronald Reagan Medical Center,900,https://www.uclahealth.org/price-transparency
-230046,University of Michigan Hospital,481,https://www.uofmhealth.org/billing-insurance/price-transparency
-050025,Stanford Health Care,943,https://stanfordhealthcare.org/billing/price-transparency.html
-100007,Mayo Clinic Florida,322,https://www.mayoclinic.org/billing-insurance/cost-estimator
+hospital_id,hospital_name,zip3,domain
+# STARTER SET (NOT the full 100). MRF URLs are resolved at runtime from each hospital's
+# cms-hpt.txt (CMS Hospital Price Transparency rule) via the `domain` column — no hand-fed
+# URLs. CCNs (hospital_id) are best-known and MUST be verified per hospital before a
+# production run (DL-58). Ordered small/verified-discoverable first so a sample run
+# succeeds; large MRFs (Stanford ~154MB, Cedars chunked) are skipped by the sample size cap
+# and need ijson streaming. Domains cms-hpt.txt-verified 2026-06-01: uclahealth.org,
+# nyp.org, cedars-sinai.org, stanfordhealthcare.org, my.clevelandclinic.org. MGH / Mayo /
+# UMich domains still need cms-hpt.txt verification.
+050262,Ronald Reagan UCLA Medical Center,900,www.uclahealth.org
+330101,NewYork-Presbyterian Hospital,100,www.nyp.org
+050625,Cedars-Sinai Medical Center,900,www.cedars-sinai.org
+050441,Stanford Health Care,943,stanfordhealthcare.org
+360180,Cleveland Clinic,441,my.clevelandclinic.org
+220071,Massachusetts General Hospital,021,www.massgeneral.org
+240010,Mayo Clinic Rochester,559,www.mayoclinic.org
+230046,University of Michigan Health,481,www.uofmhealth.org

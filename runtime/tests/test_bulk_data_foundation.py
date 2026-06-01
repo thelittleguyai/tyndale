@@ -487,3 +487,28 @@ async def test_pfs_zip_url_discovery_two_hop():
     finally:
         await client.aclose()
     assert url == "https://www.cms.gov/files/zip/rvu26a-updated-12-29-2025.zip"
+
+
+@pytest.mark.asyncio
+async def test_hospital_mrf_url_discovery_via_cms_hpt_txt():
+    """CO-3A real-source: resolve the MRF from the hospital's cms-hpt.txt mrf-url field."""
+    from app.ingestion.hospital_mrf import discover_hospital_mrf_url
+
+    txt = (
+        "location-name: Test Medical Center\n"
+        "source-page-url: https://hosp.example.org/price-transparency\n"
+        "mrf-url: https://hosp.example.org/files/123_test_standardcharges.json\n"
+        "contact-name: Jane Doe\n"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/cms-hpt.txt"):
+            return httpx.Response(200, text=txt)
+        return httpx.Response(404, text="nf")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        url = await discover_hospital_mrf_url("hosp.example.org", client=client)
+    finally:
+        await client.aclose()
+    assert url == "https://hosp.example.org/files/123_test_standardcharges.json"
