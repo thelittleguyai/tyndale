@@ -1,0 +1,14 @@
+hospital_id,hospital_name,zip3,mrf_url
+# STARTER SET (NOT the full 100). Per DL-58 the top-100-by-discharges curation is a
+# data-entry follow-up: each hospital hosts its CMS-mandated machine-readable file
+# at its own path, so hospital_id (CMS CCN), zip3, and mrf_url MUST be verified per
+# hospital before a live run. The rows below are representative large systems with
+# best-known CCNs + MRF URL patterns — VERIFY each before ingesting.
+220071,Massachusetts General Hospital,021,https://www.massgeneral.org/notices/standard-charges
+050441,Cedars-Sinai Medical Center,900,https://www.cedars-sinai.org/billing-insurance/pricing-transparency.html
+330101,NewYork-Presbyterian Hospital,100,https://www.nyp.org/pricing-transparency
+360180,Cleveland Clinic,441,https://my.clevelandclinic.org/patients/billing-finance/pricing-transparency
+050625,UCLA Ronald Reagan Medical Center,900,https://www.uclahealth.org/price-transparency
+230046,University of Michigan Hospital,481,https://www.uofmhealth.org/billing-insurance/price-transparency
+050025,Stanford Health Care,943,https://stanfordhealthcare.org/billing/price-transparency.html
+100007,Mayo Clinic Florida,322,https://www.mayoclinic.org/billing-insurance/cost-estimator

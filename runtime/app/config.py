@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     azure_key_vault_url: str | None = None  # Phase 4 — audit-log encryption keys
     azure_storage_account_url: str | None = None  # Phase 2D — uploaded document blobs
     azure_storage_uploads_container: str = "uploads"
+    # Phase CO-3A — bulk data staging (CMS/PFS/Hospital MRF/TiC downloads).
+    # When the connection string is unset (dev/CI/tests), BlobStorage falls back
+    # to the local filesystem at bulk_local_dir.
+    azure_storage_connection_string: str | None = None
+    azure_storage_bulk_container: str = "bulk-data"
+    bulk_local_dir: str = "/tmp/tyndale_bulk"
 
     # --- Claude model assignments (locked per discipline rule D3) -------------
     # Resolution order at call time:

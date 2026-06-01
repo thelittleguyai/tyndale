@@ -1,0 +1,11 @@
+payer,index_url,last_updated_check
+# Tier-1 commercial payer Transparency-in-Coverage index (table-of-contents) URLs.
+# VERIFY each at implementation time — payers rotate these monthly. The index file
+# (JSON) lists the per-plan in-network rate files the TiC ingester then streams.
+UnitedHealthcare,https://transparency-in-coverage.uhc.com/,2026-05-30
+Aetna,https://health1.aetna.com/app/public/#/one/index.html?page=machineReadableTransparencyInCoverage,2026-05-30
+Cigna,https://www.cigna.com/legal/compliance/machine-readable-files,2026-05-30
+Anthem,https://www.anthem.com/machine-readable-file/search/,2026-05-30
+Humana,https://developers.humana.com/syntheticdata/Resource/PCTFiles,2026-05-30
+Kaiser Permanente,https://healthy.kaiserpermanente.org/front-door/machine-readable,2026-05-30
+BCBS,https://www.bcbs.com/member-services/machine-readable-files,2026-05-30
