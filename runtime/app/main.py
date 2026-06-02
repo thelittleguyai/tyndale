@@ -23,12 +23,14 @@ from app.routes import (
     audit,
     auth,
     cases,
+    conversations,
     coverage,
     dashboard,
     encounter,
     feedback,
     health,
     intake,
+    messages,
     upload,
     user,
 )
@@ -85,6 +87,8 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/v1")
     app.include_router(intake.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
+    app.include_router(conversations.router, prefix="/v1")
+    app.include_router(messages.router, prefix="/v1")
     return app
 
 

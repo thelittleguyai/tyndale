@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
 
 import structlog
 
@@ -50,6 +49,25 @@ def _client():
             base_url=settings.litellm_proxy_url,
         )
     return AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+
+def has_real_anthropic_creds(settings) -> bool:
+    """True when there is a usable LLM path — a real ``sk-...`` Anthropic key or a
+    LiteLLM proxy URL. Placeholder strings ('<from terraform output>', empty,
+    unset) return False so callers fall back to fixtures instead of hitting the
+    API with an invalid key. Mirrors the orchestrator's gate."""
+    if settings.litellm_proxy_url:
+        return True
+    key = (settings.anthropic_api_key or "").strip()
+    return bool(key) and not key.startswith("<") and key.startswith("sk-")
+
+
+def real_claude_enabled() -> bool:
+    """Whether to use the real LLM (vs deterministic fixtures). Tests + local dev
+    run with ``use_real_claude=False`` → fixtures; same switch the orchestrator
+    uses."""
+    settings = get_settings()
+    return bool(settings.use_real_claude) and has_real_anthropic_creds(settings)
 
 
 async def run_agent(

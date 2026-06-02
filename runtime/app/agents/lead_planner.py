@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import structlog
 
-from app.agents.context_loader import compose_system_prompt
+from app.agents.context_loader import compose_chat_system_prompt, compose_system_prompt
 from app.agents.runner import RunResult, run_agent
 from app.config import get_settings
 
@@ -99,3 +99,24 @@ async def compose_final(
             case_file_id, bill_detective_summary, math_person_summary
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Chat mode (Phase CO-10)
+#
+# A chat turn is the Lead Planner posture run conversationally. The ONLY branch
+# is mode selection: `per_case` (case-aware, full analysis posture) vs `freeform`
+# (knowledge-base posture, no specific-case analysis, redirect-to-case on a
+# specific situation). The mode picks the system prompt; the streaming loop +
+# tool allowlist live in `app/agents/chat.py`.
+# ---------------------------------------------------------------------------
+
+
+def chat_mode_for_case(case_id) -> str:
+    """`per_case` when a case file is attached, else `freeform`."""
+    return "freeform" if case_id is None else "per_case"
+
+
+def chat_system_blocks(chat_mode: str) -> list[dict]:
+    """Select the chat system prompt for a mode (`per_case` | `freeform`)."""
+    return compose_chat_system_prompt(chat_mode)

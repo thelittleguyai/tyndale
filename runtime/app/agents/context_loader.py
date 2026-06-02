@@ -164,3 +164,43 @@ def compose_system_prompt(
         )
 
     return blocks
+
+
+@lru_cache(maxsize=4)
+def load_chat_mode_prompt(mode: str) -> str:
+    """Load a CO-10 chat-mode system prompt (``per_case`` or ``freeform``)."""
+    if mode not in ("per_case", "freeform"):
+        raise ValueError(f"unknown chat mode: {mode}")
+    return _read(f"prompts/chat_modes/{mode}_mode.md")
+
+
+def compose_chat_system_prompt(mode: str) -> list[dict]:
+    """Build the Claude ``system`` array for a chat turn (Phase CO-10).
+
+    Same cached behavioral-core + voice-tiering + citations stack every agent
+    gets, then the mode-specific chat prompt (per_case vs freeform). The mode
+    prompt is what makes per-case mode case-aware and freeform mode emit the
+    create_case_cta when a specific situation is described.
+    """
+    behavioral = load_behavioral_core()
+    voice = load_voice_tiering()
+    citations = load_citations()
+    mode_prompt = load_chat_mode_prompt(mode)
+
+    return [
+        {
+            "type": "text",
+            "text": f"# Behavioral Core (prepended to every Tyndale agent session)\n\n{behavioral}",
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": f"# Voice Tiering\n\n{voice}\n\n# Citations\n\n{citations}",
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": f"# Chat Mode — {mode}\n\n{mode_prompt}",
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
