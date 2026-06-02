@@ -171,11 +171,11 @@ async def test_admin_verdict_persists_with_target_findings(client: AsyncClient):
     fid = await _add_finding(cfid)
     r = await client.post(
         f"/v1/admin/cases/{cfid}/verdict",
-        json={"verdict": "wrong", "notes": "miscategorized", "target_findings": [fid]},
+        json={"verdict": "hallucinated", "notes": "miscategorized", "target_findings": [fid]},
     )
     assert r.status_code == 200, r.text
     row = await _verdict_row(r.json()["verdict_id"])
-    assert row.verdict == "wrong"
+    assert row.verdict == "hallucinated"
     assert row.target_findings == [fid]
     assert row.target_response is None
 
@@ -185,7 +185,7 @@ async def test_admin_verdict_persists_with_target_response_only(client: AsyncCli
     cfid = await _fresh_case()
     r = await client.post(
         f"/v1/admin/cases/{cfid}/verdict",
-        json={"verdict": "partially_correct", "target_response": "response-abc"},
+        json={"verdict": "partial", "target_response": "response-abc"},
     )
     assert r.status_code == 200, r.text
     row = await _verdict_row(r.json()["verdict_id"])
@@ -222,7 +222,7 @@ async def test_admin_dashboard_returns_correct_counts(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_audit_event_written_on_verdict_submit(client: AsyncClient):
     cfid = await _fresh_case()
-    await client.post(f"/v1/admin/cases/{cfid}/verdict", json={"verdict": "wrong"})
+    await client.post(f"/v1/admin/cases/{cfid}/verdict", json={"verdict": "missed_finding"})
     async with AsyncSessionLocal() as s:
         rows = (
             (

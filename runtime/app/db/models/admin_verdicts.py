@@ -22,7 +22,8 @@ class AdminVerdict(Base):
     __tablename__ = "admin_verdicts"
     __table_args__ = (
         CheckConstraint(
-            "verdict IN ('correct', 'partially_correct', 'wrong')",
+            "verdict IN ('correct', 'partially_correct', 'wrong', 'missed_finding', "
+            "'hallucinated', 'partial', 'unable_to_verify')",
             name="ck_admin_verdicts_verdict",
         ),
         Index("idx_admin_verdicts_case_file", "case_file_id"),
@@ -43,6 +44,9 @@ class AdminVerdict(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     target_findings: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # null = whole case
     target_response: Mapped[str | None] = mapped_column(Text, nullable=True)  # null = latest
+    # CO-9 Module 3 verdict v2 — descriptors for the missed_finding / hallucinated verdicts.
+    missed_findings: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    hallucinated_claims: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     captured_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

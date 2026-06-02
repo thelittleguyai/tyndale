@@ -6,4 +6,5 @@ export * from './dashboard';
 export * from './encounter';
 export * from './feedback';
 export * from './intake';
+export * from './admin-types';
 export { default } from './design-tokens';

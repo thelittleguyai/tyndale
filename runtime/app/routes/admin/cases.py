@@ -9,9 +9,9 @@ from __future__ import annotations
 import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser
@@ -19,6 +19,7 @@ from app.db.models.admin_verdicts import AdminVerdict
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
+from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
 from app.db.models.users import User
 from app.db.session import get_session
@@ -59,24 +60,52 @@ async def list_cases(
     status: str | None = None,
     user_id: str | None = None,
     has_verdict: bool | None = None,
+    verdict: str | None = None,
+    search: str | None = Query(None, alias="q"),
     since: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     limit: int = 50,
     offset: int = 0,
     admin: CurrentUser = Depends(admin_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    q = select(CaseFile)
+    # NOTE: encounter_type / payer / total_charge_bucket filters are JSONB-derived and
+    # deferred (they live in line_items/coverage, not columns) — accepted by the UI but
+    # not yet pushed into SQL.
+    stmt = select(CaseFile)
     if status:
-        q = q.where(CaseFile.status == status)
+        stmt = stmt.where(CaseFile.status == status)
     if user_id:
-        q = q.where(CaseFile.user_id == _uuid(user_id))
-    if since:
+        stmt = stmt.where(CaseFile.user_id == _uuid(user_id))
+    if search:  # matches case-id OR a CPT/text token inside the line items
+        like = f"%{search.strip().lower()}%"
+        stmt = stmt.where(
+            or_(
+                CaseFile.case_file_id.cast(String).ilike(like),
+                CaseFile.line_items.cast(String).ilike(like),
+            )
+        )
+    for raw, lower_bound in ((since, True), (date_from, True), (date_to, False)):
+        if not raw:
+            continue
         try:
-            q = q.where(CaseFile.created_at >= datetime.datetime.fromisoformat(since))
+            dt = datetime.datetime.fromisoformat(raw)
         except ValueError:
-            raise HTTPException(status_code=422, detail="invalid 'since' (use ISO-8601)") from None
-    q = q.order_by(CaseFile.created_at.desc()).limit(min(max(limit, 1), 200)).offset(max(offset, 0))
-    cases = (await session.execute(q)).scalars().all()
+            raise HTTPException(status_code=422, detail="invalid date (use ISO-8601)") from None
+        stmt = stmt.where(CaseFile.created_at >= dt if lower_bound else CaseFile.created_at <= dt)
+    if verdict:
+        stmt = stmt.where(
+            CaseFile.case_file_id.in_(
+                select(AdminVerdict.case_file_id).where(AdminVerdict.verdict == verdict)
+            )
+        )
+    stmt = (
+        stmt.order_by(CaseFile.created_at.desc())
+        .limit(min(max(limit, 1), 200))
+        .offset(max(offset, 0))
+    )
+    cases = (await session.execute(stmt)).scalars().all()
 
     uids = {c.user_id for c in cases}
     emails: dict[Any, str] = {}
@@ -153,6 +182,26 @@ async def case_detail(
         .all()
     )
 
+    feedback = (
+        (
+            await session.execute(
+                select(FeedbackEvent)
+                .where(FeedbackEvent.case_file_id == cf.case_file_id)
+                .order_by(FeedbackEvent.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    latest_verdict = (
+        await session.execute(
+            select(AdminVerdict)
+            .where(AdminVerdict.case_file_id == cf.case_file_id)
+            .order_by(AdminVerdict.captured_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
     return {
         "case_file_id": str(cf.case_file_id),
         "user": {
@@ -183,6 +232,26 @@ async def case_detail(
         "plan_versions": {"current": cf.plan_current, "history": cf.plan_history or []},
         "conversation_history": [],
         "last_audit_result": None,
+        "user_feedback": [
+            {
+                "feedback_type": fb.feedback_type,
+                "created_at": _iso(fb.created_at),
+                "payload": fb.payload,
+            }
+            for fb in feedback
+        ],
+        "latest_verdict": (
+            {
+                "verdict_id": str(latest_verdict.verdict_id),
+                "verdict": latest_verdict.verdict,
+                "notes": latest_verdict.notes,
+                "missed_findings": latest_verdict.missed_findings,
+                "hallucinated_claims": latest_verdict.hallucinated_claims,
+                "captured_at": _iso(latest_verdict.captured_at),
+            }
+            if latest_verdict
+            else None
+        ),
     }
 
 
@@ -264,8 +333,11 @@ async def case_provenance(
 
 
 class VerdictRequest(BaseModel):
-    verdict: Literal["correct", "partially_correct", "wrong"]
+    # CO-9 Module 3 verdict v2 — the 5-option fine-tune vocabulary.
+    verdict: Literal["correct", "missed_finding", "hallucinated", "partial", "unable_to_verify"]
     notes: str | None = None
+    missed_findings: list[str] | None = None
+    hallucinated_claims: list[str] | None = None
     target_findings: list[str] | None = None  # null = whole case
     target_response: str | None = None  # null = latest
 
@@ -283,6 +355,8 @@ async def submit_verdict(
         admin_user_id=admin.user_id,
         verdict=req.verdict,
         notes=req.notes,
+        missed_findings=req.missed_findings,
+        hallucinated_claims=req.hallucinated_claims,
         target_findings=req.target_findings,
         target_response=req.target_response,
     )
@@ -298,8 +372,8 @@ async def submit_verdict(
         case_file_id=cf.case_file_id,
         extra={
             "verdict": req.verdict,
-            "target_findings": req.target_findings,
-            "target_response": req.target_response,
+            "missed_findings": req.missed_findings,
+            "hallucinated_claims": req.hallucinated_claims,
             "verdict_id": str(verdict_id),
         },
     )
@@ -338,6 +412,113 @@ async def list_verdicts(
                 "captured_at": _iso(v.captured_at),
             }
             for v in rows
+        ],
+    }
+
+
+@router.get("/admin/cases/{case_file_id}/export")
+async def export_case(
+    case_file_id: str,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Full case export for offline regression analysis: uploads, encounters, reasoning
+    trail, findings, feedback, verdicts."""
+    cf = await _load_case(session, case_file_id)
+    findings = (
+        (
+            await session.execute(
+                select(Finding)
+                .where(Finding.case_file_id == cf.case_file_id)
+                .order_by(Finding.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    events = (
+        (
+            await session.execute(
+                select(AuditEvent)
+                .where(AuditEvent.case_file_id == cf.case_file_id)
+                .order_by(AuditEvent.timestamp.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    verdicts = (
+        (
+            await session.execute(
+                select(AdminVerdict)
+                .where(AdminVerdict.case_file_id == cf.case_file_id)
+                .order_by(AdminVerdict.captured_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    feedback = (
+        (
+            await session.execute(
+                select(FeedbackEvent)
+                .where(FeedbackEvent.case_file_id == cf.case_file_id)
+                .order_by(FeedbackEvent.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="case_export",
+        target_user_id=cf.user_id,
+        case_file_id=cf.case_file_id,
+    )
+    await session.commit()
+    return {
+        "case_file_id": str(cf.case_file_id),
+        "exported_at": _iso(datetime.datetime.now(datetime.timezone.utc)),
+        "user_id": str(cf.user_id),
+        "status": cf.status,
+        "documents": cf.documents or [],
+        "coverage": cf.coverage or {},
+        "eobs": cf.eobs or [],
+        "line_items": cf.line_items or [],
+        "encounter_confirmations": cf.encounter_confirmations or [],
+        "research_log": cf.research_log or [],
+        "findings": [_finding_dict(f) for f in findings],
+        "reasoning_trail": [
+            {
+                "event_type": ev.event_type,
+                "actor": ev.actor,
+                "timestamp": _iso(ev.timestamp),
+                "outcome": ev.outcome,
+                "tools_invoked": ev.tools_invoked,
+                "payload": _decode_payload(ev),
+            }
+            for ev in events
+        ],
+        "feedback": [
+            {
+                "feedback_type": fb.feedback_type,
+                "created_at": _iso(fb.created_at),
+                "payload": fb.payload,
+            }
+            for fb in feedback
+        ],
+        "verdicts": [
+            {
+                "verdict_id": str(v.verdict_id),
+                "verdict": v.verdict,
+                "notes": v.notes,
+                "missed_findings": v.missed_findings,
+                "hallucinated_claims": v.hallucinated_claims,
+                "target_findings": v.target_findings,
+                "captured_at": _iso(v.captured_at),
+            }
+            for v in verdicts
         ],
     }
 

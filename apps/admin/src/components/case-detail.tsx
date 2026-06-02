@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  adminExportCase,
   adminGetCase,
   adminGetProvenance,
   adminGetVerdicts,
@@ -15,9 +16,10 @@ import { ProvenanceTree } from './provenance-tree';
 import { VerdictForm } from './verdict-form';
 import { ChatTranscript } from './chat-transcript';
 
-type Tab = 'provenance' | 'response' | 'chat' | 'findings';
+type Tab = 'documents' | 'provenance' | 'response' | 'chat' | 'findings';
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'provenance', label: 'Provenance' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'provenance', label: 'Reasoning' },
   { key: 'response', label: 'Response' },
   { key: 'chat', label: 'Chat' },
   { key: 'findings', label: 'Findings' },
@@ -52,6 +54,21 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     };
   }, [caseId, loadVerdicts]);
 
+  const exportJson = async () => {
+    try {
+      const data = await adminExportCase(caseId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `case-${caseId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   if (error) return <p className="text-sm text-rose">{error}</p>;
   if (!detail || !prov) return <p className="text-sm text-white/40">Loading case…</p>;
 
@@ -59,12 +76,20 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
       {/* LEFT — forensic detail */}
       <div>
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-widest text-white/40">Case</p>
-          <p className="font-mono text-sm text-white/70">{detail.case_file_id}</p>
-          <p className="mt-1 text-sm text-white/60">
-            {detail.user.email ?? '—'} · {detail.status} · intake {detail.intake_status ?? '—'}
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-white/40">Case</p>
+            <p className="font-mono text-sm text-white/70">{detail.case_file_id}</p>
+            <p className="mt-1 text-sm text-white/60">
+              {detail.user.email ?? '—'} · {detail.status} · intake {detail.intake_status ?? '—'}
+            </p>
+          </div>
+          <button
+            onClick={exportJson}
+            className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+          >
+            Export JSON
+          </button>
         </div>
 
         <div className="mb-4 flex gap-1 border-b border-white/10">
@@ -82,6 +107,44 @@ export function CaseDetail({ caseId }: { caseId: string }) {
             </button>
           ))}
         </div>
+
+        {tab === 'documents' ? (
+          <div className="space-y-2">
+            {detail.documents.length || detail.eobs.length ? (
+              <>
+                {detail.documents.map((d, i) => (
+                  <div
+                    key={`doc-${i}`}
+                    className="rounded-xl border border-white/10 bg-navy-soft p-3 text-sm"
+                  >
+                    <p className="mb-1 text-xs uppercase tracking-wide text-white/40">
+                      Document {i + 1}
+                    </p>
+                    <pre className="overflow-auto text-[11px] leading-4 text-white/60">
+                      {JSON.stringify(d, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+                {detail.eobs.map((d, i) => (
+                  <div
+                    key={`eob-${i}`}
+                    className="rounded-xl border border-white/10 bg-navy-soft p-3 text-sm"
+                  >
+                    <p className="mb-1 text-xs uppercase tracking-wide text-white/40">EOB {i + 1}</p>
+                    <pre className="overflow-auto text-[11px] leading-4 text-white/60">
+                      {JSON.stringify(d, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-sm text-white/40">
+                No documents uploaded. (PDFs render via short-lived signed URLs when present —
+                DL-47.)
+              </p>
+            )}
+          </div>
+        ) : null}
 
         {tab === 'provenance' ? <ProvenanceTree prov={prov} /> : null}
 

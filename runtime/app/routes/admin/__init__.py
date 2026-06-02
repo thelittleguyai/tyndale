@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.routes.admin import cases, users
+from app.routes.admin import cases, qdrant, users
 from app.routes.admin._deps import admin_user, audit_admin_action
 
 router = APIRouter()
 router.include_router(cases.router)
 router.include_router(users.router)
+router.include_router(qdrant.router)
 
 __all__ = ["router", "admin_user", "audit_admin_action"]
