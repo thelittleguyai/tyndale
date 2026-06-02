@@ -41,8 +41,10 @@ import {
 } from 'lucide-react-native';
 
 import {
+  createConversation,
   getDashboard,
   getUserProfile,
+  listConversations,
   makeFeedbackEvent,
   submitFeedback,
   type DashboardPayload,
@@ -71,6 +73,21 @@ export default function DashboardScreen() {
       setLoading(false);
     }
   }, []);
+
+  // "Chat with AI Assistant" opens a thread directly: resume the most recent
+  // freeform conversation, or create one — skipping the conversation-list page.
+  const openChat = useCallback(async () => {
+    try {
+      const list = await listConversations({ mode: 'freeform', limit: 1 });
+      const existing = list.conversations[0];
+      const id = existing
+        ? existing.conversation_id
+        : (await createConversation()).conversation_id;
+      router.push(`/chat/${id}`);
+    } catch {
+      router.push('/chat');
+    }
+  }, [router]);
 
   useEffect(() => {
     load();
@@ -138,7 +155,7 @@ export default function DashboardScreen() {
           <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
         ) : null}
 
-        <ChatCTA onPress={() => router.push('/chat')} />
+        <ChatCTA onPress={openChat} />
 
         {error ? (
           <Text className="mt-4 text-xs text-rose">Dashboard fetch error: {error}</Text>

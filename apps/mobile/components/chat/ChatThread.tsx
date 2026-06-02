@@ -38,23 +38,25 @@ export function ChatThread({
     <View className="flex-1 bg-navy-deep">
       <ScrollView
         ref={scrollRef}
-        className="flex-1 px-4"
-        contentContainerStyle={{ paddingVertical: 16, flexGrow: 1 }}
+        className="flex-1"
+        contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16, flexGrow: 1 }}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         keyboardShouldPersistTaps="handled"
       >
-        {messages.length === 0 && !streaming ? emptyState : null}
-        {messages.map((m) => (
-          <ChatMessage
-            key={m.message_id}
-            message={m}
-            conversationId={conversationId}
-            onCitation={setCitation}
-            onRetry={onRetry}
-          />
-        ))}
-        <ToolCallIndicator tools={activeTools} />
-        {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+        <View className="w-full max-w-3xl self-center">
+          {messages.length === 0 && !streaming ? emptyState : null}
+          {messages.map((m) => (
+            <ChatMessage
+              key={m.message_id}
+              message={m}
+              conversationId={conversationId}
+              onCitation={setCitation}
+              onRetry={onRetry}
+            />
+          ))}
+          <ToolCallIndicator tools={activeTools} />
+          {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+        </View>
       </ScrollView>
       <ChatComposer onSend={send} onStop={stop} streaming={streaming} />
       <CitationDetailModal citation={citation} onClose={() => setCitation(null)} />
