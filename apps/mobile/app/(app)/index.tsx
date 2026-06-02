@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -41,6 +42,7 @@ import {
 
 import {
   getDashboard,
+  getUserProfile,
   makeFeedbackEvent,
   submitFeedback,
   type DashboardPayload,
@@ -245,8 +247,24 @@ function OutcomeButton({
 }
 
 // ─── Header ─────────────────────────────────────────────────────────────────
+// The separate admin console (CO-9) lives at its own IP-allowlisted subdomain.
+const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
+
 function Header({ firstName }: { firstName: string }) {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // The Admin pill is admin-only: DL-60 anti-enumeration means non-admins must
+  // never even see that an admin surface exists. It deep-links out to the
+  // standalone console (Linking.openURL → new tab on web, system browser on
+  // native). That console is IP-allowlisted, so it only loads on an allowed
+  // network — the pill is a convenience jump-off, not an in-app screen.
+  useEffect(() => {
+    getUserProfile()
+      .then((p) => setIsAdmin(p?.user_type === 'admin'))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
   return (
     <View className="flex-row items-center justify-between bg-navy-soft px-5 py-3">
       <View className="flex-row items-center gap-2">
@@ -256,14 +274,19 @@ function Header({ firstName }: { firstName: string }) {
         <Text className="text-base font-bold text-white">Tyndale</Text>
       </View>
       <View className="flex-row items-center gap-2">
-        <Pressable
-          onPress={() => router.push('/admin')}
-          accessibilityRole="button"
-          className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5"
-        >
-          <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
-          <Text className="text-xs font-semibold text-white/80">Admin</Text>
-        </Pressable>
+        {isAdmin ? (
+          <Pressable
+            onPress={() => {
+              Linking.openURL(ADMIN_CONSOLE_URL).catch(() => {});
+            }}
+            accessibilityRole="button"
+            accessibilityHint="Opens the Tyndale admin console in a new tab"
+            className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5"
+          >
+            <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
+            <Text className="text-xs font-semibold text-white/80">Admin</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
