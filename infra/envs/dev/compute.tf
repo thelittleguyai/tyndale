@@ -98,12 +98,17 @@ resource "azurerm_container_app" "runtime" {
         value = azurerm_cognitive_account.document_intelligence.endpoint
       }
       env {
-        name  = "QDRANT_URL"
-        value = "http://${azurerm_container_app.qdrant.ingress[0].fqdn}:6333"
+        name = "QDRANT_URL"
+        # Container Apps HTTP ingress serves on :80/:443 and routes by Host header —
+        # NOT the container's target_port (6333). Use the ingress port (:80, with
+        # allow_insecure_connections on the qdrant ingress). Port is explicit because
+        # qdrant-client defaults a portless URL to 6333.
+        value = "http://${azurerm_container_app.qdrant.ingress[0].fqdn}:80"
       }
       env {
-        name  = "LITELLM_PROXY_URL"
-        value = "http://${azurerm_container_app.litellm.ingress[0].fqdn}:4000"
+        name = "LITELLM_PROXY_URL"
+        # Same as QDRANT_URL: hit the ingress port (:80), not the container's 4000.
+        value = "http://${azurerm_container_app.litellm.ingress[0].fqdn}:80"
       }
       env {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
@@ -278,16 +283,22 @@ resource "azurerm_container_app_job" "runtime_migrations" {
   ]
 }
 
-# LiteLLM proxy Container App
+# LiteLLM proxy Container App.
+# Co-located in the EXTERNAL env with the runtime (its only caller): a request
+# from the external env into the internal `main` env's load balancer returns the
+# platform "Unavailable" page even for a warm, healthy app — cross-env routing
+# into an internal CAE is not supported. Same-env service-to-service IS. Ingress
+# stays internal (external_enabled=false) so it's private within the VNet.
 resource "azurerm_container_app" "litellm" {
   name                         = "${local.name_prefix}-litellm"
-  container_app_environment_id = azurerm_container_app_environment.main.id
+  container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
   tags                         = local.tags
 
   template {
-    min_replicas = 0
+    # min 1 (see qdrant): cross-env static-IP routing doesn't activate scale-to-zero apps.
+    min_replicas = 1
     max_replicas = 1
 
     container {
@@ -300,9 +311,10 @@ resource "azurerm_container_app" "litellm" {
   }
 
   ingress {
-    external_enabled = false
-    target_port      = 4000
-    transport        = "http"
+    external_enabled           = false
+    target_port                = 4000
+    transport                  = "http"
+    allow_insecure_connections = true # internal-only (external_enabled=false); lets the runtime reach it over plain http on :80
 
     traffic_weight {
       latest_revision = true
@@ -311,16 +323,24 @@ resource "azurerm_container_app" "litellm" {
   }
 }
 
-# Qdrant Container App
+# Qdrant Container App.
+# Co-located in the EXTERNAL env with the runtime (see litellm above): cross-env
+# routing into the internal `main` env returns the platform "Unavailable" page.
+# Ingress stays internal (external_enabled=false) so qdrant is private. Ephemeral
+# storage, so the env move (destroy/recreate) loses nothing.
 resource "azurerm_container_app" "qdrant" {
   name                         = "${local.name_prefix}-qdrant"
-  container_app_environment_id = azurerm_container_app_environment.main.id
+  container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
   tags                         = local.tags
 
   template {
-    min_replicas = 0 # scale-to-zero
+    # min 1 (NOT scale-to-zero): the runtime reaches qdrant via the env's static-IP
+    # wildcard DNS (cross-environment). That path does NOT trigger KEDA scale-from-zero
+    # activation, so a request to a 0-replica app returns the platform "Unavailable" 404.
+    # One warm replica keeps it routable (and avoids cold-start latency). Cheap in dev.
+    min_replicas = 1
     max_replicas = 1 # single replica for dev
 
     container {
@@ -334,9 +354,10 @@ resource "azurerm_container_app" "qdrant" {
   }
 
   ingress {
-    external_enabled = false
-    target_port      = 6333
-    transport        = "http"
+    external_enabled           = false
+    target_port                = 6333
+    transport                  = "http"
+    allow_insecure_connections = true # internal-only (external_enabled=false); lets the runtime reach it over plain http on :80
 
     traffic_weight {
       latest_revision = true

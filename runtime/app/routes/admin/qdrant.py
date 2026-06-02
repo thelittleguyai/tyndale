@@ -83,25 +83,35 @@ async def list_collections(
 ) -> dict[str, Any]:
     client = get_client()
     out: list[dict] = []
-    for name in COLLECTIONS:
-        exists = await client.collection_exists(name)
-        if not exists:
+    try:
+        for name in COLLECTIONS:
+            exists = await client.collection_exists(name)
+            if not exists:
+                out.append(
+                    {"name": name, "exists": False, "total": 0, "live": 0, "staging": 0, "sources": []}
+                )
+                continue
+            total = await _count(client, name)
+            staging = await _count(client, name, _STAGING)
             out.append(
-                {"name": name, "exists": False, "total": 0, "live": 0, "staging": 0, "sources": []}
+                {
+                    "name": name,
+                    "exists": True,
+                    "total": total,
+                    "live": total - staging,
+                    "staging": staging,
+                    "sources": await _sources(client, name),
+                }
             )
-            continue
-        total = await _count(client, name)
-        staging = await _count(client, name, _STAGING)
-        out.append(
-            {
-                "name": name,
-                "exists": True,
-                "total": total,
-                "live": total - staging,
-                "staging": staging,
-                "sources": await _sources(client, name),
-            }
-        )
+    except Exception as exc:  # noqa: BLE001 — Qdrant unreachable (cross-env DNS, cold start, outage)
+        # Graceful degradation: surface a clean 503 (with CORS headers, via the normal
+        # exception path) so the console shows "unreachable" instead of an opaque
+        # "Failed to fetch" from an unhandled 500.
+        raise HTTPException(
+            status_code=503,
+            detail="Knowledge base (Qdrant) is unreachable — the index service may be "
+            "starting up or temporarily unavailable.",
+        ) from exc
     return {"collections": out}
 
 
