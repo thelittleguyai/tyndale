@@ -242,3 +242,111 @@ export const adminPromoteBatch = (name: string, chunkIds: string[]) =>
   post(`/v1/admin/qdrant/collections/${encodeURIComponent(name)}/promote-batch`, {
     chunk_ids: chunkIds,
   });
+
+// --- Module 4: audit log ---------------------------------------------------
+export interface AdminAuditEntry {
+  event_id: string;
+  timestamp: string | null;
+  event_type: string;
+  actor: string;
+  target_user_id: string | null;
+  case_file_id: string | null;
+  action: string | null;
+  tools_invoked: string[] | null;
+  outcome: string;
+  payload: Record<string, unknown>;
+}
+
+function qstr(params: Record<string, string | number>): string {
+  const qs = new URLSearchParams(
+    Object.entries(params).map(([k, v]) => [k, String(v)]),
+  ).toString();
+  return qs ? `?${qs}` : '';
+}
+
+export const adminGetAuditLog = (params: Record<string, string | number> = {}) =>
+  get<{ entries: AdminAuditEntry[]; count: number; total_matched: number; capped: boolean }>(
+    `/v1/admin/audit-log${qstr(params)}`,
+  );
+
+export const adminExportAuditLog = (params: Record<string, string | number> = {}) =>
+  get<{ exported_at: string | null; filters: Record<string, unknown>; count: number; entries: AdminAuditEntry[] }>(
+    `/v1/admin/audit-log/export${qstr(params)}`,
+  );
+
+// --- Module 5: system + crons ----------------------------------------------
+export interface AdminSystemHealth {
+  deploy_sha: string | null;
+  deploy_timestamp: string | null;
+  db_pool: { size: number | null; checked_out: number | null; overflow: number | null };
+  qdrant_status: string;
+  anthropic_status: string;
+  recent_errors: Array<{
+    event_id: string;
+    timestamp: string | null;
+    event_type: string;
+    actor: string;
+    outcome: string;
+    error: string | null;
+  }>;
+  runtime_version: string;
+  node_env: string;
+}
+
+export interface AdminCronSummary {
+  cron_name: string;
+  schedule: string;
+  last_run_at: string | null;
+  last_status: string | null;
+  currently_running: boolean;
+}
+
+export interface AdminCronRun {
+  run_id: string;
+  cron_name: string;
+  started_at: string | null;
+  finished_at: string | null;
+  status: string;
+  triggered_source: string;
+  triggered_by: string | null;
+  summary_json: Record<string, unknown> | null;
+  error_message: string | null;
+}
+
+export const adminSystemHealth = () => get<AdminSystemHealth>('/v1/admin/system/health');
+export const adminListCrons = () => get<{ crons: AdminCronSummary[] }>('/v1/admin/crons');
+export const adminTriggerCron = (name: string) =>
+  post<{ run_id: string; status: string }>(`/v1/admin/crons/${encodeURIComponent(name)}/trigger`);
+export const adminCronRuns = (name: string) =>
+  get<{ cron_name: string; runs: AdminCronRun[]; count: number }>(
+    `/v1/admin/crons/${encodeURIComponent(name)}/runs`,
+  );
+
+// --- Module 6: knowledge gaps ----------------------------------------------
+export interface AdminGap {
+  gap_id: string;
+  case_id: string | null;
+  agent_name: string;
+  gap_type: string;
+  query: string;
+  context_summary: string | null;
+  confidence_score: number | null;
+  logged_at: string | null;
+  resolved_at: string | null;
+  resolved_by_source: string | null;
+}
+
+export const adminListGaps = (params: Record<string, string | number> = {}) =>
+  get<{ gaps: AdminGap[]; count: number }>(`/v1/admin/knowledge-gaps${qstr(params)}`);
+
+export const adminAggregateGaps = (params: Record<string, string | number> = {}) =>
+  get<{
+    group_by: string;
+    groups?: Array<{ key: string; count: number }>;
+    clusters?: Array<{ cluster: string; representative_query: string; count: number }>;
+  }>(`/v1/admin/knowledge-gaps/aggregate${qstr(params)}`);
+
+export const adminResolveGap = (gapId: string, resolvedBySource: string) =>
+  post(`/v1/admin/knowledge-gaps/${encodeURIComponent(gapId)}/resolve`, {
+    resolved_by_source: resolvedBySource,
+  });

@@ -81,3 +81,12 @@ Target: <80K tokens per invocation, hard ceiling 130K.
 
 If you're approaching the ceiling, pre-compact: write intermediate work to the case file and
 reload only what's needed for the next step.
+
+## Knowledge-gap logging (CO-9)
+
+When a `qdrant_search_*` call returns 0 hits, OR the top hit's score is below 0.5, call
+`log_knowledge_gap(agent_name="bill_detective", gap_type="no_data"` (zero hits) `or
+"low_confidence"` (weak hits)`, query="<the specific thing you needed>")`. This does NOT
+change your answer — keep auditing with what you have and surface the gap to the user via
+graceful degradation. It tells the team where the data holes are. See
+`intelligence-layer/tools/descriptions/log_knowledge_gap.md`.

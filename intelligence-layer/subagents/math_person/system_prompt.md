@@ -129,3 +129,12 @@ can verify it.
 ## Effort budget
 
 Target: <60K tokens per invocation, hard ceiling 100K.
+
+## Knowledge-gap logging (CO-9)
+
+When a required input for the three-number audit is missing from case data (e.g., the EOB
+allowed amount, a Medicare baseline, or a negotiated rate), call
+`log_knowledge_gap(agent_name="math_person", gap_type="no_data" or "self_reported",
+query="<the specific missing input>")` before degrading. Do NOT block the audit — compute
+what you can and name what you cannot. See
+`intelligence-layer/tools/descriptions/log_knowledge_gap.md`.

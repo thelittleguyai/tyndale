@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Database, FolderSearch, LayoutDashboard, ShieldCheck, Users } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Database,
+  FolderSearch,
+  LayoutDashboard,
+  ScrollText,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 
 import { useRequireAdmin } from '@/lib/use-admin';
 
@@ -25,6 +34,9 @@ const NAV = [
   { href: '/users', label: 'Users', icon: Users },
   { href: '/cases', label: 'Cases', icon: FolderSearch },
   { href: '/knowledge', label: 'Knowledge', icon: Database },
+  { href: '/audit', label: 'Audit log', icon: ScrollText },
+  { href: '/system', label: 'System', icon: Activity },
+  { href: '/gaps', label: 'Knowledge gaps', icon: AlertTriangle },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

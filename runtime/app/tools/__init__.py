@@ -78,3 +78,4 @@ from app.tools import knowledge_tools  # noqa: E402, F401
 from app.tools import cost_tools  # noqa: E402, F401
 from app.tools import code_tools  # noqa: E402, F401
 from app.tools import util_tools  # noqa: E402, F401
+from app.tools import log_knowledge_gap  # noqa: E402, F401
