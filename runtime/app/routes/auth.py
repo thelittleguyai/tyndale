@@ -134,7 +134,7 @@ async def callback(
         raise HTTPException(status_code=403, detail="email not verified") from None
     await session.commit()
 
-    token = create_session_token(str(user.user_id))
+    token = create_session_token(str(user.user_id), user.jwt_version or 1)
     redirect = RedirectResponse(url=settings.auth_success_redirect, status_code=302)
     _set_session_cookie(redirect, token)
     redirect.delete_cookie(_OAUTH_STATE_COOKIE, domain=settings.cookie_domain or None, path="/")
@@ -209,7 +209,7 @@ async def magic_link_verify(
     user = await find_or_create_user_by_email(session, claims["email"], verified=True)
     await session.commit()
 
-    session_token = create_session_token(str(user.user_id))
+    session_token = create_session_token(str(user.user_id), user.jwt_version or 1)
     dest = claims.get("return_url") or settings.auth_success_redirect
     redirect = RedirectResponse(url=dest, status_code=302)
     _set_session_cookie(redirect, session_token)

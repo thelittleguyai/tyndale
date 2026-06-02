@@ -5,7 +5,9 @@ from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
 from app.db.models.cms_ingestion_state import CmsIngestionState
 from app.db.models.consent_history import ConsentHistory
+from app.db.models.cron_run_log import CronRunLog
 from app.db.models.deadlines import Deadline
+from app.db.models.knowledge_gap_log import KnowledgeGapLog
 from app.db.models.feedback import (
     FeedbackDeidCandidate,
     FeedbackEvent,
@@ -31,4 +33,6 @@ __all__ = [
     "AdminVerdict",
     "TransparencyRate",
     "TransparencyRateStaging",
+    "KnowledgeGapLog",
+    "CronRunLog",
 ]

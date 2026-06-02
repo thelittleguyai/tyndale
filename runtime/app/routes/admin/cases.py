@@ -1,21 +1,12 @@
-"""Admin console routes (Phase CO-6A) — Brock-only case review + verdict capture.
+"""Admin case browse + detail + provenance + verdict capture (CO-6A, moved into the
+admin package by CO-9). Module 3 extends these (5-option verdict, richer filters, export).
 
-DL-60 dual-layer auth: this is the APP layer — every route requires
-`current_user.user_type == 'admin'`, and a non-admin gets **404** (anti-
-enumeration; never reveal the console exists). The NETWORK layer (Container Apps
-ingress IP allowlist) is in infra/. These routes inherit the same rate limit +
-security headers + JWT validation as every other /v1/* route (Phase 2K.2).
-
-MVP scope: case browse, case detail, data-point provenance tree, verdict capture.
-NO chat-driven correction (that's CO-6B, Sprint D).
+DL-60 dual-layer auth: every route requires admin (non-admin → 404).
 """
 
 from __future__ import annotations
 
 import datetime
-import hashlib
-import json
-import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import CurrentUser, current_user
+from app.auth import CurrentUser
 from app.db.models.admin_verdicts import AdminVerdict
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
@@ -31,36 +22,13 @@ from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.models.users import User
 from app.db.session import get_session
+from app.routes.admin._deps import admin_user
+from app.routes.admin._deps import admin_uuid as _uuid
+from app.routes.admin._deps import audit_admin_action
+from app.routes.admin._deps import decode_payload as _decode_payload
+from app.routes.admin._deps import iso as _iso
 
 router = APIRouter(tags=["v1-admin"])
-
-
-# --------------------------------------------------------------------------- #
-# Admin gate (DL-60: non-admin → 404, not 403)
-# --------------------------------------------------------------------------- #
-async def admin_user(user: CurrentUser = Depends(current_user)) -> CurrentUser:
-    if user.user_type != "admin":
-        raise HTTPException(status_code=404, detail="Not Found")
-    return user
-
-
-def _uuid(value: str) -> uuid.UUID:
-    try:
-        return uuid.UUID(str(value))
-    except (ValueError, AttributeError, TypeError) as e:
-        raise HTTPException(status_code=404, detail="Not Found") from e
-
-
-def _iso(dt: datetime.datetime | None) -> str | None:
-    return dt.isoformat() if dt else None
-
-
-def _decode_payload(ev: AuditEvent) -> dict:
-    """Phase-1C audit payloads are clear-text JSON bytes (AES-GCM in Phase 4)."""
-    try:
-        return json.loads(bytes(ev.payload_encrypted).decode("utf-8"))
-    except (ValueError, UnicodeDecodeError, TypeError):
-        return {}
 
 
 async def _load_case(session: AsyncSession, case_file_id: str) -> CaseFile:
@@ -72,9 +40,20 @@ async def _load_case(session: AsyncSession, case_file_id: str) -> CaseFile:
     return cf
 
 
-# --------------------------------------------------------------------------- #
-# Case browse
-# --------------------------------------------------------------------------- #
+def _finding_dict(f: Finding) -> dict:
+    return {
+        "finding_id": str(f.finding_id),
+        "finding_type": f.finding_type,
+        "category": f.category,
+        "subagent_source": f.subagent_source,
+        "voice_tier": f.voice_tier,
+        "facts": f.facts or {},
+        "legal_claim": f.legal_claim,
+        "recommendation": f.recommendation,
+        "status": f.status,
+    }
+
+
 @router.get("/admin/cases")
 async def list_cases(
     status: str | None = None,
@@ -100,7 +79,7 @@ async def list_cases(
     cases = (await session.execute(q)).scalars().all()
 
     uids = {c.user_id for c in cases}
-    emails: dict[uuid.UUID, str] = {}
+    emails: dict[Any, str] = {}
     if uids:
         emails = {
             u.user_id: u.email
@@ -109,7 +88,7 @@ async def list_cases(
             .all()
         }
     cfids = [c.case_file_id for c in cases]
-    verdicted: set[uuid.UUID] = set()
+    verdicted: set[Any] = set()
     if cfids:
         verdicted = set(
             (
@@ -141,9 +120,6 @@ async def list_cases(
     return {"cases": out, "count": len(out)}
 
 
-# --------------------------------------------------------------------------- #
-# Case detail
-# --------------------------------------------------------------------------- #
 @router.get("/admin/cases/{case_file_id}")
 async def case_detail(
     case_file_id: str,
@@ -205,30 +181,11 @@ async def case_detail(
         ],
         "research_log": cf.research_log or [],
         "plan_versions": {"current": cf.plan_current, "history": cf.plan_history or []},
-        # No conversation/messages model in V1-Lite yet — chat history lands later.
         "conversation_history": [],
-        # Full three-number audit is available via GET /v1/audit/{id}; not duplicated here.
         "last_audit_result": None,
     }
 
 
-def _finding_dict(f: Finding) -> dict:
-    return {
-        "finding_id": str(f.finding_id),
-        "finding_type": f.finding_type,
-        "category": f.category,
-        "subagent_source": f.subagent_source,
-        "voice_tier": f.voice_tier,
-        "facts": f.facts or {},
-        "legal_claim": f.legal_claim,
-        "recommendation": f.recommendation,
-        "status": f.status,
-    }
-
-
-# --------------------------------------------------------------------------- #
-# Provenance tree (CO-002 Item 6.A)
-# --------------------------------------------------------------------------- #
 @router.get("/admin/cases/{case_file_id}/provenance")
 async def case_provenance(
     case_file_id: str,
@@ -296,7 +253,6 @@ async def case_provenance(
 
     return {
         "case_file_id": str(cf.case_file_id),
-        # The 7 provenance groups (CO-002 Item 6.A) — always present, possibly empty.
         "documents": cf.documents or [],
         "skills_loaded": sorted(skills),
         "tools_called": tools_called,
@@ -307,9 +263,6 @@ async def case_provenance(
     }
 
 
-# --------------------------------------------------------------------------- #
-# Verdict capture
-# --------------------------------------------------------------------------- #
 class VerdictRequest(BaseModel):
     verdict: Literal["correct", "partially_correct", "wrong"]
     notes: str | None = None
@@ -337,27 +290,18 @@ async def submit_verdict(
     await session.flush()
     verdict_id = verdict.verdict_id
 
-    # Audit (same clear-text-payload discipline as the rest of the runtime).
-    payload = {
-        "action": "admin_verdict",
-        "verdict": req.verdict,
-        "target_findings": req.target_findings,
-        "target_response": req.target_response,
-        "verdict_id": str(verdict_id),
-    }
-    body = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
-    session.add(
-        AuditEvent(
-            event_type="user_action",
-            actor=admin.email,
-            case_file_id=cf.case_file_id,
-            user_id=admin.user_id,
-            payload_encrypted=body,
-            payload_hash=hashlib.sha256(body).digest(),
-            key_version=0,
-            tools_invoked=None,
-            outcome="success",
-        )
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="verdict",
+        target_user_id=cf.user_id,
+        case_file_id=cf.case_file_id,
+        extra={
+            "verdict": req.verdict,
+            "target_findings": req.target_findings,
+            "target_response": req.target_response,
+            "verdict_id": str(verdict_id),
+        },
     )
     await session.commit()
     return {"verdict_id": str(verdict_id), "stored": True}
@@ -398,9 +342,6 @@ async def list_verdicts(
     }
 
 
-# --------------------------------------------------------------------------- #
-# Dashboard
-# --------------------------------------------------------------------------- #
 @router.get("/admin/dashboard")
 async def admin_dashboard(
     admin: CurrentUser = Depends(admin_user),
@@ -439,5 +380,5 @@ async def admin_dashboard(
             }
             for v in recent
         ],
-        "shadow_appeals_pending": 0,  # populated when CO-5A shadow appeals land
+        "shadow_appeals_pending": 0,
     }

@@ -9,7 +9,17 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import TIMESTAMP, Boolean, CheckConstraint, String, Text, func, text
+from sqlalchemy import (
+    TIMESTAMP,
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,4 +54,28 @@ class User(Base):
     )
     updated_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+    )
+    # CO-9 admin controls (migration 0012). is_blocked/jwt_version defaults ARE the
+    # DL-66 backfill for existing rows.
+    is_blocked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    blocked_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    blocked_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+    )
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    soft_deleted_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    soft_deleted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+    )
+    # Bumped by block / force-logout / reset-onboarding / soft-delete → invalidates
+    # outstanding session tokens whose jwt_version claim is now stale.
+    jwt_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    last_admin_action_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
     )

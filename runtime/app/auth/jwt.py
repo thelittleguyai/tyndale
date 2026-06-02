@@ -43,11 +43,12 @@ def _now() -> datetime:
 
 
 # --- Session tokens ----------------------------------------------------------
-def create_session_token(user_id: str) -> str:
+def create_session_token(user_id: str, jwt_version: int = 1) -> str:
     settings = get_settings()
     iat = _now()
     payload = {
         "sub": str(user_id),
+        "ver": int(jwt_version),  # CO-9: bumped by admin actions to revoke outstanding tokens
         "iss": _ISSUER,
         "aud": _AUD_SESSION,
         "iat": iat,
@@ -56,10 +57,9 @@ def create_session_token(user_id: str) -> str:
     return jwt.encode(payload, _secret(), algorithm=_ALGO)
 
 
-def verify_session_token(token: str) -> str:
-    """Returns the user_id (sub) or raises InvalidTokenError."""
+def _decode_session(token: str) -> dict[str, Any]:
     try:
-        payload = jwt.decode(
+        return jwt.decode(
             token,
             _secret(),
             algorithms=[_ALGO],  # explicit allow-list — defeats alg-confusion ("none"/RS256)
@@ -75,10 +75,25 @@ def verify_session_token(token: str) -> str:
         )
     except jwt.PyJWTError as exc:  # expired, bad sig, wrong aud/iss, missing claim
         raise InvalidTokenError(str(exc)) from exc
+
+
+def verify_session_token(token: str) -> str:
+    """Returns the user_id (sub) or raises InvalidTokenError."""
+    payload = _decode_session(token)
     sub = payload.get("sub")
     if not sub:
         raise InvalidTokenError("missing sub")
     return str(sub)
+
+
+def verify_session_claims(token: str) -> tuple[str, int]:
+    """Returns (user_id, jwt_version). ``ver`` defaults to 1 for tokens issued before CO-9
+    (no ver claim) — they stay valid until the user's jwt_version is bumped past 1."""
+    payload = _decode_session(token)
+    sub = payload.get("sub")
+    if not sub:
+        raise InvalidTokenError("missing sub")
+    return str(sub), int(payload.get("ver", 1))
 
 
 # --- Magic-link tokens -------------------------------------------------------

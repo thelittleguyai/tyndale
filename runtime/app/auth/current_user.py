@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dev_user import CurrentUser, resolve_dev_user
-from app.auth.jwt import InvalidTokenError, verify_session_token
+from app.auth.jwt import InvalidTokenError, verify_session_claims
 from app.config import get_settings
 from app.db.models.users import User
 from app.db.session import get_session
@@ -41,7 +41,7 @@ async def current_user(
     if not token:
         raise HTTPException(status_code=401, detail="not authenticated")
     try:
-        user_id = verify_session_token(token)
+        user_id, token_version = verify_session_claims(token)
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="invalid or expired session") from None
 
@@ -56,6 +56,9 @@ async def current_user(
     if row is None:
         raise HTTPException(status_code=401, detail="user not found") from None
 
+    # CO-9: enforce account status + session-revocation before granting access.
+    enforce_user_access(row, token_version)
+
     # first_name isn't a column; derive from email local-part for now (real
     # name comes from the OAuth profile when we persist it — Phase 3 polish).
     first_name = (row.email or "").split("@")[0] or "there"
@@ -65,3 +68,25 @@ async def current_user(
         first_name=first_name,
         user_type=row.user_type,
     )
+
+
+def enforce_user_access(row: User, token_version: int | None) -> None:
+    """Raise if the user can't transact (CO-9). Soft-deleted → 401; blocked → 403; a
+    session token whose version is stale vs the user's jwt_version → 401 (revoked).
+
+    Pure + standalone so the security property is unit-testable without real-auth plumbing
+    (the dev-user path in current_user bypasses this, matching prior local-dev behavior).
+    """
+    if row.soft_deleted_at is not None:
+        raise HTTPException(
+            status_code=401, detail={"code": "USER_DELETED", "reason": "account_deleted"}
+        )
+    if row.is_blocked:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "USER_BLOCKED", "reason": row.blocked_reason or "blocked"},
+        )
+    if token_version is not None and token_version < (row.jwt_version or 1):
+        raise HTTPException(
+            status_code=401, detail={"code": "JWT_INVALIDATED", "reason": "session_revoked"}
+        )
