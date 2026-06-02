@@ -7,4 +7,5 @@ export * from './encounter';
 export * from './feedback';
 export * from './intake';
 export * from './admin-types';
+export * from './chat';
 export { default } from './design-tokens';

@@ -1,11 +1,19 @@
 {
   "name": "tyndale",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "lint": "echo 'lint placeholder'",
     "typecheck": "echo 'typecheck placeholder'",
     "test": "echo 'test placeholder'"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "react-test-renderer": "^19.2.6"
+  }
 }

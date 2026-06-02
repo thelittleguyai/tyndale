@@ -9,8 +9,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { Link, useLocalSearchParams } from 'expo-router';
+import { MessageSquare } from 'lucide-react-native';
 
 import {
   AuditResult,
@@ -105,7 +106,19 @@ export default function AuditResultScreen() {
       contentContainerStyle={{ padding: 20, paddingTop: 32 }}
     >
       <Text className="mb-1 text-3xl font-bold text-white">Bill check complete</Text>
-      <Text className="mb-6 text-xs text-white/40">case {case_file_id.slice(0, 8)}…</Text>
+      <Text className="mb-4 text-xs text-white/40">case {case_file_id.slice(0, 8)}…</Text>
+
+      <View className="mb-6 flex-row gap-2">
+        <View className="rounded-full bg-teal-deep px-4 py-1.5">
+          <Text className="text-xs font-semibold text-white">Overview</Text>
+        </View>
+        <Link href={`/audit/${case_file_id}/chat`} asChild>
+          <Pressable className="flex-row items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5">
+            <MessageSquare size={13} color="rgba(255,255,255,0.7)" />
+            <Text className="text-xs font-semibold text-white/70">Chat</Text>
+          </Pressable>
+        </Link>
+      </View>
 
       <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
         <ThreeNumberRow label="What you were billed" value={a.provider_billed} />

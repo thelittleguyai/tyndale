@@ -138,7 +138,7 @@ export default function DashboardScreen() {
           <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
         ) : null}
 
-        <ChatCTA onPress={() => router.push('/chat-placeholder')} />
+        <ChatCTA onPress={() => router.push('/chat')} />
 
         {error ? (
           <Text className="mt-4 text-xs text-rose">Dashboard fetch error: {error}</Text>

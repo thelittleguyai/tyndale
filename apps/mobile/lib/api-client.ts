@@ -457,3 +457,148 @@ export async function setVisitContext(
 export async function completeIntake(caseFileId: string): Promise<IntakeCompletionSummary> {
   return intakeJson('/v1/intake/complete', { case_file_id: caseFileId });
 }
+
+// ─── Chat (Phase CO-10) ──────────────────────────────────────────────────────
+import type {
+  ChatStreamEvent,
+  Conversation,
+  ConversationDetail,
+  ConversationList,
+} from '@tyndale/shared';
+
+export async function listConversations(params?: {
+  case_id?: string;
+  mode?: 'per_case' | 'freeform' | 'all';
+  include_archived?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<ConversationList> {
+  const q = new URLSearchParams();
+  if (params?.case_id) q.set('case_id', params.case_id);
+  if (params?.mode) q.set('mode', params.mode);
+  if (params?.include_archived) q.set('include_archived', 'true');
+  if (params?.limit != null) q.set('limit', String(params.limit));
+  if (params?.offset != null) q.set('offset', String(params.offset));
+  const qs = q.toString();
+  const res = await cfetch(`${BASE_URL}/v1/conversations${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`listConversations ${res.status}`);
+  return res.json();
+}
+
+export async function createConversation(caseId?: string): Promise<Conversation> {
+  const res = await cfetch(`${BASE_URL}/v1/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(caseId ? { case_id: caseId } : {}),
+  });
+  if (!res.ok) throw new Error(`createConversation ${res.status}`);
+  return res.json();
+}
+
+export async function getConversation(id: string): Promise<ConversationDetail> {
+  const res = await cfetch(`${BASE_URL}/v1/conversations/${id}`);
+  if (!res.ok) throw new Error(`getConversation ${res.status}`);
+  return res.json();
+}
+
+export async function patchConversation(
+  id: string,
+  body: { title?: string; is_archived?: boolean },
+): Promise<Conversation> {
+  const res = await cfetch(`${BASE_URL}/v1/conversations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`patchConversation ${res.status}`);
+  return res.json();
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/conversations/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`deleteConversation ${res.status}`);
+}
+
+export async function stopStream(id: string): Promise<void> {
+  await cfetch(`${BASE_URL}/v1/conversations/${id}/stop`, { method: 'POST' });
+}
+
+export function parseSseBlock(raw: string): ChatStreamEvent | null {
+  let event = 'message';
+  let data = '';
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim();
+    else if (line.startsWith('data:')) data += line.slice(5).trim();
+  }
+  if (!data) return null;
+  try {
+    return { event: event as ChatStreamEvent['event'], data: JSON.parse(data) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST a message and stream the SSE response, invoking `onEvent` per event.
+ * EventSource is GET-only, so this is a POST + manual SSE parse over the fetch
+ * ReadableStream (web). On native (no streaming body) it falls back to reading
+ * the full response then replaying events — non-incremental but functional.
+ */
+export async function streamMessage(
+  conversationId: string,
+  content: string,
+  onEvent: (ev: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await cfetch(`${BASE_URL}/v1/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ content }),
+      signal,
+    });
+  } catch (e) {
+    onEvent({ event: 'error', data: { code: 'NETWORK', message: String(e) } });
+    onEvent({ event: 'done', data: {} });
+    return;
+  }
+
+  if (res.status === 429) {
+    const body = await res.json().catch(() => ({}));
+    onEvent({ event: 'error', data: { code: body.code ?? 'RATE_LIMITED', ...body } });
+    onEvent({ event: 'done', data: {} });
+    return;
+  }
+
+  const stream = res.body as ReadableStream<Uint8Array> | null;
+  if (!res.ok || !stream || typeof stream.getReader !== 'function') {
+    // Native / no-streaming fallback: read it all, replay events.
+    const text = await res.text().catch(() => '');
+    if (!res.ok && !text) {
+      onEvent({ event: 'error', data: { code: `HTTP_${res.status}`, message: '' } });
+    }
+    for (const block of text.split('\n\n')) {
+      const ev = parseSseBlock(block);
+      if (ev) onEvent(ev);
+    }
+    if (!text) onEvent({ event: 'done', data: {} });
+    return;
+  }
+
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      const ev = parseSseBlock(block);
+      if (ev) onEvent(ev);
+    }
+  }
+}
