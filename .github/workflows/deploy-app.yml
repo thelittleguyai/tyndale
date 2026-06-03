@@ -1,4 +1,4 @@
-name: deploy-app
+name: Deploy Dev App
 
 # Builds the Expo static web export (apps/mobile/Dockerfile, context = repo root
 # so workspace deps resolve), pushes it to GHCR, and rolls the dev product app

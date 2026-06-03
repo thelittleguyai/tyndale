@@ -1,4 +1,4 @@
-name: deploy-admin
+name: Deploy Dev Admin
 
 # Builds the Next.js admin console image from apps/admin/Dockerfile (context is
 # repo root so workspace deps resolve), pushes it to GHCR, and rolls the dev

@@ -1,4 +1,4 @@
-name: deploy-runtime
+name: Deploy Dev Runtime
 
 # Builds the FastAPI runtime image from runtime/Dockerfile, pushes it to GHCR,
 # then rolls the dev Container App to the new SHA-tagged image.

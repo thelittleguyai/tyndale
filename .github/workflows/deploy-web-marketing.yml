@@ -1,4 +1,4 @@
-name: deploy-web-marketing
+name: Deploy Dev Marketing
 
 # Builds the Next.js marketing image from apps/web-marketing/Dockerfile (context
 # is repo root so workspace deps resolve), pushes it to GHCR, and rolls the
