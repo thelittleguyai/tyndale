@@ -19,6 +19,13 @@ voyage_api_key             = "pa-REPLACE_ME"
 google_oauth_client_id     = "REPLACE_ME.apps.googleusercontent.com"
 google_oauth_client_secret = "GOCSPX-REPLACE_ME"
 
+# Real-Claude toggle. false (default) = runtime serves deterministic fixtures
+# (zero API cost — what you get if this line is omitted). true = chat + audits
+# call the real Anthropic API directly, using the anthropic_api_key above, which
+# must be a real "sk-…" key or the runtime SILENTLY falls back to fixtures.
+# Costs money per request. Set in terraform.tfvars (not just here) and apply.
+use_real_claude = true
+
 # --- Auth + email -----------------------------------------------------------
 # NOTE: there is intentionally NO auth_secret here. The runtime's JWT signing
 # key (env AUTH_SECRET) has no external counterpart, so Terraform auto-
