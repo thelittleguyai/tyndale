@@ -58,6 +58,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The runtime loads agent/chat system prompts (and the Qdrant fixtures) from
+      # intelligence-layer/ at runtime. The build context is ./runtime, so stage a
+      # copy in first; the Dockerfile's `COPY . .` then lands it at
+      # /app/intelligence-layer (surfaced via TYNDALE_INTELLIGENCE_LAYER_ROOT).
+      - name: Stage intelligence-layer into the build context
+        run: cp -r intelligence-layer runtime/intelligence-layer
+
       - name: Build and push runtime image
         uses: docker/build-push-action@v6
         with:

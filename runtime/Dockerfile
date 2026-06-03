@@ -25,7 +25,8 @@ WORKDIR /app
 COPY --from=builder /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    TYNDALE_INTELLIGENCE_LAYER_ROOT=/app/intelligence-layer
 
 EXPOSE 4000
 

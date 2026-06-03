@@ -44,6 +44,12 @@ variable "anthropic_api_key" {
   description = "Anthropic API key for the runtime (Claude calls)."
 }
 
+variable "use_real_claude" {
+  type        = bool
+  default     = false
+  description = "When true, the runtime calls the real Claude API (direct Anthropic) instead of the deterministic fixtures. Real calls cost money per request — set to true in terraform.tfvars to enable live chat/audit, leave false for fixture-only dev."
+}
+
 variable "voyage_api_key" {
   type        = string
   sensitive   = true

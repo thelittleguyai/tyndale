@@ -9,3 +9,8 @@ __pycache__
 .env.*.local
 tests
 *.md
+
+# Keep the CI-staged intelligence-layer prompts (.md) + fixtures in the image —
+# overrides the *.md / tests excludes above. See deploy-runtime.yml staging step.
+!intelligence-layer
+!intelligence-layer/**

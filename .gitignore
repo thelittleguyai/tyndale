@@ -26,6 +26,10 @@ __pycache__
 .pytest_cache
 .venv
 
+# CI-staged copy of intelligence-layer into the runtime image build context
+# (deploy-runtime.yml: `cp -r intelligence-layer runtime/intelligence-layer`)
+runtime/intelligence-layer/
+
 # Terraform
 .terraform
 *.tfstate*

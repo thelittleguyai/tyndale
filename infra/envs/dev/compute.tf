@@ -105,10 +105,14 @@ resource "azurerm_container_app" "runtime" {
         # qdrant-client defaults a portless URL to 6333.
         value = "http://${azurerm_container_app.qdrant.ingress[0].fqdn}:80"
       }
+      # Real Claude via DIRECT Anthropic. LITELLM_PROXY_URL is intentionally unset so
+      # the runtime's _client() goes straight to the Anthropic API — the litellm proxy
+      # config/hardening is the security contact's Phase-4 work. Re-add LITELLM_PROXY_URL
+      # (http://...litellm...:80) once that proxy is configured. Real calls are gated on
+      # `use_real_claude` (terraform.tfvars; $ per call; default false).
       env {
-        name = "LITELLM_PROXY_URL"
-        # Same as QDRANT_URL: hit the ingress port (:80), not the container's 4000.
-        value = "http://${azurerm_container_app.litellm.ingress[0].fqdn}:80"
+        name  = "USE_REAL_CLAUDE"
+        value = tostring(var.use_real_claude)
       }
       env {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
