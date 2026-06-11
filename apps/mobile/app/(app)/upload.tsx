@@ -15,11 +15,13 @@
  */
 
 import { useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FileText, Plus, X } from 'lucide-react-native';
 
 import { extractLineItems, uploadDocuments } from '../../lib/api-client';
+import { PressableScale } from '../../components/ui/PressableScale';
+import { Screen } from '../../components/ui/Screen';
 
 type Queued = { id: string; file: File; name: string; size: number };
 
@@ -73,9 +75,12 @@ export default function UploadScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
-      <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-        <Text className="text-sm text-white/60">← Back to dashboard</Text>
+    <Screen className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
+      <Pressable
+        onPress={() => router.push('/')}
+        className="mb-5 self-start active:opacity-70"
+      >
+        <Text className="text-sm text-white/60 hover:text-white/90">← Back to dashboard</Text>
       </Pressable>
 
       <View className="mb-6 rounded-2xl bg-teal-deep p-5">
@@ -98,14 +103,14 @@ export default function UploadScreen() {
             style={{ display: 'none' }}
           />
           {queue.length === 0 ? (
-            <Pressable
+            <PressableScale
               onPress={pickFiles}
-              className="items-center rounded-2xl border-2 border-dashed border-white/20 bg-navy-soft p-8"
+              className="items-center rounded-2xl border-2 border-dashed border-white/20 bg-navy-soft p-8 shadow-card hover:border-sage/50"
             >
               <Plus size={24} color="#3DAA7E" />
               <Text className="mt-2 text-base font-semibold text-white">Add documents</Text>
               <Text className="mt-1 text-xs text-white/50">PDF or image — pick one or several</Text>
-            </Pressable>
+            </PressableScale>
           ) : (
             <View>
               {queue.map((q) => (
@@ -122,23 +127,23 @@ export default function UploadScreen() {
                     </Text>
                     <Text className="text-xs text-white/50">{prettyBytes(q.size)}</Text>
                   </View>
-                  <Pressable
+                  <PressableScale
                     onPress={() => remove(q.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${q.name}`}
-                    className="h-8 w-8 items-center justify-center rounded-full bg-white/5"
+                    className="h-8 w-8 items-center justify-center rounded-full bg-white/5 hover:bg-white/15"
                   >
                     <X size={16} color="rgba(255,255,255,0.7)" />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ))}
-              <Pressable
+              <PressableScale
                 onPress={pickFiles}
-                className="mt-1 flex-row items-center gap-2 self-start rounded-lg bg-white/5 px-3 py-2"
+                className="mt-1 flex-row items-center gap-2 self-start rounded-lg bg-white/5 px-3 py-2 hover:bg-white/10"
               >
                 <Plus size={16} color="#3DAA7E" />
                 <Text className="text-sm font-semibold text-sage">Add another</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           )}
         </>
@@ -151,13 +156,13 @@ export default function UploadScreen() {
         </View>
       )}
 
-      <Pressable
+      <PressableScale
         disabled={queue.length === 0 || uploading}
         onPress={submitAll}
         className={
           queue.length === 0 || uploading
             ? 'mt-6 items-center rounded-xl bg-white/10 px-4 py-4'
-            : 'mt-6 items-center rounded-xl bg-sage px-4 py-4'
+            : 'mt-6 items-center rounded-xl bg-sage px-4 py-4 shadow-card hover:bg-sage-deep'
         }
       >
         <Text
@@ -173,7 +178,7 @@ export default function UploadScreen() {
               ? 'Select documents to start'
               : `Submit ${queue.length} document${queue.length === 1 ? '' : 's'}`}
         </Text>
-      </Pressable>
+      </PressableScale>
 
       {progress ? <Text className="mt-4 text-sm text-sage">{progress}</Text> : null}
       {error ? <Text className="mt-4 text-sm text-rose">Upload failed: {error}</Text> : null}
@@ -182,6 +187,6 @@ export default function UploadScreen() {
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
         advice.
       </Text>
-    </ScrollView>
+    </Screen>
   );
 }

@@ -25,6 +25,10 @@ import { getIntakeState, uploadDocuments, type UploadedDoc } from './api-client'
 // Cached across step navigations so each screen shares one case file.
 let _caseId: string | null = null;
 
+/** One friendly save-failure message, shared by every step (no raw errors in the UI). */
+export const SAVE_ERROR_MESSAGE =
+  "We couldn't save that — check your connection and try again.";
+
 export function nextStep(step: IntakeStep): IntakeStep {
   const i = INTAKE_STEPS.indexOf(step);
   return INTAKE_STEPS[Math.min(i + 1, INTAKE_STEPS.length - 1)];
@@ -48,7 +52,7 @@ export function useWizard() {
         _caseId = s.case_file_id;
         setState(s);
       })
-      .catch((e) => alive && setError(e?.message ?? String(e)))
+      .catch(() => alive && setError("We couldn't load your progress — check your connection and try again."))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -180,8 +184,8 @@ export function UploadField({
     try {
       const res = await uploadDocuments(Array.from(picked), caseId);
       onUploaded(res.uploads);
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
+    } catch {
+      setError("We couldn't upload that — check your connection and try again.");
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -210,7 +214,7 @@ export function UploadField({
         )}
         <Text className="mt-1 text-xs text-white/50">PDF or image — pick one or several</Text>
       </Pressable>
-      {error ? <Text className="mt-2 text-sm text-rose">Upload failed: {error}</Text> : null}
+      {error ? <Text className="mt-2 text-sm text-rose">{error}</Text> : null}
     </View>
   );
 }
@@ -249,12 +253,16 @@ export function WizardShell({
       className="flex-1 bg-navy-deep"
       contentContainerStyle={{ padding: 20, paddingTop: 22, paddingBottom: 48 }}
     >
+      <View className="w-full max-w-2xl self-center">
       <View className="mb-5">
         <View className="mb-3 flex-row items-start justify-between">
           <View className="flex-1 pr-3">
             <ProgressBar step={step} />
           </View>
-          <Pressable onPress={() => router.push('/' as never)} className="pt-4">
+          <Pressable
+            onPress={() => router.push('/' as never)}
+            className="-mr-2 min-h-[44px] justify-center px-3 py-2"
+          >
             <Text className="text-xs font-semibold text-white/60">Save &amp; exit</Text>
           </Pressable>
         </View>
@@ -308,6 +316,7 @@ export function WizardShell({
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or
         financial advice.
       </Text>
+      </View>
     </ScrollView>
   );
 }

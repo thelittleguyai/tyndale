@@ -17,8 +17,11 @@ export default function CompleteStep() {
         const state = await getIntakeState();
         const s = await completeIntake(state.case_file_id);
         if (alive) setSummary(s);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? String(e));
+      } catch {
+        if (alive)
+          setError(
+            "We couldn't wrap things up just now — your answers are saved, so head to your dashboard and we'll pick it up from there.",
+          );
       } finally {
         if (alive) setLoading(false);
       }

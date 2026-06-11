@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import { intakeManualEntry, intakeSkipStep } from '../../lib/api-client';
 import {
   Field,
+  SAVE_ERROR_MESSAGE,
   UploadField,
   WizardLoading,
   WizardShell,
@@ -25,12 +26,14 @@ export default function BenefitsStep() {
   const [copaySpec, setCopaySpec] = useState('');
   const [sbcUploaded, setSbcUploaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
   const onContinue = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeManualEntry(
         'benefits',
@@ -45,6 +48,7 @@ export default function BenefitsStep() {
       );
       goToStep('deductible');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -52,10 +56,12 @@ export default function BenefitsStep() {
   const onSkip = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeSkipStep('benefits', caseId);
       goToStep('deductible');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -69,7 +75,7 @@ export default function BenefitsStep() {
       example="A Summary of Benefits and Coverage (SBC) — usually a few pages from your insurer"
       onContinue={onContinue}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
       skippable
       onSkip={onSkip}
     >

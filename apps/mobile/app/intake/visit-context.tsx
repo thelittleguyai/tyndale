@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { setVisitContext } from '../../lib/api-client';
-import { WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+import {
+  SAVE_ERROR_MESSAGE,
+  WizardLoading,
+  WizardShell,
+  goToStep,
+  useWizard,
+} from '../../lib/intake-ui';
 
 const MAX = 500;
 
@@ -10,16 +16,19 @@ export default function VisitContextStep() {
   const { caseId, state, loading, error } = useWizard();
   const [text, setText] = useState(state?.captured_data.visit_context ?? '');
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
   const onContinue = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await setVisitContext(text.slice(0, MAX), caseId);
       goToStep('complete');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -32,7 +41,7 @@ export default function VisitContextStep() {
       why="This helps me understand the context of your bill. The right care at the right level should cost a predictable amount; if there's a mismatch, I'll catch it."
       onContinue={onContinue}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
       skippable
       onSkip={onContinue}
     >

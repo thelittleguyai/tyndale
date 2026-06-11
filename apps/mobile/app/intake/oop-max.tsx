@@ -1,7 +1,14 @@
 import { useState } from 'react';
 
 import { intakeManualEntry, intakeSkipStep } from '../../lib/api-client';
-import { Field, WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+import {
+  Field,
+  SAVE_ERROR_MESSAGE,
+  WizardLoading,
+  WizardShell,
+  goToStep,
+  useWizard,
+} from '../../lib/intake-ui';
 
 const num = (s: string): number | undefined => {
   const n = parseFloat(s.replace(/[^0-9.]/g, ''));
@@ -14,12 +21,14 @@ export default function OopMaxStep() {
   const [total, setTotal] = useState(cov.oop_max_amount ? String(cov.oop_max_amount) : '');
   const [met, setMet] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
   const onContinue = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeManualEntry(
         'oop-max',
@@ -28,6 +37,7 @@ export default function OopMaxStep() {
       );
       goToStep('bills');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -35,10 +45,12 @@ export default function OopMaxStep() {
   const onSkip = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeSkipStep('oop-max', caseId);
       goToStep('bills');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -51,7 +63,7 @@ export default function OopMaxStep() {
       why="Once you hit your out-of-pocket max, you shouldn't owe anything more. I'll flag it if a bill ignores that."
       onContinue={onContinue}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
       skippable
       onSkip={onSkip}
     >

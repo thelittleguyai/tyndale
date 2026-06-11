@@ -2,12 +2,20 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { type UploadedDoc, intakeSkipStep } from '../../lib/api-client';
-import { UploadField, WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+import {
+  SAVE_ERROR_MESSAGE,
+  UploadField,
+  WizardLoading,
+  WizardShell,
+  goToStep,
+  useWizard,
+} from '../../lib/intake-ui';
 
 export default function BillsStep() {
   const { caseId, state, loading, error } = useWizard();
   const [count, setCount] = useState(state?.captured_data.bills_count ?? 0);
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
@@ -16,10 +24,12 @@ export default function BillsStep() {
   const advance = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeSkipStep('bills', caseId);
       goToStep('eobs');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -34,7 +44,7 @@ export default function BillsStep() {
       onContinue={advance}
       continueLabel={count > 0 ? 'Continue' : 'Continue without a bill for now'}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
     >
       {caseId ? (
         <UploadField caseId={caseId} label="Add your medical bill(s)" onUploaded={onUploaded} />

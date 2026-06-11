@@ -1,3 +1,33 @@
+/* Real Inter (variable weights) for web so CSS font-weight mapping works —
+   expo-font registers each loaded face under its literal name
+   ("Inter_400Regular" etc.), which can't synthesize weights across faces. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Web typography ─────────────────────────────────────────────────────────
+   react-native-web doesn't inherit font-family into its generated div/span
+   text nodes, so set it on the document and force inheritance below #root.
+   Safe here: icons are SVG (lucide-react-native / react-native-svg) — no icon
+   fonts anywhere in the app — and nothing sets a custom fontFamily inline. */
+html,
+body {
+  font-family: 'Inter', Inter_400Regular, system-ui, -apple-system, sans-serif;
+}
+
+#root * {
+  font-family: inherit;
+}
+
+/* ── Web press/hover feedback ───────────────────────────────────────────────
+   Pressables render as [role="button"] on react-native-web; smooth out the
+   active:/hover:/pressed style flips. */
+#root [role='button'],
+#root button {
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}

@@ -12,6 +12,8 @@ import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getUserProfile, updateConsent, type UserProfile } from '../../lib/api-client';
+import { PressableScale } from '../../components/ui/PressableScale';
+import { Screen } from '../../components/ui/Screen';
 
 const CONSENT_FULL_TEXT = [
   'Help make Tyndale better. With your permission, we’ll use your bills, your feedback, and the outcomes of your cases — with all your personal information removed — to improve how Tyndale catches errors and helps people. This is optional, it never affects the service you receive, and you can turn it off anytime in Settings.',
@@ -58,9 +60,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
-      <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-        <Text className="text-sm text-white/60">← Back to dashboard</Text>
+    <Screen className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+      <Pressable
+        onPress={() => router.push('/')}
+        className="mb-5 self-start active:opacity-70"
+      >
+        <Text className="text-sm text-white/60 hover:text-white/90">← Back to dashboard</Text>
       </Pressable>
       <Text className="mb-6 text-3xl font-bold text-white">Settings</Text>
 
@@ -107,8 +112,13 @@ export default function SettingsScreen() {
             thumbColor="#fff"
           />
         </View>
-        <Pressable onPress={() => setConsentModal(true)} className="mt-3 self-start">
-          <Text className="text-xs font-semibold text-sage">What does this share?</Text>
+        <Pressable
+          onPress={() => setConsentModal(true)}
+          className="mt-3 self-start active:opacity-70"
+        >
+          <Text className="text-xs font-semibold text-sage hover:text-sage-deep">
+            What does this share?
+          </Text>
         </Pressable>
       </Section>
 
@@ -153,9 +163,12 @@ export default function SettingsScreen() {
             <ScrollView className="max-h-[60vh]">
               <Text className="text-sm leading-6 text-white/80">{CONSENT_FULL_TEXT}</Text>
             </ScrollView>
-            <Pressable onPress={() => setConsentModal(false)} className="mt-4 rounded-xl bg-white/10 px-4 py-3">
+            <PressableScale
+              onPress={() => setConsentModal(false)}
+              className="mt-4 rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+            >
               <Text className="text-center text-sm font-semibold text-white">Close</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </Modal>
@@ -171,30 +184,33 @@ export default function SettingsScreen() {
               because they no longer identify you.
             </Text>
             <View className="mt-5 flex-row gap-3">
-              <Pressable onPress={() => setDeleteModal(false)} className="flex-1 rounded-xl bg-white/10 px-4 py-3">
+              <PressableScale
+                onPress={() => setDeleteModal(false)}
+                className="flex-1 rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+              >
                 <Text className="text-center text-sm font-semibold text-white">Cancel</Text>
-              </Pressable>
-              <Pressable
+              </PressableScale>
+              <PressableScale
                 onPress={() => {
                   // Stub — real deletion endpoint is Phase 4.
                   setDeleteModal(false);
                   flash('Deletion requested (stub — wired in Phase 4).');
                 }}
-                className="flex-1 rounded-xl bg-rose px-4 py-3"
+                className="flex-1 rounded-xl bg-rose px-4 py-3 hover:opacity-90"
               >
                 <Text className="text-center text-sm font-bold text-white">Delete my account</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </Screen>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-4 rounded-2xl border border-white/10 bg-navy-soft p-5">
+    <View className="mb-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card">
       <Text className="mb-3 text-xs uppercase tracking-widest text-white/45">{title}</Text>
       {children}
     </View>
@@ -231,9 +247,12 @@ function LinkRow({
   tone?: 'rose';
 }) {
   return (
-    <Pressable onPress={onPress} className="mb-1 flex-row items-center justify-between py-1.5">
+    <PressableScale
+      onPress={onPress}
+      className="mb-1 -mx-2 flex-row items-center justify-between rounded-lg px-2 py-1.5 hover:bg-white/5"
+    >
       <Text className={tone === 'rose' ? 'text-sm text-rose' : 'text-sm text-white/90'}>{label}</Text>
       <Text className="text-sm text-white/30">›</Text>
-    </Pressable>
+    </PressableScale>
   );
 }

@@ -27,6 +27,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SvgXml } from 'react-native-svg';
 import {
   Calendar,
   CheckCircle2,
@@ -50,7 +51,10 @@ import {
   type DashboardPayload,
   type ResolvedValue,
 } from '../../lib/api-client';
+import { logoSvg } from '@tyndale/shared';
 import { HeroMotif } from '../../components/hero-motif';
+import { PressableScale } from '../../components/ui/PressableScale';
+import { ScreenView } from '../../components/ui/Screen';
 
 const formatUSD = (n: number) =>
   '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -100,7 +104,7 @@ export default function DashboardScreen() {
     >
       <Header firstName={data?.user.first_name ?? 'there'} />
 
-      <View className="px-5 pt-3">
+      <ScreenView wide className="px-5 pt-3">
         <Hero
           firstName={data?.user.first_name ?? 'there'}
           statusGreeting={data?.status_forward_greeting ?? null}
@@ -165,7 +169,7 @@ export default function DashboardScreen() {
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
-      </View>
+      </ScreenView>
     </ScrollView>
   );
 }
@@ -217,7 +221,7 @@ function OutcomeFollowupCard({
   };
 
   return (
-    <View className="mt-6 rounded-2xl border border-amber/30 bg-navy-soft p-5">
+    <View className="mt-6 rounded-2xl border border-amber/30 bg-navy-soft p-5 shadow-card">
       <View className="mb-2 flex-row items-center gap-3">
         <View className="h-9 w-9 items-center justify-center rounded-md bg-amber/20">
           <Clock size={18} color="#E08A3C" />
@@ -257,9 +261,9 @@ function OutcomeButton({
           : 'bg-white/10';
   const textCls = tone === 'ink' ? 'text-white/70' : 'text-ink';
   return (
-    <Pressable onPress={onPress} className={`rounded-lg px-3 py-2 ${cls}`}>
+    <PressableScale onPress={onPress} className={`rounded-lg px-3 py-2 ${cls}`}>
       <Text className={`text-xs font-bold ${textCls}`}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -285,9 +289,7 @@ function Header({ firstName }: { firstName: string }) {
   return (
     <View className="flex-row items-center justify-between bg-navy-soft px-5 py-3">
       <View className="flex-row items-center gap-2">
-        <View className="h-7 w-7 items-center justify-center rounded-md bg-teal-deep">
-          <View className="h-3.5 w-3.5 rounded-sm bg-cream" />
-        </View>
+        <SvgXml xml={logoSvg} width={28} height={28} />
         <Text className="text-base font-bold text-white">Tyndale</Text>
       </View>
       <View className="flex-row items-center gap-2">
@@ -298,7 +300,7 @@ function Header({ firstName }: { firstName: string }) {
             }}
             accessibilityRole="button"
             accessibilityHint="Opens the Tyndale admin console in a new tab"
-            className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5"
+            className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
           >
             <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
             <Text className="text-xs font-semibold text-white/80">Admin</Text>
@@ -307,7 +309,7 @@ function Header({ firstName }: { firstName: string }) {
         <Pressable
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
-          className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5"
+          className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 active:opacity-80"
         >
           <View className="h-5 w-5 items-center justify-center rounded-full bg-amber/80">
             <Text className="text-[10px] font-bold text-ink">
@@ -318,7 +320,7 @@ function Header({ firstName }: { firstName: string }) {
         </Pressable>
         <Pressable
           onPress={() => router.replace('/sign-in')}
-          className="rounded-full bg-white/5 px-3 py-1.5"
+          className="rounded-full bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
         >
           <Text className="text-xs font-semibold text-white/80">Sign Out</Text>
         </Pressable>
@@ -395,12 +397,12 @@ function CoverageRow1({
           Upload your insurance card so Tyndale can populate your deductible, out-of-pocket
           max, and copays here.
         </Text>
-        <Pressable
+        <PressableScale
           onPress={onUploadPress}
-          className="mt-3 self-start rounded-md bg-sage px-3 py-2"
+          className="mt-3 self-start rounded-md bg-sage px-3 py-2 hover:bg-sage-deep"
         >
           <Text className="text-xs font-bold text-ink">Upload insurance card</Text>
-        </Pressable>
+        </PressableScale>
       </View>
     );
   }
@@ -431,7 +433,7 @@ function CoverageTile({
 }) {
   if (!meter) {
     return (
-      <View className="flex-1 rounded-xl bg-white p-4">
+      <View className="flex-1 rounded-xl bg-white p-4 shadow-card">
         <Text className="text-sm font-semibold text-ink">{label}</Text>
         <Text className="mt-2 text-xs text-ink/60">Pending extraction…</Text>
       </View>
@@ -439,7 +441,7 @@ function CoverageTile({
   }
   const pct = Math.max(0, Math.min(1, meter.total > 0 ? meter.met / meter.total : 0));
   return (
-    <View className="flex-1 rounded-xl bg-white p-4">
+    <View className="flex-1 rounded-xl bg-white p-4 shadow-card">
       <View className="flex-row items-baseline justify-between">
         <Text className="text-sm font-semibold text-ink">{label}</Text>
         <Text className="text-sm font-semibold text-ink">
@@ -528,7 +530,7 @@ function CopayTile({
   amount: number | null;
 }) {
   return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-white p-4">
+    <View className="min-w-[160px] flex-1 rounded-xl bg-white p-4 shadow-card">
       <View className="flex-row items-center gap-3">
         <View className={`h-9 w-9 items-center justify-center rounded-md ${iconBgClass}`}>
           <Icon size={18} color={iconColor} />
@@ -546,7 +548,7 @@ function CopayTile({
 
 function AmountSavedCard({ amount }: { amount: number }) {
   return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-sage-tint p-4">
+    <View className="min-w-[160px] flex-1 rounded-xl bg-sage-tint p-4 shadow-card">
       <View className="flex-row items-center gap-3">
         <View className="h-9 w-9 items-center justify-center rounded-md bg-sage-soft">
           <CheckCircle2 size={18} color="#2E8862" />
@@ -573,25 +575,25 @@ function QuickActionTile({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      className="min-w-[260px] flex-1 rounded-2xl border border-white/10 bg-navy-soft p-5"
+      className="min-w-[260px] flex-1 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
     >
       <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
         <Icon size={18} color="#ffffff" />
       </View>
       <Text className="mt-4 text-base font-bold text-white">{title}</Text>
       <Text className="mt-1 text-xs leading-5 text-white/55">{subtitle}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 // ─── Chat CTA ──────────────────────────────────────────────────────────────
 function ChatCTA({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      className="mt-6 flex-row items-center gap-4 rounded-2xl bg-teal-deep p-5"
+      className="mt-6 flex-row items-center gap-4 rounded-2xl bg-teal-deep p-5 shadow-card hover:bg-teal"
     >
       <View className="h-10 w-10 items-center justify-center rounded-md bg-white/10">
         <MessageSquare size={20} color="#ffffff" />
@@ -606,7 +608,7 @@ function ChatCTA({ onPress }: { onPress: () => void }) {
         <View className="h-1.5 w-1.5 rounded-full bg-sage" />
         <Text className="text-[10px] font-semibold text-white/80">Available now</Text>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 

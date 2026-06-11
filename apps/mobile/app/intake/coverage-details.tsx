@@ -1,7 +1,14 @@
 import { useState } from 'react';
 
 import { intakeManualEntry } from '../../lib/api-client';
-import { Field, WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+import {
+  Field,
+  SAVE_ERROR_MESSAGE,
+  WizardLoading,
+  WizardShell,
+  goToStep,
+  useWizard,
+} from '../../lib/intake-ui';
 
 export default function CoverageDetailsStep() {
   const { caseId, state, loading, error } = useWizard();
@@ -11,12 +18,14 @@ export default function CoverageDetailsStep() {
   const [memberId, setMemberId] = useState(cov.member_id ?? '');
   const [group, setGroup] = useState(cov.group_number ?? '');
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
   const onContinue = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeManualEntry(
         'coverage-details',
@@ -25,6 +34,7 @@ export default function CoverageDetailsStep() {
       );
       goToStep('benefits');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -37,7 +47,7 @@ export default function CoverageDetailsStep() {
       why="These let me identify which plan rules apply to your bills."
       onContinue={onContinue}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
     >
       <Field label="Insurer" value={payer} onChangeText={setPayer} placeholder="e.g. Aetna" />
       <Field label="Plan name" value={plan} onChangeText={setPlan} placeholder="e.g. Choice POS II" />

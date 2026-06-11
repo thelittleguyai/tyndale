@@ -17,6 +17,25 @@ module.exports = {
         rose: { DEFAULT: '#C75252', soft: '#F7E0E0' },
         line: { DEFAULT: '#E4DFD5', soft: '#EFEAE0', card: '#ECE6D9', dark: '#1F3340' },
       },
+      fontFamily: {
+        // First entry is the expo-font-registered family (works on native and
+        // is registered as an @font-face on web); 'Inter' is the Google Fonts
+        // import in global.css so CSS weight mapping works properly on web.
+        sans: ['Inter_400Regular', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      // Token radii from @tyndale/shared design-tokens (radii = {sm:8, md:14, lg:20}).
+      // Namespaced so Tailwind's default rounded-sm/md/lg scale (used throughout
+      // the existing screens) keeps rendering unchanged.
+      borderRadius: {
+        'token-sm': '8px',
+        'token-md': '14px',
+        'token-lg': '20px',
+      },
+      // Token shadows from @tyndale/shared design-tokens (shadows.card / shadows.elev).
+      boxShadow: {
+        card: '0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05)',
+        elev: '0 2px 4px rgba(15, 42, 40, 0.05), 0 8px 24px rgba(15, 42, 40, 0.08)',
+      },
     },
   },
   plugins: [],

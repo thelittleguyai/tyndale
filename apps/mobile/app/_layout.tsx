@@ -1,13 +1,26 @@
 import '../global.css';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import {
   useFonts,
   Inter_400Regular,
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+
+// Native default font. Web gets Inter via global.css (html/body + #root
+// inherit); native <Text> needs an explicit family, so default every Text to
+// the expo-loaded face. defaultProps isn't in RN's types — hence `as any` —
+// but remains the pragmatic way to set an app-wide Text default.
+if (Platform.OS !== 'web') {
+  const TextAny = Text as any;
+  TextAny.defaultProps = TextAny.defaultProps ?? {};
+  TextAny.defaultProps.style = [
+    { fontFamily: 'Inter_400Regular' },
+    TextAny.defaultProps.style,
+  ];
+}
 
 export default function RootLayout() {
   // Load Inter. We render regardless of load state so a font hiccup never blanks

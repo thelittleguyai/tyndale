@@ -2,12 +2,20 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { type UploadedDoc, intakeSkipStep } from '../../lib/api-client';
-import { UploadField, WizardLoading, WizardShell, goToStep, useWizard } from '../../lib/intake-ui';
+import {
+  SAVE_ERROR_MESSAGE,
+  UploadField,
+  WizardLoading,
+  WizardShell,
+  goToStep,
+  useWizard,
+} from '../../lib/intake-ui';
 
 export default function EobsStep() {
   const { caseId, state, loading, error } = useWizard();
   const [count, setCount] = useState(state?.captured_data.eobs_count ?? 0);
   const [busy, setBusy] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
@@ -16,10 +24,12 @@ export default function EobsStep() {
   const advance = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeSkipStep('eobs', caseId);
       goToStep('visit-context');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -33,7 +43,7 @@ export default function EobsStep() {
       example="An 'Explanation of Benefits' from your insurer — says 'This is not a bill' at the top"
       onContinue={advance}
       busy={busy}
-      error={error}
+      error={error ?? saveErr}
       skippable
       onSkip={advance}
     >

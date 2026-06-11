@@ -10,6 +10,7 @@ import {
 } from '../../lib/api-client';
 import {
   Field,
+  SAVE_ERROR_MESSAGE,
   UploadField,
   WizardLoading,
   WizardShell,
@@ -24,6 +25,7 @@ export default function InsuranceCardStep() {
   const [corrections, setCorrections] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [extractErr, setExtractErr] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   if (loading) return <WizardLoading />;
 
@@ -35,14 +37,17 @@ export default function InsuranceCardStep() {
       setConfs(ack.confirmations);
       // Seed corrections with the read values (user can edit the ones that are off).
       setCorrections(Object.fromEntries(ack.confirmations.map((c) => [c.field, c.read_value])));
-    } catch (e: any) {
-      setExtractErr(e?.message ?? String(e));
+    } catch {
+      setExtractErr(
+        "We couldn't read that photo — try another shot, or skip and type the details in next.",
+      );
     }
   };
 
   const advance = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       if (confs.length) {
         await intakeManualEntry('insurance-card', corrections, caseId);
@@ -51,6 +56,7 @@ export default function InsuranceCardStep() {
       }
       goToStep('coverage-details');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -58,10 +64,12 @@ export default function InsuranceCardStep() {
   const onSkip = async () => {
     if (!caseId) return;
     setBusy(true);
+    setSaveErr(null);
     try {
       await intakeSkipStep('insurance-card', caseId);
       goToStep('coverage-details');
     } catch {
+      setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
     }
   };
@@ -76,7 +84,7 @@ export default function InsuranceCardStep() {
       onContinue={advance}
       continueLabel={docs.length ? 'Looks good — continue' : 'Continue'}
       busy={busy}
-      error={error ?? extractErr}
+      error={error ?? saveErr ?? extractErr}
       skippable
       onSkip={onSkip}
     >
