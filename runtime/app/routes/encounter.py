@@ -8,23 +8,25 @@ The two-phase audit:
 
 The existing GET /v1/audit/{id} (audit.py) stays the final-result fetch; the
 mobile screen polls /status until 'audit_complete' before calling it.
+
+All routes require an authenticated session and case ownership (security fix:
+previously unauthenticated, exposing any case by UUID — IDOR).
 """
 
 from __future__ import annotations
 
-from uuid import UUID
-
 import structlog
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import (
     extract_line_items,
     finalize_audit,
     submit_confirmations,
 )
-from app.db.base import AsyncSessionLocal
-from app.db.models.case_files import CaseFile
+from app.auth import CurrentUser, current_user
+from app.db.session import get_session
+from app.routes.case_access import require_case_owner
 from app.schemas.encounter import (
     AuditStatusResponse,
     ConfirmationsAccepted,
@@ -36,30 +38,25 @@ router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
 
 
-def _validate_uuid(case_file_id: str) -> None:
-    try:
-        UUID(case_file_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="case_file_id must be a UUID") from None
-
-
 @router.post("/audit/{case_file_id}/extract", response_model=ExtractResult)
-async def extract(case_file_id: str) -> ExtractResult:
-    _validate_uuid(case_file_id)
+async def extract(
+    case_file_id: str,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ExtractResult:
+    await require_case_owner(case_file_id, user, session)
     return await extract_line_items(case_file_id)
 
 
 @router.get("/audit/{case_file_id}/line-items", response_model=ExtractResult)
-async def get_line_items(case_file_id: str) -> ExtractResult:
+async def get_line_items(
+    case_file_id: str,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ExtractResult:
     """Idempotent fetch — re-projects whatever line items are persisted without
     re-running the translate pass."""
-    _validate_uuid(case_file_id)
-    async with AsyncSessionLocal() as s:
-        cf = (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one_or_none()
-    if cf is None:
-        raise HTTPException(status_code=404, detail="case_file not found")
+    cf = await require_case_owner(case_file_id, user, session)
     if not cf.line_items:
         # Not extracted yet — run extraction now (idempotent).
         return await extract_line_items(case_file_id)
@@ -81,8 +78,10 @@ async def post_confirmations(
     case_file_id: str,
     body: ConfirmationsRequest,
     background: BackgroundTasks,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> ConfirmationsAccepted:
-    _validate_uuid(case_file_id)
+    await require_case_owner(case_file_id, user, session)
     if not body.confirmations:
         raise HTTPException(status_code=400, detail="confirmations must be non-empty")
     accepted = await submit_confirmations(case_file_id, body.confirmations)
@@ -92,12 +91,10 @@ async def post_confirmations(
 
 
 @router.get("/audit/{case_file_id}/status", response_model=AuditStatusResponse)
-async def get_status(case_file_id: str) -> AuditStatusResponse:
-    _validate_uuid(case_file_id)
-    async with AsyncSessionLocal() as s:
-        cf = (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one_or_none()
-    if cf is None:
-        raise HTTPException(status_code=404, detail="case_file not found")
+async def get_status(
+    case_file_id: str,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> AuditStatusResponse:
+    cf = await require_case_owner(case_file_id, user, session)
     return AuditStatusResponse(case_file_id=case_file_id, status=cf.status)

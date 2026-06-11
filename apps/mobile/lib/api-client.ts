@@ -130,7 +130,7 @@ export async function postAudit(case_file_id: string): Promise<AuditResult> {
 
 /** GET /v1/audit/{id} — fetch current state (used for the polling pattern). */
 export async function getAudit(case_file_id: string): Promise<AuditResult> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}`,
   );
   if (!res.ok) {
@@ -204,7 +204,7 @@ export type {
 
 /** POST /v1/audit/{id}/extract — Bill Detective translates line items. */
 export async function extractLineItems(case_file_id: string): Promise<ExtractResult> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/extract`,
     { method: 'POST' },
   );
@@ -214,7 +214,7 @@ export async function extractLineItems(case_file_id: string): Promise<ExtractRes
 
 /** GET /v1/audit/{id}/line-items — idempotent fetch for the verification UI. */
 export async function getLineItems(case_file_id: string): Promise<ExtractResult> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/line-items`,
   );
   if (!res.ok) throw new Error(`line-items fetch failed: ${res.status} ${await res.text()}`);
@@ -226,7 +226,7 @@ export async function submitConfirmations(
   case_file_id: string,
   confirmations: LineItemConfirmation[],
 ): Promise<ConfirmationsAccepted> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/confirmations`,
     {
       method: 'POST',
@@ -240,7 +240,7 @@ export async function submitConfirmations(
 
 /** GET /v1/audit/{id}/status — poll the case status. */
 export async function getAuditStatus(case_file_id: string): Promise<AuditStatusResponse> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/status`,
   );
   if (!res.ok) throw new Error(`status fetch failed: ${res.status} ${await res.text()}`);
@@ -285,7 +285,7 @@ export async function submitFeedback(event: FeedbackEvent): Promise<FeedbackAck>
 
 /** GET /v1/feedback/case/{id} — restore per-target rating state. */
 export async function getCaseFeedback(case_file_id: string): Promise<CaseFeedbackPayload> {
-  const res = await fetch(
+  const res = await cfetch(
     `${BASE_URL}/v1/feedback/case/${encodeURIComponent(case_file_id)}`,
   );
   if (!res.ok) throw new Error(`case feedback failed: ${res.status} ${await res.text()}`);

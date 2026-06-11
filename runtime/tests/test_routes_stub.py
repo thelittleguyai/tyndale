@@ -6,14 +6,19 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from app.stubs.fixtures import MRI_CASE_FILE_ID
-
-
 async def test_audit_returns_mri_fixture(client):
-    resp = await client.post("/v1/audit", json={"case_file_id": MRI_CASE_FILE_ID})
+    # /v1/audit now requires an owned case (IDOR fix): create one via upload
+    # first — the fixture path echoes whatever case_file_id it's given.
+    up = await client.post(
+        "/v1/upload", files={"file": ("bill.txt", b"sample bill", "text/plain")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+
+    resp = await client.post("/v1/audit", json={"case_file_id": case_id})
     assert resp.status_code == 200
     body = resp.json()
-    assert body["case_file_id"] == MRI_CASE_FILE_ID
+    assert body["case_file_id"] == case_id
     assert body["audit"]["provider_billed"] == 1200.0
     assert body["audit"]["eob_member_responsibility"] == 1200.0
     assert body["audit"]["tyndale_computed"] == 560.0
