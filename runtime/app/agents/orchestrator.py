@@ -23,7 +23,7 @@ from app.agents import bill_detective, lead_planner, math_person
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
-from app.db.models.feedback import FeedbackEvent, FeedbackTriageQueue
+from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
 from app.schemas.case_file import AuditResult, Citation, FindingOut, ThreeNumberAudit
 from app.schemas.encounter import (
