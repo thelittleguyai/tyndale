@@ -33,7 +33,7 @@ from app.config import get_settings
 from app.db.models.case_files import CaseFile
 from app.db.session import get_session
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
-from app.tools.ocr_tools import _bill_ocr_extract  # the registered fn
+from app.sources.extraction import run_document_ocr  # OCR engine (CO-12A: moved out of ocr_tools)
 
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
@@ -95,7 +95,7 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
             ),
         )
     uri = await _persist(content, filename)
-    ocr = await _bill_ocr_extract({"content_base64": base64.b64encode(content).decode(), "filename": filename})
+    ocr = await run_document_ocr({"content_base64": base64.b64encode(content).decode(), "filename": filename})
     document_type, confidence = _classify(ocr.get("ocr_text") or "")
     document_id = str(uuid.uuid4())
     entry: dict[str, Any] = {

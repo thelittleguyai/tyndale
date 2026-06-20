@@ -19,15 +19,18 @@ file. The EOB is the insurer's CLAIM — extracted to be audited, never adopted 
 - `case_file_id` (UUID, required).
 
 ## Returns
-**Return shape is identical to `fhir_get_eobs`** — claim ID, date of service, provider, line
-items (code, charge, allowed, plan paid, member responsibility), totals — PLUS
-`extraction_confidence` per value and `extraction_source` ("upload"). The case-file fields
-populated are the same, so downstream subagents are agnostic to data source. Example:
+**Return shape is identical to `fhir_get_eobs`** — an `eob` object (claim ID, billed/allowed
+amounts, patient responsibility, remark codes) and `raw_ocr` — PLUS an additive **`provenance`**
+block (DL-69): `adapter`, `source_kind` (`user_upload` here), `as_of` (null for uploads),
+`confidence` (0.0–1.0), `assumptions[]`. `provenance.adapter` names the data source
+(`UserUploadedEOB` today; an fhir_get_eobs / OneUpHealth adapter later) so downstream subagents
+stay source-agnostic. The case-file fields populated are the same. Example:
 ```json
-{"claim_id":"CLM-…","date_of_service":"2026-03-14","provider":"Mercy Radiology",
- "line_items":[{"code":"70553","charge":1200,"allowed":1830,"plan_paid":1464,"member_responsibility":1200}],
- "totals":{"member_responsibility":1200},"extraction_confidence":{"line_items.0.allowed":0.9},
- "extraction_source":"upload"}
+{"eob":{"claim_id":"CLM-…","billed_amount":1200,"allowed_amount":830,
+  "patient_responsibility":370,"remark_codes":[]},
+ "provenance":{"adapter":"UserUploadedEOB","source_kind":"user_upload","as_of":null,
+  "confidence":0.3,"assumptions":["V1-Lite OCR heuristics; figures are the insurer's claim, audited not adopted"]},
+ "raw_ocr":{"…":"…"}}
 ```
 
 ## Errors and edge cases

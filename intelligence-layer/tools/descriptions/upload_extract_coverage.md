@@ -19,15 +19,21 @@ into the case file's coverage fields.
 - `case_file_id` (UUID, required).
 
 ## Returns
-**Return shape is identical to `fhir_get_coverage`** — plan name, payer, subscriber, member ID,
-group number, effective dates, deductible (individual/family, met/remaining), coinsurance %, OOP
-max (met/remaining), plan type — PLUS `extraction_confidence` (0.0–1.0) per value and
-`extraction_source` ("upload"). The case-file fields populated are the same, so downstream
-subagents are agnostic to data source. Example:
+**Return shape is identical to `fhir_get_coverage`** — a `coverage` object (plan name, payer,
+member ID, deductible/coinsurance/OOP amounts + met, network tier), a `coverage_terms_confidence`
+object (`{overall, notes}`), and `raw_ocr` — PLUS an additive **`provenance`** block (DL-69):
+`adapter`, `source_kind` (`user_upload` here), `as_of` (null for uploads), `confidence` (0.0–1.0),
+`assumptions[]`. `provenance.adapter` names the data source (`UserUploadedSBC` today; a
+OneUpHealth / eligibility adapter later) so downstream subagents stay source-agnostic. The
+case-file fields populated are the same. Example:
 ```json
-{"payer":"UnitedHealthcare","plan_type":"commercial","deductible":{"total":2500,"met":2100},
- "coinsurance":0.20,"oop_max":{"total":8000,"met":3200},"network_status":"in",
- "extraction_confidence":{"deductible.met":0.72,"coinsurance":0.95},"extraction_source":"upload"}
+{"coverage":{"plan_name":"Acme PPO","payer_name":"UnitedHealthcare","member_id":"…",
+  "deductible_amount":2500,"deductible_met":null,"coinsurance_percent":null,
+  "oop_max_amount":null,"oop_max_met":null,"network_tier":null},
+ "coverage_terms_confidence":{"overall":0.3,"notes":"V1-Lite OCR heuristics; user should confirm"},
+ "provenance":{"adapter":"UserUploadedSBC","source_kind":"user_upload","as_of":null,
+  "confidence":0.3,"assumptions":["V1-Lite OCR heuristics; user confirms low-confidence fields"]},
+ "raw_ocr":{"…":"…"}}
 ```
 
 ## Errors and edge cases
