@@ -161,12 +161,17 @@ def compute_accumulator(
 
 
 def completeness_signal(args: dict[str, Any] | None, coverage: dict | None) -> bool | None:
-    """The 'all of this plan year's EOBs uploaded' gate. Read from the call args
-    (what CO-12C's guided flow will pass) or a flag CO-12C may persist on the case
-    (coverage['_all_eobs_uploaded']). Unknown -> None (treated as unconfirmed)."""
+    """The 'all of this plan year's EOBs uploaded' gate. Read from the call args, or
+    the flag CO-12C's guided confirmation persists on the case
+    (coverage['all_plan_year_eobs_confirmed']). Unknown -> None (treated as
+    unconfirmed -> lower confidence + recorded assumption)."""
     if args and "all_eobs_uploaded" in args:
         return bool(args["all_eobs_uploaded"])
-    if coverage and "_all_eobs_uploaded" in coverage:
+    coverage = coverage or {}
+    # CO-12C guided flow sets this key via the intake "all plan-year EOBs?" question.
+    if "all_plan_year_eobs_confirmed" in coverage:
+        return bool(coverage["all_plan_year_eobs_confirmed"])
+    if "_all_eobs_uploaded" in coverage:  # back-compat (CO-12B interim key)
         return bool(coverage["_all_eobs_uploaded"])
     return None
 

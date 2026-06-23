@@ -30,7 +30,13 @@ from app.auth import CurrentUser, current_user
 from app.db.models.case_files import CaseFile
 from app.db.models.plan_library import PlanLibraryEntry
 from app.db.session import get_session
-from app.ingestion.extract_documents import extract_insurance_card
+from app.ingestion.bill_heuristics import detect_summary_bill
+from app.ingestion.extract_documents import (
+    _find_document,
+    _ocr_text_for,
+    extract_insurance_card,
+)
+from app.routes.upload import BENEFITS_DOC_ALIASES
 from app.schemas.intake import (
     INTAKE_STEPS,
     CapturedData,
@@ -76,6 +82,19 @@ _COVERAGE_SIGNAL_KEYS = (
     "plan_name",
     "deductible_amount",
     "oop_max_amount",
+)
+
+# CO-12C §4 guided-flow answers that merge into coverage: coordination of benefits,
+# plan effective date, the all-plan-year-EOBs completeness signal (read by CO-12B's
+# accumulator), and sibling-claim capture.
+_GUIDED_COVERAGE_KEYS = (
+    "has_secondary_coverage",
+    "secondary_coverage_detail",
+    "plan_effective_date",
+    "plan_year",
+    "all_plan_year_eobs_confirmed",
+    "has_sibling_claims",
+    "sibling_claim_date",
 )
 
 
@@ -430,3 +449,60 @@ async def reject_plan_proposal(
         case.intake_status = "in_progress"
     await session.commit()
     return _state(case)
+
+
+# --------------------------------------------------------------------------- #
+# Guided flows (CO-12C §4)
+# --------------------------------------------------------------------------- #
+@router.post("/intake/guided-answers", response_model=StepAck)
+async def guided_answers(
+    body: dict[str, Any] = Body(default_factory=dict),
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> StepAck:
+    """Persist the §4 guided-flow answers into coverage: coordination of benefits
+    (has_secondary_coverage), plan effective date / plan year (anchors CO-12B's
+    plan-year filtering on real dates), sibling-claim capture, and the
+    all_plan_year_eobs_confirmed completeness signal CO-12B's accumulator reads."""
+    case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
+    merged = {k: body[k] for k in _GUIDED_COVERAGE_KEYS if k in body and body[k] is not None}
+    if merged:
+        case.coverage = {**(case.coverage or {}), **merged}
+    if case.intake_status != "complete":
+        case.intake_status = "in_progress"
+    await session.commit()
+    return _ack(case)
+
+
+@router.post("/intake/bill-check")
+async def bill_check(
+    body: dict[str, Any] = Body(default_factory=dict),
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> dict[str, Any]:
+    """Summary-bill detection: flag a bill that looks like a summary (no line-level
+    CPT/HCPCS, round totals, balance-forward) and return a script to request an
+    itemized bill. Non-blocking — guidance only."""
+    case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
+    doc = _find_document(case.documents or [], str(body.get("document_id", ""))) or {}
+    return detect_summary_bill(await _ocr_text_for(doc))
+
+
+@router.get("/intake/benefits-doc-help")
+async def benefits_doc_help(
+    user: CurrentUser = Depends(current_user),
+) -> dict[str, Any]:
+    """The benefits document goes by many names — surface them, plus the
+    'I can often get this another way' framing that routes to the PlanLibrary
+    propose path when the user can't find any."""
+    return {
+        "aliases": list(BENEFITS_DOC_ALIASES),
+        "help_copy": (
+            "I need your plan's benefits summary — it might be called any of these. "
+            "Upload whichever one you have."
+        ),
+        "cannot_find_copy": (
+            "No problem — I can often get this another way. Let me check what I have on "
+            "file for your plan, and you can confirm it."
+        ),
+    }

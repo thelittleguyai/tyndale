@@ -39,6 +39,45 @@ router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
 
 
+# The benefits document goes by a dozen names — recognize them ALL as the
+# plan_summary type (CO-12C). Human-readable list (surfaced to the UI) + the
+# uppercase match markers. Acronyms are matched parenthesized "(SBC)" to avoid
+# false-positiving a bare "SBC"/"EOC" substring inside a bill.
+BENEFITS_DOC_ALIASES: tuple[str, ...] = (
+    "Summary of Benefits and Coverage (SBC)",
+    "Schedule of Benefits",
+    "Summary Plan Description (SPD)",
+    "Benefit Summary / Plan Summary",
+    "Certificate of Coverage (COC)",
+    "Evidence of Coverage (EOC)",
+    "Outline of Coverage",
+    "Member Benefit Booklet / Benefit Booklet / Member Handbook",
+    "Plan Document",
+    "Coverage Summary",
+    "Benefits at a Glance",
+)
+_BENEFITS_DOC_MARKERS: tuple[str, ...] = (
+    "SUMMARY OF BENEFITS",
+    "SCHEDULE OF BENEFITS",
+    "SUMMARY PLAN DESCRIPTION",
+    "BENEFIT SUMMARY",
+    "PLAN SUMMARY",
+    "CERTIFICATE OF COVERAGE",
+    "EVIDENCE OF COVERAGE",
+    "OUTLINE OF COVERAGE",
+    "BENEFIT BOOKLET",
+    "MEMBER HANDBOOK",
+    "PLAN DOCUMENT",
+    "COVERAGE SUMMARY",
+    "BENEFITS AT A GLANCE",
+    "CERTIFICATE OF INSURANCE",
+    "(SBC)",
+    "(SPD)",
+    "(COC)",
+    "(EOC)",
+)
+
+
 def _classify(ocr_text: str) -> tuple[str, float]:
     """Return (document_type, classification_confidence). Walking-skeleton keyword
     scan; Phase 2H/4 replaces with the upload_classify_document tool + a real model."""
@@ -47,7 +86,7 @@ def _classify(ocr_text: str) -> tuple[str, float]:
         return "eob", 0.9
     if "MEMBER ID" in t or "GROUP NUMBER" in t or "RX BIN" in t:
         return "insurance_card", 0.9
-    if "SUMMARY OF BENEFITS" in t or "PLAN SUMMARY" in t or "BENEFIT SUMMARY" in t:
+    if any(m in t for m in _BENEFITS_DOC_MARKERS):
         return "plan_summary", 0.85
     if "ADVERSE BENEFIT DETERMINATION" in t or "DENIAL" in t or "DENIED" in t or "NOT COVERED" in t:
         return "denial_letter", 0.8
@@ -67,7 +106,9 @@ async def _persist(content: bytes, filename: str) -> str:
             from azure.storage.blob.aio import BlobServiceClient
 
             cred = DefaultAzureCredential()
-            async with BlobServiceClient(account_url=settings.azure_storage_account_url, credential=cred) as svc:
+            async with BlobServiceClient(
+                account_url=settings.azure_storage_account_url, credential=cred
+            ) as svc:
                 container = svc.get_container_client(settings.azure_storage_uploads_container)
                 blob_name = f"{uuid.uuid4()}_{filename}"
                 await container.upload_blob(name=blob_name, data=content, overwrite=False)
@@ -95,7 +136,9 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
             ),
         )
     uri = await _persist(content, filename)
-    ocr = await run_document_ocr({"content_base64": base64.b64encode(content).decode(), "filename": filename})
+    ocr = await run_document_ocr(
+        {"content_base64": base64.b64encode(content).decode(), "filename": filename}
+    )
     document_type, confidence = _classify(ocr.get("ocr_text") or "")
     document_id = str(uuid.uuid4())
     entry: dict[str, Any] = {
@@ -141,7 +184,9 @@ async def upload(
             cf_uuid = UUID(case_file_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="case_file_id must be a UUID") from None
-        case = (await session.execute(select(CaseFile).where(CaseFile.case_file_id == cf_uuid))).scalar_one_or_none()
+        case = (
+            await session.execute(select(CaseFile).where(CaseFile.case_file_id == cf_uuid))
+        ).scalar_one_or_none()
         # 404 covers both not-found and not-owned (anti-enumeration).
         if case is None or case.user_id != user.user_id:
             raise HTTPException(status_code=404, detail="case_file not found")
