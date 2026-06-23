@@ -34,6 +34,22 @@ async def load_case_eobs_coverage(case_file_id: str) -> tuple[list[dict], dict |
     return list(case.eobs or []), case.coverage
 
 
+async def load_case_coverage_and_plan(case_file_id: str) -> tuple[dict | None, dict | None]:
+    """Return (coverage, plan_current) for a case, or (None, None) if the id is
+    invalid or the case doesn't exist. Used by the PlanLibrary CoverageSource."""
+    try:
+        cf_uuid = UUID(str(case_file_id))
+    except (ValueError, AttributeError, TypeError):
+        return None, None
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == cf_uuid))
+        ).scalar_one_or_none()
+    if case is None:
+        return None, None
+    return case.coverage, case.plan_current
+
+
 def parse_iso_date(value: Any) -> date | None:
     """Parse an ISO-ish date string to a date, or None. Tolerant of trailing time."""
     if not value:

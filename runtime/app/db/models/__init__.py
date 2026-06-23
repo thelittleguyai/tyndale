@@ -17,6 +17,7 @@ from app.db.models.feedback import (
 )
 from app.db.models.findings import Finding
 from app.db.models.magic_link import MagicLinkConsumed
+from app.db.models.plan_library import PlanLibraryEntry
 from app.db.models.transparency_rates import TransparencyRate, TransparencyRateStaging
 from app.db.models.users import User
 
@@ -39,4 +40,5 @@ __all__ = [
     "CronRunLog",
     "Conversation",
     "Message",
+    "PlanLibraryEntry",
 ]

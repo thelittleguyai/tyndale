@@ -51,6 +51,20 @@ class CapturedData(BaseModel):
     visit_context: str | None = None
 
 
+class PlanProposal(BaseModel):
+    """A stored plan-level benefit design proposed for one-tap confirmation (CO-12C).
+    Plan-level only — no PHI. The user confirms (writes through to coverage) or
+    rejects (forks a corrected design)."""
+
+    plan_library_id: str
+    payer: str
+    plan_name: str | None = None
+    plan_year: int
+    benefit_design: dict[str, Any] = Field(default_factory=dict)
+    confidence: int = 1
+    summary: str
+
+
 class IntakeStateResponse(BaseModel):
     case_file_id: str
     intake_status: str  # not_started | in_progress | complete
@@ -58,6 +72,8 @@ class IntakeStateResponse(BaseModel):
     completed_steps: list[str] = Field(default_factory=list)
     captured_data: CapturedData
     missing_items: list[str] = Field(default_factory=list)
+    # CO-12C: a pending PlanLibrary proposal to confirm before prompting for an SBC.
+    plan_proposal: PlanProposal | None = None
 
 
 class StepAck(BaseModel):

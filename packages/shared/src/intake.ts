@@ -46,6 +46,17 @@ export interface IntakeCapturedData {
   visit_context: string | null;
 }
 
+/** A stored plan-level benefit design proposed for one-tap confirmation (CO-12C). */
+export interface PlanProposal {
+  plan_library_id: string;
+  payer: string;
+  plan_name: string | null;
+  plan_year: number;
+  benefit_design: Record<string, unknown>;
+  confidence: number;
+  summary: string;
+}
+
 export interface IntakeStateResponse {
   case_file_id: string;
   intake_status: IntakeStatus;
@@ -53,6 +64,8 @@ export interface IntakeStateResponse {
   completed_steps: IntakeStep[];
   captured_data: IntakeCapturedData;
   missing_items: string[];
+  /** CO-12C: a pending PlanLibrary proposal to confirm before prompting for an SBC. */
+  plan_proposal?: PlanProposal | null;
 }
 
 export interface IntakeStepAck {

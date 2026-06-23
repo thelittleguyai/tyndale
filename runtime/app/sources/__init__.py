@@ -3,7 +3,8 @@
 Importing this package wires the default SourceRegistry: each interface gets its
 registered adapter(s) —
 
-    CoverageSource          -> UserUploadedSBC
+    CoverageSource          -> UserUploadedSBC (priority 100, primary)
+                               + PlanLibrary (priority 50, confirmed design)   [CO-12C]
     ClaimsSource            -> UserUploadedEOB
     AccumulatorSource       -> ComputedFromUploadedEOBs (priority 100, authoritative)
                                + EOBStatedYTD (priority 50, corroborating)   [CO-12B]
@@ -24,6 +25,7 @@ from typing import Any
 from app.sources.adapters.computed_from_uploaded_eobs import ComputedFromUploadedEOBs
 from app.sources.adapters.eob_stated_ytd import EOBStatedYTD
 from app.sources.adapters.placeholders import PlaceholderClinicalEncounter
+from app.sources.adapters.plan_library import PlanLibrary
 from app.sources.adapters.user_uploaded_eob import UserUploadedEOB
 from app.sources.adapters.user_uploaded_sbc import UserUploadedSBC
 from app.sources.base import (
@@ -42,6 +44,9 @@ from app.sources.registry import SourceRegistry
 
 _registry = SourceRegistry()
 _registry.register_adapter(CoverageSource, UserUploadedSBC(), priority=100)
+# PlanLibrary (CO-12C): confirmed plan-level design, consulted below the primary SBC
+# adapter. resolve(CoverageSource) still returns UserUploadedSBC (passthrough).
+_registry.register_adapter(CoverageSource, PlanLibrary(), priority=50)
 _registry.register_adapter(ClaimsSource, UserUploadedEOB(), priority=100)
 # AccumulatorSource (CO-12B): the deterministic reconstruction is authoritative; the
 # EOB-stated YTD is a corroborating reading for cross-validation (never adopted).

@@ -43,8 +43,13 @@ def test_registry_single_adapter_passthrough():
     reg = get_registry()
     cov = reg.resolve(CoverageSource)
     assert cov is resolve(CoverageSource)  # module-level resolve hits the default registry
-    assert reg.adapters_for(CoverageSource) == [cov]  # exactly one adapter today
-    assert type(cov).__name__ == "UserUploadedSBC"
+    assert type(cov).__name__ == "UserUploadedSBC"  # highest priority wins (passthrough)
+    # CO-12C registered PlanLibrary as a 2nd CoverageSource adapter; resolve() still
+    # returns only the top one, and PlanLibrary is also present.
+    assert {type(a).__name__ for a in reg.adapters_for(CoverageSource)} == {
+        "UserUploadedSBC",
+        "PlanLibrary",
+    }
     assert type(reg.resolve(ClaimsSource)).__name__ == "UserUploadedEOB"
 
 
