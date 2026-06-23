@@ -81,4 +81,5 @@ Filenames are preserved exactly. Grouped below by purpose, one line per file.
 - `03_improvement_consent.md` — Improvement/data-use consent (the second consent in the feedback loop).
 - `04_state_specific_rights_addendum.md` — State-specific privacy rights addendum.
 - `change_order_001_readds.md` — Change Order 001: the four behavioral additions folded into V1-Lite.
+- `build_update_phil_versionA_wrapper_ready.md` — Version A adjustments + wrapper-readiness (companion of record to CO-004 + CO-002 FINAL): the four data-interface seams, the `Provenance` object, Claude-for-Healthcare connector calls, and what "wrapper-ready" means. Approved by Brock 2026-06-20; implemented as Phases CO-12A–D and decisions DL-68 through DL-71. **Note:** the standalone CO-004 change-order document is referenced as the companion here but is not yet in the workspace — import it verbatim when Brock provides it.
 - `post_v1lite_agent_architecture_vision.md` — Parked post-V1-Lite "agent company" architecture vision.
