@@ -24,10 +24,17 @@ amounts, patient responsibility, remark codes) and `raw_ocr` — PLUS an additiv
 block (DL-69): `adapter`, `source_kind` (`user_upload` here), `as_of` (null for uploads),
 `confidence` (0.0–1.0), `assumptions[]`. `provenance.adapter` names the data source
 (`UserUploadedEOB` today; an fhir_get_eobs / OneUpHealth adapter later) so downstream subagents
-stay source-agnostic. The case-file fields populated are the same. Example:
+stay source-agnostic. The case-file fields populated are the same. CO-12B adds (additively)
+best-effort heuristic accumulator fields to `eob` — `adjudication_date`, `date_of_service`,
+`amount_applied_to_deductible`, `amount_applied_to_oop`, `network_status`, `deductible_ytd_stated`,
+`oop_ytd_stated` (low-confidence; null when not found) — which the AccumulatorSource engine sums.
+Example:
 ```json
 {"eob":{"claim_id":"CLM-…","billed_amount":1200,"allowed_amount":830,
-  "patient_responsibility":370,"remark_codes":[]},
+  "patient_responsibility":370,"remark_codes":[],
+  "adjudication_date":"2026-03-14","date_of_service":"2026-03-01",
+  "amount_applied_to_deductible":370,"amount_applied_to_oop":370,"network_status":"in",
+  "deductible_ytd_stated":null,"oop_ytd_stated":null},
  "provenance":{"adapter":"UserUploadedEOB","source_kind":"user_upload","as_of":null,
   "confidence":0.3,"assumptions":["V1-Lite OCR heuristics; figures are the insurer's claim, audited not adopted"]},
  "raw_ocr":{"…":"…"}}

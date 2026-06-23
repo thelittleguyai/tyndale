@@ -486,6 +486,7 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** Stedi and any real-time eligibility (270/271) integration are removed from V1-Lite + CO-002 scope. No eligibility vendor, no payer enrollment, no NPI-gating logic. The user's benefits, deductible, and out-of-pocket status come entirely from the guided capture in CO-002 Item 1.
 **Reasoning:** D2C app has no billing-provider NPI of its own; per-payer Stedi enrollment friction is high; guided capture covers the data need without the eligibility-vendor overhead.
 **Reversibility:** revisable far down the road if real-time eligibility becomes meaningfully valuable.
+**Conditionally superseded by:** DL-70 — the eligibility/NPI seam is built as gated-closed config (CO-12A), but DL-52's removal of the *adapter* holds until DL-70's three conditions (signed BAA, resolved NPI posture, formal DL-52 supersession) all clear.
 
 ## DL-53 — TiC MRFs ingested in initial cost-data pipeline
 
@@ -606,3 +607,43 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** The Medicare PFS adapter hardcodes the conversion factor (CF) as a default — currently 32.3465 for 2026. CMS publishes a new CF each year (typically in the Final Rule each November/December for the following year). The Medicare PFS ingestion path must be updated annually with the new CF. Operationally: (a) the constant `MEDICARE_CF_2026 = 32.3465` is replaced by `MEDICARE_CF_<year>` each January; (b) the `medicare_pfs_cron` logs a warning if `effective_year != current_year`, which surfaces as an admin-console alert; (c) a recurring annual calendar reminder for "Update Medicare CF" is part of the operational checklist.
 **Reasoning:** the CF directly drives Medicare allowable-amount calculations and the ghost-rate filter's anchor (DL-63). Using last year's CF in this year's estimates produces silent ~2-4% errors that compound across thousands of estimates. Better to fail loud than degrade silently — the warning forces the operational update.
 **Reversibility:** locked annual discipline; tied to CMS's publication cadence.
+
+## DL-68 — Four data interfaces as the canonical wrapper-readiness seam
+
+**Date:** 2026-06-20
+**Decided by:** Brock (founder), approving Phil's 2026-06-19 Version A / wrapper-readiness response
+**Decision:** Patient-specific data is read through four named interfaces — **CoverageSource** (benefit design), **AccumulatorSource** (amount spent toward deductible/OOP, as-of a date), **ClinicalEncounterSource** (visit date / reason / what was done), and **ClaimsSource** (billed-to-payer line data). Agents call these interfaces, never a parser or vendor directly. Each interface may have multiple adapters; the adapter layer decides precedence and cross-validates when more than one answers. CoverageSource + AccumulatorSource are paired behind a single `BenefitsContext` facade (they are read together, a vendor answers both in one call, and the three-way cross-validation lives in one place). The pattern is modeled on the already-shipped `knowledge/cost_estimation.py` multi-source aggregator and the existing `upload_extract_coverage` ≡ `fhir_get_coverage` return-shape convention — this formalizes a proven pattern, not new architecture. Wrapper (Jonas) registers `OneUpHealth*` / eligibility adapters later behind the same interfaces with zero agent change.
+**Reasoning:** the seam lets Version A (uploads + public data + computed) and the future vendor sources coexist behind one stable contract, so the agents never get rewritten when 1upHealth / an eligibility vendor lands. Conceptual risk is low because the code already does this for pricing.
+**Reversibility:** the four-interface cut is locked; the `BenefitsContext` grouping and per-interface adapter set evolve as adapters are added.
+
+## DL-69 — Typed `Provenance` object supersedes the bare `extraction_source` string
+
+**Date:** 2026-06-20
+**Decided by:** Brock (founder), approving Phil's 2026-06-19 response
+**Decision:** Every interface return (DL-68) carries a typed `Provenance` object — `adapter`, `source_kind` (`user_upload` | `public_data` | `computed` | `vendor`), `as_of`, `confidence`, `assumptions[]` — replacing the bare `extraction_source: "upload"` string currently emitted by the upload-extract tools. `as_of` is **mandatory** for AccumulatorSource (accumulator math is freshness-sensitive; the patient-data interfaces carry no as-of today). `Provenance` is a strict superset of what is persisted now, so the change is additive; it is threaded into the case file and findings. Shared model lives in `packages/shared` with a runtime mirror.
+**Reasoning:** makes every interface honest about where / when / how-sure the data is, which the Independent Audit and Grounding doctrines require; the missing `as_of` is the field the reconstruction engine is most sensitive to.
+**Reversibility:** locked shape; fields may be added, not removed.
+
+## DL-70 — Eligibility/NPI seam built as gated-closed config; adapter withheld pending three conditions
+
+**Date:** 2026-06-20
+**Decided by:** Brock (founder), approving Phil's 2026-06-19 response
+**Decision:** The eligibility seam (the AccumulatorSource + CoverageSource pair, where a Stedi/pVerify adapter would register, NPI-gated) is built **as config only** — an NPI-gating flag defaulted **closed**. No Stedi/pVerify adapter is implemented or enabled until **all three** conditions clear: (1) DL-52 is formally superseded, (2) the NPI posture is resolved (whether Tyndale obtains its own billing-provider NPI — the original DL-52 blocker), (3) a signed BAA covering the eligibility vendor is in place (the vendor is **not** in the DL-49 BAA-5, and the eligibility path needs PHI to function, so it cannot ride a non-BAA path). Brock owns the BAA + NPI-posture track on the founder side, running in parallel; it does not block CO-12A–D. The adapter stays gated-closed regardless of how fast that track moves. Conditionally supersedes DL-52 (forward-pointer added there).
+**Reasoning:** building the gate is cheap and reversible and keeps the seam ready; building the adapter now would be wasted work and a compliance reversal (DL-52 + non-BAA vendor).
+**Reversibility:** the gate is permanent config; the adapter unlocks only when the three conditions are jointly met.
+
+## DL-71 — Claude-for-Healthcare connector adopt/keep/re-point decisions
+
+**Date:** 2026-06-20
+**Decided by:** Brock (founder), approving Phil's 2026-06-19 response
+**Decision:** **Adopt** the FHIR-development Agent Skill (authoring acceleration for Jonas's wrapper; no runtime lock-in), the managed **ICD-10 connector** (no ICD-10 catalog exists today — only a code-extraction regex over NCD/LCD text), and the managed **NPI connector for lookup only**. **Keep self-built:** CMS NCD/LCD coverage ingestion (already shipped CO-2A, with staging/live promotion DL-59, effective-date filtering, ghost-rate discipline DL-63) and the sanctions join (OIG LEIE + SAM.gov + state boards + network status) — the NPI connector won't do that join; final NPI-vs-sanctions architecture is decided at find-a-doc build time. **Re-point:** the Prior-authorization-review Skill (built for the payer side) as a scaffold for appeals/visit-planning logic inverted to patient advocacy; its determination-for-payer stance is explicitly rejected. The three data connectors carry PHI-free public reference data, so the BAA constraint doesn't bind them — the decision is build-vs-maintenance economics only.
+**Reasoning:** adopt where a managed connector saves net engineering on data we'd otherwise build from scratch (ICD-10, NPI lookup); keep what is already shipped and load-bearing for the Independent Audit (CMS coverage) or that a connector can't replicate (sanctions join).
+**Reversibility:** per-connector calls are revisable; each swap that lands gets its own follow-on note.
+
+## DL-72 — Accumulator reconstruction is a pure deterministic engine with three-way cross-validation
+
+**Date:** 2026-06-23
+**Decided by:** Phil (CTO) during Phase CO-12B
+**Decision:** The AccumulatorSource (deductible/OOP met, as-of a date) is reconstructed by a **pure deterministic engine** (`ComputedFromUploadedEOBs`) that sums the applied-amounts across the uploaded EOBs — **never** a model/LLM computation. It is paired with `EOBStatedYTD` (the EOB's own stated year-to-date figures, read but **never adopted**). `BenefitsContext.get_accumulator` performs a **three-way cross-validation** of the computed reconstruction against (a) the EOB-stated YTD and (b) the user/card-stated `coverage.deductible_met` / `oop_max_met`; a material disagreement (> $1 **and** > 5%) emits exactly one `accumulator_discrepancy` Finding (`finding_type=payer_side`, `voice_tier=A`, `subagent_source=math_person`) carrying all three readings — the computed figure stays authoritative (Independent Audit Doctrine). The engine **degrades gracefully** rather than dead-ending: undated EOBs are included + flagged, missing family/embedded plan structure falls back to a single individual/in-network bucket with a recorded assumption, and a **completeness gate** ("all of this plan year's EOBs uploaded", read from the call args or a persisted `coverage._all_eobs_uploaded` flag) lowers `confidence` + records the assumption when unconfirmed. The registry resolver stays single-adapter passthrough (YAGNI per DL-68); the cross-validation is a bespoke step in `BenefitsContext`, not a generic n>1 merge engine.
+**Reasoning:** the accumulator is the load-bearing input to the Independent Audit's third number, so it must be computed independently of the payer's claim and reconciled against it — disagreement is a finding, not an error to smooth over. Determinism keeps the math auditable and reproducible; graceful degradation keeps it useful on the incomplete EOB sets real users have.
+**Reversibility:** the tolerance thresholds and the confidence formula are tunable; the deterministic + cross-validate + finding-on-disagreement discipline is locked.

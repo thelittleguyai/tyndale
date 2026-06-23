@@ -80,9 +80,12 @@ async def test_claims_adapter_returns_data_plus_provenance():
 
 # --- DL-69 as_of contract ---------------------------------------------------
 @pytest.mark.asyncio
-async def test_accumulator_placeholder_echoes_as_of():
+async def test_accumulator_empty_case_zero_confidence():
+    # CO-12B: the real engine (ComputedFromUploadedEOBs) now backs AccumulatorSource.
+    # An unknown/invalid case -> empty reconstruction -> 0.0 confidence, but still a
+    # valid result with a non-null as_of (DL-69).
     res = await resolve(AccumulatorSource).get_accumulator("cf", date(2026, 6, 1))
-    assert res.provenance.as_of is not None  # DL-69: accumulator carries a non-null as_of
+    assert res.provenance.as_of is not None
     assert res.provenance.confidence == 0.0
     assert res.provenance.source_kind == "computed"
 
@@ -149,13 +152,14 @@ async def test_upload_extract_coverage_tool_core_keys_unchanged():
 async def test_upload_extract_eob_tool_core_keys_unchanged():
     out = await call_tool("upload_extract_eob", _ARGS)
     assert isinstance(out["eob"], dict)
-    assert set(out["eob"]) == {
+    # CO-12B added accumulator fields to `eob` additively; the original keys remain.
+    assert {
         "claim_id",
         "billed_amount",
         "allowed_amount",
         "patient_responsibility",
         "remark_codes",
-    }
+    } <= set(out["eob"])
     assert isinstance(out["raw_ocr"], dict)
     assert isinstance(out["provenance"], dict)
     assert out["provenance"]["adapter"] == "UserUploadedEOB"

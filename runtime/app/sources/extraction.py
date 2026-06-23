@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import re
+from datetime import date
 from typing import Any
 
 import structlog
@@ -132,6 +133,51 @@ def _first_dollar(text: str, anchors: tuple[str, ...]) -> float | None:
     return None
 
 
+_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4}")
+
+
+def _to_iso(raw: str) -> str | None:
+    """Normalize a matched date token to ISO (YYYY-MM-DD), or None if unparseable."""
+    s = raw.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        return s
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2,4})", s)
+    if m:
+        mo, d, y = (int(g) for g in m.groups())
+        if y < 100:
+            y += 2000
+        try:
+            return date(y, mo, d).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _grep_date(text: str, anchors: tuple[str, ...]) -> str | None:
+    """First date token following any anchor, normalized to ISO. None if absent."""
+    upper = text.upper()
+    for anchor in anchors:
+        idx = upper.find(anchor)
+        if idx < 0:
+            continue
+        m = _DATE_RE.search(text[idx : idx + 120])
+        if m:
+            iso = _to_iso(m.group(0))
+            if iso:
+                return iso
+    return None
+
+
+def _network_status(text: str) -> str | None:
+    """'out' if the EOB mentions out-of-network, 'in' if in-network, else None."""
+    u = text.upper()
+    if "OUT-OF-NETWORK" in u or "OUT OF NETWORK" in u or "NON-NETWORK" in u:
+        return "out"
+    if "IN-NETWORK" in u or "IN NETWORK" in u:
+        return "in"
+    return None
+
+
 async def extract_coverage_payload(args: dict[str, Any]) -> dict[str, Any]:
     """Coverage dict from an uploaded insurance card — the pre-CO-12A
     ``upload_extract_coverage`` return: {coverage, coverage_terms_confidence, raw_ocr}.
@@ -163,8 +209,12 @@ async def extract_coverage_payload(args: dict[str, Any]) -> dict[str, Any]:
 
 
 async def extract_eob_payload(args: dict[str, Any]) -> dict[str, Any]:
-    """EOB dict from an uploaded EOB — the pre-CO-12A ``upload_extract_eob``
-    return: {eob, raw_ocr}."""
+    """EOB dict from an uploaded EOB — {eob, raw_ocr}.
+
+    The pre-CO-12A core keys (claim_id, billed_amount, allowed_amount,
+    patient_responsibility, remark_codes) are unchanged. CO-12B adds best-effort
+    heuristic fields the accumulator engine consumes; all are low-confidence and
+    None when not found (never guess a number/date)."""
     raw = await run_document_ocr(args)
     text = raw.get("ocr_text") or ""
 
@@ -177,6 +227,24 @@ async def extract_eob_payload(args: dict[str, Any]) -> dict[str, Any]:
                 text, ("PATIENT RESPONSIBILITY", "YOU OWE", "MEMBER RESPONSIBILITY")
             ),
             "remark_codes": [],
+            # --- CO-12B additive: accumulator-reconstruction inputs (heuristic, low-confidence) ---
+            "adjudication_date": _grep_date(
+                text, ("DATE PROCESSED", "PROCESSED ON", "ADJUDICATED", "PROCESSED")
+            ),
+            "date_of_service": _grep_date(text, ("DATE OF SERVICE", "SERVICE DATE", "DOS")),
+            "amount_applied_to_deductible": _first_dollar(
+                text, ("APPLIED TO DEDUCTIBLE", "DEDUCTIBLE APPLIED")
+            ),
+            "amount_applied_to_oop": _first_dollar(
+                text, ("APPLIED TO OUT-OF-POCKET", "APPLIED TO OOP", "OUT-OF-POCKET APPLIED")
+            ),
+            "network_status": _network_status(text),
+            "deductible_ytd_stated": _first_dollar(
+                text, ("DEDUCTIBLE YTD", "YTD DEDUCTIBLE", "DEDUCTIBLE MET TO DATE")
+            ),
+            "oop_ytd_stated": _first_dollar(
+                text, ("OUT-OF-POCKET YTD", "YTD OUT-OF-POCKET", "OOP MET TO DATE")
+            ),
         },
         "raw_ocr": raw,
     }
