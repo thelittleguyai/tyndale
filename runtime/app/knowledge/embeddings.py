@@ -8,6 +8,7 @@ meaningful — real relevance requires Voyage (Phase 2+).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import random
@@ -21,6 +22,11 @@ from app.knowledge.collections import COLLECTIONS
 log = structlog.get_logger(__name__)
 
 VOYAGE_EMBED_URL = "https://api.voyageai.com/v1/embeddings"
+
+# Retry transient Voyage failures (rate limits + 5xx) with exponential backoff so
+# a burst of seed/search batches doesn't fail the whole run on a 429.
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_MAX_EMBED_RETRIES = 5
 
 # collection -> Settings attribute holding the (env-overridable) model name
 _ENV_MODEL_ATTR = {
@@ -56,11 +62,20 @@ async def embed_batch(texts: list[str], model: str, dim: int = 1024) -> list[lis
         "Content-Type": "application/json",
     }
     payload = {"input": texts, "model": model, "output_dimension": dim, "output_dtype": "float"}
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(VOYAGE_EMBED_URL, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-    return [item["embedding"] for item in data["data"]]
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for attempt in range(_MAX_EMBED_RETRIES):
+            resp = await client.post(VOYAGE_EMBED_URL, json=payload, headers=headers)
+            if resp.status_code in _RETRYABLE_STATUS and attempt < _MAX_EMBED_RETRIES - 1:
+                ra = resp.headers.get("retry-after", "")
+                delay = float(ra) if ra.replace(".", "", 1).isdigit() else min(2.0**attempt, 30.0)
+                log.warning(
+                    "voyage.retry", status=resp.status_code, attempt=attempt + 1, delay=delay
+                )
+                await asyncio.sleep(delay)
+                continue
+            resp.raise_for_status()
+            return [item["embedding"] for item in resp.json()["data"]]
+    raise RuntimeError("unreachable: embed retry loop exited without return/raise")
 
 
 async def embed(text: str, model: str, dim: int = 1024) -> list[float]:

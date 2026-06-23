@@ -68,26 +68,41 @@ async def seed_one(name: str) -> tuple[int, int]:
         return 0, skipped
 
     texts = [str(r.get(EMBED_TEXT_FIELD[name], "")) for r in valid]
-    vectors = await embed_batch(texts, model_for(name), dim=COLLECTIONS[name].vector_size)
-    points = [
-        models.PointStruct(
-            id=str(uuid.uuid5(_NS, f"{name}:{rec.get(ID_FIELD[name])}")),
-            vector=vec,
-            payload=rec,
-        )
-        for rec, vec in zip(valid, vectors)
-    ]
-    await get_client().upsert(collection_name=name, points=points)
+    try:
+        vectors = await embed_batch(texts, model_for(name), dim=COLLECTIONS[name].vector_size)
+        points = [
+            models.PointStruct(
+                id=str(uuid.uuid5(_NS, f"{name}:{rec.get(ID_FIELD[name])}")),
+                vector=vec,
+                payload=rec,
+            )
+            for rec, vec in zip(valid, vectors)
+        ]
+        await get_client().upsert(collection_name=name, points=points)
+    except Exception as exc:  # noqa: BLE001 — one collection's failure must not abort the rest
+        # e.g. laws_regulations uses voyage-context-3, which embed_batch doesn't
+        # support yet (Phase 5) -> 400; or a Voyage 429 that outlived its retries.
+        print(f"{'FAILED':>15}: {name} — skipped ({type(exc).__name__}: {str(exc)[:200]})")
+        return 0, skipped
     print(f"{'seeded':>15}: {name} — {len(points)} records (skipped {skipped})")
     return len(points), skipped
 
 
 async def main() -> None:
     total = 0
+    incomplete: list[str] = []
     for name in COLLECTIONS:
         loaded, _ = await seed_one(name)
         total += loaded
-    print(f"{'TOTAL':>15}: {total} records seeded across {len(COLLECTIONS)} collections")
+        if loaded == 0:
+            incomplete.append(name)
+    ok = len(COLLECTIONS) - len(incomplete)
+    print(f"{'TOTAL':>15}: {total} records across {ok}/{len(COLLECTIONS)} collections")
+    if incomplete:
+        print(f"{'INCOMPLETE':>15}: {', '.join(incomplete)} (see errors above)")
+    # Partial success is fine (grounds what we can); only a total wipeout fails the job.
+    if total == 0:
+        raise SystemExit("seed failed: no records seeded across any collection")
 
 
 if __name__ == "__main__":
