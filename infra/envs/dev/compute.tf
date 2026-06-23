@@ -287,6 +287,103 @@ resource "azurerm_container_app_job" "runtime_migrations" {
   ]
 }
 
+# ===========================================================================
+# Qdrant knowledge-corpus seed job.
+# Co-located in the EXTERNAL env with qdrant — cross-env routing into the
+# internal `main` CAE is unsupported (the migrations job sits in `main` only
+# because Postgres is VNet-only). Runs scripts/init_collections.py +
+# scripts/seed_fixtures.py against the dev qdrant so chat/audit retrieval is
+# grounded instead of hitting an empty index.
+#
+# Occasional/one-off: terraform creates it with a placeholder image; sync the
+# image to the CURRENT runtime SHA and run it on demand (CI does NOT auto-roll
+# or auto-start it, so you always seed with the running runtime's image + corpus):
+#   SHA=$(az containerapp show -n ${local.name_prefix}-runtime -g ${local.name_prefix}-rg \
+#           --query "properties.template.containers[0].image" -o tsv)
+#   az containerapp job update -n ${local.name_prefix}-runtime-seed -g ${local.name_prefix}-rg --image "$SHA"
+#   az containerapp job start  -n ${local.name_prefix}-runtime-seed -g ${local.name_prefix}-rg
+#
+# DATABASE_URL is bound only so app.config.Settings() instantiates (a required
+# field); seeding touches qdrant + Voyage, never Postgres. VOYAGE_API_KEY unset
+# -> deterministic stub vectors (search runs but isn't semantically meaningful).
+# ===========================================================================
+resource "azurerm_container_app_job" "runtime_seed" {
+  name                         = "${local.name_prefix}-runtime-seed"
+  container_app_environment_id = azurerm_container_app_environment.external.id
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = local.region
+  tags                         = local.tags
+
+  replica_timeout_in_seconds = 600
+  replica_retry_limit        = 1
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.runtime.id]
+  }
+
+  secret {
+    name                = "database-url"
+    key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+  secret {
+    name                = "voyage-api-key"
+    key_vault_secret_id = azurerm_key_vault_secret.voyage_api_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+
+  template {
+    container {
+      name   = "seed"
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; synced to the runtime SHA at seed time
+      cpu    = 0.5
+      memory = "1Gi"
+
+      command = ["sh", "-c"]
+      args = [
+        "set -euo pipefail; python scripts/init_collections.py; python scripts/seed_fixtures.py"
+      ]
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+      env {
+        name        = "VOYAGE_API_KEY"
+        secret_name = "voyage-api-key"
+      }
+      env {
+        name = "QDRANT_URL"
+        # Same as the runtime: qdrant HTTP ingress on :80 (allow_insecure), not 6333.
+        value = "http://${azurerm_container_app.qdrant.ingress[0].fqdn}:80"
+      }
+      env {
+        name  = "TYNDALE_INTELLIGENCE_LAYER_ROOT"
+        value = "/app/intelligence-layer"
+      }
+      env {
+        name  = "NODE_ENV"
+        value = "development"
+      }
+    }
+  }
+
+  # CI does not manage this job's image (it's synced manually at seed time).
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
+  depends_on = [
+    azurerm_role_assignment.runtime_kv_secrets_user
+  ]
+}
+
 # LiteLLM proxy Container App.
 # Co-located in the EXTERNAL env with the runtime (its only caller): a request
 # from the external env into the internal `main` env's load balancer returns the

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import pathlib
 import sys
 import uuid
@@ -24,8 +25,14 @@ from app.knowledge.client import get_client  # noqa: E402
 from app.knowledge.collections import COLLECTIONS, EMBED_TEXT_FIELD, ID_FIELD  # noqa: E402
 from app.knowledge.embeddings import embed_batch, model_for  # noqa: E402
 
+# Resolve the intelligence-layer root the way app.agents.context_loader does:
+# TYNDALE_INTELLIGENCE_LAYER_ROOT (set to /app/intelligence-layer in the deployed
+# image) wins; otherwise fall back to the repo layout (runtime/scripts -> repo root).
+# Without this, an in-image run resolves parents[2] to "/" and can't find fixtures.
+_IL_ROOT = os.environ.get("TYNDALE_INTELLIGENCE_LAYER_ROOT")
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-COLLECTIONS_DIR = REPO_ROOT / "intelligence-layer" / "collections"
+_IL_DIR = pathlib.Path(_IL_ROOT) if _IL_ROOT else REPO_ROOT / "intelligence-layer"
+COLLECTIONS_DIR = _IL_DIR / "collections"
 _NS = uuid.UUID("9f1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d")
 
 
