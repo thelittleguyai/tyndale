@@ -108,6 +108,7 @@ export function ChatMessage({
             {onRetry ? (
               <Pressable
                 onPress={() => onRetry(message)}
+                hitSlop={10}
                 className="flex-row items-center gap-1 rounded-md border border-white/15 px-2 py-1"
               >
                 <RotateCcw size={11} color="rgba(255,255,255,0.7)" />

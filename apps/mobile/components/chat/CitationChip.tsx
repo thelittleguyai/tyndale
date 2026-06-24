@@ -21,6 +21,7 @@ export function CitationChip({
     <Pressable
       onPress={() => onPress(citation)}
       accessibilityRole="button"
+      hitSlop={10}
       className="flex-row items-center gap-1 rounded-full border border-sage/30 bg-sage/10 px-2 py-1"
     >
       <BookOpen size={11} color="#3DAA7E" />

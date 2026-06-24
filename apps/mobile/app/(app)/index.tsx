@@ -55,6 +55,7 @@ import { logoSvg } from '@tyndale/shared';
 import { HeroMotif } from '../../components/hero-motif';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
+import { useBreakpoint } from '../../components/ui/use-breakpoint';
 
 const formatUSD = (n: number) =>
   '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -261,7 +262,10 @@ function OutcomeButton({
           : 'bg-white/10';
   const textCls = tone === 'ink' ? 'text-white/70' : 'text-ink';
   return (
-    <PressableScale onPress={onPress} className={`rounded-lg px-3 py-2 ${cls}`}>
+    <PressableScale
+      onPress={onPress}
+      className={`min-h-[44px] items-center justify-center rounded-lg px-3 py-2 ${cls}`}
+    >
       <Text className={`text-xs font-bold ${textCls}`}>{label}</Text>
     </PressableScale>
   );
@@ -300,7 +304,7 @@ function Header({ firstName }: { firstName: string }) {
             }}
             accessibilityRole="button"
             accessibilityHint="Opens the Tyndale admin console in a new tab"
-            className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
+            className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
           >
             <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
             <Text className="text-xs font-semibold text-white/80">Admin</Text>
@@ -309,7 +313,7 @@ function Header({ firstName }: { firstName: string }) {
         <Pressable
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
-          className="flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 active:opacity-80"
+          className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 active:opacity-80"
         >
           <View className="h-5 w-5 items-center justify-center rounded-full bg-amber/80">
             <Text className="text-[10px] font-bold text-ink">
@@ -320,7 +324,7 @@ function Header({ firstName }: { firstName: string }) {
         </Pressable>
         <Pressable
           onPress={() => router.replace('/sign-in')}
-          className="rounded-full bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
+          className="min-h-[44px] items-center justify-center rounded-full bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
         >
           <Text className="text-xs font-semibold text-white/80">Sign Out</Text>
         </Pressable>
@@ -339,12 +343,13 @@ function Hero({
   statusGreeting: string | null;
   loading: boolean;
 }) {
+  const { isPhone } = useBreakpoint();
   return (
     <View className="relative overflow-hidden rounded-2xl bg-teal-deep px-5 py-7">
       <View className="absolute -right-6 -top-6 opacity-80">
-        <HeroMotif size={170} />
+        <HeroMotif size={isPhone ? 116 : 170} />
       </View>
-      <View className="relative z-10 pr-32">
+      <View className={`relative z-10 ${isPhone ? 'pr-16' : 'pr-32'}`}>
         {statusGreeting ? (
           <Text className="text-2xl font-bold leading-snug text-white">
             {statusGreeting}
@@ -574,10 +579,13 @@ function QuickActionTile({
   Icon: any;
   onPress: () => void;
 }) {
+  const { isPhone } = useBreakpoint();
   return (
     <PressableScale
       onPress={onPress}
-      className="min-w-[260px] flex-1 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
+      className={`rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25 ${
+        isPhone ? 'w-full' : 'min-w-[260px] flex-1'
+      }`}
     >
       <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
         <Icon size={18} color="#ffffff" />

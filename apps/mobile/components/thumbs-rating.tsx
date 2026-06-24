@@ -82,6 +82,7 @@ export function ThumbsRating({
       <Pressable
         onPress={onUp}
         accessibilityLabel="Helpful"
+        hitSlop={8}
         className={
           rating === 'up'
             ? 'rounded-md bg-sage/20 p-1.5'
@@ -93,6 +94,7 @@ export function ThumbsRating({
       <Pressable
         onPress={onDown}
         accessibilityLabel="Not helpful"
+        hitSlop={8}
         className={
           rating === 'down'
             ? 'rounded-md bg-rose/20 p-1.5'

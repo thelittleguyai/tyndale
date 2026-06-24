@@ -117,11 +117,11 @@ export default function AuditResultScreen() {
     >
       <View className="w-full max-w-2xl self-center">
         <View className="mb-6 flex-row gap-2">
-          <View className="rounded-full bg-teal-deep px-4 py-1.5">
+          <View className="min-h-[44px] items-center justify-center rounded-full bg-teal-deep px-4 py-1.5">
             <Text className="text-xs font-semibold text-white">Overview</Text>
           </View>
           <Link href={`/audit/${case_file_id}/chat`} asChild>
-            <Pressable className="flex-row items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5">
+            <Pressable className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5">
               <MessageSquare size={13} color="rgba(255,255,255,0.7)" />
               <Text className="text-xs font-semibold text-white/70">Chat</Text>
             </Pressable>

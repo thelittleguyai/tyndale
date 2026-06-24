@@ -38,7 +38,7 @@ export default function ChatListScreen() {
     <View className="flex-1 bg-navy-deep">
       <View className="flex-row items-center justify-between border-b border-white/10 bg-navy-soft px-4 py-3">
         <Link href="/" asChild>
-          <Pressable className="flex-row items-center gap-1 active:opacity-70">
+          <Pressable className="min-h-[44px] flex-row items-center gap-1 active:opacity-70">
             <ChevronLeft size={18} color="rgba(255,255,255,0.7)" />
             <Text className="text-sm text-white/70 hover:text-white/90">Home</Text>
           </Pressable>
@@ -46,7 +46,7 @@ export default function ChatListScreen() {
         <Text className="text-base font-bold text-white">Ask Tyndale</Text>
         <PressableScale
           onPress={start}
-          className="flex-row items-center gap-1 rounded-full bg-sage px-3 py-1.5 hover:bg-sage-deep"
+          className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-sage px-3 py-1.5 hover:bg-sage-deep"
         >
           <Plus size={14} color="#0A1E1C" />
           <Text className="text-xs font-bold text-ink">New</Text>
@@ -66,7 +66,7 @@ export default function ChatListScreen() {
               </Text>
               <PressableScale
                 onPress={start}
-                className="mt-4 self-start rounded-xl bg-sage px-4 py-2.5 hover:bg-sage-deep"
+                className="mt-4 min-h-[44px] justify-center self-start rounded-xl bg-sage px-4 py-2.5 hover:bg-sage-deep"
               >
                 <Text className="text-sm font-bold text-ink">Start a conversation</Text>
               </PressableScale>

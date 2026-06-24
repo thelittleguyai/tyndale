@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { useBreakpoint } from '../../../../components/ui/use-breakpoint';
 import {
   ExtractResult,
   LineItem,
@@ -172,6 +173,7 @@ function LineItemCard({
   onRespond: (r: LineItemResponse) => void;
   onNote: (n: string) => void;
 }) {
+  const { isPhone } = useBreakpoint();
   return (
     <View className="mb-3 rounded-2xl border border-white/10 bg-navy-soft p-4">
       <View className="mb-2 flex-row items-center justify-between">
@@ -204,7 +206,7 @@ function LineItemCard({
         </View>
       ) : null}
 
-      <View className="mt-3 flex-row gap-2">
+      <View className={isPhone ? 'mt-3 gap-2' : 'mt-3 flex-row gap-2'}>
         <OptionButton
           label="Yes, that's right"
           selected={draft.response === 'yes'}
@@ -252,6 +254,7 @@ function OptionButton({
   tone: 'sage' | 'rose' | 'amber';
   onPress: () => void;
 }) {
+  const { isPhone } = useBreakpoint();
   const selectedClass =
     tone === 'sage'
       ? 'border-sage bg-sage/20'
@@ -261,7 +264,9 @@ function OptionButton({
   return (
     <Pressable
       onPress={onPress}
-      className={`flex-1 rounded-lg border px-2 py-2 ${selected ? selectedClass : 'border-white/10 bg-white/5'}`}
+      className={`min-h-[44px] justify-center rounded-lg border px-3 py-2 ${
+        isPhone ? 'w-full' : 'flex-1'
+      } ${selected ? selectedClass : 'border-white/10 bg-white/5'}`}
     >
       <Text
         className={`text-center text-xs font-semibold ${selected ? 'text-white' : 'text-white/70'}`}
