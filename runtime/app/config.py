@@ -133,7 +133,11 @@ class Settings(BaseSettings):
         """Name used to SET the session cookie. Gets the __Secure- prefix only
         over HTTPS (cookie_secure); plain-http dev keeps the bare name."""
         base = self.session_cookie_name
-        if self.cookie_secure and self.session_cookie_secure_prefix and not base.startswith("__Secure-"):
+        if (
+            self.cookie_secure
+            and self.session_cookie_secure_prefix
+            and not base.startswith("__Secure-")
+        ):
             return f"__Secure-{base}"
         return base
 
@@ -173,8 +177,9 @@ class Settings(BaseSettings):
 
     # Tighter knob: when use_real_claude is true but ANTHROPIC_API_KEY is unset
     # (e.g. running locally without creds), the agents fall back to fixtures
-    # rather than raising. Set false in production.
-    allow_fixture_fallback: bool = True
+    # rather than raising. Defaults False (CO-15) — a prod deploy must NEVER
+    # silently serve the MRI fixture as a real audit; see assert_production_safety().
+    allow_fixture_fallback: bool = False
 
     def claude_model_for(self, role: str) -> str:
         """Resolve the Claude model for a given role.
@@ -207,6 +212,22 @@ class Settings(BaseSettings):
         ):
             if not getattr(self, var):
                 log.warning("config.missing_optional_in_prod", var=var.upper())
+
+    def assert_production_safety(self) -> None:
+        """Fail-fast guard (CO-15): a production deploy must never silently serve
+        fixtures. In production, ``allow_fixture_fallback`` MUST be False and
+        ``use_real_claude`` MUST be True — otherwise a missing/invalid Anthropic
+        key would return the MRI fixture ($560) as if it were a real audit. Called
+        from main.py's lifespan so an unsafe prod config fails to boot."""
+        if not self.is_production:
+            return
+        problems: list[str] = []
+        if self.allow_fixture_fallback:
+            problems.append("ALLOW_FIXTURE_FALLBACK must be false in production")
+        if not self.use_real_claude:
+            problems.append("USE_REAL_CLAUDE must be true in production")
+        if problems:
+            raise RuntimeError("Unsafe production config — " + "; ".join(problems))
 
 
 @lru_cache

@@ -40,6 +40,8 @@ class FindingOut(BaseModel):
 class AuditResult(BaseModel):
     case_file_id: str
     status: str
-    audit: ThreeNumberAudit
+    # None on a degraded "audit_incomplete" result: real agents ran but produced
+    # no three-number finding. We never present {0,0,0} as a completed audit (CO-15).
+    audit: ThreeNumberAudit | None = None
     findings: list[FindingOut]
     summary: str

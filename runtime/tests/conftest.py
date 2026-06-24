@@ -11,14 +11,18 @@ import asyncio
 import os
 
 # Defaults for local dev so the suite runs without an .env file present.
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://tyndale:tyndale@127.0.0.1:5432/tyndale"
-)
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://tyndale:tyndale@127.0.0.1:5432/tyndale")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("NODE_ENV", "development")
 # Phase 2K.2: rate limiting OFF by default so the broader suite (which fires many
 # requests) isn't throttled. test_hardening.py turns it on per-test.
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
+# CO-15: allow_fixture_fallback now defaults FALSE (production safety — a missing
+# key must never silently serve the MRI fixture). The suite runs without real
+# Anthropic creds, so it opts into the fixture fallback explicitly here; NODE_ENV
+# is development, so the prod-safety assertion is a no-op. Tests that assert the
+# raise / prod-assertion paths set this off per-test.
+os.environ.setdefault("ALLOW_FIXTURE_FALLBACK", "true")
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

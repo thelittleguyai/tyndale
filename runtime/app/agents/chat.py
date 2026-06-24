@@ -35,10 +35,27 @@ import structlog
 from app.agents.context_loader import compose_chat_system_prompt
 from app.agents.runner import _block_to_dict, _client, real_claude_enabled
 from app.config import get_settings
+from app.hooks.contracts import (
+    CrisisClassifierInput,
+    PreToolUseInput,
+    UserPromptSubmitInput,
+)
+from app.hooks.crisis_classifier import crisis_classifier
+from app.hooks.pre_tool_use import pre_tool_use_hook
+from app.hooks.user_prompt_submit import user_prompt_submit_hook
 from app.tools import call_tool, get_anthropic_tools
 from app.tools.log_knowledge_gap import log_knowledge_gap
 
 log = structlog.get_logger(__name__)
+
+# DL-04 Category-2 clean decline (refusals.md) — the ENTIRE response. No 988, no
+# routing, no follow-up. Wired at chat ingress; bypasses the Lead Planner.
+_CRISIS_DECLINE = "This isn't something I'm equipped to help with."
+# Shown when UserPromptSubmit blocks a message (prompt-injection / policy).
+_BLOCKED_NOTICE = (
+    "I can't process that message as written. Please rephrase your billing or "
+    "coverage question and I'll help."
+)
 
 # Claude pricing (USD per 1M tokens) — Sonnet tier; rough by design.
 _COST_IN_PER_M = 3.0
@@ -122,9 +139,7 @@ def _tokenize(text: str) -> list[str]:
 # --- fixture path ------------------------------------------------------------
 
 
-async def _fixture_stream(
-    *, mode: str, case_id, user_id, user_message: str
-) -> AsyncIterator[dict]:
+async def _fixture_stream(*, mode: str, case_id, user_id, user_message: str) -> AsyncIterator[dict]:
     # Freeform: a specific situation → redirect to case creation (no speculation).
     if mode == "freeform" and looks_like_specific_situation(user_message):
         text = (
@@ -273,17 +288,16 @@ async def _real_stream(
             messages=messages,
         ) as stream:
             async for event in stream:
-                if event.type == "content_block_delta" and getattr(
-                    event.delta, "type", None
-                ) == "text_delta":
+                if (
+                    event.type == "content_block_delta"
+                    and getattr(event.delta, "type", None) == "text_delta"
+                ):
                     yield {"event": "token", "data": {"delta": event.delta.text}}
             final = await stream.get_final_message()
 
         total_in += final.usage.input_tokens
         total_out += final.usage.output_tokens
-        text_parts.extend(
-            b.text for b in final.content if getattr(b, "type", None) == "text"
-        )
+        text_parts.extend(b.text for b in final.content if getattr(b, "type", None) == "text")
         messages.append(
             {"role": "assistant", "content": [_block_to_dict(b) for b in final.content]}
         )
@@ -299,6 +313,45 @@ async def _real_stream(
                 "event": "tool_call_started",
                 "data": {"tool_name": tu.name, "input_summary": _summarize(tool_input)},
             }
+            # PreToolUse gate (CO-15): the date-filter / approval-token rules apply
+            # to chat tool calls too. Chat tools are knowledge reads (no send_email),
+            # so the sync decision is sufficient — no audited session path here.
+            pre = pre_tool_use_hook(
+                PreToolUseInput(
+                    case_file_id=(str(case_id) if case_id else ""),
+                    actor="lead_planner",
+                    tool_name=tu.name,
+                    tool_args=tool_input,
+                )
+            )
+            if not pre.approved:
+                blocked = {"error": "blocked_by_policy", "reason": pre.block_reason}
+                yield {
+                    "event": "tool_call_completed",
+                    "data": {
+                        "tool_name": tu.name,
+                        "output_summary": _summarize(blocked),
+                        "duration_ms": 0,
+                    },
+                }
+                tool_calls_made.append(
+                    {
+                        "tool_name": tu.name,
+                        "input_summary": _summarize(tool_input),
+                        "output_summary": _summarize(blocked),
+                        "duration_ms": 0,
+                    }
+                )
+                results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu.id,
+                        "content": json.dumps(blocked),
+                        "is_error": True,
+                    }
+                )
+                continue
+            tool_input = pre.sanitized_args
             t0 = time.monotonic()
             result = await call_tool(tu.name, tool_input)
             dur = int((time.monotonic() - t0) * 1000)
@@ -333,14 +386,29 @@ async def _real_stream(
         "data": {
             "content": full,
             "content_chunks": (
-                [{"tier": "A", "text": full, "citations": [], "confidence": None}]
-                if full
-                else []
+                [{"tier": "A", "text": full, "citations": [], "confidence": None}] if full else []
             ),
             "citations": [],
             "confidence_overall": None,
             "usage": {"input_tokens": total_in, "output_tokens": total_out},
             "tool_calls": tool_calls_made,
+        },
+    }
+
+
+async def _decline_stream(text: str) -> AsyncIterator[dict]:
+    """Emit a terminal decline as a minimal token + complete stream so the route
+    persists it as the assistant message (no tools, no Lead Planner)."""
+    for tok in _tokenize(text):
+        yield {"event": "token", "data": {"delta": tok, "tier": "C"}}
+    yield {
+        "event": "complete",
+        "data": {
+            "content": text,
+            "content_chunks": [{"tier": "C", "text": text, "citations": [], "confidence": None}],
+            "citations": [],
+            "confidence_overall": None,
+            "usage": {"input_tokens": 0, "output_tokens": 0},
         },
     }
 
@@ -354,7 +422,35 @@ async def stream_chat_turn(
     user_message: str,
 ) -> AsyncIterator[dict]:
     """Yield content events for one chat turn. Fixture path when real Claude is
-    disabled (tests/dev); real streaming + tool loop otherwise."""
+    disabled (tests/dev); real streaming + tool loop otherwise.
+
+    CO-15 — chat ingress runs BEFORE any dispatch (both paths): the DL-04 crisis
+    screen (a positive signal returns the clean decline, bypassing the Lead
+    Planner entirely) and UserPromptSubmit (injection framing + block)."""
+    # Crisis screen (DL-04). The classifier is a stub returning False today; the
+    # security contact's real Haiku classifier later activates here unchanged.
+    if crisis_classifier(CrisisClassifierInput(raw_message=user_message)).crisis_detected:
+        log.info("chat.crisis_decline", mode=mode)
+        async for ev in _decline_stream(_CRISIS_DECLINE):
+            yield ev
+        return
+
+    # UserPromptSubmit — prompt-injection framing + block (stub: pass-through).
+    ups = user_prompt_submit_hook(
+        UserPromptSubmitInput(
+            user_id=str(user_id),
+            case_file_id=(str(case_id) if case_id else None),
+            raw_message=user_message,
+            attached_documents=[],
+        )
+    )
+    if ups.block:
+        log.info("chat.prompt_blocked", mode=mode, signals=ups.injection_signals)
+        async for ev in _decline_stream(_BLOCKED_NOTICE):
+            yield ev
+        return
+    user_message = ups.scrubbed_message  # use the scrubbed text downstream
+
     if not real_claude_enabled():
         async for ev in _fixture_stream(
             mode=mode, case_id=case_id, user_id=user_id, user_message=user_message

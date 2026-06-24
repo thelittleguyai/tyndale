@@ -54,6 +54,7 @@ log = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     settings.warn_missing_in_prod()
+    settings.assert_production_safety()  # CO-15 — fail fast on an unsafe prod config
     log_stub_warnings()
     log.info("runtime.startup", node_env=settings.node_env, version="0.1.0")
     yield

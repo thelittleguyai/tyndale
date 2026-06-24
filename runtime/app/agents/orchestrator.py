@@ -184,14 +184,19 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
                     )
 
     if three_numbers is None:
-        # Real agents ran but didn't write the three-number finding — fall
-        # back to fixture audit so the response shape is still valid.
+        # Real agents ran but wrote no three-number finding. NEVER return {0,0,0}
+        # with status="complete" — that presents "you owe $0" as a finished audit
+        # (CO-15 T2.3). Surface a degraded status with no audit block; the findings
+        # + composed summary still ship so the user isn't dead-ended (Graceful
+        # Degradation Doctrine).
         log.warning("orchestrator.no_three_number_finding", case_file_id=case_file_id)
-        three_numbers = {
-            "provider_billed": 0.0,
-            "eob_member_responsibility": 0.0,
-            "tyndale_computed": 0.0,
-        }
+        return AuditResult(
+            case_file_id=case_file_id,
+            status="audit_incomplete",
+            audit=None,
+            findings=findings,
+            summary=composed,
+        )
 
     return AuditResult(
         case_file_id=case_file_id,
@@ -483,5 +488,8 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
         composed = mri_audit_fixture(case_file_id).summary
 
     result = await _assemble_result(case_file_id, composed)
-    await _set_status(case_file_id, "audit_complete")
+    # Don't mark a degraded (no three-number) result "audit_complete" — that would
+    # surface a $0 audit as done (CO-15 T2.3). Reflect the incompleteness.
+    terminal = "audit_complete" if result.audit is not None else "audit_incomplete"
+    await _set_status(case_file_id, terminal)
     return result
