@@ -18,6 +18,7 @@ miscalculation).
 from __future__ import annotations
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.context_loader import compose_system_prompt
 from app.agents.runner import RunResult, run_agent
@@ -30,7 +31,7 @@ TOOL_ALLOWLIST = [
     "upload_extract_coverage",
     "upload_extract_eob",
     "qdrant_search_payer_policies",
-    "cost_estimate_fair_health",   # deferred (Phase 2G) — Math Person uses RVU instead
+    "cost_estimate_fair_health",  # deferred (Phase 2G) — Math Person uses RVU instead
     "cost_estimate_medicare_rvu",
     "pg_case_file_get",
     "pg_upsert_finding",
@@ -61,7 +62,7 @@ def _build_user_message(case_file_id: str) -> str:
     )
 
 
-async def run(case_file_id: str) -> RunResult:
+async def run(case_file_id: str, *, session: AsyncSession | None = None) -> RunResult:
     settings = get_settings()
     system_blocks = compose_system_prompt(
         "math_person",
@@ -72,4 +73,7 @@ async def run(case_file_id: str) -> RunResult:
         system_blocks=system_blocks,
         tool_names=TOOL_ALLOWLIST,
         initial_user_message=_build_user_message(case_file_id),
+        case_file_id=case_file_id,
+        actor="math_person",
+        session=session,
     )

@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.context_loader import compose_system_prompt
 from app.agents.runner import RunResult, run_agent
@@ -118,6 +119,7 @@ async def run(
     *,
     mode: str = "diagnose",
     confirmations: list[dict] | None = None,
+    session: AsyncSession | None = None,
 ) -> RunResult:
     settings = get_settings()
     system_blocks = compose_system_prompt(
@@ -135,4 +137,7 @@ async def run(
         system_blocks=system_blocks,
         tool_names=tool_names,
         initial_user_message=message,
+        case_file_id=case_file_id,
+        actor="bill_detective",
+        session=session,
     )

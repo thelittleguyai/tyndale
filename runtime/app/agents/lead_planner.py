@@ -21,6 +21,7 @@ letters the user makes themselves.
 from __future__ import annotations
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.context_loader import compose_chat_system_prompt, compose_system_prompt
 from app.agents.runner import RunResult, run_agent
@@ -85,6 +86,8 @@ async def compose_final(
     case_file_id: str,
     bill_detective_summary: str,
     math_person_summary: str,
+    *,
+    session: AsyncSession | None = None,
 ) -> RunResult:
     settings = get_settings()
     system_blocks = compose_system_prompt(
@@ -98,6 +101,9 @@ async def compose_final(
         initial_user_message=_build_user_message(
             case_file_id, bill_detective_summary, math_person_summary
         ),
+        case_file_id=case_file_id,
+        actor="lead_planner",
+        session=session,
     )
 
 

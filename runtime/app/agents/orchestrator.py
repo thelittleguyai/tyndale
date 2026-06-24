@@ -41,9 +41,9 @@ log = structlog.get_logger(__name__)
 
 async def _set_status(case_file_id: str, status: str) -> None:
     async with AsyncSessionLocal() as s:
-        cf = (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one_or_none()
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
         if cf is not None:
             cf.status = status
             await s.commit()
@@ -68,7 +68,11 @@ async def run_audit(case_file_id: str) -> AuditResult:
 
     # Fixture short-circuit -----------------------------------------------------
     if not settings.use_real_claude:
-        log.info("orchestrator.fixture_fallback", reason="USE_REAL_CLAUDE=false", case_file_id=case_file_id)
+        log.info(
+            "orchestrator.fixture_fallback",
+            reason="USE_REAL_CLAUDE=false",
+            case_file_id=case_file_id,
+        )
         return mri_audit_fixture(case_file_id)
     if not _has_real_anthropic_creds(settings) and not settings.litellm_proxy_url:
         if settings.allow_fixture_fallback:
@@ -84,33 +88,41 @@ async def run_audit(case_file_id: str) -> AuditResult:
         )
 
     # Real agent run ------------------------------------------------------------
+    # One audit session threads through the subagents so the PreToolUse /
+    # PostToolUse hook writes (the HIPAA tool-invocation trail) persist; the
+    # orchestrator commits once after the run (mirrors guard_send_email's
+    # caller-commits split — CO-15).
     log.info("orchestrator.run_audit.start", case_file_id=case_file_id)
 
-    bd = await bill_detective.run(case_file_id)
-    log.info(
-        "orchestrator.bill_detective.done",
-        case_file_id=case_file_id,
-        tool_calls=len(bd.tool_calls),
-        usage=bd.usage,
-    )
+    async with AsyncSessionLocal() as audit_session:
+        bd = await bill_detective.run(case_file_id, session=audit_session)
+        log.info(
+            "orchestrator.bill_detective.done",
+            case_file_id=case_file_id,
+            tool_calls=len(bd.tool_calls),
+            usage=bd.usage,
+        )
 
-    mp = await math_person.run(case_file_id)
-    log.info(
-        "orchestrator.math_person.done",
-        case_file_id=case_file_id,
-        tool_calls=len(mp.tool_calls),
-        usage=mp.usage,
-    )
+        mp = await math_person.run(case_file_id, session=audit_session)
+        log.info(
+            "orchestrator.math_person.done",
+            case_file_id=case_file_id,
+            tool_calls=len(mp.tool_calls),
+            usage=mp.usage,
+        )
 
-    lp = await lead_planner.compose_final(
-        case_file_id, bd.final_text, mp.final_text
-    )
-    log.info(
-        "orchestrator.lead_planner.done",
-        case_file_id=case_file_id,
-        tool_calls=len(lp.tool_calls),
-        usage=lp.usage,
-    )
+        lp = await lead_planner.compose_final(
+            case_file_id, bd.final_text, mp.final_text, session=audit_session
+        )
+        log.info(
+            "orchestrator.lead_planner.done",
+            case_file_id=case_file_id,
+            tool_calls=len(lp.tool_calls),
+            usage=lp.usage,
+            stop_action=lp.stop_action,
+            human_review_needed=lp.human_review_needed,
+        )
+        await audit_session.commit()
 
     # Assemble the API response from persisted findings.
     return await _assemble_result(case_file_id, lp.final_text)
@@ -119,9 +131,11 @@ async def run_audit(case_file_id: str) -> AuditResult:
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     """Read findings from Postgres and project to AuditResult shape."""
     async with AsyncSessionLocal() as s:
-        rows = (await s.execute(
-            select(Finding).where(Finding.case_file_id == UUID(case_file_id))
-        )).scalars().all()
+        rows = (
+            (await s.execute(select(Finding).where(Finding.case_file_id == UUID(case_file_id))))
+            .scalars()
+            .all()
+        )
 
     findings: list[FindingOut] = []
     three_numbers: dict | None = None
@@ -173,7 +187,11 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         # Real agents ran but didn't write the three-number finding — fall
         # back to fixture audit so the response shape is still valid.
         log.warning("orchestrator.no_three_number_finding", case_file_id=case_file_id)
-        three_numbers = {"provider_billed": 0.0, "eob_member_responsibility": 0.0, "tyndale_computed": 0.0}
+        three_numbers = {
+            "provider_billed": 0.0,
+            "eob_member_responsibility": 0.0,
+            "tyndale_computed": 0.0,
+        }
 
     return AuditResult(
         case_file_id=case_file_id,
@@ -221,9 +239,9 @@ def _fixture_line_items() -> list[dict]:
 
 async def _load_case(case_file_id: str) -> CaseFile | None:
     async with AsyncSessionLocal() as s:
-        return (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one_or_none()
+        return (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
 
 
 async def extract_line_items(case_file_id: str) -> ExtractResult:
@@ -238,8 +256,12 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     if use_real:
         log.info("orchestrator.extract.real", case_file_id=case_file_id)
         bd = await bill_detective.run(case_file_id, mode="translate")
-        log.info("orchestrator.extract.bd_done", case_file_id=case_file_id,
-                 tool_calls=len(bd.tool_calls), usage=bd.usage)
+        log.info(
+            "orchestrator.extract.bd_done",
+            case_file_id=case_file_id,
+            tool_calls=len(bd.tool_calls),
+            usage=bd.usage,
+        )
 
     # Read whatever the agent persisted; fall back to fixture line items if the
     # translate pass produced none (or we're on the no-Claude path).
@@ -255,9 +277,9 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     # Persist the (possibly backfilled) line items so the idempotent
     # GET .../line-items re-fetch and the diagnose pass both see the scenarios.
     async with AsyncSessionLocal() as s:
-        row = (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one_or_none()
+        row = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
         if row is not None:
             row.line_items = line_items
             await s.commit()
@@ -288,9 +310,9 @@ async def submit_confirmations(
     mismatches = 0
     async with AsyncSessionLocal() as s:
         # Persist the raw confirmations on the case file.
-        row = (await s.execute(
-            select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
-        )).scalar_one()
+        row = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one()
         row.encounter_confirmations = [c.model_dump() for c in confirmations]
 
         for c in confirmations:
@@ -357,8 +379,12 @@ async def submit_confirmations(
         await s.commit()
 
     await _set_status(case_file_id, "encounter_verified")
-    log.info("orchestrator.confirmations.recorded", case_file_id=case_file_id,
-             count=len(confirmations), mismatches=mismatches)
+    log.info(
+        "orchestrator.confirmations.recorded",
+        case_file_id=case_file_id,
+        count=len(confirmations),
+        mismatches=mismatches,
+    )
     return ConfirmationsAccepted(
         case_file_id=case_file_id,
         status="audit_running",
@@ -372,10 +398,13 @@ async def _persist_mri_fixture_finding(case_file_id: str) -> None:
     exists so _assemble_result can surface the audit. Idempotent — skips if a
     payer_side finding already exists for the case."""
     async with AsyncSessionLocal() as s:
-        existing = (await s.execute(
-            select(Finding).where(Finding.case_file_id == UUID(case_file_id))
-            .where(Finding.finding_type == "payer_side")
-        )).first()
+        existing = (
+            await s.execute(
+                select(Finding)
+                .where(Finding.case_file_id == UUID(case_file_id))
+                .where(Finding.finding_type == "payer_side")
+            )
+        ).first()
         if existing is not None:
             return
         s.add(
@@ -395,11 +424,14 @@ async def _persist_mri_fixture_finding(case_file_id: str) -> None:
                 legal_claim={
                     "claim": "The payer appears to have miscalculated member cost-sharing.",
                     "marker": "[PLACEHOLDER_AUTHORITY §000, src_0a1b2c3d]",
-                    "citations": [{
-                        "authority": "PLACEHOLDER_AUTHORITY", "section": "§000",
-                        "src_id": "src_0a1b2c3d",
-                        "marker": "[PLACEHOLDER_AUTHORITY §000, src_0a1b2c3d]",
-                    }],
+                    "citations": [
+                        {
+                            "authority": "PLACEHOLDER_AUTHORITY",
+                            "section": "§000",
+                            "src_id": "src_0a1b2c3d",
+                            "marker": "[PLACEHOLDER_AUTHORITY §000, src_0a1b2c3d]",
+                        }
+                    ],
                 },
                 recommendation={
                     "action": "Call the payer to dispute the cost-sharing math; request a corrected EOB.",
@@ -427,12 +459,23 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
     composed = ""
     if use_real:
         log.info("orchestrator.finalize.real", case_file_id=case_file_id)
-        bd = await bill_detective.run(case_file_id, mode="diagnose", confirmations=confirmations)
-        log.info("orchestrator.finalize.bd_done", case_file_id=case_file_id, usage=bd.usage)
-        mp = await math_person.run(case_file_id)
-        log.info("orchestrator.finalize.mp_done", case_file_id=case_file_id, usage=mp.usage)
-        lp = await lead_planner.compose_final(case_file_id, bd.final_text, mp.final_text)
-        log.info("orchestrator.finalize.lp_done", case_file_id=case_file_id, usage=lp.usage)
+        async with AsyncSessionLocal() as audit_session:
+            bd = await bill_detective.run(
+                case_file_id, mode="diagnose", confirmations=confirmations, session=audit_session
+            )
+            log.info("orchestrator.finalize.bd_done", case_file_id=case_file_id, usage=bd.usage)
+            mp = await math_person.run(case_file_id, session=audit_session)
+            log.info("orchestrator.finalize.mp_done", case_file_id=case_file_id, usage=mp.usage)
+            lp = await lead_planner.compose_final(
+                case_file_id, bd.final_text, mp.final_text, session=audit_session
+            )
+            log.info(
+                "orchestrator.finalize.lp_done",
+                case_file_id=case_file_id,
+                usage=lp.usage,
+                human_review_needed=lp.human_review_needed,
+            )
+            await audit_session.commit()
         composed = lp.final_text
     else:
         log.info("orchestrator.finalize.fixture", case_file_id=case_file_id)
