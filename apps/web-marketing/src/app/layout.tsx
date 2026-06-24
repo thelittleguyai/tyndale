@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -16,6 +16,8 @@ export const metadata: Metadata = {
     'Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.',
   metadataBase: new URL('https://tyndaleapp.net'),
 };
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
 const plausibleScript =

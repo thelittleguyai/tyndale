@@ -122,7 +122,7 @@ export default function HomePage() {
             </div>
             <a
               href="/signin"
-              className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="inline-flex min-h-[44px] items-center rounded-full bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Sign in
             </a>
@@ -135,9 +135,8 @@ export default function HomePage() {
               <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/90">
                 Your medical bill advocate
               </span>
-              <h1 className="mt-6 text-5xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl">
-                Medical bills are full of errors.
-                <br />
+              <h1 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
+                Medical bills are full of errors.{' '}
                 <span className="text-white/80">Find what&rsquo;s hiding in yours.</span>
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/70">
@@ -154,7 +153,7 @@ export default function HomePage() {
                 </a>
                 <a
                   href="#how-it-works"
-                  className="text-sm font-medium text-white/80 transition hover:text-white"
+                  className="inline-flex min-h-[44px] items-center text-sm font-medium text-white/80 transition hover:text-white"
                 >
                   How it works ↓
                 </a>

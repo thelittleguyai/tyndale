@@ -13,7 +13,7 @@ export function GoogleCta() {
     <a
       href="/signin"
       onClick={() => track('signin_clicked')}
-      className="inline-flex items-center gap-3 rounded-lg bg-white px-5 py-3 text-[15px] font-semibold text-ink shadow-sm transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C4D52]"
+      className="inline-flex items-center gap-3 rounded-lg bg-white px-5 py-3 text-[15px] font-semibold text-ink shadow-sm transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-deep"
     >
       <GoogleIcon size={18} />
       Sign up with Google

@@ -7,7 +7,7 @@ import { logoSvg } from '@tyndale/shared/design-tokens';
 export function Logo({ size = 34 }: { size?: number }) {
   return (
     <span
-      className="inline-flex items-center justify-center rounded-[10px] bg-gradient-to-br from-[#2D5A56] to-[#173D3A] ring-1 ring-white/10"
+      className="inline-flex items-center justify-center rounded-[10px] bg-gradient-to-br from-teal to-teal-deep ring-1 ring-white/10"
       style={{ width: size, height: size }}
     >
       <span

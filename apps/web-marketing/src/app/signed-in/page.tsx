@@ -40,7 +40,7 @@ export default function SignedInPage() {
       </p>
       <a
         href={APP_URL}
-        className="mt-8 rounded-md bg-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-deep"
+        className="mt-8 inline-flex min-h-[44px] items-center rounded-md bg-teal px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-deep"
       >
         Go to my dashboard →
       </a>

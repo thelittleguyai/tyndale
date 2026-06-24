@@ -98,7 +98,7 @@ export default function SignInPage() {
             <button
               onClick={onEmail}
               disabled={cooldown > 0}
-              className="mt-3 text-xs font-semibold text-teal disabled:text-ink/40"
+              className="mt-3 inline-flex min-h-[44px] items-center justify-center text-xs font-semibold text-teal disabled:text-ink/40"
             >
               {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend link'}
             </button>
