@@ -30,7 +30,7 @@ from app.db.base import Base
 class Conversation(Base):
     __tablename__ = "conversations"
     __table_args__ = (
-        Index("idx_conversations_user_id_updated_at", "user_id", "updated_at"),
+        Index("idx_conversations_user_id_updated_at", "user_id", text("updated_at DESC")),
         Index(
             "idx_conversations_case_id",
             "case_id",
@@ -39,7 +39,7 @@ class Conversation(Base):
         Index(
             "idx_conversations_freeform",
             "user_id",
-            "updated_at",
+            text("updated_at DESC"),
             postgresql_where=text("case_id IS NULL AND is_archived = FALSE"),
         ),
     )
@@ -55,12 +55,8 @@ class Conversation(Base):
         UUID(as_uuid=True), ForeignKey("case_files.case_file_id"), nullable=True
     )
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_archived: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
-    message_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=text("0")
-    )
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    message_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     last_message_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )

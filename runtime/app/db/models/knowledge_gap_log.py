@@ -24,8 +24,13 @@ class KnowledgeGapLog(Base):
             "gap_type IN ('no_data', 'low_confidence', 'self_reported')",
             name="ck_knowledge_gap_log_gap_type",
         ),
-        Index("idx_knowledge_gap_log_logged_at", "logged_at"),
+        Index("idx_knowledge_gap_log_logged_at", text("logged_at DESC")),
         Index("idx_knowledge_gap_log_agent_gap_type", "agent_name", "gap_type"),
+        Index(
+            "idx_knowledge_gap_log_unresolved",
+            text("logged_at DESC"),
+            postgresql_where=text("resolved_at IS NULL"),
+        ),
     )
 
     gap_id: Mapped[uuid.UUID] = mapped_column(

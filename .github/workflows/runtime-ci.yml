@@ -1,0 +1,95 @@
+name: Runtime CI
+
+# CO-16: the runtime (FastAPI/Python) had NO CI gate — only the Docker-build
+# deploys, which run `alembic upgrade head` against the LIVE dev DB. A broken
+# migration chain or a model/migration drift would only surface at deploy time.
+#
+# This adds a pre-merge gate on runtime/** :
+#   - tests:      the full pytest suite + ruff lint, against a fresh Postgres.
+#   - migrations: `alembic upgrade head` on an EMPTY DB (proves the chain applies
+#                 from scratch) + `alembic check` (proves the SQLAlchemy models
+#                 match the migrations — no schema drift). DL-77.
+
+on:
+  pull_request:
+    paths:
+      - 'runtime/**'
+      - '.github/workflows/runtime-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/**'
+      - '.github/workflows/runtime-ci.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: runtime
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tyndale
+          POSTGRES_PASSWORD: tyndale
+          POSTGRES_DB: tyndale
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tyndale"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Each job gets its own fresh Postgres service, so the chat-message rate
+      # limit can't accumulate across runs (the local-DB flake). conftest fills
+      # the other test env vars (NODE_ENV, RATE_LIMIT_ENABLED, ALLOW_FIXTURE_FALLBACK).
+      DATABASE_URL: postgresql+asyncpg://tyndale:tyndale@localhost:5432/tyndale
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Pytest
+        run: uv run pytest -q
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tyndale
+          POSTGRES_PASSWORD: tyndale
+          POSTGRES_DB: tyndale
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tyndale"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://tyndale:tyndale@localhost:5432/tyndale
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen
+      # Migration 0001 creates the pgcrypto extension itself, so upgrade head is
+      # self-contained on an empty database.
+      - name: Alembic upgrade head (fresh DB — chain applies from scratch)
+        run: uv run alembic upgrade head
+      - name: Alembic check (models match migrations — no drift)
+        run: uv run alembic check

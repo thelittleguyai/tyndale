@@ -27,7 +27,7 @@ class CronRunLog(Base):
             "triggered_source IN ('scheduled', 'manual_admin', 'manual_cli')",
             name="ck_cron_run_log_triggered_source",
         ),
-        Index("idx_cron_run_log_cron_name_started", "cron_name", "started_at"),
+        Index("idx_cron_run_log_cron_name_started", "cron_name", text("started_at DESC")),
     )
 
     run_id: Mapped[uuid.UUID] = mapped_column(

@@ -14,6 +14,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -30,6 +31,8 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("user_type IN ('user', 'admin')", name="ck_users_user_type"),
+        Index("idx_users_is_blocked", "is_blocked", postgresql_where=text("is_blocked = TRUE")),
+        Index("idx_users_soft_deleted_at", "soft_deleted_at"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -39,9 +42,7 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # 'user' (default) | 'admin'. Phase 2K real-auth checks this to gate
     # admin-only routes (e.g., a future case-triage console).
-    user_type: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'user'")
-    )
+    user_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'user'"))
     # Consent model per docs/tyndale-spec/L05_feedback_consent_schema.md
     service_consent: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
@@ -57,21 +58,23 @@ class User(Base):
     )
     # CO-9 admin controls (migration 0012). is_blocked/jwt_version defaults ARE the
     # DL-66 backfill for existing rows.
-    is_blocked: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
+    is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     blocked_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
     blocked_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", name="fk_users_blocked_by", ondelete="SET NULL"),
+        nullable=True,
     )
     blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     soft_deleted_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
     soft_deleted_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", name="fk_users_soft_deleted_by", ondelete="SET NULL"),
+        nullable=True,
     )
     # Bumped by block / force-logout / reset-onboarding / soft-delete → invalidates
     # outstanding session tokens whose jwt_version claim is now stale.
