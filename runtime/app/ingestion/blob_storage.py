@@ -36,10 +36,12 @@ class BlobProperties:
 class BlobStorage:
     """Backend-agnostic blob ops. Local FS in dev; Azure Blob in prod."""
 
-    def __init__(self) -> None:
+    def __init__(self, container: str | None = None) -> None:
         s = get_settings()
         self._conn = s.azure_storage_connection_string
-        self._container_name = s.azure_storage_bulk_container
+        # Default is the bulk-data staging container; callers storing other content
+        # (e.g. insurance-card images -> the uploads container) pass one explicitly.
+        self._container_name = container or s.azure_storage_bulk_container
         self._local_root = s.bulk_local_dir
         self._container = None  # lazy Azure container client
 
@@ -129,3 +131,24 @@ class BlobStorage:
         dst = self._local_path(blob_path)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copyfile(local_path, dst)
+
+    def signed_url(self, blob_path: str, minutes: int = 15) -> str | None:
+        """A short-lived, read-only URL for the blob, or None when not on Azure
+        (local dev/CI streams the bytes through the authed route instead). The URL
+        is the blob path + a SAS token — PHI-free, never member data (CO-17 / DL-47)."""
+        if not self.is_azure:
+            return None
+        from datetime import timedelta
+
+        from azure.storage.blob import BlobSasPermissions, BlobServiceClient, generate_blob_sas
+
+        svc = BlobServiceClient.from_connection_string(self._conn)
+        sas = generate_blob_sas(
+            account_name=svc.account_name,
+            container_name=self._container_name,
+            blob_name=blob_path,
+            account_key=svc.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.datetime.now(datetime.timezone.utc) + timedelta(minutes=minutes),
+        )
+        return f"{svc.get_blob_client(self._container_name, blob_path).url}?{sas}"
