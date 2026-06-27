@@ -13,6 +13,7 @@ from sqlalchemy import (
     TIMESTAMP,
     Boolean,
     CheckConstraint,
+    Date,
     ForeignKey,
     Index,
     Integer,
@@ -80,5 +81,17 @@ class User(Base):
     # outstanding session tokens whose jwt_version claim is now stale.
     jwt_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     last_admin_action_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    # CO-17 onboarding/profile (migration 0018). DL-66 backfill: profile_completed
+    # defaults false, so existing users (null first_name/date_of_birth) are prompted
+    # through onboarding once.
+    first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_of_birth: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    profile_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    profile_completed_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
