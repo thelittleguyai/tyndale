@@ -50,6 +50,26 @@ async def load_case_coverage_and_plan(case_file_id: str) -> tuple[dict | None, d
     return case.coverage, case.plan_current
 
 
+async def load_case_encounter(
+    case_file_id: str,
+) -> tuple[list[dict], list[dict], str | None]:
+    """Return (line_items, encounter_confirmations, visit_context) for a case, or
+    ([], [], None) if the id is invalid or the case doesn't exist. Never raises on a
+    bad id (graceful degradation). Reads the Phase-2I encounter data on CaseFile —
+    the source for the ClinicalEncounterSource shim (CO-12D)."""
+    try:
+        cf_uuid = UUID(str(case_file_id))
+    except (ValueError, AttributeError, TypeError):
+        return [], [], None
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == cf_uuid))
+        ).scalar_one_or_none()
+    if case is None:
+        return [], [], None
+    return list(case.line_items or []), list(case.encounter_confirmations or []), case.visit_context
+
+
 def parse_iso_date(value: Any) -> date | None:
     """Parse an ISO-ish date string to a date, or None. Tolerant of trailing time."""
     if not value:

@@ -105,10 +105,13 @@ def test_accumulator_result_rejects_null_as_of():
 
 
 @pytest.mark.asyncio
-async def test_encounter_placeholder_present():
+async def test_encounter_shim_present():
+    # CO-12D: the placeholder is now a real shim. An unknown id ("cf") degrades
+    # gracefully to the empty / not_available result (confidence 0.0, no raise).
     res = await resolve(ClinicalEncounterSource).get_encounter("cf")
-    assert res.provenance.adapter == "PlaceholderClinicalEncounter"
+    assert res.provenance.adapter == "UserUploadedVisitSummary"
     assert res.provenance.confidence == 0.0
+    assert res.data["status"] == "not_available"
 
 
 # --- BenefitsContext facade -------------------------------------------------

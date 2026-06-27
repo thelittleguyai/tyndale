@@ -8,7 +8,7 @@ registered adapter(s) —
     ClaimsSource            -> UserUploadedEOB
     AccumulatorSource       -> ComputedFromUploadedEOBs (priority 100, authoritative)
                                + EOBStatedYTD (priority 50, corroborating)   [CO-12B]
-    ClinicalEncounterSource -> PlaceholderClinicalEncounter  (shim: CO-12D)
+    ClinicalEncounterSource -> UserUploadedVisitSummary  (shim over Phase-2I data: CO-12D)
 
 ``resolve()`` stays single-adapter passthrough (returns the highest-priority
 adapter). The accumulator's three-way cross-validation across both adapters + the
@@ -24,10 +24,10 @@ from typing import Any
 
 from app.sources.adapters.computed_from_uploaded_eobs import ComputedFromUploadedEOBs
 from app.sources.adapters.eob_stated_ytd import EOBStatedYTD
-from app.sources.adapters.placeholders import PlaceholderClinicalEncounter
 from app.sources.adapters.plan_library import PlanLibrary
 from app.sources.adapters.user_uploaded_eob import UserUploadedEOB
 from app.sources.adapters.user_uploaded_sbc import UserUploadedSBC
+from app.sources.adapters.user_uploaded_visit_summary import UserUploadedVisitSummary
 from app.sources.base import (
     AccumulatorResult,
     AccumulatorSource,
@@ -52,7 +52,9 @@ _registry.register_adapter(ClaimsSource, UserUploadedEOB(), priority=100)
 # EOB-stated YTD is a corroborating reading for cross-validation (never adopted).
 _registry.register_adapter(AccumulatorSource, ComputedFromUploadedEOBs(), priority=100)
 _registry.register_adapter(AccumulatorSource, EOBStatedYTD(), priority=50)
-_registry.register_adapter(ClinicalEncounterSource, PlaceholderClinicalEncounter(), priority=0)
+# ClinicalEncounterSource (CO-12D): real shim over the Phase-2I encounter data. A
+# OneUpHealthClinical adapter registers behind this same interface later (zero agent change).
+_registry.register_adapter(ClinicalEncounterSource, UserUploadedVisitSummary(), priority=100)
 
 #: Facade pairing CoverageSource + AccumulatorSource (DL-68); home of the three-way
 #: accumulator cross-validation (DL-72).
