@@ -105,3 +105,36 @@ resource "azurerm_dns_txt_record" "asuid_admin" {
     value = azurerm_container_app_environment.external.custom_domain_verification_id
   }
 }
+
+# ---------------------------------------------------------------------------
+# APEX (root) tyndaleapp.net → same marketing Container App as dev.
+#
+# The apex of a zone CANNOT be a CNAME (RFC 1034 — the apex already carries the
+# zone's SOA/NS records). So instead of a CNAME-to-FQDN like the `dev` record,
+# the apex uses an A record pointing at the external Container Apps Environment's
+# static inbound IP. Container Apps routes by Host header, so the marketing app
+# serves any custom domain bound to it (dev + apex both → marketing).
+resource "azurerm_dns_a_record" "apex" {
+  name                = "@"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  records             = [azurerm_container_app_environment.external.static_ip_address]
+  tags                = local.tags
+}
+
+# TXT asuid.tyndaleapp.net (apex verification) = external CAE's custom-domain
+# verification ID. For an apex/root custom domain the verification record name is
+# "asuid" (vs "asuid.<sub>" for a subdomain). Azure looks this up when attaching
+# the root tyndaleapp.net custom domain to the marketing Container App.
+resource "azurerm_dns_txt_record" "asuid_apex" {
+  name                = "asuid"
+  zone_name           = azurerm_dns_zone.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  tags                = local.tags
+
+  record {
+    value = azurerm_container_app_environment.external.custom_domain_verification_id
+  }
+}

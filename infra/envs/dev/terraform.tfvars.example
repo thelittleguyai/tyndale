@@ -51,6 +51,13 @@ use_real_auth = false
 # enable_marketing_custom_domain = true
 # enable_marketing_managed_cert  = true
 
+# Apex (root) tyndaleapp.net → same marketing app as dev. Phased apply:
+#   1) leave both false  -> apex A record (→ external CAE static IP) + asuid TXT land
+#   2) enable_marketing_apex_custom_domain = true  (after tyndaleapp.net resolves)
+#   3) enable_marketing_apex_managed_cert  = true  (binds the managed TLS cert)
+# enable_marketing_apex_custom_domain = true
+# enable_marketing_apex_managed_cert  = true
+
 # Public runtime API at api.tyndaleapp.net — required for real Google/magic-link
 # auth (the session cookie needs an HTTPS .tyndaleapp.net host). Phased apply:
 #   1) leave both false   -> runtime goes public on its raw FQDN; api CNAME lands

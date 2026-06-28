@@ -99,6 +99,18 @@ variable "enable_marketing_managed_cert" {
   description = "Provision the free managed TLS cert for dev.tyndaleapp.net via `az containerapp hostname bind` and bind it to the custom domain. Requires enable_marketing_custom_domain to also be true and the HTTP binding to be live (dev.tyndaleapp.net must return a 301 from the CA so Azure's HTTP validator can verify ownership). Requires az CLI on the apply host. Flip true on a follow-up apply once HTTP works."
 }
 
+variable "enable_marketing_apex_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Attach the APEX (root) tyndaleapp.net custom domain to the marketing Container App (HTTP only), pointing at the same app as dev. Same phased flow as enable_marketing_custom_domain: first apply lays the apex A record (→ external CAE static IP) + asuid TXT; once they propagate publicly, set true and re-apply so Azure can validate the root hostname."
+}
+
+variable "enable_marketing_apex_managed_cert" {
+  type        = bool
+  default     = false
+  description = "Provision + bind the free managed TLS cert for the apex tyndaleapp.net via `az containerapp hostname bind`. Requires enable_marketing_apex_custom_domain true and the apex HTTP binding live (tyndaleapp.net returns a 301 from the CA). Requires az CLI on the apply host. Flip true on a follow-up apply once apex HTTP works."
+}
+
 variable "enable_runtime_custom_domain" {
   type        = bool
   default     = false

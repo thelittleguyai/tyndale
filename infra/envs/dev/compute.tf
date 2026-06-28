@@ -627,6 +627,55 @@ resource "null_resource" "bind_marketing_cert" {
   ]
 }
 
+# Apex (root) custom domain — binds tyndaleapp.net to the SAME marketing
+# Container App as dev, behind the same phased gates. Identical lifecycle to
+# marketing_dev; the only difference is the hostname (the bare zone name) and
+# that DNS validation rides the apex A + asuid TXT records (dns.tf) instead of a
+# CNAME. A Container App can carry multiple custom domains, so dev + apex coexist.
+resource "azurerm_container_app_custom_domain" "marketing_apex" {
+  count                    = var.enable_marketing_apex_custom_domain ? 1 : 0
+  name                     = var.dns_zone_name
+  container_app_id         = azurerm_container_app.marketing.id
+  certificate_binding_type = "Disabled"
+
+  depends_on = [
+    azurerm_dns_a_record.apex,
+    azurerm_dns_txt_record.asuid_apex,
+  ]
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+# Managed TLS cert for the apex tyndaleapp.net — same `az containerapp hostname
+# bind` pattern as the dev cert. Flip enable_marketing_apex_managed_cert = true
+# on a follow-up apply once the apex HTTP binding is healthy (tyndaleapp.net
+# returns a 301 from the CA so Azure's HTTP validator can verify ownership).
+resource "null_resource" "bind_marketing_apex_cert" {
+  count = var.enable_marketing_apex_custom_domain && var.enable_marketing_apex_managed_cert ? 1 : 0
+
+  triggers = {
+    custom_domain_id = azurerm_container_app_custom_domain.marketing_apex[0].id
+    container_app_id = azurerm_container_app.marketing.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      az containerapp hostname bind \
+        --hostname "${var.dns_zone_name}" \
+        --name "${azurerm_container_app.marketing.name}" \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --environment "${azurerm_container_app_environment.external.name}" \
+        --validation-method HTTP
+    EOT
+  }
+
+  depends_on = [
+    azurerm_container_app_custom_domain.marketing_apex,
+  ]
+}
+
 # ===========================================================================
 # api.tyndaleapp.net → runtime Container App (external CAE). Same gated,
 # phased pattern as the marketing custom domain above:
