@@ -112,9 +112,13 @@ async def test_rate_limit_per_route_upload_caps_at_20_per_hour(client, rate_on, 
     monkeypatch.setattr(rate_on, "rate_limit_upload_per_hour", 1)
     monkeypatch.setattr(rate_on, "rate_limit_per_ip_per_minute", 1000)
     monkeypatch.setattr(rate_on, "rate_limit_per_ip_per_hour", 1000)
-    r1 = await client.post("/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")})
+    r1 = await client.post(
+        "/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")}
+    )
     assert r1.status_code == 200, r1.text
-    r2 = await client.post("/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")})
+    r2 = await client.post(
+        "/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")}
+    )
     assert r2.status_code == 429
 
 
@@ -145,6 +149,45 @@ async def test_upload_file_size_limit_413s(client, monkeypatch):
     files = {"file": ("bill.txt", b"this is definitely more than eight bytes", "text/plain")}
     r = await client.post("/v1/upload", files=files)
     assert r.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_card_upload_uses_larger_upload_cap(client, monkeypatch):
+    """CO-18: the insurance-card upload path uses max_upload_body_bytes, so a base64
+    card payload that exceeds the tiny JSON cap still passes the middleware to the route."""
+    import base64
+
+    monkeypatch.setattr(get_settings(), "max_json_body_bytes", 10)
+    img = base64.b64encode(b"\x89PNG fake insurance card image bytes").decode()
+    r = await client.post(
+        "/v1/insurance/card/upload",
+        json={"card_type": "front", "image_base64": img, "mime_type": "image/png"},
+    )
+    assert r.status_code == 200, r.text  # not a middleware 413 — it reached the route
+
+
+@pytest.mark.asyncio
+async def test_card_upload_over_upload_cap_413s(client, monkeypatch):
+    """CO-18: a card body over max_upload_body_bytes is still rejected by the middleware."""
+    import base64
+
+    monkeypatch.setattr(get_settings(), "max_upload_body_bytes", 10)
+    img = base64.b64encode(b"a body that is definitely more than ten bytes once encoded").decode()
+    r = await client.post(
+        "/v1/insurance/card/upload",
+        json={"card_type": "front", "image_base64": img, "mime_type": "image/png"},
+    )
+    assert r.status_code == 413
+    assert r.json()["error"] == "payload_too_large"
+
+
+@pytest.mark.asyncio
+async def test_non_upload_json_cap_unchanged(client, monkeypatch):
+    """CO-18: the 1 MB JSON cap is unchanged for non-upload paths."""
+    monkeypatch.setattr(get_settings(), "max_json_body_bytes", 10)
+    r = await client.post("/v1/auth/magic-link-request", json={"email": "someone@example.com"})
+    assert r.status_code == 413
+    assert r.json()["error"] == "payload_too_large"
 
 
 # --- error-response hardening ------------------------------------------------
@@ -192,8 +235,11 @@ async def test_error_response_includes_correlation_id(monkeypatch):
 def test_jwt_algorithm_confusion_rejected(real_auth):
     iat = datetime.now(timezone.utc)
     payload = {
-        "sub": "u", "iss": "tyndale", "aud": "session",
-        "iat": iat, "exp": iat + timedelta(hours=1),
+        "sub": "u",
+        "iss": "tyndale",
+        "aud": "session",
+        "iat": iat,
+        "exp": iat + timedelta(hours=1),
     }
     unsigned = pyjwt.encode(payload, key="", algorithm="none")
     with pytest.raises(InvalidTokenError):
@@ -208,7 +254,12 @@ def test_jwt_audience_mismatch_rejected(real_auth):
 
 def test_jwt_missing_required_claim_rejected(real_auth):
     iat = datetime.now(timezone.utc)
-    payload = {"iss": "tyndale", "aud": "session", "iat": iat, "exp": iat + timedelta(hours=1)}  # no sub
+    payload = {
+        "iss": "tyndale",
+        "aud": "session",
+        "iat": iat,
+        "exp": iat + timedelta(hours=1),
+    }  # no sub
     token = pyjwt.encode(payload, _TEST_SECRET, algorithm="HS256")
     with pytest.raises(InvalidTokenError):
         verify_session_token(token)
@@ -231,7 +282,9 @@ async def test_cors_allows_authorized_origins_with_credentials(client):
 @pytest.mark.asyncio
 async def test_cors_allows_dev_and_app_origins(monkeypatch):
     s = get_settings()
-    monkeypatch.setattr(s, "cors_allowed_origins", "https://dev.tyndaleapp.net,https://app.tyndaleapp.net")
+    monkeypatch.setattr(
+        s, "cors_allowed_origins", "https://dev.tyndaleapp.net,https://app.tyndaleapp.net"
+    )
     monkeypatch.setattr(s, "node_env", "production")  # no localhost added in prod
     transport = ASGITransport(app=create_app())
     async with AsyncClient(transport=transport, base_url="http://t") as c:

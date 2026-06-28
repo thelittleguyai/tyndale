@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # Request body size limits (bytes).
     max_request_body_bytes: int = 25 * 1024 * 1024  # 25 MB — multipart ceiling
     max_json_body_bytes: int = 1 * 1024 * 1024  # 1 MB — JSON bodies
+    # base64 image in a JSON body (insurance card upload, CO-18). base64 of a 10 MB
+    # image is ~13.3 MB; 15 MB leaves headroom. The route enforces the real 10 MB
+    # per-image limit on the DECODED bytes.
+    max_upload_body_bytes: int = 15 * 1024 * 1024  # 15 MB — base64-image JSON bodies
     max_upload_file_bytes: int = 20 * 1024 * 1024  # 20 MB — per uploaded file
 
     # Admin IP allowlist (comma-separated CIDR; empty = no restriction). Applies

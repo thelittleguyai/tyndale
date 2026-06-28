@@ -16,6 +16,15 @@ from starlette.responses import JSONResponse
 
 from app.config import get_settings
 
+# JSON endpoints that carry a base64-encoded image and so need the larger upload
+# ceiling rather than the 1 MB JSON cap (CO-18). A small explicit allowlist — every
+# other JSON body stays capped at max_json_body_bytes.
+_IMAGE_UPLOAD_PATHS = ("/insurance/card/upload",)
+
+
+def _is_image_upload_path(path: str) -> bool:
+    return any(path.endswith(p) for p in _IMAGE_UPLOAD_PATHS)
+
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -27,7 +36,14 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 size = 0
             settings = get_settings()
             is_multipart = "multipart/form-data" in request.headers.get("content-type", "").lower()
-            limit = settings.max_request_body_bytes if is_multipart else settings.max_json_body_bytes
+            if is_multipart:
+                limit = settings.max_request_body_bytes
+            elif _is_image_upload_path(request.url.path):
+                # A base64 image in a JSON body is well over the 1 MB JSON cap; the
+                # route enforces the real per-image 10 MB limit on the decoded bytes.
+                limit = settings.max_upload_body_bytes
+            else:
+                limit = settings.max_json_body_bytes
             if size > limit:
                 return JSONResponse(
                     status_code=413,

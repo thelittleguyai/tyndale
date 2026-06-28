@@ -57,6 +57,50 @@ export function formatPhone(input: string): string {
 
 export type CardState = 'idle' | 'uploading' | 'done' | 'partial' | 'error';
 
+const MAX_IMAGE_EDGE = 1600; // longest edge after downscale
+const JPEG_QUALITY = 0.7;
+
+async function fileToBase64(file: Blob): Promise<string> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+  return dataUrl.split(',')[1] ?? '';
+}
+
+/** Downscale + JPEG-compress a picked image on web (canvas) before upload — card OCR
+ *  doesn't need full resolution, and this keeps the base64 body well under the upload
+ *  cap (CO-18). Falls back to the original bytes if the canvas path is unavailable
+ *  or fails (the server's size cap still protects us). */
+async function compressImage(
+  file: File,
+): Promise<{ base64: string; mime: string; size: number }> {
+  try {
+    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') {
+      return { base64: await fileToBase64(file), mime: file.type, size: file.size };
+    }
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', JPEG_QUALITY),
+    );
+    if (!blob) throw new Error('toBlob failed');
+    return { base64: await fileToBase64(blob), mime: 'image/jpeg', size: blob.size };
+  } catch {
+    return { base64: await fileToBase64(file), mime: file.type, size: file.size };
+  }
+}
+
 /** Web image picker: pick -> base64 -> POST /v1/insurance/card/upload. Native shows a
  *  "use the web app" note (mirrors the intake UploadField until the native camera lands). */
 export function CardUpload({
@@ -93,23 +137,19 @@ export function CardUpload({
       setMsg('Please pick a JPG, PNG, or HEIC image.');
       return;
     }
-    if (file.size > MAX_CARD_BYTES) {
-      setState('error');
-      setMsg('That image is over the 10MB limit.');
-      return;
-    }
     setState('uploading');
     setMsg(null);
     onUploadingChange?.(true);
     try {
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('read failed'));
-        reader.readAsDataURL(file);
-      });
-      const base64 = dataUrl.split(',')[1] ?? '';
-      const result = await uploadInsuranceCard(side, base64, file.type, file.size);
+      // Downscale + compress first (CO-18): card OCR doesn't need full resolution,
+      // and this keeps the base64 body well under the cap even for high-res photos.
+      const { base64, mime, size } = await compressImage(file);
+      if (size > MAX_CARD_BYTES) {
+        setState('error');
+        setMsg('That image is too large even after compression — try a smaller photo.');
+        return;
+      }
+      const result = await uploadInsuranceCard(side, base64, mime, size);
       const ok = ['extracted', 'merged'].includes(result.extraction_status);
       setState(ok ? 'done' : 'partial');
       setMsg(
