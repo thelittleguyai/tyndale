@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
-import { getDashboard } from '../../lib/api-client';
+import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
 
 type IntakeGate = { status: string; step: string | null };
@@ -20,6 +20,7 @@ type IntakeGate = { status: string; step: string | null };
 export default function AppLayout() {
   const { user, loading } = useCurrentUser();
   const [intake, setIntake] = useState<IntakeGate | null>(null);
+  const [profileDone, setProfileDone] = useState<boolean | null>(null);
   const [intakeLoading, setIntakeLoading] = useState(true);
 
   useEffect(() => {
@@ -28,10 +29,20 @@ export default function AppLayout() {
       return;
     }
     let alive = true;
-    getDashboard()
-      .then((d) => alive && setIntake({ status: d.intake_status, step: d.intake_current_step }))
-      // Fail open to the dashboard rather than trapping the user if the check errors.
-      .catch(() => alive && setIntake({ status: 'complete', step: null }))
+    // Fail open (don't trap the user) if either check errors.
+    Promise.all([
+      getProfileState()
+        .then((p) => p.profile_completed)
+        .catch(() => true),
+      getDashboard()
+        .then((d) => ({ status: d.intake_status, step: d.intake_current_step }))
+        .catch(() => ({ status: 'complete', step: null }) as IntakeGate),
+    ])
+      .then(([pdone, ig]) => {
+        if (!alive) return;
+        setProfileDone(pdone);
+        setIntake(ig);
+      })
       .finally(() => alive && setIntakeLoading(false));
     return () => {
       alive = false;
@@ -48,6 +59,11 @@ export default function AppLayout() {
 
   if (!user) {
     return <Redirect href="/sign-in" />;
+  }
+
+  // CO-17: the profile-onboarding gate runs before the coverage-intake gate.
+  if (profileDone === false) {
+    return <Redirect href="/onboarding" />;
   }
 
   if (intake && intake.status !== 'complete') {

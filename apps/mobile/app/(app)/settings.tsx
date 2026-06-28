@@ -8,12 +8,23 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { getUserProfile, updateConsent, type UserProfile } from '../../lib/api-client';
+import {
+  getInsuranceInfo,
+  getProfileState,
+  getUserProfile,
+  fetchCardImageObjectUrl,
+  patchProfile,
+  updateConsent,
+  type InsuranceInfo,
+  type ProfileState,
+  type UserProfile,
+} from '../../lib/api-client';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
+import { CardUpload, formatPhone, isoToMdy, validateDob } from '../../lib/profile-ui';
 
 const CONSENT_FULL_TEXT = [
   'Help make Tyndale better. With your permission, we’ll use your bills, your feedback, and the outcomes of your cases — with all your personal information removed — to improve how Tyndale catches errors and helps people. This is optional, it never affects the service you receive, and you can turn it off anytime in Settings.',
@@ -28,6 +39,13 @@ const CONSENT_FULL_TEXT = [
 export default function SettingsScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [pstate, setPstate] = useState<ProfileState | null>(null);
+  const [insurance, setInsurance] = useState<InsuranceInfo | null>(null);
+  const [fn, setFn] = useState('');
+  const [ln, setLn] = useState('');
+  const [dob, setDob] = useState('');
+  const [phone, setPhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [consentModal, setConsentModal] = useState(false);
@@ -35,12 +53,42 @@ export default function SettingsScreen() {
 
   const load = useCallback(() => {
     getUserProfile().then(setProfile).catch(() => {/* non-fatal */});
+    getProfileState()
+      .then((s) => {
+        setPstate(s);
+        setFn(s.first_name ?? '');
+        setLn(s.last_name ?? '');
+        setDob(isoToMdy(s.date_of_birth));
+        setPhone(s.phone ?? '');
+      })
+      .catch(() => {/* non-fatal */});
+    getInsuranceInfo().then(setInsurance).catch(() => {/* non-fatal */});
   }, []);
   useEffect(() => load(), [load]);
 
   const flash = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2200);
+  };
+
+  const dobCheck = validateDob(dob);
+  const saveProfile = async () => {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    try {
+      const updated = await patchProfile({
+        first_name: fn.trim() || null,
+        last_name: ln.trim() || null,
+        date_of_birth: dob.trim() ? dobCheck.iso : null,
+        phone: phone.trim() || null,
+      });
+      setPstate(updated);
+      flash('Profile saved.');
+    } catch {
+      flash('Couldn’t save — check the fields and try again.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const onToggleConsent = async (value: boolean) => {
@@ -69,10 +117,30 @@ export default function SettingsScreen() {
       </Pressable>
       <Text className="mb-6 text-3xl font-bold text-white">Settings</Text>
 
-      {/* 1. Profile (read-only in V1-Lite) */}
+      {/* 1. Profile (editable — CO-17) */}
       <Section title="Profile">
-        <Row label="Name" value={profile?.first_name ?? '—'} />
-        <Row label="Email" value={profile?.email ?? '—'} />
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <EditField label="First name" value={fn} onChangeText={setFn} placeholder="Jane" />
+          </View>
+          <View className="flex-1">
+            <EditField label="Last name" value={ln} onChangeText={setLn} placeholder="Doe" />
+          </View>
+        </View>
+        <EditField
+          label="Date of birth"
+          value={dob}
+          onChangeText={setDob}
+          placeholder="MM/DD/YYYY"
+          error={dobCheck.error}
+        />
+        <EditField
+          label="Phone"
+          value={phone}
+          onChangeText={(t) => setPhone(formatPhone(t))}
+          placeholder="(555) 123-4567"
+        />
+        <Row label="Email" value={pstate?.email ?? profile?.email ?? '—'} />
         <View className="mt-2 flex-row items-center justify-between">
           <Text className="text-sm text-white/60">Account type</Text>
           <View
@@ -91,6 +159,32 @@ export default function SettingsScreen() {
             >
               {profile?.user_type ?? 'user'}
             </Text>
+          </View>
+        </View>
+        <PressableScale
+          onPress={saveProfile}
+          className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+        >
+          <Text className="text-sm font-bold text-ink">
+            {savingProfile ? 'Saving…' : 'Save profile'}
+          </Text>
+        </PressableScale>
+      </Section>
+
+      {/* 1b. Insurance (CO-17) */}
+      <Section title="Insurance">
+        <Row label="Insurer" value={insurance?.insurer ?? '—'} />
+        <Row label="Member ID" value={insurance?.member_id ?? '—'} />
+        <Row label="Plan" value={insurance?.plan_name ?? '—'} />
+        <Text className="mb-2 mt-3 text-xs uppercase tracking-widest text-white/45">Card photos</Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <CardThumb side="front" present={!!insurance?.has_front} />
+            <CardUpload side="front" initialDone={!!insurance?.has_front} onResult={() => load()} />
+          </View>
+          <View className="flex-1">
+            <CardThumb side="back" present={!!insurance?.has_back} />
+            <CardUpload side="back" initialDone={!!insurance?.has_back} onResult={() => load()} />
           </View>
         </View>
       </Section>
@@ -223,6 +317,53 @@ function Row({ label, value }: { label: string; value: string }) {
       <Text className="text-sm text-white/60">{label}</Text>
       <Text className="text-sm text-white">{value}</Text>
     </View>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  error,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  error?: string | null;
+}) {
+  return (
+    <View className="mb-3">
+      <Text className="mb-1 text-sm text-white/60">{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(255,255,255,0.3)"
+        className="min-h-[44px] rounded-lg border border-white/15 bg-black/20 px-3 py-2.5 text-base text-white"
+      />
+      {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+    </View>
+  );
+}
+
+function CardThumb({ side, present }: { side: 'front' | 'back'; present: boolean }) {
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    if (!present) {
+      setUri(null);
+      return;
+    }
+    let alive = true;
+    fetchCardImageObjectUrl(side).then((u) => alive && setUri(u));
+    return () => {
+      alive = false;
+    };
+  }, [side, present]);
+  if (!present || !uri) return null;
+  return (
+    <Image source={{ uri }} resizeMode="cover" className="mb-2 h-24 w-full rounded-xl bg-black/20" />
   );
 }
 

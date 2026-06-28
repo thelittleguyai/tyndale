@@ -602,3 +602,103 @@ export async function streamMessage(
     }
   }
 }
+
+// ── CO-17: profile + insurance ──────────────────────────────────────────────
+
+export interface ProfileState {
+  first_name: string | null;
+  last_name: string | null;
+  date_of_birth: string | null;
+  phone: string | null;
+  email: string;
+  profile_completed: boolean;
+  has_insurance_card: boolean;
+}
+
+export interface ProfilePatch {
+  first_name?: string | null;
+  last_name?: string | null;
+  date_of_birth?: string | null;
+  phone?: string | null;
+  accept_terms?: boolean;
+}
+
+export interface InsuranceInfo {
+  insurer: string | null;
+  plan_name: string | null;
+  plan_type: string | null;
+  member_id: string | null;
+  group_number: string | null;
+  member_name: string | null;
+  effective_date: string | null;
+  rx_bin: string | null;
+  rx_pcn: string | null;
+  copays: unknown;
+  extraction_status: string | null;
+  has_front: boolean;
+  has_back: boolean;
+}
+
+export interface CardUploadResult {
+  card_type: string;
+  extraction_status: string;
+  insurance_info: InsuranceInfo;
+}
+
+export async function getProfileState(): Promise<ProfileState> {
+  const res = await cfetch(`${BASE_URL}/v1/profile/state`);
+  if (!res.ok) throw new Error(`profile state failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as ProfileState;
+}
+
+export async function patchProfile(body: ProfilePatch): Promise<ProfileState> {
+  const res = await cfetch(`${BASE_URL}/v1/profile`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`profile update failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as ProfileState;
+}
+
+export async function getInsuranceInfo(): Promise<InsuranceInfo> {
+  const res = await cfetch(`${BASE_URL}/v1/insurance/info`);
+  if (!res.ok) throw new Error(`insurance info failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as InsuranceInfo;
+}
+
+export async function uploadInsuranceCard(
+  card_type: 'front' | 'back',
+  image_base64: string,
+  mime_type: string,
+  file_size?: number,
+): Promise<CardUploadResult> {
+  const res = await cfetch(`${BASE_URL}/v1/insurance/card/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ card_type, image_base64, mime_type, file_size }),
+  });
+  if (!res.ok) throw new Error(`card upload failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as CardUploadResult;
+}
+
+/** URL for a card side's image — the runtime streams it (or 302s to a signed Blob URL). */
+export function insuranceCardImageUrl(card_type: 'front' | 'back'): string {
+  return `${BASE_URL}/v1/insurance/card/${card_type}/image`;
+}
+
+/** Fetch a card image with credentials (follows the signed-URL redirect) and return an
+ *  object URL usable as an <Image> source — works cross-origin where a bare <img> can't
+ *  send the cookie. Web only; returns null elsewhere or on failure. */
+export async function fetchCardImageObjectUrl(
+  card_type: 'front' | 'back',
+): Promise<string | null> {
+  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+  try {
+    const res = await cfetch(insuranceCardImageUrl(card_type));
+    if (!res.ok) return null;
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
+  }
+}
