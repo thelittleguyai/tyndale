@@ -164,3 +164,94 @@ variable "common_tags" {
     managed_by = "terraform"
   }
 }
+
+# --- CO-18: Claude via Azure AI Foundry (DL-79) -----------------------------
+variable "enable_foundry" {
+  type        = bool
+  default     = false
+  description = "Create the Azure AI Foundry account + Claude deployments + runtime RBAC. Gated so the plan is a no-op until you opt in. Apply this true first, then flip use_foundry."
+}
+
+variable "use_foundry" {
+  type        = bool
+  default     = false
+  description = "Runtime USE_FOUNDRY flag — route Claude through Foundry (managed identity) instead of Anthropic-direct. Flip true only after the enable_foundry resources have provisioned."
+}
+
+variable "foundry_location" {
+  type        = string
+  default     = "eastus2"
+  description = "Region for the Foundry account. Must be Claude-supported (eastus2 hosts Haiku/Sonnet/Opus; the dev env's centralus is NOT Claude-supported)."
+}
+
+variable "foundry_account_name" {
+  type        = string
+  default     = ""
+  description = "Override the Foundry account / custom-subdomain name (must be globally unique). Empty -> <name_prefix>-foundry."
+}
+
+variable "foundry_token_scope" {
+  type        = string
+  default     = "https://ai.azure.com/.default"
+  description = "Entra token scope for Foundry inference. Verified value is https://ai.azure.com/.default (NOT cognitiveservices.azure.com — corrects the scope stated in DL-79)."
+}
+
+variable "foundry_deployment_sku" {
+  type        = string
+  default     = "GlobalStandard"
+  description = "Deployment SKU. GlobalStandard works for all Claude models; DataZoneStandard (US residency) is only available for Azure-hosted models (Haiku/Opus), NOT claude-sonnet-4-6 (Hosted on Anthropic)."
+}
+
+variable "claude_sonnet_model" {
+  type        = string
+  default     = "claude-sonnet-4-6"
+  description = "Sonnet model id (the LP/BD/MP trio); also the deployment name."
+}
+
+variable "claude_haiku_model" {
+  type        = string
+  default     = "claude-haiku-4-5"
+  description = "Haiku model id (crisis/greeting); also the deployment name."
+}
+
+variable "foundry_sonnet_version" {
+  type        = string
+  default     = "1"
+  description = "Model version for the Sonnet deployment (version selects the hosting option: 1 = Hosted on Anthropic, 2 = Hosted on Azure). Confirm against the live catalog at apply."
+}
+
+variable "foundry_haiku_version" {
+  type        = string
+  default     = "1"
+  description = "Model version for the Haiku deployment (1 = Hosted on Anthropic, 2 = Hosted on Azure)."
+}
+
+variable "foundry_sonnet_capacity" {
+  type        = number
+  default     = 25
+  description = "Sonnet deployment capacity in thousands of tokens/min."
+}
+
+variable "foundry_haiku_capacity" {
+  type        = number
+  default     = 25
+  description = "Haiku deployment capacity in thousands of tokens/min."
+}
+
+variable "claude_organization_name" {
+  type        = string
+  default     = ""
+  description = "Anthropic Marketplace attestation: the legal entity using Claude (e.g. 'The Little Guy LLC'). REQUIRED when enable_foundry is true — set in terraform.tfvars."
+}
+
+variable "claude_country_code" {
+  type        = string
+  default     = "US"
+  description = "Anthropic Marketplace attestation: two-letter country code."
+}
+
+variable "claude_industry" {
+  type        = string
+  default     = "technology"
+  description = "Anthropic Marketplace attestation: industry (lowercase; one of technology/finance/healthcare/education/retail/manufacturing/government/media/other)."
+}

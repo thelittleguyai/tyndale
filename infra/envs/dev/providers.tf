@@ -14,6 +14,12 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    # CO-18 — Claude via Azure AI Foundry: the Foundry account + Claude deployments
+    # use azapi (modelProviderData isn't yet exposed by azurerm_cognitive_deployment).
+    azapi = {
+      source  = "azure/azapi"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -30,4 +36,9 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
+}
+
+provider "azapi" {
+  subscription_id = var.azure_subscription_id
+  tenant_id       = var.azure_tenant_id
 }

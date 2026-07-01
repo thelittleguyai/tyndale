@@ -80,3 +80,14 @@ output "container_app_qdrant_fqdn" {
   value       = azurerm_container_app.qdrant.ingress[0].fqdn
   description = "Qdrant FQDN (internal)."
 }
+
+# --- CO-18: Azure AI Foundry ------------------------------------------------
+output "foundry_endpoint" {
+  value       = local.foundry_endpoint
+  description = "Azure AI Foundry base URL (append /anthropic for the Messages API). Empty when enable_foundry is false."
+}
+
+output "foundry_account_name" {
+  value       = local.foundry_account_name
+  description = "Foundry account / custom-subdomain name."
+}

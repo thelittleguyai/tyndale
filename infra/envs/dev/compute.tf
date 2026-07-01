@@ -114,6 +114,29 @@ resource "azurerm_container_app" "runtime" {
         name  = "USE_REAL_CLAUDE"
         value = tostring(var.use_real_claude)
       }
+      # CO-18 — Claude via Azure AI Foundry (managed identity; no key). USE_FOUNDRY
+      # flips the code path; the endpoint / scope / deployment names come from the
+      # Foundry resources (ai_foundry.tf) and are empty when enable_foundry is false.
+      env {
+        name  = "USE_FOUNDRY"
+        value = tostring(var.use_foundry)
+      }
+      env {
+        name  = "FOUNDRY_ENDPOINT"
+        value = local.foundry_endpoint
+      }
+      env {
+        name  = "FOUNDRY_TOKEN_SCOPE"
+        value = var.foundry_token_scope
+      }
+      env {
+        name  = "FOUNDRY_DEPLOYMENT_SONNET"
+        value = local.foundry_deployment_sonnet
+      }
+      env {
+        name  = "FOUNDRY_DEPLOYMENT_HAIKU"
+        value = local.foundry_deployment_haiku
+      }
       env {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         value = azurerm_application_insights.main.connection_string
