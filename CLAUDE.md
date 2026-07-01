@@ -62,6 +62,13 @@ proximity but is a separate Python project.
 
 - **Secrets live only in the runtime environment.** Never expose anything sensitive through
   `NEXT_PUBLIC_*` or any client-bundled variable.
+- **Claude runs through Azure AI Foundry (CO-18 / DL-79).** The runtime calls Claude via
+  Foundry's Anthropic Messages API using its **managed identity** (no API key), so Azure's
+  BAA covers Claude. `USE_FOUNDRY` selects that path in the single client factory
+  (`runtime/app/agents/runner._client()`), and `assert_production_safety()` requires it in
+  production — PHI must never route Anthropic-direct in prod. Anthropic-direct and the
+  LiteLLM proxy remain config-gated dev/emergency fallbacks (precedence: Foundry → proxy →
+  direct). Infra: `infra/envs/dev/ai_foundry.tf`.
 - The **security/HIPAA infrastructure** — Presidio PHI scrubbing, encrypted audit log, Key
   Vault key rotation, the prompt-injection (UserPromptSubmit) hook, the citation Layer-2
   (Stop) hook, crisis classifier, LiteLLM proxy hardening, email approval gate, and BAA

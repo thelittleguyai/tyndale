@@ -2,6 +2,11 @@
 # Real hardening (weekly key rotation, per-route allow-lists, request-level audit
 # logging) lands in Phase 4 with the security/HIPAA contact. See README.md.
 #
+# CO-18 / DL-79: this proxy is NO LONGER the primary Claude path. The runtime now
+# calls Claude directly through Azure AI Foundry (managed identity, Azure BAA) — see
+# app/agents/runner._client() and infra/envs/dev/ai_foundry.tf. This proxy is a
+# config-gated fallback (used only when LITELLM_PROXY_URL is set and Foundry is off).
+#
 # Model assignments follow discipline rule D3:
 #   Lead Planner = Sonnet 4.6 · Strategist = Opus 4.7 · Code Validator = Haiku 4.5
 #   (Judge = Opus 4.7). Legal Researcher/Strategist/Code Validator are unused in
