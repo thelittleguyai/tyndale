@@ -37,7 +37,7 @@ async def _haiku_title(msg: str) -> str:
     settings = get_settings()
     client = _client()
     resp = await client.messages.create(
-        model=settings.claude_default_model_haiku,
+        model=settings.resolved_model(settings.claude_default_model_haiku),
         max_tokens=24,
         system=[{"type": "text", "text": _SYSTEM}],
         messages=[{"role": "user", "content": f"First user message:\n\n{msg}\n\nTitle:"}],

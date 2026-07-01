@@ -74,10 +74,36 @@ class RunResult:
 
 
 def _client():
-    """Lazy-import the Anthropic SDK so importing this module doesn't require it."""
+    """The single Claude client factory (CO-18). Lazy-imports the SDK so importing
+    this module doesn't require it. Precedence:
+
+      1. Foundry (use_foundry + endpoint) — the BAA path: Anthropic Messages API at
+         {endpoint}/anthropic, authenticated with the runtime's managed identity
+         (Entra bearer token, NO api_key; the two are mutually exclusive in the SDK).
+      2. LiteLLM proxy (litellm_proxy_url) — legacy/dev proxy.
+      3. Anthropic-direct (api_key) — dev/emergency fallback.
+
+    All Claude callers (orchestrator via run_agent, greeting, conversation_title)
+    route through here, so Foundry vs direct is one switch."""
+    settings = get_settings()
+    if settings.use_foundry and settings.foundry_endpoint:
+        from anthropic import AsyncAnthropicFoundry
+        from azure.identity import (
+            DefaultAzureCredential,
+            get_bearer_token_provider,
+        )
+
+        token_provider = get_bearer_token_provider(
+            DefaultAzureCredential(), settings.foundry_token_scope
+        )
+        base_url = settings.foundry_endpoint.rstrip("/") + "/anthropic"
+        return AsyncAnthropicFoundry(
+            base_url=base_url,
+            azure_ad_token_provider=token_provider,
+        )
+
     from anthropic import AsyncAnthropic
 
-    settings = get_settings()
     if settings.litellm_proxy_url:
         return AsyncAnthropic(
             api_key=(settings.anthropic_api_key or "via-litellm-proxy"),
@@ -87,10 +113,12 @@ def _client():
 
 
 def has_real_anthropic_creds(settings) -> bool:
-    """True when there is a usable LLM path — a real ``sk-...`` Anthropic key or a
-    LiteLLM proxy URL. Placeholder strings ('<from terraform output>', empty,
-    unset) return False so callers fall back to fixtures instead of hitting the
-    API with an invalid key. Mirrors the orchestrator's gate."""
+    """True when there is a usable LLM path — Foundry (managed identity), a real
+    ``sk-...`` Anthropic key, or a LiteLLM proxy URL. Placeholder strings ('<from
+    terraform output>', empty, unset) return False so callers fall back to fixtures
+    instead of hitting the API with an invalid key. Mirrors the orchestrator's gate."""
+    if settings.use_foundry and settings.foundry_endpoint:
+        return True  # managed identity — no API key needed
     if settings.litellm_proxy_url:
         return True
     key = (settings.anthropic_api_key or "").strip()

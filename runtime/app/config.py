@@ -60,6 +60,21 @@ class Settings(BaseSettings):
     claude_model_bill_detective_override: str | None = None
     claude_model_math_person_override: str | None = None
 
+    # --- Azure AI Foundry (CO-18 / DL-79) -------------------------------------
+    # Route Claude through Microsoft Foundry (the Anthropic Messages API at
+    # {foundry_endpoint}/anthropic) using the runtime's MANAGED IDENTITY — no API
+    # key — so Azure's BAA covers Claude. ``use_foundry`` flips the client factory;
+    # ``foundry_endpoint`` is the account base URL (Terraform local.foundry_endpoint,
+    # e.g. https://tyndale-dev-foundry.services.ai.azure.com). Both default off so
+    # nothing changes until the Foundry resources are provisioned (enable_foundry)
+    # AND this is flipped on. Deployments are named after the model ids by default,
+    # so foundry_model() is identity unless FOUNDRY_DEPLOYMENT_* override the names.
+    use_foundry: bool = False
+    foundry_endpoint: str | None = None
+    foundry_token_scope: str = "https://ai.azure.com/.default"
+    foundry_deployment_sonnet: str | None = None
+    foundry_deployment_haiku: str | None = None
+
     # Where to write uploaded files when running fully local (no Azure Blob).
     local_uploads_dir: str = "/tmp/tyndale_uploads"
 
@@ -185,16 +200,34 @@ class Settings(BaseSettings):
     # silently serve the MRI fixture as a real audit; see assert_production_safety().
     allow_fixture_fallback: bool = False
 
+    def foundry_model(self, model_id: str) -> str:
+        """Map an Anthropic model id to its Foundry deployment name. Deployments are
+        named after the model ids by default (infra/envs/dev/ai_foundry.tf), so this
+        is identity unless FOUNDRY_DEPLOYMENT_SONNET/HAIKU name them differently."""
+        mid = (model_id or "").lower()
+        if "haiku" in mid and self.foundry_deployment_haiku:
+            return self.foundry_deployment_haiku
+        if ("sonnet" in mid or "opus" in mid) and self.foundry_deployment_sonnet:
+            return self.foundry_deployment_sonnet
+        return model_id
+
+    def resolved_model(self, model_id: str) -> str:
+        """The model string to pass to the client: the Foundry deployment name when
+        routing through Foundry, else the Anthropic model id unchanged. Every call
+        site that names a model funnels through here so Foundry vs Anthropic-direct
+        stays a one-switch decision."""
+        return self.foundry_model(model_id) if self.use_foundry else model_id
+
     def claude_model_for(self, role: str) -> str:
         """Resolve the Claude model for a given role.
 
         Roles: 'lead_planner' | 'bill_detective' | 'math_person'.
         Falls back to claude_default_model_sonnet for the V1-Lite trio per D3.
+        Under Foundry, resolves further to the deployment name (resolved_model).
         """
         override = getattr(self, f"claude_model_{role}_override", None)
-        if override:
-            return override
-        return self.claude_default_model_sonnet
+        base = override or self.claude_default_model_sonnet
+        return self.resolved_model(base)
 
     @property
     def cors_origins(self) -> list[str]:
@@ -218,11 +251,15 @@ class Settings(BaseSettings):
                 log.warning("config.missing_optional_in_prod", var=var.upper())
 
     def assert_production_safety(self) -> None:
-        """Fail-fast guard (CO-15): a production deploy must never silently serve
-        fixtures. In production, ``allow_fixture_fallback`` MUST be False and
-        ``use_real_claude`` MUST be True — otherwise a missing/invalid Anthropic
-        key would return the MRI fixture ($560) as if it were a real audit. Called
-        from main.py's lifespan so an unsafe prod config fails to boot."""
+        """Fail-fast guard (CO-15 / CO-18): a production deploy must never silently
+        serve fixtures, and must never route PHI to Anthropic-direct. In production,
+        ``allow_fixture_fallback`` MUST be False, ``use_real_claude`` MUST be True
+        (else a missing/invalid key returns the MRI fixture as a real audit), and
+        ``use_foundry`` MUST be True (DL-79 — Claude goes through the Azure Foundry
+        BAA path via managed identity, not the Anthropic-direct dev/emergency
+        fallback). Called from main.py's lifespan so an unsafe prod config fails to
+        boot. The dev env runs NODE_ENV=development, so this is inert there until a
+        real production profile stands up."""
         if not self.is_production:
             return
         problems: list[str] = []
@@ -230,6 +267,11 @@ class Settings(BaseSettings):
             problems.append("ALLOW_FIXTURE_FALLBACK must be false in production")
         if not self.use_real_claude:
             problems.append("USE_REAL_CLAUDE must be true in production")
+        if not self.use_foundry:
+            problems.append(
+                "USE_FOUNDRY must be true in production — Claude must route through the "
+                "Azure Foundry BAA path (managed identity), not Anthropic-direct (DL-79)"
+            )
         if problems:
             raise RuntimeError("Unsafe production config — " + "; ".join(problems))
 

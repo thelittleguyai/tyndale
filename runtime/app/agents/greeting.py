@@ -16,6 +16,7 @@ import json
 import structlog
 
 from app.agents.orchestrator import _has_real_anthropic_creds
+from app.agents.runner import _client
 from app.config import get_settings
 
 log = structlog.get_logger(__name__)
@@ -52,11 +53,10 @@ async def compose_status_greeting(open_cases: list[dict]) -> str | None:
     if not settings.use_real_claude or not _has_real_anthropic_creds(settings):
         return _programmatic_fallback(open_cases)
 
-    # Real Claude path. Keep it short + cheap.
+    # Real Claude path. Keep it short + cheap. Routes through the single client
+    # factory (CO-18) so this honors Foundry/managed-identity when enabled.
     try:
-        from anthropic import AsyncAnthropic
-
-        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        client = _client()
         response = await client.messages.create(
             model=settings.claude_model_for("lead_planner"),
             max_tokens=300,

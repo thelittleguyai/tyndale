@@ -52,7 +52,10 @@ async def _set_status(case_file_id: str, status: str) -> None:
 def _has_real_anthropic_creds(settings) -> bool:
     """Real key must look like sk-ant-... — placeholder strings ('<from
     terraform output>', empty, unset) fall back to fixture instead of
-    hitting Anthropic with an invalid key."""
+    hitting Anthropic with an invalid key. Under Foundry (CO-18) the managed
+    identity IS the credential, so no API key is required."""
+    if settings.use_foundry and settings.foundry_endpoint:
+        return True
     key = (settings.anthropic_api_key or "").strip()
     if not key:
         return False

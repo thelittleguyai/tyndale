@@ -98,8 +98,21 @@ def test_production_config_assertion():
             **base, use_real_claude=False, allow_fixture_fallback=False
         ).assert_production_safety()
 
-    # Safe production profile: no raise.
-    Settings(**base, use_real_claude=True, allow_fixture_fallback=False).assert_production_safety()
+    # Unsafe: Foundry off in production (CO-18 / DL-79) — Claude would route
+    # Anthropic-direct, outside the Azure BAA.
+    with pytest.raises(RuntimeError, match="USE_FOUNDRY"):
+        Settings(
+            **base, use_real_claude=True, allow_fixture_fallback=False, use_foundry=False
+        ).assert_production_safety()
+
+    # Safe production profile: real Claude on, no fixture fallback, Foundry on.
+    Settings(
+        **base,
+        use_real_claude=True,
+        allow_fixture_fallback=False,
+        use_foundry=True,
+        foundry_endpoint="https://tyndale-prod-foundry.services.ai.azure.com",
+    ).assert_production_safety()
 
     # Non-production: never raises, even with an unsafe-looking combo.
     Settings(
