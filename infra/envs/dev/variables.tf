@@ -192,14 +192,14 @@ variable "foundry_account_name" {
 
 variable "foundry_token_scope" {
   type        = string
-  default     = "https://ai.azure.com/.default"
-  description = "Entra token scope for Foundry inference. Verified value is https://ai.azure.com/.default (NOT cognitiveservices.azure.com — corrects the scope stated in DL-79)."
+  default     = "https://ai.cognitiveservices.com/.default"
+  description = "Entra token scope (audience) for keyless Foundry inference. Sources disagree, so this is runtime-configurable: Microsoft's current 'Deploy and use Claude models in Foundry' how-to — including its 401 troubleshooting row — uses https://ai.cognitiveservices.com/.default (the default here); other refs use https://cognitiveservices.azure.com/.default (canonical AI Services) or https://ai.azure.com/.default. If inference 401s on auth, flip to an alternate — no code change, just this value. Only matters when the runtime CALLS Foundry, not at deployment."
 }
 
 variable "foundry_deployment_sku" {
   type        = string
   default     = "GlobalStandard"
-  description = "Deployment SKU. GlobalStandard works for all Claude models; DataZoneStandard (US residency) is only available for Azure-hosted models (Haiku/Opus), NOT claude-sonnet-4-6 (Hosted on Anthropic)."
+  description = "Deployment SKU (shared by both deployments). GlobalStandard works for every Claude model. DataZoneStandard (US residency) is available ONLY for the Azure-hosted models — claude-haiku-4-5 (v2), claude-sonnet-5, claude-opus-4-8 — NOT claude-sonnet-4-6 (Hosted on Anthropic, GlobalStandard only). To put Haiku on DataZone while Sonnet-4-6 stays Global, split this into per-deployment SKU vars."
 }
 
 variable "claude_sonnet_model" {
@@ -217,13 +217,13 @@ variable "claude_haiku_model" {
 variable "foundry_sonnet_version" {
   type        = string
   default     = "1"
-  description = "Model version for the Sonnet deployment (version selects the hosting option: 1 = Hosted on Anthropic, 2 = Hosted on Azure). Confirm against the live catalog at apply."
+  description = "Model version for the Sonnet deployment. claude-sonnet-4-6 is Hosted on Anthropic ONLY, so v1 is the sole option (it deployed cleanly). Version selects hosting (1 = Hosted on Anthropic, 2 = Hosted on Azure); for an Azure-hosted / Data-Zone-eligible Sonnet you must switch the MODEL to claude-sonnet-5 (which has a v2) — see the residency note in ai_foundry.tf."
 }
 
 variable "foundry_haiku_version" {
   type        = string
-  default     = "1"
-  description = "Model version for the Haiku deployment (1 = Hosted on Anthropic, 2 = Hosted on Azure)."
+  default     = "2"
+  description = "Model version for the Haiku deployment. 2 = Hosted on Azure (GA default; runs end-to-end on Azure — the residency/BAA-preferred line and Data-Zone-eligible). 1 = Hosted on Anthropic. Deploying claude-haiku-4-5 as v1 returned DeploymentModelNotSupported, so v2 is the default. (The deployment NAME stays claude-haiku-4-5 either way, so no runtime change.)"
 }
 
 variable "foundry_sonnet_capacity" {

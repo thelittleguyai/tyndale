@@ -19,12 +19,20 @@
 #     does not yet expose — hashicorp/terraform-provider-azurerm#31140) can be set.
 #     That block auto-accepts the Anthropic Azure Marketplace offer on apply.
 #
-# RESIDENCY NOTE (verified against the Foundry model catalog): claude-sonnet-4-6
-# is "Hosted on Anthropic" and supports GlobalStandard ONLY — it has no US Data
-# Zone Standard option. Only Azure-hosted models (claude-haiku-4-5, claude-opus-4-8)
-# support DataZoneStandard. So DL-79's "US Data Zone Standard" is NOT achievable for
-# the Sonnet trio without switching it to an Azure-hosted model. Deployments use
-# var.foundry_deployment_sku (default GlobalStandard, the universally-supported SKU).
+# HOSTING / RESIDENCY NOTE (verified against the Foundry model catalog + MS docs,
+# 2026-06-29). Foundry offers Claude in two lines: version 1 = "Hosted on Anthropic"
+# (runs on Anthropic infra) and version 2 = "Hosted on Azure" (runs end-to-end on
+# Azure — the stronger residency/BAA posture, and Data-Zone-Standard eligible). Per
+# model used here:
+#   * claude-sonnet-4-6 — Hosted on Anthropic ONLY (v1), GlobalStandard only. This is
+#     the runtime's LP/BD/MP trio, so that traffic runs on Anthropic infra (still
+#     Azure-BAA-covered via Foundry, but NOT end-to-end on Azure). For a fully
+#     Azure-hosted trio, switch the model to claude-sonnet-5 (Hosted on Azure, v2).
+#   * claude-haiku-4-5 — available BOTH ways; we deploy v2 (Hosted on Azure), the GA
+#     default. Deploying v1 (Hosted on Anthropic) returned DeploymentModelNotSupported.
+# DataZoneStandard (US residency) is available for the Azure-hosted models
+# (claude-haiku-4-5 v2, claude-sonnet-5, claude-opus-4-8), NOT claude-sonnet-4-6.
+# Deployments use var.foundry_deployment_sku (default GlobalStandard).
 # ============================================================================
 
 locals {
