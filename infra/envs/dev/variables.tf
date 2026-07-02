@@ -50,6 +50,12 @@ variable "use_real_claude" {
   description = "When true, the runtime calls the real Claude API (direct Anthropic) instead of the deterministic fixtures. Real calls cost money per request — set to true in terraform.tfvars to enable live chat/audit, leave false for fixture-only dev."
 }
 
+variable "use_real_ocr" {
+  type        = bool
+  default     = false
+  description = "Runtime USE_REAL_OCR flag — when true, deployed OCR flips from the deterministic stub to real Azure Document Intelligence (the doc-intel endpoint/key are always wired into the runtime; this just activates them). Set true in terraform.tfvars to enable real OCR without a code change; leave false for stub-only dev."
+}
+
 variable "voyage_api_key" {
   type        = string
   sensitive   = true

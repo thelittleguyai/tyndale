@@ -47,6 +47,11 @@ resource "azurerm_container_app" "runtime" {
     identity            = azurerm_user_assigned_identity.runtime.id
   }
   secret {
+    name                = "azure-storage-connection-string"
+    key_vault_secret_id = azurerm_key_vault_secret.azure_storage_connection_string.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+  secret {
     name                = "database-url"
     key_vault_secret_id = azurerm_key_vault_secret.database_url.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
@@ -93,9 +98,18 @@ resource "azurerm_container_app" "runtime" {
         name  = "NODE_ENV"
         value = "development"
       }
+      # OCR (Azure Document Intelligence). Env names MUST match config.py's
+      # azure_doc_intelligence_* settings fields: AZURE_DOC_INTELLIGENCE_*
+      # (not AZURE_DOCUMENT_INTELLIGENCE_* — pydantic would ignore those).
       env {
-        name  = "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
+        name  = "AZURE_DOC_INTELLIGENCE_ENDPOINT"
         value = azurerm_cognitive_account.document_intelligence.endpoint
+      }
+      # Real OCR is gated on `use_real_ocr` (terraform.tfvars; default false keeps
+      # the deterministic stub even though the endpoint/key above are wired).
+      env {
+        name  = "USE_REAL_OCR"
+        value = tostring(var.use_real_ocr)
       }
       env {
         name = "QDRANT_URL"
@@ -176,6 +190,23 @@ resource "azurerm_container_app" "runtime" {
         name  = "CORS_ALLOWED_ORIGINS"
         value = "https://dev.${var.dns_zone_name},https://app.${var.dns_zone_name},https://admin.${var.dns_zone_name}"
       }
+      # Azure Blob (Phase 2D uploads + CO-17 card images + CO-3A bulk staging).
+      # routes/upload.py uses AZURE_STORAGE_ACCOUNT_URL + DefaultAzureCredential
+      # (managed identity — backed by the Storage Blob Data Contributor role
+      # assignment in secrets.tf). AZURE_CLIENT_ID pins DefaultAzureCredential to
+      # the runtime UAMI — the Container App has NO system-assigned identity, so
+      # without it the managed-identity probe fails and uploads fall back to the
+      # replica's local disk. BlobStorage (blob_storage.py) additionally needs the
+      # connection string (secret env below) — its SAS generation requires the
+      # account key, which only the connection string carries.
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_URL"
+        value = trimsuffix(azurerm_storage_account.main.primary_blob_endpoint, "/")
+      }
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.runtime.client_id
+      }
 
       # Secret env — bound to the secret blocks above.
       env {
@@ -187,8 +218,12 @@ resource "azurerm_container_app" "runtime" {
         secret_name = "voyage-api-key"
       }
       env {
-        name        = "AZURE_DOCUMENT_INTELLIGENCE_KEY"
+        name        = "AZURE_DOC_INTELLIGENCE_KEY"
         secret_name = "azure-doc-intelligence-key"
+      }
+      env {
+        name        = "AZURE_STORAGE_CONNECTION_STRING"
+        secret_name = "azure-storage-connection-string"
       }
       env {
         name        = "DATABASE_URL"

@@ -78,10 +78,21 @@ resource "azurerm_storage_container" "qdrant_snapshots" {
   container_access_type = "private"
 }
 
-# Container for uploaded user documents
+# Container for uploaded user documents (also insurance-card images —
+# routes/insurance.py passes this container to BlobStorage explicitly)
 resource "azurerm_storage_container" "uploads" {
   name                  = "uploads"
   storage_account_id    = azurerm_storage_account.main.id # renamed from storage_account_name in azurerm 4.x
+  container_access_type = "private"
+}
+
+# Container for bulk-data staging (Phase CO-3A: CMS MCD / Medicare PFS /
+# Hospital MRF / TiC downloads) — BlobStorage's default container
+# (config.py azure_storage_bulk_container = "bulk-data"). BlobStorage
+# best-effort-creates it at runtime, but declare it so it exists regardless.
+resource "azurerm_storage_container" "bulk_data" {
+  name                  = "bulk-data"
+  storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }
 

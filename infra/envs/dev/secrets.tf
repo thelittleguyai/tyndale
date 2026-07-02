@@ -66,6 +66,16 @@ resource "azurerm_role_assignment" "runtime_kv_secrets_user" {
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
 }
 
+# Blob data-plane access for the runtime's managed-identity path —
+# routes/upload.py talks to AZURE_STORAGE_ACCOUNT_URL via DefaultAzureCredential
+# (the UAMI). Required for MI auth; harmless alongside the connection-string
+# path BlobStorage uses (CO-17).
+resource "azurerm_role_assignment" "runtime_storage_blob_contributor" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.runtime.principal_id
+}
+
 # --- Same pattern for the marketing Container App ----------------------------
 resource "azurerm_user_assigned_identity" "marketing" {
   name                = "${local.name_prefix}-marketing-identity"
@@ -140,6 +150,17 @@ resource "azurerm_key_vault_secret" "sendgrid_api_key" {
 resource "azurerm_key_vault_secret" "azure_doc_intelligence_key" {
   name         = "AZURE-DOC-INTELLIGENCE-KEY"
   value        = azurerm_cognitive_account.document_intelligence.primary_access_key
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+# Storage connection string for the runtime's BlobStorage (card images, bulk
+# staging, SAS-signed read URLs — SAS generation needs the account key, which
+# only the connection string carries; that's why CO-17 uses connection-string
+# auth). Referenced by the runtime CA's azure-storage-connection-string secret.
+resource "azurerm_key_vault_secret" "azure_storage_connection_string" {
+  name         = "AZURE-STORAGE-CONNECTION-STRING"
+  value        = azurerm_storage_account.main.primary_connection_string
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
