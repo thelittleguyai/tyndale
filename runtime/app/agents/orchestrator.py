@@ -13,7 +13,7 @@ raise loudly at audit time.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
 import structlog
@@ -34,6 +34,8 @@ from app.schemas.encounter import (
     LineItemConfirmation,
 )
 from app.agents.example_scenarios import backfill_scenarios
+from app.sources import benefits_context
+from app.sources.case_data import load_case_eobs_coverage
 from app.stubs.fixtures import mri_audit_fixture
 
 log = structlog.get_logger(__name__)
@@ -64,6 +66,55 @@ def _has_real_anthropic_creds(settings) -> bool:
     if not key.startswith("sk-"):
         return False  # not Anthropic-shaped
     return True
+
+
+async def _run_accumulator_cross_check(case_file_id: str) -> dict | None:
+    """CO-12B wiring — deterministic accumulator reconstruction + three-way
+    cross-validation (DL-72) during the audit run. ``BenefitsContext.get_accumulator``
+    computes the authoritative reconstruction from the uploaded EOBs, cross-validates
+    it against the EOB-stated YTD + the card/user-stated coverage 'met' values, and
+    (via its idempotent default writer) persists at most ONE open
+    ``accumulator_discrepancy`` Finding on material disagreement.
+
+    Returns a compact context dict for Math Person (computed figures + confidence +
+    recorded assumptions), or None when skipped/failed.
+
+    Guards:
+      * Cases with NO uploaded EOB data are skipped — an all-zero reconstruction
+        would spuriously "disagree" with card-stated met values the engine had no
+        data to corroborate.
+      * NEVER fails the audit: any error is logged and swallowed (Graceful
+        Degradation Doctrine) — the agents still run without the pre-computed
+        accumulator.
+    """
+    try:
+        eobs, _coverage = await load_case_eobs_coverage(case_file_id)
+        if not eobs:
+            log.info("orchestrator.accumulator.skipped_no_eobs", case_file_id=case_file_id)
+            return None
+        as_of = date.today()
+        result = await benefits_context.get_accumulator(case_file_id, as_of)
+        log.info(
+            "orchestrator.accumulator.done",
+            case_file_id=case_file_id,
+            deductible_applied=result.data.get("deductible_applied"),
+            oop_applied=result.data.get("oop_applied"),
+            eobs_counted=result.data.get("eobs_counted"),
+            confidence=result.provenance.confidence,
+        )
+        return {
+            "as_of": as_of.isoformat(),
+            **result.data,
+            "confidence": result.provenance.confidence,
+            "assumptions": list(result.provenance.assumptions),
+        }
+    except Exception as exc:  # noqa: BLE001 — accumulator must never fail an audit
+        log.warning(
+            "orchestrator.accumulator.failed",
+            case_file_id=case_file_id,
+            error=str(exc),
+        )
+        return None
 
 
 async def run_audit(case_file_id: str) -> AuditResult:
@@ -106,7 +157,12 @@ async def run_audit(case_file_id: str) -> AuditResult:
             usage=bd.usage,
         )
 
-        mp = await math_person.run(case_file_id, session=audit_session)
+        # CO-12B: deterministic accumulator + cross-validation before Math Person —
+        # writes the accumulator_discrepancy finding (idempotent) and hands the
+        # computed reconstruction to the agent as pre-computed context.
+        accumulator = await _run_accumulator_cross_check(case_file_id)
+
+        mp = await math_person.run(case_file_id, accumulator=accumulator, session=audit_session)
         log.info(
             "orchestrator.math_person.done",
             case_file_id=case_file_id,
@@ -404,13 +460,17 @@ async def submit_confirmations(
 async def _persist_mri_fixture_finding(case_file_id: str) -> None:
     """Fixture-path finalize: ensure a payer-side three-number finding row
     exists so _assemble_result can surface the audit. Idempotent — skips if a
-    payer_side finding already exists for the case."""
+    cost_sharing_miscalculation finding already exists for the case. (Filters on
+    category, not just finding_type: an accumulator_discrepancy finding from the
+    CO-12B cross-check is also payer_side but carries no three-number facts, so
+    it must not suppress this row.)"""
     async with AsyncSessionLocal() as s:
         existing = (
             await s.execute(
                 select(Finding)
                 .where(Finding.case_file_id == UUID(case_file_id))
                 .where(Finding.finding_type == "payer_side")
+                .where(Finding.category == "cost_sharing_miscalculation")
             )
         ).first()
         if existing is not None:
@@ -464,6 +524,12 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
     cf = await _load_case(case_file_id)
     confirmations = list(cf.encounter_confirmations) if cf else []
 
+    # CO-12B: the deterministic accumulator cross-check runs on BOTH the real and
+    # fixture finalize paths — it is pure DB math (no LLM), so dev/fixture runs get
+    # the same discrepancy finding a production run would. The no-EOB guard inside
+    # keeps it a no-op for cases without EOB data (all existing fixture tests).
+    accumulator = await _run_accumulator_cross_check(case_file_id)
+
     composed = ""
     if use_real:
         log.info("orchestrator.finalize.real", case_file_id=case_file_id)
@@ -472,7 +538,7 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
                 case_file_id, mode="diagnose", confirmations=confirmations, session=audit_session
             )
             log.info("orchestrator.finalize.bd_done", case_file_id=case_file_id, usage=bd.usage)
-            mp = await math_person.run(case_file_id, session=audit_session)
+            mp = await math_person.run(case_file_id, accumulator=accumulator, session=audit_session)
             log.info("orchestrator.finalize.mp_done", case_file_id=case_file_id, usage=mp.usage)
             lp = await lead_planner.compose_final(
                 case_file_id, bd.final_text, mp.final_text, session=audit_session

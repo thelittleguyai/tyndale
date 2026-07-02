@@ -17,6 +17,8 @@ miscalculation).
 
 from __future__ import annotations
 
+import json
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,8 +40,8 @@ TOOL_ALLOWLIST = [
 ]
 
 
-def _build_user_message(case_file_id: str) -> str:
-    return (
+def _build_user_message(case_file_id: str, accumulator: dict | None = None) -> str:
+    base = (
         f"You are Math Person. Run the independent three-number audit on case file `{case_file_id}`.\n\n"
         "STEP 1 — load the case file (pg_case_file_get) and any uploaded coverage / EOB documents "
         "(upload_extract_coverage / upload_extract_eob).\n\n"
@@ -60,9 +62,32 @@ def _build_user_message(case_file_id: str) -> str:
         "rather than fabricate.\n\n"
         "STEP 6 — output a 2-3 sentence summary of the three numbers and the gap side."
     )
+    if accumulator:
+        # CO-12B: the orchestrator ran the deterministic accumulator engine +
+        # three-way cross-validation (DL-72) before this agent. The computed
+        # reconstruction is AUTHORITATIVE — the EOB's stated YTD is never adopted.
+        base += (
+            "\n\nPRE-COMPUTED ACCUMULATOR (Tyndale's deterministic reconstruction from the "
+            "uploaded EOBs — authoritative per DL-72; treat as ground truth over any "
+            "EOB-stated year-to-date figure):\n"
+            "---\n" + json.dumps(accumulator, indent=2, default=str) + "\n---\n"
+            "Use deductible_applied / oop_applied above as the deductible-met / OOP-met basis "
+            "in STEP 2 instead of re-deriving them or trusting the EOB's stated YTD. Heed the "
+            "recorded assumptions and confidence — surface them explicitly when they "
+            "materially qualify your answer. If these figures disagree with the EOB's stated "
+            "numbers, an accumulator_discrepancy finding has ALREADY been written for this "
+            "case — do NOT write a duplicate; factor the discrepancy into your gap analysis "
+            "and summary instead."
+        )
+    return base
 
 
-async def run(case_file_id: str, *, session: AsyncSession | None = None) -> RunResult:
+async def run(
+    case_file_id: str,
+    *,
+    accumulator: dict | None = None,
+    session: AsyncSession | None = None,
+) -> RunResult:
     settings = get_settings()
     system_blocks = compose_system_prompt(
         "math_person",
@@ -72,7 +97,7 @@ async def run(case_file_id: str, *, session: AsyncSession | None = None) -> RunR
         model=settings.claude_model_for("math_person"),
         system_blocks=system_blocks,
         tool_names=TOOL_ALLOWLIST,
-        initial_user_message=_build_user_message(case_file_id),
+        initial_user_message=_build_user_message(case_file_id, accumulator),
         case_file_id=case_file_id,
         actor="math_person",
         session=session,

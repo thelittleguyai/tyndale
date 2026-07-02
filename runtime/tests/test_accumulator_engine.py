@@ -174,6 +174,32 @@ def test_cross_val_within_tolerance_no_finding():
     assert cv.finding_spec is None
 
 
+def test_cross_val_absolute_floor_catches_large_dollar_small_percent():
+    # $30 gap on a ~$5,000 deductible = 0.6% — under the 5% test, so the old
+    # rule would MISS it. Brock's $25 absolute floor (DL-72, 2026-06-26) catches it.
+    cv = cross_validate(
+        {"deductible_applied": 5000.0, "oop_applied": 800.0},  # computed
+        {"deductible_applied": 5030.0, "oop_applied": 800.0},  # eob-stated: +$30 (0.6%)
+        {},
+        AS_OF,
+    )
+    assert cv.agreement is False
+    assert cv.finding_spec is not None
+    assert cv.finding_spec["category"] == "accumulator_discrepancy"
+
+
+def test_cross_val_under_absolute_floor_and_under_percent_immaterial():
+    # $20 gap on ~$5,000 = 0.4%: under BOTH the $25 floor and the 5% test → immaterial.
+    cv = cross_validate(
+        {"deductible_applied": 5000.0, "oop_applied": 800.0},
+        {"deductible_applied": 5020.0, "oop_applied": 800.0},
+        {},
+        AS_OF,
+    )
+    assert cv.agreement is True
+    assert cv.finding_spec is None
+
+
 def test_cross_val_material_disagreement_one_finding():
     cv = cross_validate(
         {"deductible_applied": 500.0, "oop_applied": 800.0},  # computed (authoritative)
