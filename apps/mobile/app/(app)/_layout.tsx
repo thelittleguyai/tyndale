@@ -14,6 +14,7 @@ import { Redirect, Stack } from 'expo-router';
 
 import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
+import { isIntakeDeferred } from '../../lib/intake-deferred';
 
 type IntakeGate = { status: string; step: string | null };
 
@@ -66,7 +67,12 @@ export default function AppLayout() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (intake && intake.status !== 'complete') {
+  // "Save & exit" sets a session-scoped deferred flag: mid-intake users may
+  // reach the dashboard, but brand-new (not_started) users are always routed
+  // into the wizard — they'd only see an empty dashboard otherwise.
+  const intakeDeferred = intake?.status === 'in_progress' && isIntakeDeferred();
+
+  if (intake && intake.status !== 'complete' && !intakeDeferred) {
     const target =
       intake.step && intake.step !== 'welcome' && intake.step !== 'complete'
         ? `/intake/${intake.step}`

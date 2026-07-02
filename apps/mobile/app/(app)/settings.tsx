@@ -22,6 +22,8 @@ import {
   type ProfileState,
   type UserProfile,
 } from '../../lib/api-client';
+import { useSignOut } from '../../lib/auth';
+import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { CardUpload, formatPhone, isoToMdy, validateDob } from '../../lib/profile-ui';
@@ -38,6 +40,8 @@ const CONSENT_FULL_TEXT = [
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const signOut = useSignOut();
+  const [signingOut, setSigningOut] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pstate, setPstate] = useState<ProfileState | null>(null);
   const [insurance, setInsurance] = useState<InsuranceInfo | null>(null);
@@ -89,6 +93,18 @@ export default function SettingsScreen() {
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const onSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut(); // clears the server cookie + local token
+    } catch {
+      // Best effort — navigate to sign-in regardless so the user isn't stuck.
+    }
+    clearIntakeDeferred();
+    router.replace('/sign-in');
   };
 
   const onToggleConsent = async (value: boolean) => {
@@ -234,7 +250,7 @@ export default function SettingsScreen() {
 
       {/* 5. Account */}
       <Section title="Account">
-        <LinkRow label="Sign Out" onPress={() => router.replace('/sign-in')} />
+        <LinkRow label={signingOut ? 'Signing out…' : 'Sign Out'} onPress={onSignOut} />
         <LinkRow label="Delete Account" tone="rose" onPress={() => setDeleteModal(true)} />
       </Section>
 

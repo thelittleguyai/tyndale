@@ -21,6 +21,7 @@ import { router } from 'expo-router';
 
 import { INTAKE_STEPS, type IntakeStateResponse, type IntakeStep } from '@tyndale/shared';
 import { getIntakeState, uploadDocuments, type UploadedDoc } from './api-client';
+import { setIntakeDeferred } from './intake-deferred';
 
 // Cached across step navigations so each screen shares one case file.
 let _caseId: string | null = null;
@@ -260,7 +261,12 @@ export function WizardShell({
             <ProgressBar step={step} />
           </View>
           <Pressable
-            onPress={() => router.push('/' as never)}
+            onPress={() => {
+              // Mark intake as deferred for this session so the (app) layout
+              // gate lets a mid-intake user reach the dashboard.
+              setIntakeDeferred();
+              router.push('/' as never);
+            }}
             className="-mr-2 min-h-[44px] justify-center px-3 py-2"
           >
             <Text className="text-xs font-semibold text-white/60">Save &amp; exit</Text>

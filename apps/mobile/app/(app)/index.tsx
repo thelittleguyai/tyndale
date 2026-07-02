@@ -44,6 +44,7 @@ import {
 import {
   createConversation,
   getDashboard,
+  getProfileState,
   getUserProfile,
   listConversations,
   makeFeedbackEvent,
@@ -51,7 +52,9 @@ import {
   type DashboardPayload,
   type ResolvedValue,
 } from '../../lib/api-client';
-import { logoSvg } from '@tyndale/shared';
+import { useSignOut } from '../../lib/auth';
+import { clearIntakeDeferred } from '../../lib/intake-deferred';
+import { logoSvg, type OpenCase } from '@tyndale/shared';
 import { HeroMotif } from '../../components/hero-motif';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
@@ -112,6 +115,10 @@ export default function DashboardScreen() {
           loading={loading && !data}
         />
 
+        {data?.intake_status === 'in_progress' ? (
+          <FinishSetupCard currentStep={data.intake_current_step} />
+        ) : null}
+
         <CoverageRow1
           deductible={data?.coverage.deductible ?? null}
           oopMax={data?.coverage.oop_max ?? null}
@@ -125,6 +132,10 @@ export default function DashboardScreen() {
           amountSaved={data?.amount_saved_ytd ?? 0}
           loading={loading && !data}
         />
+
+        {(data?.open_cases ?? []).length > 0 ? (
+          <OpenCasesSection cases={data!.open_cases} />
+        ) : null}
 
         <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
           Quick Actions
@@ -271,13 +282,95 @@ function OutcomeButton({
   );
 }
 
+// ─── Finish-setup resume card (Save & exit follow-up) ───────────────────────
+// Shown when the user deferred intake mid-wizard: a gentle path back in.
+function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
+  const router = useRouter();
+  const target =
+    currentStep && currentStep !== 'welcome' && currentStep !== 'complete'
+      ? `/intake/${currentStep}`
+      : '/intake/welcome';
+  return (
+    <View className="mt-4 flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-4 shadow-card">
+      <View className="h-9 w-9 items-center justify-center rounded-md bg-sage/20">
+        <CheckCircle2 size={18} color="#3DAA7E" />
+      </View>
+      <View className="flex-1">
+        <Text className="text-sm font-bold text-white">Finish setting up</Text>
+        <Text className="mt-0.5 text-xs leading-5 text-white/60">
+          Your intake is saved where you left off — a few more steps unlock your full
+          dashboard.
+        </Text>
+      </View>
+      <PressableScale
+        onPress={() => router.push(target as never)}
+        className="min-h-[44px] items-center justify-center rounded-lg bg-sage px-3 py-2 hover:bg-sage-deep"
+      >
+        <Text className="text-xs font-bold text-ink">Resume</Text>
+      </PressableScale>
+    </View>
+  );
+}
+
+// ─── Open cases ──────────────────────────────────────────────────────────────
+function OpenCasesSection({ cases }: { cases: OpenCase[] }) {
+  const router = useRouter();
+  return (
+    <View>
+      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
+        Open Cases
+      </Text>
+      <View className="gap-3">
+        {cases.map((c) => (
+          <PressableScale
+            key={c.case_file_id}
+            onPress={() => router.push(`/audit/${c.case_file_id}` as never)}
+            className="flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
+          >
+            <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
+              <FileText size={18} color="#ffffff" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-white">{c.headline}</Text>
+              <Text className="mt-1 text-xs text-white/55">
+                {c.days_open === 0
+                  ? 'Opened today'
+                  : `Open for ${c.days_open} day${c.days_open === 1 ? '' : 's'}`}
+                {c.next_deadline_label && c.next_deadline_date
+                  ? ` · ${c.next_deadline_label}: ${c.next_deadline_date}`
+                  : ''}
+              </Text>
+            </View>
+            <Text className="text-sm text-white/30">›</Text>
+          </PressableScale>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 // ─── Header ─────────────────────────────────────────────────────────────────
 // The separate admin console (CO-9) lives at its own IP-allowlisted subdomain.
 const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 
 function Header({ firstName }: { firstName: string }) {
   const router = useRouter();
+  const signOut = useSignOut();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [lastName, setLastName] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const onSignOut = useCallback(async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut(); // clears the server cookie + local token
+    } catch {
+      // Best effort — navigate to sign-in regardless so the user isn't stuck.
+    }
+    clearIntakeDeferred();
+    router.replace('/sign-in');
+  }, [router, signOut, signingOut]);
 
   // The Admin pill is admin-only: DL-60 anti-enumeration means non-admins must
   // never even see that an admin surface exists. It deep-links out to the
@@ -288,6 +381,10 @@ function Header({ firstName }: { firstName: string }) {
     getUserProfile()
       .then((p) => setIsAdmin(p?.user_type === 'admin'))
       .catch(() => setIsAdmin(false));
+    // CO-17: the profile record carries the real last name (nullable).
+    getProfileState()
+      .then((s) => setLastName(s.last_name?.trim() || null))
+      .catch(() => setLastName(null));
   }, []);
 
   return (
@@ -320,13 +417,18 @@ function Header({ firstName }: { firstName: string }) {
               {firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text className="text-xs font-medium text-white/90">{firstName} Fluegel</Text>
+          <Text className="text-xs font-medium text-white/90">
+            {lastName ? `${firstName} ${lastName}` : firstName}
+          </Text>
         </Pressable>
         <Pressable
-          onPress={() => router.replace('/sign-in')}
+          onPress={onSignOut}
+          disabled={signingOut}
           className="min-h-[44px] items-center justify-center rounded-full bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
         >
-          <Text className="text-xs font-semibold text-white/80">Sign Out</Text>
+          <Text className="text-xs font-semibold text-white/80">
+            {signingOut ? 'Signing out…' : 'Sign Out'}
+          </Text>
         </Pressable>
       </View>
     </View>

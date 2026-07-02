@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { type IntakeCompletionSummary, completeIntake, getIntakeState } from '../../lib/api-client';
+import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { WizardLoading, WizardShell } from '../../lib/intake-ui';
 
 export default function CompleteStep() {
@@ -16,6 +17,8 @@ export default function CompleteStep() {
       try {
         const state = await getIntakeState();
         const s = await completeIntake(state.case_file_id);
+        // Intake is done — the session-scoped "Save & exit" flag is moot now.
+        clearIntakeDeferred();
         if (alive) setSummary(s);
       } catch {
         if (alive)
