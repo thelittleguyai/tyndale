@@ -29,12 +29,6 @@ export default function RootLayout() {
 
   return (
     <View className="flex-1 bg-navy-deep">
-      {/* SCAFFOLD — not for real PHI — pinned to the top of every screen */}
-      <View className="w-full bg-amber px-3 pb-1.5 pt-3">
-        <Text className="text-center text-xs font-semibold text-ink">
-          SCAFFOLD — not for real PHI
-        </Text>
-      </View>
       <Stack
         screenOptions={{
           headerShown: false,
