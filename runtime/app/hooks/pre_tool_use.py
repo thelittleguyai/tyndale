@@ -30,6 +30,22 @@ from app.hooks.contracts import PreToolUseInput, PreToolUseResult
 DATE_FILTERED_TOOLS = {"qdrant_search_laws_regulations", "qdrant_search_payer_policies"}
 GATED_TOOLS = {"send_email", "doc_generate"}
 
+# Tenant binding (Phase 2.1 / DL-20): tools that read or write a specific case file. A
+# case-scoped call may touch ONLY the run's authorized case — the model chooses the
+# case_file_id arg and nothing else verifies it belongs to the session's user. pg_list_due
+# is included because omitting its optional case_file_id lists deadlines across ALL cases.
+CASE_SCOPED_TOOLS = frozenset(
+    {
+        "pg_case_file_get",
+        "pg_upsert_finding",
+        "pg_deadline_upsert",
+        "pg_list_due",
+        "pg_store_line_item",
+        "pg_store_insurance_card_extraction",
+        "pg_store_sbc_extraction",
+    }
+)
+
 _PHI_BLOCK_REASON = (
     "send_email blocked: detected potential PHI in content ({n} pattern matches). "
     "Use an allowlisted template_id from runtime/app/auth/email_templates.py "
@@ -92,6 +108,41 @@ def pre_tool_use_hook(inp: PreToolUseInput) -> PreToolUseResult:
             approved=False,
             block_reason=f"{inp.tool_name} requires an 'approval_token' (user-approval gate)",
         )
+
+    # Rule 5 (Phase 2.1 / DL-20): tenant binding. A case-scoped tool may act only on the
+    # run's authorized case — the model-chosen case_file_id arg MUST equal the server-pinned
+    # inp.case_file_id (set by the orchestrator require_case_owner / chat owned_conversation).
+    # A mismatch, a missing arg, or a case-scoped call in a case-less (freeform) run is denied.
+    if inp.tool_name in CASE_SCOPED_TOOLS:
+        authorized = (inp.case_file_id or "").strip()
+        requested = str(inp.tool_args.get("case_file_id") or "").strip()
+        if not authorized:
+            return PreToolUseResult(
+                sanitized_args=inp.tool_args,
+                approved=False,
+                block_reason=(
+                    f"{inp.tool_name} needs a case context, but this session is not bound to "
+                    "a case file."
+                ),
+            )
+        if not requested:
+            return PreToolUseResult(
+                sanitized_args=inp.tool_args,
+                approved=False,
+                block_reason=(
+                    f"{inp.tool_name} must target case_file_id {authorized}; no case_file_id "
+                    "argument was provided."
+                ),
+            )
+        if requested != authorized:
+            return PreToolUseResult(
+                sanitized_args=inp.tool_args,
+                approved=False,
+                block_reason=(
+                    f"{inp.tool_name} may access only the authorized case ({authorized}); the "
+                    f"requested case ({requested}) is denied (tenant isolation)."
+                ),
+            )
 
     # STUB: Presidio arg-scrubbing (Rule 1) is a no-op until Phase 4.
     return PreToolUseResult(sanitized_args=inp.tool_args, approved=True, block_reason=None)
