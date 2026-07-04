@@ -143,6 +143,8 @@ def test_production_safe_with_foundry():
         allow_fixture_fallback=False,
         use_foundry=True,
         foundry_endpoint="https://x.services.ai.azure.com",
+        use_real_auth=True,
+        use_real_ocr=True,
     )
     s.assert_production_safety()  # no raise
 

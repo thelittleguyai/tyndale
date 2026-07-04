@@ -297,8 +297,36 @@ class Settings(BaseSettings):
                 "USE_FOUNDRY must be true in production — Claude must route through the "
                 "Azure Foundry BAA path (managed identity), not Anthropic-direct (DL-79)"
             )
+        if not self.use_real_auth:
+            problems.append(
+                "USE_REAL_AUTH must be true in production — the dev seeded-admin stub "
+                "(no sign-in required) must never run in prod"
+            )
+        if not self.use_real_ocr:
+            problems.append(
+                "USE_REAL_OCR must be true in production — real Document Intelligence, "
+                "not the deterministic OCR stub"
+            )
         if problems:
             raise RuntimeError("Unsafe production config — " + "; ".join(problems))
+
+    def warn_disabled_real_flags(self) -> None:
+        """Log a WARNING in ANY env for real-path flags that are off, so a dev/staging env
+        states plainly that it is running a stub. In production these are hard errors
+        (assert_production_safety); everywhere else they are just loud. Called from main.py's
+        lifespan unconditionally."""
+        if not self.use_real_auth:
+            log.warning(
+                "config.flag_disabled",
+                flag="USE_REAL_AUTH",
+                effect="auth uses the seeded-admin stub (no real sign-in)",
+            )
+        if not self.use_real_ocr:
+            log.warning(
+                "config.flag_disabled",
+                flag="USE_REAL_OCR",
+                effect="OCR uses the deterministic stub (no Document Intelligence)",
+            )
 
 
 @lru_cache

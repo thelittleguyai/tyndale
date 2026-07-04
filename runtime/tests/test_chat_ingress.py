@@ -106,13 +106,39 @@ def test_production_config_assertion():
             **base, use_real_claude=True, allow_fixture_fallback=False, use_foundry=False
         ).assert_production_safety()
 
-    # Safe production profile: real Claude on, no fixture fallback, Foundry on.
+    # Unsafe: dev auth stub left on in production (Phase 1.4).
+    with pytest.raises(RuntimeError, match="USE_REAL_AUTH"):
+        Settings(
+            **base,
+            use_real_claude=True,
+            allow_fixture_fallback=False,
+            use_foundry=True,
+            foundry_endpoint="https://x.services.ai.azure.com",
+            use_real_auth=False,
+            use_real_ocr=True,
+        ).assert_production_safety()
+
+    # Unsafe: OCR stub left on in production (Phase 1.4).
+    with pytest.raises(RuntimeError, match="USE_REAL_OCR"):
+        Settings(
+            **base,
+            use_real_claude=True,
+            allow_fixture_fallback=False,
+            use_foundry=True,
+            foundry_endpoint="https://x.services.ai.azure.com",
+            use_real_auth=True,
+            use_real_ocr=False,
+        ).assert_production_safety()
+
+    # Safe production profile: real Claude on, no fixture fallback, Foundry on, real auth + OCR.
     Settings(
         **base,
         use_real_claude=True,
         allow_fixture_fallback=False,
         use_foundry=True,
         foundry_endpoint="https://tyndale-prod-foundry.services.ai.azure.com",
+        use_real_auth=True,
+        use_real_ocr=True,
     ).assert_production_safety()
 
     # Non-production: never raises, even with an unsafe-looking combo.
