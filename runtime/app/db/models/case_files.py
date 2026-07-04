@@ -30,6 +30,9 @@ class CaseFile(Base):
             name="ck_case_files_intake_status",
         ),
         Index("idx_case_files_intake_status", "intake_status"),
+        # Every dashboard / intake / user-scoped query filters on user_id
+        # (migration 0019).
+        Index("idx_case_files_user_id", "user_id"),
     )
 
     case_file_id: Mapped[uuid.UUID] = mapped_column(
