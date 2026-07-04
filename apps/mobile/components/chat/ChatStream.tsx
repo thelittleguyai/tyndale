@@ -123,8 +123,14 @@ export function useChatStream(conversationId: string): UseChatStream {
             });
             break;
           case 'error':
-            setError((d.message as string) || (d.code as string) || 'Something went wrong');
-            patchAsst({ status: 'failed', error_message: d.message || d.code });
+            // Surface as the SINGLE styled failed bubble (with Retry) — do NOT also set
+            // the separate `error` line (that was the double render). The route already
+            // sent a generic, user-safe message.
+            patchAsst({
+              status: 'failed',
+              error_message:
+                (d.message as string) || (d.code as string) || 'Something went wrong',
+            });
             break;
           case 'done':
             setStreaming(false);
@@ -138,7 +144,14 @@ export function useChatStream(conversationId: string): UseChatStream {
       try {
         await streamMessage(conversationId, content, onEvent, ac.signal);
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : String(e));
+        // Transport error → surface as the failed bubble (with Retry), not a separate
+        // line. AbortError = the user pressed Stop, which stop() already marks 'stopped'.
+        if (!(e instanceof Error && e.name === 'AbortError')) {
+          patchAsst({
+            status: 'failed',
+            error_message: 'Tyndale had trouble answering just now — please try again.',
+          });
+        }
       } finally {
         setStreaming(false);
         setActiveTools([]);
