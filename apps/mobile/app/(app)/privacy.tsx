@@ -1,19 +1,24 @@
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { buildPrivacyDoc } from '@tyndale/shared';
+import { Screen } from '../../components/ui/Screen';
+import { LegalDocView } from '../../components/ui/LegalDoc';
 
-export default function PrivacyPlaceholder() {
+// One-line publication gate: flip EXPO_PUBLIC_LEGAL_PUBLISHED to "true" (and
+// fill LEGAL_FIELDS in @tyndale/shared/legal) after counsel signs off. Default
+// is unpublished, so the DRAFT banner shows until then.
+const LEGAL_PUBLISHED = process.env.EXPO_PUBLIC_LEGAL_PUBLISHED === 'true';
+
+export default function PrivacyScreen() {
   const router = useRouter();
+  const doc = buildPrivacyDoc();
   return (
-    <View className="flex-1 bg-navy-deep p-6">
+    <Screen className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 24, flexGrow: 1 }}>
       <Pressable onPress={() => router.back()} className="mb-8 self-start">
         <Text className="text-sm text-white/60">← Back</Text>
       </Pressable>
-      <Text className="text-3xl font-bold text-white">Privacy Policy</Text>
-      <Text className="mt-4 text-base leading-relaxed text-white/70">
-        The full Privacy Policy is published at launch (Phase 7), after counsel review. Tyndale is a
-        non-HIPAA-covered consumer-health app governed by the FTC Act, the FTC Health Breach
-        Notification Rule, and state privacy/health-data laws.
-      </Text>
-    </View>
+      <LegalDocView doc={doc} published={LEGAL_PUBLISHED} />
+      <View className="h-16" />
+    </Screen>
   );
 }

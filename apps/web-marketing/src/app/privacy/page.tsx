@@ -1,14 +1,19 @@
+import { buildPrivacyDoc } from '@tyndale/shared';
+import { LegalDocView } from '../../components/legal-doc';
+
 export const metadata = { title: 'Privacy Policy — Tyndale' };
 
+// One-line publication gate: flip NEXT_PUBLIC_LEGAL_PUBLISHED to "true" (and
+// fill LEGAL_FIELDS in @tyndale/shared/legal) after counsel signs off. Default
+// is unpublished, so the DRAFT banner shows until then.
+const LEGAL_PUBLISHED = process.env.NEXT_PUBLIC_LEGAL_PUBLISHED === 'true';
+
 export default function PrivacyPage() {
+  const doc = buildPrivacyDoc();
   return (
     <main className="mx-auto max-w-3xl px-6 py-20">
-      <h1 className="text-3xl font-bold tracking-tight text-ink">Privacy Policy</h1>
-      <p className="mt-4 text-ink/70">
-        Placeholder. The full Privacy Policy copy lands in Phase 7, after attorney sign-off (see
-        the legal pack in <code>docs/tyndale-spec/</code>).
-      </p>
-      <a href="/" className="mt-8 inline-block text-sm font-medium text-teal hover:text-teal-deep">
+      <LegalDocView doc={doc} published={LEGAL_PUBLISHED} />
+      <a href="/" className="mt-12 inline-block text-sm font-medium text-teal hover:text-teal-deep">
         ← Back home
       </a>
     </main>
