@@ -13,6 +13,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from threading import Lock
 
+# The ONLY message a user ever sees when a Claude/provider call fails — the raw
+# provider exception (auth/invalid_scope/etc.) is logged server-side + recorded via
+# record_claude_call, never streamed to the user.
+CLAUDE_UNAVAILABLE_MESSAGE = "Tyndale had trouble answering just now — please try again."
+
+
+class ProviderUnavailableError(Exception):
+    """A Claude/provider call failed. Carries ONLY the generic, user-safe message —
+    never raw provider text. Raised by the audit path (and available to any caller) so
+    nothing downstream renders the underlying exception."""
+
+    def __init__(self, message: str = CLAUDE_UNAVAILABLE_MESSAGE) -> None:
+        super().__init__(message)
+
+
 _lock = Lock()
 _last: dict[str, str | None] = {"status": "unknown", "at": None, "path": None, "detail": None}
 

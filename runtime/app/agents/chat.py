@@ -33,6 +33,11 @@ from typing import AsyncIterator
 import structlog
 
 from app.agents.context_loader import compose_chat_system_prompt
+from app.agents.llm_health import (
+    CLAUDE_UNAVAILABLE_MESSAGE,
+    claude_path_label,
+    record_claude_call,
+)
 from app.agents.runner import _block_to_dict, _client, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
@@ -274,26 +279,46 @@ async def _real_stream(
     tools = get_anthropic_tools(tool_names_for(mode))
     messages = _build_messages(history, user_message)
     model = settings.claude_model_for("lead_planner")
+    path = claude_path_label(settings)
 
     text_parts: list[str] = []
     tool_calls_made: list[dict] = []
     total_in = total_out = 0
 
     for _ in range(8):  # bounded tool rounds
-        async with client.messages.stream(
-            model=model,
-            max_tokens=2048,
-            system=system_blocks,
-            tools=tools or None,
-            messages=messages,
-        ) as stream:
-            async for event in stream:
-                if (
-                    event.type == "content_block_delta"
-                    and getattr(event.delta, "type", None) == "text_delta"
-                ):
-                    yield {"event": "token", "data": {"delta": event.delta.text}}
-            final = await stream.get_final_message()
+        try:
+            async with client.messages.stream(
+                model=model,
+                max_tokens=2048,
+                system=system_blocks,
+                tools=tools or None,
+                messages=messages,
+            ) as stream:
+                async for event in stream:
+                    if (
+                        event.type == "content_block_delta"
+                        and getattr(event.delta, "type", None) == "text_delta"
+                    ):
+                        yield {"event": "token", "data": {"delta": event.delta.text}}
+                final = await stream.get_final_message()
+        except Exception as exc:  # noqa: BLE001 — never stream a raw provider error to the user
+            log.error(
+                "chat.claude_call_failed",
+                path=path,
+                error_class=type(exc).__name__,
+                mode=mode,
+                exc_info=True,
+            )
+            record_claude_call(ok=False, path=path, detail=type(exc).__name__)
+            yield {
+                "event": "error",
+                "data": {
+                    "code": "CLAUDE_UNAVAILABLE",
+                    "message": CLAUDE_UNAVAILABLE_MESSAGE,
+                    "retryable": True,
+                },
+            }
+            return
 
         total_in += final.usage.input_tokens
         total_out += final.usage.output_tokens
@@ -380,6 +405,7 @@ async def _real_stream(
             )
         messages.append({"role": "user", "content": results})
 
+    record_claude_call(ok=True, path=path)
     full = "\n\n".join(p for p in text_parts if p).strip()
     yield {
         "event": "complete",

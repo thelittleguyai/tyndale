@@ -30,6 +30,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.chat import estimate_cost_usd, stream_chat_turn
+from app.agents.llm_health import CLAUDE_UNAVAILABLE_MESSAGE
 from app.auth import CurrentUser, current_user
 from app.db.base import AsyncSessionLocal
 from app.db.models.audit_events import AuditEvent
@@ -103,9 +104,7 @@ async def _load_history(session: AsyncSession, conv_id: uuid.UUID) -> list[dict]
 
 async def _next_seq(session: AsyncSession, conv_id: uuid.UUID) -> int:
     mx = await session.scalar(
-        select(func.max(Message.sequence_number)).where(
-            Message.conversation_id == conv_id
-        )
+        select(func.max(Message.sequence_number)).where(Message.conversation_id == conv_id)
     )
     return (mx or 0) + 1
 
@@ -282,6 +281,29 @@ async def post_message(
                 if ev["event"] == "complete":
                     final = ev["data"]
                     continue
+                if ev["event"] == "error":
+                    # The chat path already sanitized the message + logged/recorded the
+                    # real provider error server-side. Persist failed by CODE (never raw
+                    # text), forward the generic event, and stop — do NOT fall through to
+                    # the success finalization below.
+                    code = ev["data"].get("code") or "STREAM_FAILED"
+                    log.warning("chat.stream_error_event", conversation_id=str(conv_id), code=code)
+                    await _finalize_assistant(asst_id, conv_id, status="failed", error=code)
+                    await _audit_turn(
+                        actor=actor,
+                        user_id=uid,
+                        conversation_id=conv_id,
+                        message_id=asst_id,
+                        mode=mode,
+                        usage={},
+                        cost=0.0,
+                        tool_calls=None,
+                        outcome="error",
+                        error=code,
+                    )
+                    yield _sse("error", ev["data"])
+                    yield _sse("done", {})
+                    return
                 yield _sse(ev["event"], ev["data"])
 
             final = final or {
@@ -291,12 +313,8 @@ async def post_message(
                 "usage": {},
             }
             usage = final.get("usage") or {}
-            cost = estimate_cost_usd(
-                usage.get("input_tokens", 0), usage.get("output_tokens", 0)
-            )
-            await _finalize_assistant(
-                asst_id, conv_id, status="complete", final=final, cost=cost
-            )
+            cost = estimate_cost_usd(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+            await _finalize_assistant(asst_id, conv_id, status="complete", final=final, cost=cost)
             await _audit_turn(
                 actor=actor,
                 user_id=uid,
@@ -323,9 +341,7 @@ async def post_message(
             yield _sse("done", {})
         except Exception as exc:  # noqa: BLE001 — surface as an error event, persist failed
             log.warning("chat.stream_failed", error=str(exc), conversation_id=str(conv_id))
-            await _finalize_assistant(
-                asst_id, conv_id, status="failed", error=str(exc)
-            )
+            await _finalize_assistant(asst_id, conv_id, status="failed", error=str(exc))
             await _audit_turn(
                 actor=actor,
                 user_id=uid,
@@ -338,7 +354,9 @@ async def post_message(
                 outcome="error",
                 error=str(exc),
             )
-            yield _sse("error", {"code": "STREAM_FAILED", "message": str(exc)[:200]})
+            # Generic user-facing message only — the real error is in the log (above)
+            # + the failed audit row. Never str(exc) here (it can carry raw provider text).
+            yield _sse("error", {"code": "STREAM_FAILED", "message": CLAUDE_UNAVAILABLE_MESSAGE})
             yield _sse("done", {})
 
     return StreamingResponse(

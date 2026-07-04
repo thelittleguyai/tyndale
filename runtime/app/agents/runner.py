@@ -35,6 +35,11 @@ from dataclasses import dataclass, field
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.llm_health import (
+    ProviderUnavailableError,
+    claude_path_label,
+    record_claude_call,
+)
 from app.config import get_settings
 from app.hooks.contracts import PostToolUseInput, PreToolUseInput, StopInput
 from app.hooks.post_tool_use import post_tool_use_hook
@@ -195,6 +200,7 @@ async def run_agent(
 
     client = _client()
     tools = get_anthropic_tools(tool_names)
+    path = claude_path_label(get_settings())
 
     if session is None:
         log.warning(
@@ -215,13 +221,25 @@ async def run_agent(
     for attempt in range(1, max_attempts + 1):
         # ---- one generation attempt: the tool-use loop ----
         for _iteration in range(max_iterations):
-            response = await client.messages.create(
-                model=model,
-                max_tokens=max_tokens_per_call,
-                system=system_blocks,
-                tools=tools if tools else None,
-                messages=messages,
-            )
+            try:
+                response = await client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens_per_call,
+                    system=system_blocks,
+                    tools=tools if tools else None,
+                    messages=messages,
+                )
+            except Exception as exc:  # noqa: BLE001 — never surface a raw provider error
+                log.error(
+                    "runner.claude_call_failed",
+                    actor=actor,
+                    case_file_id=case_file_id,
+                    path=path,
+                    error_class=type(exc).__name__,
+                    exc_info=True,
+                )
+                record_claude_call(ok=False, path=path, detail=type(exc).__name__)
+                raise ProviderUnavailableError() from exc
             total_input += response.usage.input_tokens
             total_output += response.usage.output_tokens
             stop_reason = response.stop_reason
@@ -349,6 +367,7 @@ async def run_agent(
         )
         messages.append({"role": "user", "content": _REGEN_NUDGE})
 
+    record_claude_call(ok=True, path=path)
     return RunResult(
         final_text=final_text,
         messages=messages,
