@@ -68,6 +68,15 @@ export default function DashboardScreen() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // CO-17: the profile record carries the real first/last name (both nullable).
+  // The dashboard payload's user.first_name is derived from the email local-part
+  // (e.g. "pfluegelcx"), so prefer the real profile name for the greeting +
+  // header pill and fall back to the derived value only when it's empty. One
+  // fetch here feeds both the Hero greeting and the Header pill (no double-fetch).
+  const [profileName, setProfileName] = useState<{ first: string | null; last: string | null }>({
+    first: null,
+    last: null,
+  });
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +89,14 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    getProfileState()
+      .then((s) =>
+        setProfileName({ first: s.first_name?.trim() || null, last: s.last_name?.trim() || null }),
+      )
+      .catch(() => setProfileName({ first: null, last: null }));
   }, []);
 
   // "Chat with AI Assistant" opens a thread directly: resume the most recent
@@ -101,16 +118,20 @@ export default function DashboardScreen() {
     load();
   }, [load]);
 
+  // Real first name from the profile wins; fall back to the dashboard's
+  // email-derived value only when the profile name is empty.
+  const greetingName = profileName.first ?? data?.user.first_name ?? 'there';
+
   return (
     <ScrollView
       className="flex-1 bg-navy-deep"
       contentContainerStyle={{ paddingBottom: 32 }}
     >
-      <Header firstName={data?.user.first_name ?? 'there'} />
+      <Header firstName={greetingName} lastName={profileName.last} />
 
       <ScreenView wide className="px-5 pt-3">
         <Hero
-          firstName={data?.user.first_name ?? 'there'}
+          firstName={greetingName}
           statusGreeting={data?.status_forward_greeting ?? null}
           loading={loading && !data}
         />
@@ -151,18 +172,21 @@ export default function DashboardScreen() {
             title="Plan a Visit"
             subtitle="Schedule appointments and manage your upcoming care."
             Icon={Calendar}
+            comingSoon
             onPress={() => router.push('/plan-a-visit-placeholder')}
           />
           <QuickActionTile
             title="Find a Doctor"
             subtitle="Search in-network providers and specialists near you."
             Icon={Search}
+            comingSoon
             onPress={() => router.push('/find-a-doctor-placeholder')}
           />
           <QuickActionTile
             title="Estimate Costs"
             subtitle="Get transparent pricing and coverage estimates before care."
             Icon={Clock}
+            comingSoon
             onPress={() => router.push('/estimate-costs-placeholder')}
           />
         </View>
@@ -353,11 +377,10 @@ function OpenCasesSection({ cases }: { cases: OpenCase[] }) {
 // The separate admin console (CO-9) lives at its own IP-allowlisted subdomain.
 const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 
-function Header({ firstName }: { firstName: string }) {
+function Header({ firstName, lastName }: { firstName: string; lastName: string | null }) {
   const router = useRouter();
   const signOut = useSignOut();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [lastName, setLastName] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
   const onSignOut = useCallback(async () => {
@@ -381,10 +404,7 @@ function Header({ firstName }: { firstName: string }) {
     getUserProfile()
       .then((p) => setIsAdmin(p?.user_type === 'admin'))
       .catch(() => setIsAdmin(false));
-    // CO-17: the profile record carries the real last name (nullable).
-    getProfileState()
-      .then((s) => setLastName(s.last_name?.trim() || null))
-      .catch(() => setLastName(null));
+    // last_name arrives via props from the dashboard's single profile fetch.
   }, []);
 
   return (
@@ -675,20 +695,29 @@ function QuickActionTile({
   subtitle,
   Icon,
   onPress,
+  comingSoon = false,
 }: {
   title: string;
   subtitle: string;
   Icon: any;
   onPress: () => void;
+  // Full-V1 placeholders (Plan a Visit / Find a Doctor / Estimate Costs) tag a
+  // subtle "Coming soon" pill so users know they're not yet functional.
+  comingSoon?: boolean;
 }) {
   const { isPhone } = useBreakpoint();
   return (
     <PressableScale
       onPress={onPress}
-      className={`rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25 ${
+      className={`relative rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25 ${
         isPhone ? 'w-full' : 'min-w-[260px] flex-1'
       }`}
     >
+      {comingSoon ? (
+        <View className="absolute right-3 top-3 rounded-full bg-white/10 px-2 py-0.5">
+          <Text className="text-[10px] font-semibold text-white/50">Coming soon</Text>
+        </View>
+      ) : null}
       <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
         <Icon size={18} color="#ffffff" />
       </View>
