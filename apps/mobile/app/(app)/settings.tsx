@@ -17,6 +17,7 @@ import {
   getUserProfile,
   fetchCardImageObjectUrl,
   patchProfile,
+  requestAccountDeletion,
   updateConsent,
   type InsuranceInfo,
   type ProfileState,
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [consentModal, setConsentModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     getUserProfile().then(setProfile).catch(() => {/* non-fatal */});
@@ -105,6 +107,21 @@ export default function SettingsScreen() {
     }
     clearIntakeDeferred();
     router.replace('/sign-in');
+  };
+
+  const onDeleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await requestAccountDeletion();
+      setDeleteModal(false);
+      await signOut(); // server invalidated the session + cleared the cookie; clear local too
+      clearIntakeDeferred();
+      router.replace('/sign-in');
+    } catch {
+      setDeleting(false);
+      flash('Couldn’t delete your account — try again or contact support.');
+    }
   };
 
   const onToggleConsent = async (value: boolean) => {
@@ -289,26 +306,26 @@ export default function SettingsScreen() {
           <View className="w-full max-w-md rounded-2xl bg-navy-soft p-6">
             <Text className="text-xl font-bold text-white">Delete account?</Text>
             <Text className="mt-3 text-sm leading-6 text-white/70">
-              We’ll delete your account and all your case files within 30 days. De-identified
-              examples we’ve already promoted to improve Tyndale stay in our improvement dataset
-              because they no longer identify you.
+              This removes your name, contact info, and insurance details from Tyndale and signs
+              you out right away. De-identified examples we’ve already promoted to improve Tyndale
+              stay in our improvement dataset because they no longer identify you.
             </Text>
             <View className="mt-5 flex-row gap-3">
               <PressableScale
                 onPress={() => setDeleteModal(false)}
+                disabled={deleting}
                 className="flex-1 rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
               >
                 <Text className="text-center text-sm font-semibold text-white">Cancel</Text>
               </PressableScale>
               <PressableScale
-                onPress={() => {
-                  // Stub — real deletion endpoint is Phase 4.
-                  setDeleteModal(false);
-                  flash('Deletion requested (stub — wired in Phase 4).');
-                }}
+                onPress={onDeleteAccount}
+                disabled={deleting}
                 className="flex-1 rounded-xl bg-rose px-4 py-3 hover:opacity-90"
               >
-                <Text className="text-center text-sm font-bold text-white">Delete my account</Text>
+                <Text className="text-center text-sm font-bold text-white">
+                  {deleting ? 'Deleting…' : 'Delete my account'}
+                </Text>
               </PressableScale>
             </View>
           </View>

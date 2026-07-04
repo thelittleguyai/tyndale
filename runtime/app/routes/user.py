@@ -15,7 +15,10 @@ The dev-mode current_user stub backs this until Phase 2K swaps in real auth.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +27,9 @@ from app.db.models.consent_history import ConsentHistory
 from app.db.models.feedback import FeedbackEvent, FeedbackTriageQueue
 from app.db.models.users import User
 from app.db.session import get_session
+from app.routes.auth import _clear_session_cookie
+from app.security.audit_writer import build_audit_event
+from app.services.account_deletion import scrub_user_account
 from app.schemas.feedback import (
     ConsentHistoryEntry,
     ConsentHistoryPayload,
@@ -144,3 +150,37 @@ async def get_consent_history(
             for r in rows
         ],
     )
+
+
+@router.post("/user/me/delete-request")
+async def request_account_deletion(
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> Response:
+    """Self-service account deletion (Phase 2.4). Runs the SAME PHI scrub as the admin
+    soft-delete (identity anonymized, insurance rows + card-image blobs deleted, jwt_version
+    bumped to invalidate sessions), records a user_action audit row, and clears the session
+    cookie so the caller is signed out. Idempotent — a re-request on an already-deleted account
+    is a no-op. user_id / case files / audit trail are retained (HIPAA)."""
+    row = (
+        await session.execute(select(User).where(User.user_id == user.user_id))
+    ).scalar_one_or_none()
+    if row is not None and row.soft_deleted_at is None:
+        report = await scrub_user_account(row, session)
+        row.soft_deleted_by = row.user_id  # self-initiated
+        row.updated_at = datetime.now(timezone.utc)
+        session.add(
+            build_audit_event(
+                event_type="user_action",
+                actor=str(row.user_id),
+                user_id=row.user_id,
+                payload={"action": "self_delete", "initiated_by": "self", **report},
+                outcome="success",
+            )
+        )
+        await session.commit()
+        log.info("account.self_delete", user_id=str(row.user_id))
+
+    resp = JSONResponse({"ok": True, "status": "deleted"})
+    _clear_session_cookie(resp)  # sign out; the jwt_version bump also invalidates the token
+    return resp

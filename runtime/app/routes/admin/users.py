@@ -10,14 +10,13 @@ so it reuses the same send path as the user-facing flow.
 
 from __future__ import annotations
 
-import hashlib
 from datetime import datetime, timezone
 from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import String, delete as sa_delete, func, or_, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser
@@ -26,9 +25,8 @@ from app.auth.sendgrid import send_magic_link_email
 from app.config import get_settings
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
-from app.db.models.insurance_cards import InsuranceCard
-from app.db.models.insurance_info import InsuranceInfo
 from app.db.models.users import User
+from app.services.account_deletion import scrub_user_account
 from app.db.session import get_session
 from app.routes.admin._deps import admin_user, admin_uuid, audit_admin_action, decode_payload, iso
 
@@ -291,81 +289,22 @@ async def soft_delete_user(
     u = await _load_user(session, user_id)
     if u.soft_deleted_at is not None:
         return {"ok": True, "user_id": str(u.user_id), "status": "soft_deleted"}
-    # CO-17 PHI scrub: null/anonymize ALL identity data on the user, then delete the
-    # associated insurance_info + insurance_cards rows (member ids, names, DOBs, blob
-    # refs). user_id, case files, and the audit trail are PRESERVED (HIPAA retention).
-    digest = hashlib.sha256((u.email or "").encode("utf-8")).hexdigest()[:8]
-    u.email = f"deleted-{digest}@deleted.tyndaleapp.net"
-    u.phone = None
-    # CO-17 identity fields (migration 0018).
-    u.first_name = None
-    u.last_name = None
-    u.date_of_birth = None
-    u.soft_deleted_at = _now()
+    # CO-17 / Phase 2.4 PHI scrub, shared with the member self-service delete: anonymize
+    # identity, delete the insurance rows + card-image blobs, bump jwt_version. user_id, case
+    # files, and the audit trail are PRESERVED (HIPAA retention).
+    report = await scrub_user_account(u, session)
     u.soft_deleted_by = admin.user_id
-    u.jwt_version = (u.jwt_version or 1) + 1
     _touch(u)
-
-    # Insurance-card images live in Azure Blob; best-effort delete the blobs (never
-    # hard-fail the scrub on a storage error — the DB rows go regardless). No blob
-    # DELETE helper exists in ingestion/blob_storage.py yet, so this logs a TODO per
-    # card so the blob isn't silently retained without a trail.
-    cards = (
-        (await session.execute(select(InsuranceCard).where(InsuranceCard.user_id == u.user_id)))
-        .scalars()
-        .all()
-    )
-    for card in cards:
-        # TODO(security-spine): call a BlobStorage.delete(blob_ref) helper once it
-        # exists (ingestion/blob_storage.py has no delete op today). Until then the
-        # DB reference is removed below and the orphaned blob is flagged here.
-        log.warning(
-            "soft_delete.insurance_card_blob_orphaned",
-            user_id=str(u.user_id),
-            blob_ref=card.blob_ref,
-            note="no BlobStorage.delete helper yet; DB row removed, blob retained",
-        )
-
-    # Delete the identified insurance rows outright (member ids/names/DOBs are pure
-    # PHI with no retention basis once the account is deleted).
-    cards_deleted = (
-        await session.execute(sa_delete(InsuranceCard).where(InsuranceCard.user_id == u.user_id))
-    ).rowcount or 0
-    info_deleted = (
-        await session.execute(sa_delete(InsuranceInfo).where(InsuranceInfo.user_id == u.user_id))
-    ).rowcount or 0
 
     await audit_admin_action(
         session,
         admin=admin,
         action="soft_delete",
         target_user_id=u.user_id,
-        extra={
-            "scrubbed": [
-                "email",
-                "phone",
-                "first_name",
-                "last_name",
-                "date_of_birth",
-                "insurance_info",
-                "insurance_cards",
-            ],
-            "insurance_info_rows_deleted": int(info_deleted),
-            "insurance_card_rows_deleted": int(cards_deleted),
-        },
+        extra={"initiated_by": "admin", **report},
     )
     await session.commit()
-    return {
-        "ok": True,
-        "user_id": str(u.user_id),
-        "status": "soft_deleted",
-        "scrubbed": {
-            "identity_fields_nulled": ["first_name", "last_name", "date_of_birth", "phone"],
-            "email_anonymized": True,
-            "insurance_info_rows_deleted": int(info_deleted),
-            "insurance_card_rows_deleted": int(cards_deleted),
-        },
-    }
+    return {"ok": True, "user_id": str(u.user_id), "status": "soft_deleted", "scrubbed": report}
 
 
 class SetRoleRequest(BaseModel):

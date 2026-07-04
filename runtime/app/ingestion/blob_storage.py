@@ -109,6 +109,22 @@ class BlobStorage:
         with open(self._local_path(blob_path), "rb") as f:
             return f.read()
 
+    async def delete(self, blob_path: str) -> bool:
+        """Delete a blob. Returns True if a blob was removed, False if it was already gone
+        (idempotent — a missing blob is not an error, so an account-deletion scrub can be
+        safely re-run). Used to purge insurance-card images on account deletion (CO-17)."""
+        if self.is_azure:
+            bc = self._azure().get_blob_client(blob_path)
+            if not bc.exists():
+                return False
+            bc.delete_blob()
+            return True
+        path = self._local_path(blob_path)
+        if not os.path.exists(path):
+            return False
+        os.remove(path)
+        return True
+
     async def materialize_local(self, blob_path: str) -> str:
         """Return a real local filesystem path for the blob (downloading from
         Azure to a temp file if needed). Parsers use this for zipfile/csv/gzip."""

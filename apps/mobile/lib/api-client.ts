@@ -317,6 +317,16 @@ export async function updateConsent(improvement_consent: boolean): Promise<UserP
   return (await res.json()) as UserProfile;
 }
 
+/** Self-service account deletion: scrubs identity + insurance PHI, invalidates the session.
+ *  The caller should sign out immediately after (the server also clears the cookie). */
+export async function requestAccountDeletion(): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/user/me/delete-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`account deletion failed: ${res.status} ${await res.text()}`);
+}
+
 /** Small helper to build a FeedbackEvent with id + timestamp filled in. */
 export function makeFeedbackEvent(
   partial: Omit<FeedbackEvent, 'event_id' | 'timestamp'>,
