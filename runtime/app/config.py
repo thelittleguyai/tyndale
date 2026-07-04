@@ -77,12 +77,13 @@ class Settings(BaseSettings):
     # so foundry_model() is identity unless FOUNDRY_DEPLOYMENT_* override the names.
     use_foundry: bool = False
     foundry_endpoint: str | None = None
-    # Entra token audience for keyless inference. Sources disagree; runtime-configurable
-    # via FOUNDRY_TOKEN_SCOPE (Terraform sets it). Microsoft's current Claude-on-Foundry
-    # how-to (incl. its 401 troubleshooting) uses https://ai.cognitiveservices.com/.default;
-    # alternates if inference 401s: https://cognitiveservices.azure.com/.default (canonical
-    # AI Services) or https://ai.azure.com/.default.
-    foundry_token_scope: str = "https://ai.cognitiveservices.com/.default"
+    # Entra token audience for keyless inference. Runtime-configurable via
+    # FOUNDRY_TOKEN_SCOPE (Terraform sets it). Canonical Azure AI Services audience.
+    # HISTORY: https://ai.cognitiveservices.com/.default (what MS's Foundry how-to
+    # shows) was REJECTED with `invalid_scope` 400 by the Container Apps
+    # managed-identity token endpoint on 2026-07-04 — do not use it. The remaining
+    # alternate if this value ever fails auth is https://ai.azure.com/.default.
+    foundry_token_scope: str = "https://cognitiveservices.azure.com/.default"
     foundry_deployment_sonnet: str | None = None
     foundry_deployment_haiku: str | None = None
 

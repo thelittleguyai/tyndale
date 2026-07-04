@@ -198,8 +198,8 @@ variable "foundry_account_name" {
 
 variable "foundry_token_scope" {
   type        = string
-  default     = "https://ai.cognitiveservices.com/.default"
-  description = "Entra token scope (audience) for keyless Foundry inference. Sources disagree, so this is runtime-configurable: Microsoft's current 'Deploy and use Claude models in Foundry' how-to — including its 401 troubleshooting row — uses https://ai.cognitiveservices.com/.default (the default here); other refs use https://cognitiveservices.azure.com/.default (canonical AI Services) or https://ai.azure.com/.default. If inference 401s on auth, flip to an alternate — no code change, just this value. Only matters when the runtime CALLS Foundry, not at deployment."
+  default     = "https://cognitiveservices.azure.com/.default"
+  description = "Entra token scope (audience) for keyless Foundry inference; runtime-configurable via FOUNDRY_TOKEN_SCOPE. Canonical Azure AI Services audience. HISTORY: https://ai.cognitiveservices.com/.default (what MS's Foundry how-to shows) was REJECTED with `invalid_scope` 400 by the Container Apps managed-identity token endpoint on 2026-07-04 — do not use it. If this value ever fails auth, the remaining alternate is https://ai.azure.com/.default (flip via terraform.tfvars, no code change). Only matters when the runtime CALLS Foundry, not at deployment."
 }
 
 variable "foundry_deployment_sku" {
