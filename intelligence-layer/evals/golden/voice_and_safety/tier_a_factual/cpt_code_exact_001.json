@@ -1,0 +1,40 @@
+{
+  "id": "gold_tier_a_cpt_code_001",
+  "category": "tier_a_factual",
+  "input": {
+    "user_message": "What's that knee surgery code on my bill mean?",
+    "case_file_state": {
+      "line_items": [
+        {
+          "code": "CPT 27447",
+          "desc": "total knee arthroplasty"
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "IL"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "CPT 27447",
+      "total knee arthroplasty"
+    ],
+    "should_not_contain": [
+      "some kind of knee surgery code",
+      "roughly",
+      "a knee code of some sort"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "Reproduces CPT 27447 exactly and names it total knee arthroplasty from the code catalog",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Tier A discipline. Codes come from the billing_codes catalog and are reproduced exactly; imprecise paraphrase ('some kind of knee surgery code') is forbidden. CPT 27447 = total knee arthroplasty.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "easy"
+}

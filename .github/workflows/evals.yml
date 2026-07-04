@@ -1,0 +1,42 @@
+name: Golden Evals (offline)
+
+# Offline validation gate for the intelligence-layer eval suite. Mirrors the
+# structure of runtime-ci.yml / typecheck.yml (path-filtered PR gate), but needs
+# NO services and NO third-party deps: run_golden_evals.py --offline validates
+# every golden case against golden/schema.json with a stdlib-only validator,
+# computes coverage, maps it onto the seven ship gates, and exits non-zero if any
+# case is schema-invalid. This keeps the known-answer corpus from silently
+# drifting out of schema as cases are added.
+#
+# Live scored evals (agent + LLM judge, the real ship-gate thresholds) run
+# out-of-band once the integration seams are wired — see evals/README_HARNESS.md.
+
+on:
+  pull_request:
+    paths:
+      - 'intelligence-layer/**'
+      - '.github/workflows/evals.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'intelligence-layer/**'
+      - '.github/workflows/evals.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: intelligence-layer/evals
+
+jobs:
+  golden-schema-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # No pip install: offline mode is stdlib-only by design.
+      - name: Validate golden cases + print coverage / ship-gate report
+        run: python3 run_golden_evals.py --offline

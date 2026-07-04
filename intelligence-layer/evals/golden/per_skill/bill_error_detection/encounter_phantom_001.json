@@ -1,0 +1,43 @@
+{
+  "id": "gold_encounter_phantom_001",
+  "category": "bill_error_detection",
+  "subcategory": "encounter_verification",
+  "input": {
+    "user_message": "There's a charge for a 'trigger point injection' on my ER bill but I don't remember getting any injection.",
+    "attached_documents": [
+      "test_data/bills/er_injection.pdf"
+    ],
+    "case_file_state": {
+      "line_items": [
+        {
+          "code": "CPT 20552",
+          "desc": "trigger point injection, 1-2 muscles",
+          "date": "2026-04-02",
+          "charge": 210.0
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "FL"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "CPT 20552",
+      "trigger point injection",
+      "confirm",
+      "don't recall"
+    ],
+    "should_not_contain": [
+      "was this medically necessary",
+      "assume you received",
+      "definitely fraud"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Check 0a/7 (encounter verification / phantom charge). Tyndale translates CPT 20552 to plain language (the FACTUAL meaning) and asks the user to confirm a fact they can know from being there \u2014 did you receive an injection? \u2014 never a clinical-necessity judgment, and never assumes the service happened. A mismatch becomes a candidate phantom-charge finding.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

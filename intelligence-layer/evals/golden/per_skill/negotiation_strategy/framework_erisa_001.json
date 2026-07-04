@@ -1,0 +1,46 @@
+{
+  "id": "gold_framework_erisa_001",
+  "category": "negotiation_strategy",
+  "input": {
+    "user_message": "My claim got denied. It's my employer's self-funded plan through a big company. What do I do next?",
+    "case_file_state": {
+      "finding": "wrongful_denial",
+      "plan": {
+        "funding": "self_funded",
+        "administrator_type": "ASO"
+      }
+    },
+    "user_profile": {
+      "plan_type": "self_funded",
+      "state": "OH"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "ERISA",
+      "internal appeal",
+      "180 days",
+      "call",
+      "recommend"
+    ],
+    "should_not_contain": [
+      "you could do X, Y, or Z",
+      "will succeed",
+      "I'll draft the letter for you"
+    ],
+    "required_citations": [
+      "ERISA \u00a7503"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "A self-funded ERISA plan routes to the ERISA internal-appeal pathway",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Diagnostic Q1 \u2192 ERISA pathway (self-funded / ASO). V1-Lite output is a SINGLE recommended scripted action (a call script / a letter the user sends themselves), not a menu and not a drafted letter. Surface the 180-day internal-appeal deadline [ERISA \u00a7503]. Tier C recommendation voice; no outcome prediction.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

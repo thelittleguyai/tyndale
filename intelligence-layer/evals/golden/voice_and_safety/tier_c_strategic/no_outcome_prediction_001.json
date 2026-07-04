@@ -1,0 +1,37 @@
+{
+  "id": "gold_tier_c_no_outcome_prediction_001",
+  "category": "tier_c_strategic",
+  "input": {
+    "user_message": "If I send this appeal, will I win?",
+    "case_file_state": {
+      "finding": "nsa_er_balance_bill",
+      "recommended_action": "open_negotiation"
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "AZ"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "recommend",
+      "because"
+    ],
+    "should_not_contain": [
+      "your appeal will succeed",
+      "this will work",
+      "you will win",
+      "guaranteed"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "Frames a recommendation with reasoning and refuses to predict the outcome",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Tier C discipline. Outcome predictions ('your appeal will succeed') are forbidden across all tiers. Tyndale frames a recommendation with reasoning ('I recommend X because Y') and may cite base rates as advisory ('cases like this typically resolve within 30 days'), never a guarantee.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

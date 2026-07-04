@@ -1,0 +1,51 @@
+{
+  "id": "gold_three_number_oop_met_001",
+  "category": "math_person",
+  "input": {
+    "user_message": "I'm pretty sure I already hit my out-of-pocket max this year. This new EOB wants $340 from me.",
+    "case_file_state": {
+      "coverage_terms": {
+        "deductible": 3000,
+        "deductible_met": 3000,
+        "coinsurance": 0.2,
+        "oop_max": 7000,
+        "oop_met": 7000,
+        "network": "in_network",
+        "coverage_terms_confidence": 0.9
+      },
+      "eob": {
+        "billed": 900,
+        "allowed": 700,
+        "eob_member_responsibility": 340
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "OR"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "out-of-pocket max",
+      "$0",
+      "$340",
+      "payer-side"
+    ],
+    "should_not_contain": [
+      "the EOB is correct",
+      "may possibly",
+      "will win"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "With the OOP max fully met, correct member responsibility is $0, not the EOB's $340",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Three-number audit with OOP-max-met. Once the out-of-pocket max is reached the plan pays 100% of in-network allowed charges, so the correct member responsibility is $0. Report billed ($900), EOB-claimed ($340), Tyndale-computed ($0); the full $340 is a payer-side error (OOP max ignored). Never trust the EOB figure.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

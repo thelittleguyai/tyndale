@@ -1,0 +1,42 @@
+{
+  "id": "gold_upcoding_001",
+  "category": "bill_error_detection",
+  "subcategory": "provider_billing",
+  "input": {
+    "user_message": "My 10-minute sinus-infection visit got billed as a level-5 office visit. That felt quick to me.",
+    "attached_documents": [
+      "test_data/bills/em_level5.pdf"
+    ],
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "TX"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "CPT 99215",
+      "highest-complexity",
+      "level of service",
+      "confirm"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "was this medically necessary",
+      "you will win"
+    ],
+    "required_citations": [
+      "E/M documentation guidelines"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "CPT 99215 is the highest-complexity established-patient office E/M level",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check 2 (upcoding). A level-5 E/M (99215) implies high complexity; a short single-problem visit rarely supports it. Tyndale translates the code to plain language and asks the user to confirm the FACTS of the visit, never a clinical-necessity judgment.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

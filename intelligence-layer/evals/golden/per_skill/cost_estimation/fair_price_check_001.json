@@ -1,0 +1,33 @@
+{
+  "id": "gold_fair_price_check_001",
+  "category": "cost_estimation",
+  "input": {
+    "user_message": "The hospital quoted me $6,800 for a colonoscopy. Is that a fair price?",
+    "user_profile": {
+      "plan_type": "self_pay",
+      "state": "TX"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "range",
+      "FAIR Health",
+      "Medicare",
+      "benchmark"
+    ],
+    "should_not_contain": [
+      "ripping you off for sure",
+      "guaranteed",
+      "exactly"
+    ],
+    "required_citations": [
+      "FAIR Health UCR",
+      "Medicare RVU"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Fair-price check. Tyndale benchmarks the quoted $6,800 against the FAIR Health UCR range for the procedure+geography and cross-checks Medicare RVU as a floor. It states where $6,800 sits relative to the sourced range with reasoning, never a bare verdict or an outcome guarantee.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

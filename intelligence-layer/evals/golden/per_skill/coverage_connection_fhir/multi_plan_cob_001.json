@@ -1,0 +1,51 @@
+{
+  "id": "gold_multi_plan_cob_001",
+  "category": "coverage_connection_fhir",
+  "subcategory": "manual_extraction",
+  "input": {
+    "user_message": "We have two plans \u2014 mine through work and my spouse's. I uploaded both cards.",
+    "attached_documents": [
+      "test_data/coverage/plan_a.jpg",
+      "test_data/coverage/plan_b.jpg"
+    ],
+    "case_file_state": {
+      "extracted_coverage": [
+        {
+          "holder": "self",
+          "deductible": {
+            "value": 1500,
+            "extraction_confidence": 0.9
+          }
+        },
+        {
+          "holder": "spouse",
+          "deductible": {
+            "value": 3000,
+            "extraction_confidence": 0.9
+          }
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "MN"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "primary",
+      "secondary",
+      "coordination of benefits",
+      "confirm"
+    ],
+    "should_not_contain": [
+      "figure it out",
+      "one at a time"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Multi-plan COB. Tyndale must resolve primary vs. secondary before auditing (the patient's own plan is typically primary; birthday rule applies for dependents). It asks the one clarifying question needed to set primacy and explains why, bundling it \u2014 not a clumsy multi-part interrogation.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

@@ -1,0 +1,39 @@
+{
+  "id": "gold_tier_a_deductible_exact_001",
+  "category": "tier_a_factual",
+  "input": {
+    "user_message": "How much of my deductible have I paid so far?",
+    "case_file_state": {
+      "coverage_terms": {
+        "deductible": 2500,
+        "deductible_met": 2100
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "CA"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "$2,100",
+      "$2,500"
+    ],
+    "should_not_contain": [
+      "most of your deductible",
+      "almost all",
+      "roughly",
+      "about"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "States 'You've paid $2,100 of your $2,500 deductible' \u2014 exact figures, no vague summary",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Tier A discipline (the voice_tiering.md worked example). 'Most of your deductible' is forbidden \u2014 vague. Tyndale states the exact figures from structured data: '$2,100 of your $2,500 deductible'.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "easy"
+}

@@ -1,0 +1,44 @@
+{
+  "id": "gold_nsa_er_balance_001",
+  "category": "bill_error_detection",
+  "subcategory": "nsa_violations",
+  "input": {
+    "user_message": "I went to the closest ER during an emergency and now I have a $3,100 balance bill because the ER was out of network. Can they do that?",
+    "attached_documents": [
+      "test_data/bills/er_balance.pdf"
+    ],
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "AZ",
+      "network_status": "out_of_network"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "appears to violate",
+      "No Surprises Act",
+      "emergency",
+      "in-network cost-sharing",
+      "balance"
+    ],
+    "should_not_contain": [
+      "definitely",
+      "guaranteed to win",
+      "may possibly"
+    ],
+    "required_citations": [
+      "42 U.S.C. \u00a7 300gg-111"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Emergency care at an out-of-network facility cannot be balance-billed above in-network cost-sharing under the NSA",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check 13 (ER balance bill). NSA prohibits balance billing for emergency services at OON facilities beyond in-network cost-sharing. Tier B: 'appears to violate the No Surprises Act [42 U.S.C. \u00a7 300gg-111]'. Tier C recommends the scripted dispute action; no outcome prediction.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

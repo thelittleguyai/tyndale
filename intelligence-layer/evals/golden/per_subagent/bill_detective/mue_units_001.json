@@ -1,0 +1,45 @@
+{
+  "id": "gold_mue_units_001",
+  "category": "bill_detective",
+  "subcategory": "provider_billing",
+  "input": {
+    "user_message": "My infusion bill lists 9 units of the same drug code. Is nine even allowed?",
+    "attached_documents": [
+      "test_data/bills/infusion_units.pdf"
+    ],
+    "case_file_state": {
+      "line_items": [
+        {
+          "code": "HCPCS J1745",
+          "units": 9,
+          "date": "2026-02-10"
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "NC"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "HCPCS J1745",
+      "MUE",
+      "units",
+      "exceeds"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "may possibly",
+      "will succeed"
+    ],
+    "required_citations": [
+      "CMS MUE"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Check 5 (MUE). Bill Detective runs mue_check on the code+units; a unit count over the Medically Unlikely Edit is a provider-side signal. Tier A states the code and units, Tier B cites the CMS MUE, Tier C proposes a corrected-claim / documentation request. No overclaim.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

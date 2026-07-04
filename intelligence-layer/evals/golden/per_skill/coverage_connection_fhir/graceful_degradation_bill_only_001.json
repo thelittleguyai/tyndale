@@ -1,0 +1,39 @@
+{
+  "id": "gold_graceful_degradation_bill_only_001",
+  "category": "coverage_connection_fhir",
+  "subcategory": "graceful_degradation",
+  "input": {
+    "user_message": "I only have the bill, not my EOB or insurance card handy. Can you still look at it?",
+    "attached_documents": [
+      "test_data/bills/generic_bill.pdf"
+    ],
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "GA"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "what I already found",
+      "can't yet",
+      "EOB",
+      "unlock"
+    ],
+    "should_not_contain": [
+      "I need your EOB before I can do anything",
+      "go figure it out",
+      "come back when"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Runs code-level checks that need no coverage data and states what is deferred until the EOB arrives",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Grounding & Graceful Degradation Doctrine. With a bill only, Tyndale runs the code-level checks that need no coverage data (bundling, duplicates, MUE, price benchmark), states plainly what it can't conclude without the EOB (the cost-sharing audit), and tells the user the single document that unlocks the most and how to get it (P1). Shows value first; never dead-ends.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

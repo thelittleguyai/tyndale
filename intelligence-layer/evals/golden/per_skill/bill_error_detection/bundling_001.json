@@ -1,0 +1,44 @@
+{
+  "id": "gold_bundling_001",
+  "category": "bill_error_detection",
+  "subcategory": "provider_billing",
+  "input": {
+    "user_message": "I got charged for a lesion excision AND a wound repair on the same knee, same visit. Is that legit?",
+    "attached_documents": [
+      "test_data/bills/bundling_knee.pdf"
+    ],
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "UT"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "appears to violate",
+      "NCCI",
+      "CPT 12031",
+      "CPT 11402",
+      "same site"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "your appeal will succeed",
+      "may possibly"
+    ],
+    "required_citations": [
+      "NCCI PTP edit"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "CPT 12031 and CPT 11402 are an NCCI PTP pair bundled on the same site",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check 1 (bundling). CPT 12031 (intermediate wound repair) includes the excision (CPT 11402) on the same site per NCCI PTP edits; separate billing without a valid modifier is unbundling. Tier A states the codes, Tier B cites NCCI, Tier C proposes a re-adjudication request.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium",
+  "notes": "Seed case mirroring EXAMPLE.json's scenario in the provider_billing bucket."
+}

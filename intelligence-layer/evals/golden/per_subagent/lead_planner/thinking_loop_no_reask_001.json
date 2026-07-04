@@ -1,0 +1,47 @@
+{
+  "id": "gold_thinking_loop_no_reask_001",
+  "category": "lead_planner",
+  "input": {
+    "user_message": "What's my next step on the ER bill dispute?",
+    "case_file_state": {
+      "case_id": "case_123",
+      "known": {
+        "state": "AZ",
+        "plan_type": "commercial",
+        "finding": "nsa_er_balance_bill",
+        "deadline": "2026-07-20"
+      },
+      "open_actions": [
+        "submit_nsa_dispute"
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "AZ"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "next step",
+      "July 20",
+      "deadline",
+      "call"
+    ],
+    "should_not_contain": [
+      "what state are you in",
+      "what's your plan type",
+      "you could do X, Y, or Z"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Infers state/plan/finding from case_file_state rather than re-asking; leads with the answer and surfaces the deadline",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Seven-question thinking loop. State, plan, and finding are already in the case file (P1) \u2014 Tyndale must NOT re-ask them. It leads with the specific scripted next action, surfaces the July 20 deadline (P2), and asks at most the one trivial question that unlocks the most. No option menu (P5), no stopping at 'done'.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

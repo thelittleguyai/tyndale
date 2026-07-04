@@ -1,0 +1,55 @@
+{
+  "id": "gold_duplicate_001",
+  "category": "bill_error_detection",
+  "subcategory": "provider_billing",
+  "input": {
+    "user_message": "The same lab code shows up twice on my bill for the same day. Did I get double-charged?",
+    "attached_documents": [
+      "test_data/bills/dup_lab.pdf"
+    ],
+    "case_file_state": {
+      "line_items": [
+        {
+          "code": "CPT 80053",
+          "date": "2026-03-14",
+          "units": 1,
+          "charge": 89.0
+        },
+        {
+          "code": "CPT 80053",
+          "date": "2026-03-14",
+          "units": 1,
+          "charge": 89.0
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "CA"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "CPT 80053",
+      "twice",
+      "same date",
+      "duplicate"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "may possibly",
+      "will succeed"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "CPT 80053 appears twice on 2026-03-14 with identical units",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check 3 (duplicates). Identical code + date + units billed more than once is a duplicate-charge signal. Tier A states the exact repeated line; Tyndale proposes a corrected-claim request and confirms the panel was not legitimately repeated before over-claiming.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "easy"
+}

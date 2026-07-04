@@ -1,0 +1,55 @@
+{
+  "id": "gold_payer_deductible_misapplied_001",
+  "category": "bill_error_detection",
+  "subcategory": "payer_side",
+  "input": {
+    "user_message": "My EOB says I owe $1,200 but I already met my deductible months ago. Does that look right?",
+    "attached_documents": [
+      "test_data/eobs/deductible_misapplied.pdf"
+    ],
+    "case_file_state": {
+      "coverage_terms": {
+        "deductible": 2000,
+        "deductible_met": 2000,
+        "coinsurance": 0.2,
+        "oop_max": 6000,
+        "oop_met": 2400,
+        "network": "in_network"
+      },
+      "eob": {
+        "billed": 3000,
+        "allowed": 2000,
+        "eob_member_responsibility": 1200
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "OH"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "three numbers",
+      "$1,200",
+      "$400",
+      "payer-side",
+      "deductible"
+    ],
+    "should_not_contain": [
+      "your EOB is correct",
+      "may possibly",
+      "will succeed"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "With deductible fully met, member owes 20% coinsurance on the $2,000 allowed = $400, not the EOB's $1,200",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check P1 (cost-sharing miscalculation) \u2014 Independent Audit Doctrine. Deductible is met, so member owes only 20% coinsurance on the $2,000 allowed = $400. The EOB's $1,200 re-applied the met deductible. Report billed / EOB-claimed / Tyndale-computed and name the $800 payer-side gap. Never read the EOB figure back as correct.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

@@ -1,0 +1,45 @@
+{
+  "id": "gold_session_open_lead_status_001",
+  "category": "lead_planner",
+  "input": {
+    "user_message": "hey, I'm back",
+    "case_file_state": {
+      "open_cases": [
+        {
+          "case_id": "case_a",
+          "status": "awaiting_user_call",
+          "next_action": "call_provider_billing",
+          "deadline": "2026-07-10"
+        },
+        {
+          "case_id": "case_b",
+          "status": "docs_needed",
+          "missing": [
+            "eob"
+          ]
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "TN"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "next step",
+      "deadline",
+      "July 10",
+      "EOB"
+    ],
+    "should_not_contain": [
+      "what can I help you with",
+      "you could do X, Y, or Z"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Session-open lead-with-status. A returning user with open cases should get a proactive status summary that surfaces the most time-sensitive next action (the July 10 call) and the one document that unblocks case_b (the EOB) \u2014 not a passive 'what can I help with?'. P2/P4: maximize action per turn.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

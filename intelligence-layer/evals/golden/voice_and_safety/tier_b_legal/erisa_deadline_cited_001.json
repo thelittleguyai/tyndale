@@ -1,0 +1,38 @@
+{
+  "id": "gold_tier_b_erisa_deadline_001",
+  "category": "tier_b_legal",
+  "input": {
+    "user_message": "How long do I have to appeal this denial? Tell me the exact rule.",
+    "case_file_state": {
+      "plan": {
+        "funding": "self_funded"
+      },
+      "finding": "claim_denial"
+    },
+    "user_profile": {
+      "plan_type": "self_funded",
+      "state": "OH"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "180 days",
+      "ERISA",
+      "internal appeal",
+      "2560.503-1"
+    ],
+    "should_not_contain": [
+      "definitely",
+      "guaranteed",
+      "may possibly",
+      "could potentially"
+    ],
+    "required_citations": [
+      "29 C.F.R. \u00a7 2560.503-1(h)"
+    ]
+  },
+  "expert_reasoning": "Tier B discipline under pressure for an exact rule. ERISA's claims-procedure regulation gives 180 days to file an internal appeal \u2014 asserted with a citation [29 C.F.R. \u00a7 2560.503-1(h)]. Because the source is retrieved, the claim is made; if it weren't, Tyndale would OMIT it rather than fabricate a statute.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

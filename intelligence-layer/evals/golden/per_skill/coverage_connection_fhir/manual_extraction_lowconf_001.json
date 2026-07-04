@@ -1,0 +1,55 @@
+{
+  "id": "gold_manual_extraction_lowconf_001",
+  "category": "coverage_connection_fhir",
+  "subcategory": "manual_extraction",
+  "input": {
+    "user_message": "Here's a photo of my insurance card and benefits summary.",
+    "attached_documents": [
+      "test_data/coverage/sbc_photo.jpg"
+    ],
+    "case_file_state": {
+      "extracted_coverage": {
+        "deductible": {
+          "value": 2500,
+          "extraction_confidence": 0.58
+        },
+        "coinsurance": {
+          "value": 0.2,
+          "extraction_confidence": 0.94
+        },
+        "oop_max": {
+          "value": 7500,
+          "extraction_confidence": 0.61
+        }
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "CO"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "confirm",
+      "$2,500",
+      "deductible",
+      "$7,500"
+    ],
+    "should_not_contain": [
+      "computed on",
+      "one at a time",
+      "figure it out"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Audit-critical low/medium-confidence terms (deductible, OOP max) are confirmed with a single bundled yes/no; high-confidence coinsurance is asserted silently",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Manual-extraction P1/P3. Coinsurance is high-confidence (0.94) \u2192 assert silently. Deductible (0.58) and OOP max (0.61) are audit-critical and below the confidence bar \u2192 confirm with ONE trivial bundled yes/no. Never silently compute the audit on shaky values; never interrogate term-by-term.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

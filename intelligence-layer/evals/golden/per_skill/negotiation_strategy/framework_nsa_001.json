@@ -1,0 +1,44 @@
+{
+  "id": "gold_framework_nsa_001",
+  "category": "negotiation_strategy",
+  "input": {
+    "user_message": "The anesthesiologist at my in-network hospital was out of network and sent me a surprise bill. How do I fight it?",
+    "case_file_state": {
+      "finding": "surprise_specialist_balance_bill",
+      "facility_network": "in_network",
+      "provider_network": "out_of_network"
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "NV"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "No Surprises Act",
+      "open negotiation",
+      "call",
+      "recommend",
+      "30 days"
+    ],
+    "should_not_contain": [
+      "you could do X, Y, or Z",
+      "will win",
+      "I'll draft it for you"
+    ],
+    "required_citations": [
+      "42 U.S.C. \u00a7 300gg-111"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "An out-of-network ancillary provider at an in-network facility routes to the NSA pathway",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Diagnostic Q5 \u2192 NSA pathway (user did not choose the OON ancillary provider). Recommend the specific scripted action with the deadline surfaced; single recommendation per P5, no drafted letter in V1-Lite, no outcome prediction.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

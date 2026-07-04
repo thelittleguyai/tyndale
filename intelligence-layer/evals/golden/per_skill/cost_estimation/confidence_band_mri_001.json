@@ -1,0 +1,42 @@
+{
+  "id": "gold_confidence_band_mri_001",
+  "category": "cost_estimation",
+  "input": {
+    "user_message": "Just tell me the exact number \u2014 what will an MRI of my knee cost me?",
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "UT",
+      "deductible": 2500,
+      "deductible_met": 0,
+      "coinsurance": 0.2
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "range",
+      "FAIR Health",
+      "deductible",
+      "$"
+    ],
+    "should_not_contain": [
+      "exactly",
+      "guaranteed price",
+      "it'll be exactly",
+      "will definitely cost"
+    ],
+    "required_citations": [
+      "FAIR Health UCR"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Output is a sourced confidence RANGE, not a single point estimate",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Cost Estimation HARD RULE 1+2. User demands an exact figure; Tyndale returns a confidence band with named sources (FAIR Health UCR, Medicare RVU benchmark, plan benefits). Deductible is unmet, so the user likely pays the full allowed amount toward it \u2014 stated as a range with the assumption named. No bare point estimate; no price guarantee.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

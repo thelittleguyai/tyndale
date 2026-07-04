@@ -1,0 +1,38 @@
+{
+  "id": "gold_deductible_met_estimate_001",
+  "category": "cost_estimation",
+  "input": {
+    "user_message": "I already hit my deductible. What will I owe for an outpatient shoulder scope next month?",
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "IL",
+      "deductible": 3000,
+      "deductible_met": 3000,
+      "coinsurance": 0.2,
+      "oop_max": 8000,
+      "oop_met": 3200
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "range",
+      "coinsurance",
+      "20%",
+      "out-of-pocket max",
+      "FAIR Health"
+    ],
+    "should_not_contain": [
+      "exactly",
+      "guaranteed",
+      "it will be"
+    ],
+    "required_citations": [
+      "FAIR Health UCR"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Deductible-met path. With the deductible met, expected responsibility is ~20% coinsurance on the allowed amount, capped by remaining OOP-max headroom. Tyndale returns a band tied to the FAIR Health allowed-amount range and names the coinsurance + OOP-cap assumptions. Known numbers (coinsurance %, OOP met) are Tier A exact; the estimate framing is Tier C.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

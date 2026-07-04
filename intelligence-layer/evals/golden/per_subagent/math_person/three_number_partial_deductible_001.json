@@ -1,0 +1,53 @@
+{
+  "id": "gold_three_number_partial_deductible_001",
+  "category": "math_person",
+  "input": {
+    "user_message": "Can you double-check what I actually owe on this? The EOB says $980.",
+    "case_file_state": {
+      "coverage_terms": {
+        "deductible": 2000,
+        "deductible_met": 1600,
+        "coinsurance": 0.2,
+        "oop_max": 6000,
+        "oop_met": 1600,
+        "network": "in_network",
+        "coverage_terms_confidence": 0.95
+      },
+      "eob": {
+        "billed": 1500,
+        "allowed": 1000,
+        "eob_member_responsibility": 980
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "MI"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "billed",
+      "$1,500",
+      "$980",
+      "$520",
+      "deductible",
+      "coinsurance"
+    ],
+    "should_not_contain": [
+      "the EOB is correct",
+      "may possibly",
+      "will succeed"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Remaining deductible $400 + 20% coinsurance on remaining $600 ($120) = $520 member responsibility, vs EOB's $980",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Three-number independent audit. $400 deductible remains; of the $1,000 allowed, $400 fills the deductible and the remaining $600 is subject to 20% coinsurance = $120, so member owes $400 + $120 = $520. Report billed ($1,500), EOB-claimed ($980), Tyndale-computed ($520); the $460 gap is payer-side. Show the step-by-step math; never anchor on the EOB.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

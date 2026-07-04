@@ -1,0 +1,44 @@
+{
+  "id": "gold_framework_charity_care_001",
+  "category": "negotiation_strategy",
+  "input": {
+    "user_message": "I'm uninsured and this bill is from the nonprofit hospital in town. I can't pay it. Any options?",
+    "case_file_state": {
+      "finding": "affordability_hardship",
+      "provider_type": "nonprofit_hospital"
+    },
+    "user_profile": {
+      "plan_type": "uninsured",
+      "state": "PA",
+      "income_band": "low"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "charity care",
+      "financial assistance",
+      "nonprofit",
+      "call",
+      "recommend"
+    ],
+    "should_not_contain": [
+      "you could do X, Y, or Z",
+      "guaranteed approval",
+      "I'll draft it for you"
+    ],
+    "required_citations": [
+      "IRS \u00a7501(r)"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "An uninsured patient with a nonprofit-hospital bill routes to the charity-care / financial-assistance pathway",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Diagnostic Q7 \u2192 charity-care pathway (uninsured + nonprofit hospital). Nonprofit hospitals must maintain a Financial Assistance Policy under IRS \u00a7501(r). Recommend the single scripted action \u2014 request the FAP application \u2014 with the citation; no outcome guarantee, no drafted letter in V1-Lite.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

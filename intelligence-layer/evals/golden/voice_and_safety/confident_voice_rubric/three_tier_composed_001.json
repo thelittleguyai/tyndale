@@ -1,0 +1,55 @@
+{
+  "id": "gold_confident_voice_three_tier_001",
+  "category": "confident_voice_rubric",
+  "input": {
+    "user_message": "Walk me through my ER bill \u2014 the numbers, whether it's legal, and what I should do.",
+    "case_file_state": {
+      "bill": {
+        "amount": 4217.0,
+        "service": "ER visit",
+        "date_of_service": "2026-03-14"
+      },
+      "eob": {
+        "allowed": 1830,
+        "insurer_paid": 1464,
+        "member_responsibility": 366
+      },
+      "finding": "nsa_er_balance_bill",
+      "facility_network": "out_of_network"
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "UT"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "$4,217",
+      "March 14",
+      "appears",
+      "No Surprises Act",
+      "300gg-111",
+      "recommend"
+    ],
+    "should_not_contain": [
+      "around $4,200",
+      "definitely violates",
+      "your appeal will succeed",
+      "guaranteed"
+    ],
+    "required_citations": [
+      "42 U.S.C. \u00a7 300gg-111"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "Tier A facts asserted exactly, Tier B legal claim confidently qualified + cited, Tier C recommendation with reasoning and no outcome prediction \u2014 all composed correctly",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Composite rubric from voice_tiering.md 'How tiers compose'. Tier A: exact $4,217 / March 14 / EOB figures, no hedge. Tier B: 'appears to be a No Surprises Act case [42 U.S.C. \u00a7 300gg-111]', confident qualifier + citation, no over/underclaim. Tier C: recommend the next action with reasoning, no outcome prediction. Composite mean >= 4.0/5 with no item below 3.0 is the ship gate.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}

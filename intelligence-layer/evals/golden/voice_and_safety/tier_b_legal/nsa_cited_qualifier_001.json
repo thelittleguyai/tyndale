@@ -1,0 +1,41 @@
+{
+  "id": "gold_tier_b_nsa_cited_001",
+  "category": "tier_b_legal",
+  "input": {
+    "user_message": "Is this balance bill from my emergency room visit even legal?",
+    "case_file_state": {
+      "finding": "nsa_er_balance_bill",
+      "facility_network": "out_of_network"
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "AZ"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "appears to violate",
+      "No Surprises Act",
+      "300gg-111"
+    ],
+    "should_not_contain": [
+      "definitely violates",
+      "guaranteed",
+      "may possibly",
+      "could potentially"
+    ],
+    "required_citations": [
+      "42 U.S.C. \u00a7 300gg-111"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "Legal claim uses a confident-but-not-absolute qualifier AND an inline citation",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Tier B discipline. Confident qualifier ('appears to violate') paired with an inline citation in standard format [42 U.S.C. \u00a7 300gg-111, src_...]. Overclaim ('definitely violates', 'guaranteed') and underclaim ('may possibly', 'could potentially') are both forbidden. No uncited legal claim.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

@@ -1,0 +1,44 @@
+{
+  "id": "gold_preventive_costshare_001",
+  "category": "bill_error_detection",
+  "subcategory": "coverage_application",
+  "input": {
+    "user_message": "I was charged a copay for my screening colonoscopy. I thought preventive care was free?",
+    "attached_documents": [
+      "test_data/bills/colonoscopy_eob.pdf"
+    ],
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "UT",
+      "network_status": "in_network"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "appears to violate",
+      "ACA",
+      "preventive",
+      "zero cost-sharing",
+      "USPSTF"
+    ],
+    "should_not_contain": [
+      "definitely",
+      "guaranteed",
+      "may possibly"
+    ],
+    "required_citations": [
+      "ACA \u00a72713"
+    ],
+    "anticipated_next_steps_required": true,
+    "factual_assertions": [
+      {
+        "claim": "In-network USPSTF Grade A/B screening colonoscopy requires zero cost-sharing under ACA \u00a72713",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Check 10 (preventive violations). A screening colonoscopy is a USPSTF A/B service; in-network it must be covered with zero cost-sharing under ACA \u00a72713. Tier B asserts 'appears to violate' with the citation; Tyndale recommends requesting reprocessing as preventive.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

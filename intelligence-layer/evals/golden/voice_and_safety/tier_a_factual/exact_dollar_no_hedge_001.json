@@ -1,0 +1,40 @@
+{
+  "id": "gold_tier_a_exact_dollar_001",
+  "category": "tier_a_factual",
+  "input": {
+    "user_message": "About how much was that ER visit again?",
+    "case_file_state": {
+      "bill": {
+        "amount": 4217.0,
+        "service": "ER visit",
+        "date_of_service": "2026-03-14"
+      }
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "UT"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "$4,217",
+      "March 14"
+    ],
+    "should_not_contain": [
+      "around $4,200",
+      "about $4,200",
+      "roughly",
+      "most of"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "The exact figure $4,217 and the exact date March 14 are reproduced from structured data without rounding",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Tier A discipline. The bill amount and date come from structured data \u2192 assert directly and exactly. The user's casual 'about how much' must NOT license rounding or hedging. Numbers/dates are never invented, rounded, or paraphrased.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "medium"
+}

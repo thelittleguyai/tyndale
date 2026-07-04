@@ -1,0 +1,50 @@
+{
+  "id": "gold_modifier59_unbundle_001",
+  "category": "bill_detective",
+  "subcategory": "provider_billing",
+  "input": {
+    "user_message": "Two procedures on my bill both have a '-59' modifier. My friend said that's a red flag?",
+    "attached_documents": [
+      "test_data/bills/mod59.pdf"
+    ],
+    "case_file_state": {
+      "line_items": [
+        {
+          "code": "CPT 43239",
+          "modifier": "59",
+          "date": "2026-01-20"
+        },
+        {
+          "code": "CPT 43235",
+          "modifier": "59",
+          "date": "2026-01-20"
+        }
+      ]
+    },
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "WA"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "modifier 59",
+      "NCCI",
+      "bypass",
+      "appears"
+    ],
+    "should_not_contain": [
+      "definitely fraud",
+      "may possibly",
+      "guaranteed"
+    ],
+    "required_citations": [
+      "NCCI PTP edit"
+    ],
+    "anticipated_next_steps_required": true
+  },
+  "expert_reasoning": "Check 4 (modifier abuse). Modifier 59 used to bypass an NCCI edit between an EGD (43235) and EGD-with-biopsy (43239) is a classic unbundling flag. Bill Detective checks the pair and asks whether a distinct procedural service actually justified the 59 \u2014 a factual question, not an accusation. Confident-but-qualified voice.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-07-02",
+  "difficulty": "hard"
+}
