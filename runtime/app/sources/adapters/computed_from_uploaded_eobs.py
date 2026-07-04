@@ -38,14 +38,17 @@ def _accumulator_confidence(
     with_applied: int,
     all_eobs_uploaded: bool | None,
     bucketing_assumed: bool,
+    plan_year_assumed: bool,
 ) -> float:
     """Deterministic confidence in [0, 1].
 
     Base 0.70 for a reconstruction from uploaded EOBs, scaled by how usable the set
     is — the mean of (fraction with a usable date) and (fraction contributing an
     applied amount), since ordering/plan-year needs dates and the sum needs amounts.
-    Then x0.60 when completeness is unconfirmed (the biggest unknown), and x0.85 when
-    a bucketing assumption was required (plan structure not captured). Empty set -> 0.0.
+    Then x0.60 when completeness is unconfirmed (the biggest unknown), x0.90 when the
+    plan year is only ASSUMED to be the calendar year (plan-start month not captured),
+    and x0.85 when a bucketing assumption was required (plan structure not captured).
+    Empty set -> 0.0.
     """
     if total == 0:
         return 0.0
@@ -53,6 +56,8 @@ def _accumulator_confidence(
     conf = 0.70 * usable
     if all_eobs_uploaded is not True:
         conf *= 0.60
+    if plan_year_assumed:
+        conf *= 0.90
     if bucketing_assumed:
         conf *= 0.85
     return round(max(0.0, min(1.0, conf)), 3)
@@ -66,9 +71,15 @@ def compute_accumulator(
 ) -> AccumulatorComputation:
     """Pure deductible/OOP reconstruction from the uploaded EOB set. No I/O, no LLM."""
     coverage = coverage or {}
-    # V1-Lite: plan year == calendar year of as_of (plan-start month not captured yet).
+    # V1-Lite ALWAYS assumes plan year == calendar year of as_of — the plan-start month is
+    # not captured (a schema change, flagged for later). Record it as a first-class assumption
+    # (surfaced in provenance) + reflect it in confidence below: a non-calendar-year plan would
+    # shift which EOBs count toward this year's deductible/OOP accumulator.
     plan_year = as_of.year
-    assumptions: list[str] = []
+    assumptions: list[str] = [
+        f"plan year assumed to be calendar year {plan_year}; the plan-start month is not "
+        "captured, so a non-calendar-year plan would shift which EOBs count"
+    ]
 
     # 1-2. Date each EOB (adjudication_date; date_of_service fallback, flagged), keep
     #       this plan year (undated included + flagged), order by date (undated last).
@@ -142,6 +153,7 @@ def compute_accumulator(
         with_applied=with_applied,
         all_eobs_uploaded=all_eobs_uploaded,
         bucketing_assumed=not has_structure,
+        plan_year_assumed=True,  # V1-Lite always assumes calendar year (see plan_year above)
     )
     data = {
         "deductible_applied": ded_applied,
