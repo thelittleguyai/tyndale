@@ -18,9 +18,11 @@ from app.auth import CurrentUser
 from app.db.models.admin_verdicts import AdminVerdict
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
+from app.db.models.conversations import Conversation
 from app.db.models.deadlines import Deadline
 from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
+from app.db.models.messages import Message
 from app.db.models.users import User
 from app.db.session import get_session
 from app.routes.admin._deps import admin_user
@@ -202,6 +204,43 @@ async def case_detail(
         )
     ).scalar_one_or_none()
 
+    # Real chat transcript (CO-10 conversation store): every message across the
+    # per-case conversations for this case, ordered chronologically. Projected to
+    # the {role, content, timestamp} shape the admin ChatTranscript renders.
+    messages = (
+        (
+            await session.execute(
+                select(Message)
+                .join(Conversation, Message.conversation_id == Conversation.conversation_id)
+                .where(Conversation.case_id == cf.case_file_id)
+                .order_by(Message.created_at.asc(), Message.sequence_number.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    conversation_history = [
+        {
+            "role": m.role,
+            "content": m.content or "",
+            "timestamp": _iso(m.created_at),
+        }
+        for m in messages
+    ]
+
+    # Real last audit result: project the persisted findings to the AuditResult
+    # shape (three-number audit + findings + status) the runtime already assembles
+    # for /v1/audit. Kept best-effort so a case with un-projectable findings still
+    # renders the rest of the detail page.
+    last_audit_result: dict | None = None
+    try:
+        from app.agents.orchestrator import _assemble_result
+
+        audit = await _assemble_result(str(cf.case_file_id), composed="")
+        last_audit_result = audit.model_dump(mode="json")
+    except Exception:  # noqa: BLE001 — degrade gracefully; the Findings tab still shows raw findings
+        last_audit_result = None
+
     return {
         "case_file_id": str(cf.case_file_id),
         "user": {
@@ -230,8 +269,8 @@ async def case_detail(
         ],
         "research_log": cf.research_log or [],
         "plan_versions": {"current": cf.plan_current, "history": cf.plan_history or []},
-        "conversation_history": [],
-        "last_audit_result": None,
+        "conversation_history": conversation_history,
+        "last_audit_result": last_audit_result,
         "user_feedback": [
             {
                 "feedback_type": fb.feedback_type,

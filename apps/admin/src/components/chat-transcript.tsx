@@ -8,8 +8,8 @@ export function ChatTranscript({
   if (!messages.length) {
     return (
       <p className="text-sm text-white/40">
-        No chat history for this case yet. (The user↔Tyndale conversation store lands in a
-        later phase; case data here comes from uploads, findings, and the audit stream.)
+        No chat history for this case yet. Messages appear here once the user opens a
+        per-case conversation with Tyndale.
       </p>
     );
   }

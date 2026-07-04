@@ -72,9 +72,16 @@ export default function SystemPage() {
             />
             <Tile label="Qdrant" value={health.qdrant_status} ok={health.qdrant_status === 'healthy'} />
             <Tile
-              label="Anthropic"
+              label="Claude"
               value={health.anthropic_status}
-              ok={health.anthropic_status === 'configured' ? true : null}
+              // "foundry" (managed identity) and "anthropic-direct" are live paths;
+              // "stub" (fixture fallback) is neutral, not a failure.
+              ok={
+                health.anthropic_status === 'foundry' ||
+                health.anthropic_status === 'anthropic-direct'
+                  ? true
+                  : null
+              }
             />
           </div>
           <div className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4 text-sm text-white/60">
