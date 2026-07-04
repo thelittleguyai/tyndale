@@ -87,6 +87,28 @@ export default function SystemPage() {
           <div className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4 text-sm text-white/60">
             <span className="text-white/40">Deploy:</span> {health.deploy_sha ?? '—'} ·{' '}
             <span className="text-white/40">env:</span> {health.node_env}
+            {health.last_claude_call ? (
+              <>
+                {' · '}
+                <span className="text-white/40">Last Claude call:</span>{' '}
+                <span
+                  className={
+                    health.last_claude_call.status === 'error'
+                      ? 'text-rose'
+                      : health.last_claude_call.status === 'ok'
+                        ? 'text-sage'
+                        : 'text-white/50'
+                  }
+                >
+                  {health.last_claude_call.status}
+                  {health.last_claude_call.path ? ` (${health.last_claude_call.path})` : ''}
+                  {health.last_claude_call.detail ? ` — ${health.last_claude_call.detail}` : ''}
+                </span>
+                {health.last_claude_call.at ? (
+                  <span className="text-white/30"> · {new Date(health.last_claude_call.at).toLocaleString()}</span>
+                ) : null}
+              </>
+            ) : null}
           </div>
 
           <h2 className="mb-2 text-sm font-semibold text-white/80">Crons</h2>

@@ -281,6 +281,12 @@ export interface AdminSystemHealth {
   db_pool: { size: number | null; checked_out: number | null; overflow: number | null };
   qdrant_status: string;
   anthropic_status: string;
+  last_claude_call: {
+    status: string;
+    at: string | null;
+    path: string | null;
+    detail: string | null;
+  };
   recent_errors: Array<{
     event_id: string;
     timestamp: string | null;
