@@ -7,7 +7,6 @@ decode, and the canonical admin-action audit writer used by every admin module.
 from __future__ import annotations
 
 import datetime
-import hashlib
 import json
 import uuid
 from typing import Any
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser, current_user
 from app.db.models.audit_events import AuditEvent
+from app.security.audit_writer import build_audit_event
 
 
 async def admin_user(user: CurrentUser = Depends(current_user)) -> CurrentUser:
@@ -39,10 +39,14 @@ def iso(dt: datetime.datetime | None) -> str | None:
 
 
 def decode_payload(ev: AuditEvent) -> dict:
-    """Phase-1C audit payloads are clear-text JSON bytes (AES-GCM in Phase 4)."""
+    """Decrypt + JSON-decode an audit payload (Phase 2.2). decrypt_payload transparently
+    handles both key_version 0 (clear-text — dev/legacy rows) and AES-256-GCM rows."""
+    from app.security.audit_crypto import AuditCryptoError, decrypt_payload
+
     try:
-        return json.loads(bytes(ev.payload_encrypted).decode("utf-8"))
-    except (ValueError, UnicodeDecodeError, TypeError):
+        plaintext = decrypt_payload(bytes(ev.payload_encrypted), ev.key_version)
+        return json.loads(plaintext.decode("utf-8"))
+    except (AuditCryptoError, ValueError, UnicodeDecodeError, TypeError):
         return {}
 
 
@@ -69,16 +73,13 @@ async def audit_admin_action(
         "target_user_id": str(target_user_id) if target_user_id else None,
         **(extra or {}),
     }
-    body = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
     session.add(
-        AuditEvent(
+        build_audit_event(
             event_type="user_action",
-            actor=admin.email,
+            actor=admin.email,  # admin rows record the acting admin's email (convention above)
             user_id=target_user_id,
             case_file_id=case_file_id,
-            payload_encrypted=body,
-            payload_hash=hashlib.sha256(body).digest(),
-            key_version=0,
+            payload=payload,
             tools_invoked=None,
             outcome=outcome,
         )

@@ -16,16 +16,14 @@ audited path the runtime calls when a DB session is available.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.email_templates import is_allowlisted
 from app.auth.phi_patterns import PhiMatch, detect_phi
-from app.db.models.audit_events import AuditEvent
 from app.hooks.contracts import PreToolUseInput, PreToolUseResult
+from app.security.audit_writer import build_audit_event
 
 DATE_FILTERED_TOOLS = {"qdrant_search_laws_regulations", "qdrant_search_payer_policies"}
 GATED_TOOLS = {"send_email", "doc_generate"}
@@ -171,37 +169,26 @@ async def guard_send_email(inp: PreToolUseInput, session: AsyncSession) -> PreTo
 async def _write_phi_block_audit(
     inp: PreToolUseInput, matches: list[PhiMatch], session: AsyncSession
 ) -> None:
-    """Write one audit_events row (event_type='phi_block') for a blocked send.
-
-    Mirrors post_tool_use's clear-text-payload discipline: payload_encrypted holds
-    clear-text JSON bytes + a SHA-256 hash with key_version=0 until Phase 4 swaps
-    in AES-GCM via Key Vault. NEVER stores the email body (which is the suspected
-    PHI) — only the detected pattern types/snippets + a 50-char subject preview.
-    """
+    """Write one audit_events row (event_type='phi_block') for a blocked send, through the
+    shared encrypted envelope (build_audit_event). NEVER stores the email body (the suspected
+    PHI) — only the detected pattern types/snippets + a 50-char subject preview."""
     subject = inp.tool_args.get("subject", "") or ""
-    payload = {
-        "tool": "send_email",
-        "actor": inp.actor,
-        "matches": [m.to_dict() for m in matches],
-        "subject_preview": subject[:50],
-        "template_id": inp.tool_args.get("template_id"),
-    }
-    payload_bytes = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
-    payload_hash = hashlib.sha256(payload_bytes).digest()
-
     try:
         case_uuid: uuid.UUID | None = uuid.UUID(str(inp.case_file_id)) if inp.case_file_id else None
     except (ValueError, AttributeError, TypeError):
         case_uuid = None
 
-    event = AuditEvent(
+    event = build_audit_event(
         event_type="phi_block",
         actor=inp.actor,
         case_file_id=case_uuid,
-        # TODO(Phase 4): AES-GCM via Key Vault; clear-text JSON bytes for now.
-        payload_encrypted=payload_bytes,
-        payload_hash=payload_hash,
-        key_version=0,
+        payload={
+            "tool": "send_email",
+            "actor": inp.actor,
+            "matches": [m.to_dict() for m in matches],
+            "subject_preview": subject[:50],
+            "template_id": inp.tool_args.get("template_id"),
+        },
         tools_invoked=["send_email"],
         outcome="blocked",
         error_details=f"send_email PHI block: {len(matches)} pattern matches",

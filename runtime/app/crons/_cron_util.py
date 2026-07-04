@@ -3,28 +3,22 @@
 from __future__ import annotations
 
 import csv
-import hashlib
-import json
 import pathlib
 
 from app.db.base import AsyncSessionLocal
-from app.db.models.audit_events import AuditEvent
+from app.security.audit_writer import build_audit_event
 
 _DATA_DIR = pathlib.Path(__file__).resolve().parent.parent / "ingestion" / "data"
 
 
 async def audit_cron_run(actor: str, outcome: str, payload: dict, error: str | None = None) -> None:
-    """Write one system_action audit row for a cron run (clear-text payload; AES-GCM in Phase 4)."""
-    body = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
+    """Write one system_action audit row for a cron run, through the shared encrypted envelope."""
     async with AsyncSessionLocal() as s:
         s.add(
-            AuditEvent(
+            build_audit_event(
                 event_type="system_action",
                 actor=actor,
-                case_file_id=None,
-                payload_encrypted=body,
-                payload_hash=hashlib.sha256(body).digest(),
-                key_version=0,
+                payload=payload,
                 tools_invoked=["bulk_ingestion"],
                 outcome=outcome,
                 error_details=error,

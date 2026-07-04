@@ -17,7 +17,6 @@ assistant_message_completed, error, done.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -33,12 +32,12 @@ from app.agents.chat import estimate_cost_usd, stream_chat_turn
 from app.agents.llm_health import CLAUDE_UNAVAILABLE_MESSAGE
 from app.auth import CurrentUser, current_user
 from app.db.base import AsyncSessionLocal
-from app.db.models.audit_events import AuditEvent
 from app.db.models.conversations import Conversation
 from app.db.models.messages import Message
 from app.db.session import get_session
 from app.routes.conversations import owned_conversation
 from app.schemas.chat import MessageCreate
+from app.security.audit_writer import build_audit_event
 from app.services.conversation_title import auto_generate_title
 
 log = structlog.get_logger(__name__)
@@ -175,15 +174,12 @@ async def _audit_turn(
             "tool_calls": names,
             "error": error,
         }
-        body = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
         s.add(
-            AuditEvent(
+            build_audit_event(
                 event_type="model_call",
                 actor=actor,
                 user_id=user_id,
-                payload_encrypted=body,
-                payload_hash=hashlib.sha256(body).digest(),
-                key_version=0,
+                payload=payload,
                 tools_invoked=names or None,
                 outcome=outcome,
             )
@@ -257,7 +253,9 @@ async def post_message(
     conv_id = conv.conversation_id
     case_id = conv.case_id
     uid = user.user_id
-    actor = user.email
+    # Audit actor = the user UUID, never the email (Phase 2.2). The email is PII and belongs
+    # in the encrypted payload / user_id FK, not the clear-text actor column.
+    actor = str(uid)
     content = body.content
     user_msg_id = user_msg.message_id
     user_seq = user_msg.sequence_number
