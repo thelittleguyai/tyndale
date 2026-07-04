@@ -7,8 +7,10 @@ Per-collection default instructions are loaded from the intelligence-layer.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import httpx
@@ -21,13 +23,15 @@ log = structlog.get_logger(__name__)
 VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
 RERANK_MODEL = "rerank-2.5"
 
-# runtime/app/knowledge/rerank.py -> parents[3] == repo root
-_INSTRUCTIONS_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "intelligence-layer"
-    / "collections"
-    / "rerank_instructions.md"
-)
+
+def _intelligence_layer_root() -> Path:
+    # Honor the TYNDALE_INTELLIGENCE_LAYER_ROOT override (container layouts + tests),
+    # matching app/agents/context_loader.py; else derive from this file's location
+    # (runtime/app/knowledge/rerank.py -> repo_root/intelligence-layer).
+    override = os.environ.get("TYNDALE_INTELLIGENCE_LAYER_ROOT")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[3] / "intelligence-layer"
 
 
 @dataclass
@@ -37,23 +41,26 @@ class RerankResult:
     score: float
 
 
-def _load_instructions() -> dict[str, str]:
-    if not _INSTRUCTIONS_PATH.exists():
+@lru_cache(maxsize=1)
+def _instructions() -> dict[str, str]:
+    """Parse the per-collection rerank instructions. Cached; call
+    ``_instructions.cache_clear()`` in tests that repoint the layer root."""
+    path = _intelligence_layer_root() / "collections" / "rerank_instructions.md"
+    if not path.exists():
         return {}
-    text = _INSTRUCTIONS_PATH.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
     out: dict[str, str] = {}
-    for match in re.finditer(r"^##\s+(\S+)\s*\n+(.+?)(?=\n##\s|\Z)", text, re.DOTALL | re.MULTILINE):
+    for match in re.finditer(
+        r"^##\s+(\S+)\s*\n+(.+?)(?=\n##\s|\Z)", text, re.DOTALL | re.MULTILINE
+    ):
         name = match.group(1).strip()
         body = match.group(2).strip().strip('"').strip()
         out[name] = body
     return out
 
 
-_INSTRUCTIONS = _load_instructions()
-
-
 def default_instruction(collection: str) -> str | None:
-    return _INSTRUCTIONS.get(collection)
+    return _instructions().get(collection)
 
 
 async def rerank(
@@ -86,6 +93,8 @@ async def rerank(
         resp.raise_for_status()
         data = resp.json()
     return [
-        RerankResult(index=item["index"], document=documents[item["index"]], score=item["relevance_score"])
+        RerankResult(
+            index=item["index"], document=documents[item["index"]], score=item["relevance_score"]
+        )
         for item in data["data"]
     ]
