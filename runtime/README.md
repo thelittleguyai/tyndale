@@ -1,10 +1,16 @@
-# Tyndale Runtime (Phase 1C skeleton)
+# Tyndale Runtime
 
-FastAPI monolith that will host the Claude Agent SDK orchestration, tool implementations, and
-the hook lifecycle. This is the **Phase 1C scaffold** — no real Claude orchestration, OCR, or
-PHI scrubbing yet (those land in Phases 2 and 4). The four Claude Agent SDK hook surfaces are
-**stubbed** against `docs/integration-contracts.md`; the security/HIPAA contact implements
-against those contracts.
+FastAPI monolith hosting the Claude Agent SDK orchestration, tool implementations, and the
+hook lifecycle. This is a live service, not a skeleton: it runs the Lead Planner + subagent
+audit against real Claude (via **Azure AI Foundry managed identity** — DL-79 — or a direct
+Anthropic key / LiteLLM proxy), document ingestion + OCR, the three-number bill audit, the
+chat surface (SSE streaming + persisted conversation store), magic-link auth, and the
+intake / insurance-card flows. The four Claude Agent SDK hook surfaces are implemented
+against `docs/integration-contracts.md`.
+
+Feature flags gate the real integrations so the stack also runs fully offline for local dev
+and tests (`USE_REAL_CLAUDE`, `USE_FOUNDRY`, `USE_REAL_OCR`); when they're off, deterministic
+fixtures stand in. Schema is managed by Alembic (18+ migrations under `app/db/migrations`).
 
 ## Local dev
 
@@ -21,14 +27,16 @@ uv run pytest
 ```
 
 - Health: `GET /health` · Readiness (checks DB): `GET /readiness`
-- Stub API: `POST /v1/upload`, `POST /v1/audit`, `POST /v1/feedback`
+- Core API: `/v1/upload`, `/v1/audit`, `/v1/feedback`, `/v1/conversations` (+ SSE chat),
+  `/v1/profile`, `/v1/insurance`, and the admin surface under `/v1/admin/*`
 
 ## Layout
 
 - `app/config.py` — fail-fast env validation (Pydantic Settings)
+- `app/agents/` — Claude Agent SDK orchestration (Lead Planner + subagents), runner, greeting
 - `app/db/` — SQLAlchemy 2.0 models + Alembic migrations (schemas match the integration contracts)
-- `app/hooks/` — contract models + stub implementations of the 4 SDK hooks + crisis classifier
-- `app/routes/` — health/readiness + stubbed `/v1/*` endpoints returning the MRI fixture
+- `app/hooks/` — contract models + implementations of the 4 SDK hooks + crisis classifier
+- `app/routes/` — health/readiness + the `/v1/*` API (audit, chat, profile, admin console)
 - `app/middleware/` — CORS, PHI-safe request logger, JSON error handler
-- `app/stubs/` — fixtures + stubbed Claude/OCR (active while feature flags are off)
-- `litellm/` — LiteLLM proxy skeleton (real hardening in Phase 4)
+- `app/stubs/` — deterministic fixtures + stubbed Claude/OCR (active while feature flags are off)
+- `litellm/` — LiteLLM proxy config (optional Claude path alongside Foundry)

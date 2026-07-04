@@ -42,14 +42,25 @@ Cowork does not know current real-world status; Brock updates as work progresses
 
 ## V1-Lite critical-path BAAs
 
-These must be **Executed** before V1-Lite launch (one explicit exception, row 4). Production
-launch is gated on this chain being complete.
+> **Note (2026-06-27, per DL-79 + amended DL-49):** Claude is now called via **Azure AI
+> Foundry** using **managed identity**, and the signed **Azure** BAA is taken to cover
+> Claude-in-Foundry (Brock's call). The consequence for this tracker: the **Anthropic-direct
+> BAA drops off the critical path** — row 1 is re-marked **Not Required** and Anthropic-direct
+> is now only a **config-gated dev/emergency fallback**. The **Azure BAA (row 2) now also
+> covers the Claude path.** Per amended **DL-49**, the remaining V1 BAAs to execute are
+> **Azure** (incl. Claude), **AWS**, and **Voyage AI**; **1upHealth is deferred to Full V1**
+> (row 4); **Stripe and SendGrid are excluded by design** (DL-49 / DL-47). DL-79 is a **dev**
+> environment with no real PHI; before production go-live with real PHI, re-confirm the Azure
+> BAA covers Claude-in-Foundry.
+
+These must be **Executed** before V1-Lite launch (row 1 is now Not Required per DL-79; one
+further explicit exception, row 4). Production launch is gated on this chain being complete.
 
 | # | Vendor | Scope | Owner | Status | Effective | Renewal | Notes |
 |---|--------|-------|-------|--------|-----------|---------|-------|
-| 1 | Anthropic | Claude API direct (Lead Planner + all subagents + Skills + Haiku crisis classifier) | Brock | Not Started | — | annual review | Request HIPAA-ready / Enterprise BAA directly from Anthropic sales. Primary model path; highest-volume sensitive-data flow. |
-| 2 | Microsoft Azure | Container Apps, Postgres, Blob, Key Vault, Monitor, Document Intelligence, Foundry | Brock | Not Started | — | annual review | Single Azure BAA covers all in-scope services on one agreement. Document Intelligence is the V1-Lite OCR path for uploaded bills/EOBs — sensitive data flows here from day one. |
-| 3 | AWS | Bedrock (Claude fallback path) | Brock | Not Started | — | annual review | AWS HIPAA BAA via AWS Artifact. Same sensitive-data scope as Anthropic when the fallback path is active. |
+| 1 | Anthropic | Claude API direct — **config-gated dev/emergency fallback only** (see DL-79) | Brock | Not Required | — | annual review | **Amended per DL-79 (2026-06-27):** Claude is now called via **Azure AI Foundry** (managed identity), so the primary Claude path is covered by the **Azure BAA (row 2)** — a separate Anthropic-direct BAA is **no longer required**. Anthropic-direct is demoted to a config-gated dev/emergency fallback; if it is ever re-enabled as a production path carrying real PHI, an Anthropic BAA is required first (revert path in DL-79). |
+| 2 | Microsoft Azure | Container Apps, Postgres, Blob, Key Vault, Monitor, Document Intelligence, Foundry — **incl. Claude-in-Foundry (DL-79)** | Brock | Not Started | — | annual review | Single Azure BAA covers all in-scope services on one agreement, **and now also covers Claude called via Azure AI Foundry (DL-79)** — this collapses the former Anthropic-BAA question into the Azure BAA. Document Intelligence is the V1-Lite OCR path for uploaded bills/EOBs — sensitive data flows here from day one. Highest-volume sensitive-data path (Claude + OCR both ride on this agreement). |
+| 3 | AWS | Bedrock (Claude fallback path) | Brock | Not Started | — | annual review | AWS HIPAA BAA via AWS Artifact. Same sensitive-data scope as the Claude path when the Bedrock fallback is active. |
 | 4 | 1upHealth | FHIR Coverage / EOB / Claim pulls | Brock | Not Required | — | annual review | **Full V1 only — defer for V1-Lite.** V1-Lite uses document upload, not FHIR pulls, so no data flows to 1upHealth at V1-Lite. Becomes a V1 critical-path BAA when the Full V1 FHIR integration ships; that integration also triggers the DL-05 HIPAA re-look. Listed here for continuity; NOT on the V1-Lite critical path. |
 | 5 | SendGrid (Twilio SendGrid Email API Pro — HIPAA-eligible tier) | Account / notification email; letter-body sends at Full V1 | Brock | Not Started | — | annual review | Per DL-18, must be the **Email API Pro HIPAA-eligible tier** — SendGrid's standard tier does not include a BAA. At V1-Lite there is no letter generation/sending (per CLAUDE.md V1-Lite scope), so email carries minimal sensitive content; BAA still executed as defense-in-depth + vendor-standard, and is prerequisite to the Full V1 gated send path. |
 | 6 | Voyage AI | Embeddings + reranking (knowledge retrieval) | Brock | Not Started | — | annual review | Knowledge-base corpus (statutes, code rules) is not sensitive, but user document/bill text embedded for retrieval can be. **Fallback if not signable in time: scrub-before-send** for user-bill text before it reaches Voyage. Implement the fallback in code before V1 if the BAA is not Executed. |
@@ -92,7 +103,7 @@ Tyndale policy, consistent with the security boundary in `CLAUDE.md` and the int
 `docs/integration-contracts.md`:
 
 - No sensitive user data flows to any vendor before that vendor's BAA is **Executed** (or, where a fallback exists — Voyage AI, FAIR Health — before the scrub/de-identification fallback is implemented in code).
-- V1-Lite production launch is gated on the entire V1-Lite critical-path list (rows 1-3, 5-9) being **Executed**. Row 4 (1upHealth) is excluded from the V1-Lite gate and becomes part of the gate at Full V1.
+- V1-Lite production launch is gated on the remaining V1-Lite critical-path BAAs (rows 2-3, 5-9) being **Executed**. Row 1 (Anthropic-direct) is **Not Required** per DL-79 — the Claude path is covered by the Azure BAA (row 2) — unless Anthropic-direct is re-enabled as a production PHI path. Row 4 (1upHealth) is excluded from the V1-Lite gate and becomes part of the gate at Full V1.
 - Subprocessor-change notifications from vendors are reviewed within **30 days** of receipt; a new subprocessor handling sensitive data requires confirming BAA coverage before data flows.
 - BAAs are reviewed **annually** for re-papering as standard contract terms drift.
 - Voyage AI and FAIR Health fallback paths (scrub-before-send; 3-digit ZIP) must be implemented in code before V1 if their BAAs are not Executed in time.
