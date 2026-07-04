@@ -113,9 +113,29 @@ async def _persist(content: bytes, filename: str) -> str:
                 blob_name = f"{uuid.uuid4()}_{filename}"
                 await container.upload_blob(name=blob_name, data=content, overwrite=False)
                 return f"{settings.azure_storage_account_url}/{settings.azure_storage_uploads_container}/{blob_name}"
-        except Exception as exc:  # noqa: BLE001 — fall back to local for walking skeleton
-            log.warning("upload.blob_failed_falling_back_local", error=str(exc))
+        except Exception as exc:  # noqa: BLE001 — Blob is the durable store; never downgrade
+            # PHI must land durably in Azure Blob (BAA-covered, DL-47). Never silently fall
+            # back to the replica's EPHEMERAL local disk when Blob is the configured store —
+            # that loses PHI on restart and puts it on non-durable, off-BAA storage. Fail clean.
+            log.error(
+                "upload.blob_failed",
+                error_class=type(exc).__name__,
+                container=settings.azure_storage_uploads_container,
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Upload storage is temporarily unavailable — please try again in a moment.",
+            ) from exc
 
+    # No Azure Blob configured → local disk. Acceptable ONLY in local dev; NEVER in
+    # production (an ephemeral upload store in prod means PHI loss + off-BAA storage).
+    if settings.is_production:
+        log.error("upload.no_durable_storage_in_prod")
+        raise HTTPException(
+            status_code=503,
+            detail="Upload storage is not available — please try again later.",
+        )
     target_dir = Path(settings.local_uploads_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     safe_name = f"{uuid.uuid4()}_{filename or 'upload'}"
