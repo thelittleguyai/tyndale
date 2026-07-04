@@ -40,7 +40,7 @@ from app.hooks.contracts import (
     PreToolUseInput,
     UserPromptSubmitInput,
 )
-from app.hooks.crisis_classifier import crisis_classifier
+from app.hooks.crisis_classifier import crisis_classifier_async
 from app.hooks.pre_tool_use import pre_tool_use_hook
 from app.hooks.user_prompt_submit import user_prompt_submit_hook
 from app.tools import call_tool, get_anthropic_tools
@@ -427,9 +427,14 @@ async def stream_chat_turn(
     CO-15 — chat ingress runs BEFORE any dispatch (both paths): the DL-04 crisis
     screen (a positive signal returns the clean decline, bypassing the Lead
     Planner entirely) and UserPromptSubmit (injection framing + block)."""
-    # Crisis screen (DL-04). The classifier is a stub returning False today; the
-    # security contact's real Haiku classifier later activates here unchanged.
-    if crisis_classifier(CrisisClassifierInput(raw_message=user_message)).crisis_detected:
+    # Crisis screen (DL-04). Real Haiku classifier with a deterministic keyword
+    # fallback (crisis_classifier_async is failure-safe: on any classifier error /
+    # timeout / missing-creds it degrades to the keyword screen, never fails open).
+    # A positive signal returns the Category-2 clean decline and NEVER reaches the
+    # Lead Planner / fixture stream.
+    if (
+        await crisis_classifier_async(CrisisClassifierInput(raw_message=user_message))
+    ).crisis_detected:
         log.info("chat.crisis_decline", mode=mode)
         async for ev in _decline_stream(_CRISIS_DECLINE):
             yield ev

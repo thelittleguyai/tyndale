@@ -1,9 +1,11 @@
-"""PostToolUse hook — STUB (Phase 1C).
+"""PostToolUse hook — writes an audit_events row.
 
-Writes an audit_events row. Per the contract the hook is semantically void and
-raises on a write failure. Phase 1C writes a CLEAR-TEXT JSON payload as the
-`payload_encrypted` bytes (TODO Phase 4: AES-GCM via Azure Key Vault) and uses
-key_version=0. Ops alerting on failure also lands in Phase 4.
+Per the contract the hook is semantically void and raises on a write failure. The
+payload is AES-256-GCM encrypted via app.security.audit_crypto when AUDIT_LOG_ENC_KEY
+is configured (key_version = configured version); without a key (dev) it falls back
+to clear-text JSON bytes with key_version 0, which readers decode transparently. The
+payload_hash is always over the CLEAR-TEXT bytes (integrity check independent of the
+key). Ops alerting on failure lands later.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.audit_events import AuditEvent
 from app.hooks.contracts import PostToolUseInput
+from app.security.audit_crypto import encrypt_payload
 
 
 async def post_tool_use_hook(inp: PostToolUseInput, session: AsyncSession) -> None:
@@ -28,16 +31,17 @@ async def post_tool_use_hook(inp: PostToolUseInput, session: AsyncSession) -> No
         "error_details": inp.error_details,
     }
     payload_bytes = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
-    payload_hash = hashlib.sha256(payload_bytes).digest()
+    payload_hash = hashlib.sha256(payload_bytes).digest()  # over clear-text (integrity)
+    stored_bytes, key_version = encrypt_payload(payload_bytes)
 
     event = AuditEvent(
         event_type="tool_invocation",
         actor=inp.actor,
         case_file_id=inp.case_file_id,
-        # TODO(Phase 4): encrypt with AES-GCM; for now store clear-text JSON bytes.
-        payload_encrypted=payload_bytes,
+        # AES-GCM ciphertext when AUDIT_LOG_ENC_KEY is set; clear-text JSON otherwise.
+        payload_encrypted=stored_bytes,
         payload_hash=payload_hash,
-        key_version=0,  # placeholder; real Key Vault versions in Phase 4
+        key_version=key_version,
         tools_invoked=[inp.tool_name],
         outcome=inp.outcome,
         error_details=inp.error_details,

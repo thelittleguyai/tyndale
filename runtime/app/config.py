@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     litellm_proxy_url: str | None = None  # Phase 4 — proxy in front of Anthropic
     litellm_master_key: str | None = None  # Phase 4 — proxy admin key
     azure_key_vault_url: str | None = None  # Phase 4 — audit-log encryption keys
+    # AES-GCM key for audit-log payload encryption (Key Vault-backed env; base64 of
+    # 32 raw bytes = AES-256). When set, PostToolUse encrypts payloads before store
+    # and readers decrypt on read; when None (dev), payloads stay clear-text JSON and
+    # a startup warning is logged. See app/security/audit_crypto.py.
+    audit_log_enc_key: str | None = None
+    audit_log_key_version: int = 1  # stamped on rows written under audit_log_enc_key
     azure_storage_account_url: str | None = None  # Phase 2D — uploaded document blobs
     azure_storage_uploads_container: str = "uploads"
     # Phase CO-3A — bulk data staging (CMS/PFS/Hospital MRF/TiC downloads).
@@ -198,6 +204,11 @@ class Settings(BaseSettings):
     use_real_claude: bool = False
     use_real_ocr: bool = False
     use_real_presidio: bool = False  # security spine flips to true in Phase 4
+    # DL-04 crisis screen. When true (default), chat ingress attempts the Haiku
+    # classifier and degrades to the deterministic keyword screen without usable
+    # creds; when false, the keyword screen is the only layer. Either way the
+    # screen never fails open (a positive → clean Category-2 decline).
+    use_real_crisis_classifier: bool = True
 
     # Tighter knob: when use_real_claude is true but ANTHROPIC_API_KEY is unset
     # (e.g. running locally without creds), the agents fall back to fixtures
@@ -254,6 +265,14 @@ class Settings(BaseSettings):
         ):
             if not getattr(self, var):
                 log.warning("config.missing_optional_in_prod", var=var.upper())
+        # Audit-log encryption: without a key, PostToolUse payloads are stored as
+        # clear-text JSON (see app/security/audit_crypto.py). Warn loudly in prod.
+        if not (self.audit_log_enc_key or "").strip():
+            log.warning(
+                "config.audit_log_unencrypted",
+                var="AUDIT_LOG_ENC_KEY",
+                note="audit payloads stored as clear-text JSON — set a base64 32-byte key",
+            )
 
     def assert_production_safety(self) -> None:
         """Fail-fast guard (CO-15 / CO-18): a production deploy must never silently

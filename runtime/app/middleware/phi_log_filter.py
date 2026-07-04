@@ -34,20 +34,86 @@ _PATTERNS: list[re.Pattern[str]] = [
 ]
 
 
-def scrub(text: str) -> str:
-    """Redact coarse PHI patterns from a string."""
+def _regex_scrub(text: str) -> str:
+    """Redact coarse PHI patterns from a string (the fast default path)."""
     out = text
     for pattern in _PATTERNS:
         out = pattern.sub(_REDACTED, out)
     return out
 
 
+# Lazily-built Presidio engines (analyzer + anonymizer). Cached across calls so the
+# spaCy model isn't reloaded per log line. None until first use / on import failure.
+_PRESIDIO: tuple[Any, Any] | None = None
+_PRESIDIO_FAILED = False
+
+
+def _presidio_engines() -> tuple[Any, Any] | None:
+    """Build (analyzer, anonymizer) once, or None if Presidio can't be imported /
+    initialized (so the caller falls back to the regex scrub)."""
+    global _PRESIDIO, _PRESIDIO_FAILED
+    if _PRESIDIO is not None:
+        return _PRESIDIO
+    if _PRESIDIO_FAILED:
+        return None
+    try:
+        from presidio_analyzer import AnalyzerEngine
+        from presidio_anonymizer import AnonymizerEngine
+
+        _PRESIDIO = (AnalyzerEngine(), AnonymizerEngine())
+        return _PRESIDIO
+    except Exception:  # noqa: BLE001 — missing model/lib → regex fallback
+        _PRESIDIO_FAILED = True
+        return None
+
+
+def _presidio_scrub(text: str) -> str:
+    """Run Presidio analyze+anonymize over ``text``. Raises on any failure so the
+    caller can fall back to the regex scrub."""
+    engines = _presidio_engines()
+    if engines is None:
+        raise RuntimeError("presidio unavailable")
+    analyzer, anonymizer = engines
+    results = analyzer.analyze(text=text, language="en")
+    if not results:
+        return text
+    return anonymizer.anonymize(text=text, analyzer_results=results).text
+
+
+def scrub(text: str) -> str:
+    """Redact PHI from a string. Uses Presidio when ``use_real_presidio`` is set
+    (analyze+anonymize; imported lazily so it isn't loaded when off), else the fast
+    regex path. Failure-safe: any Presidio import/analyze error falls back to regex."""
+    from app.config import get_settings
+
+    if get_settings().use_real_presidio:
+        try:
+            return _presidio_scrub(text)
+        except Exception:  # noqa: BLE001 — never break logging; degrade to regex
+            return _regex_scrub(text)
+    return _regex_scrub(text)
+
+
+def _scrub_value(value: Any) -> Any:
+    """Recursively scrub PHI from any value type — top-level strings AND strings
+    nested inside dicts / lists / tuples (the coarse regex path only reached
+    top-level strings before)."""
+    if isinstance(value, str):
+        return scrub(value)
+    if isinstance(value, dict):
+        return {k: _scrub_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_scrub_value(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_value(v) for v in value)
+    return value
+
+
 def scrub_event(_logger: Any, _method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    """structlog processor — scrub every string value in the event dict before
-    it is rendered/shipped to Azure Monitor."""
+    """structlog processor — scrub PHI from every value in the event dict (all
+    types, nested) before it is rendered/shipped to Azure Monitor."""
     for key, value in list(event_dict.items()):
-        if isinstance(value, str):
-            event_dict[key] = scrub(value)
+        event_dict[key] = _scrub_value(value)
     return event_dict
 
 

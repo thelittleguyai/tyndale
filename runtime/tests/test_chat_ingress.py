@@ -22,9 +22,10 @@ async def test_crisis_input_declines_and_bypasses_planner(monkeypatch):
     from app.agents import chat
     from app.hooks.contracts import CrisisClassifierResult
 
-    monkeypatch.setattr(
-        chat, "crisis_classifier", lambda inp: CrisisClassifierResult(crisis_detected=True)
-    )
+    async def _crisis(inp):
+        return CrisisClassifierResult(crisis_detected=True)
+
+    monkeypatch.setattr(chat, "crisis_classifier_async", _crisis)
 
     async def _boom(*a, **k):
         raise AssertionError("crisis decline must NOT reach the Lead Planner / stream")
