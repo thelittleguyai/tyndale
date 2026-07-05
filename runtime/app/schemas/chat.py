@@ -40,6 +40,11 @@ class Citation(BaseModel):
     # CPT code surfaced WITHOUT the AMA-copyrighted descriptor (DL-54).
     cpt_code: str | None = None
     action_type: Literal["create_case_cta"] | None = None
+    # laws_regulations X6 fields (DL-84): surfaced so the UI/model can voice a legal
+    # claim as CATEGORICAL (flat rule) vs CONDITIONAL (fact-dependent), and show how
+    # current the classification is. Null for non-law citations (codes, payer policy).
+    as_of: str | None = None
+    x6_classification: Literal["CATEGORICAL", "CONDITIONAL"] | None = None
 
 
 class ContentChunk(BaseModel):

@@ -19,6 +19,9 @@ log = structlog.get_logger(__name__)
 
 
 def _hits_to_payload(hits) -> list[dict[str, Any]]:
+    # The FULL stored record rides in ``payload`` untouched, so laws_regulations hits
+    # carry ``as_of`` and ``x6_classification`` (DL-84) through to the model and to
+    # ``_collect_retrieved_chunks`` → the chat Citation — no per-field projection here.
     return [{"id": str(h.id), "score": h.score, "payload": h.payload} for h in hits]
 
 

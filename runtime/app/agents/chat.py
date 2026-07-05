@@ -288,6 +288,10 @@ def _resolve_citation(src_id: str, retrieved: list[dict]) -> dict | None:
                 "payer": ch.get("payer"),
                 "cpt_code": ch.get("cpt_code") or ch.get("code"),
                 "action_type": None,
+                # laws_regulations X6 fields (DL-84): let the card show CATEGORICAL vs
+                # CONDITIONAL and the classification's as-of date. Null for non-law hits.
+                "as_of": ch.get("as_of"),
+                "x6_classification": ch.get("x6_classification"),
             }
     return None
 

@@ -20,6 +20,13 @@ export interface ChatCitation {
   cpt_code?: string | null;
   /** Freeform-mode redirect action; the UI renders a "create a case" button. */
   action_type?: 'create_case_cta' | null;
+  /**
+   * laws_regulations X6 fields (DL-84): let the citation card show whether a legal
+   * claim is CATEGORICAL (flat rule) or CONDITIONAL (fact-dependent) and how current
+   * the classification is. Null for non-law citations (codes, payer policy).
+   */
+  as_of?: string | null;
+  x6_classification?: 'CATEGORICAL' | 'CONDITIONAL' | null;
 }
 
 export interface ContentChunk {
