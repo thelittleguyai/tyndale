@@ -229,6 +229,17 @@ class Settings(BaseSettings):
     # display on at all once the license lands.
     enable_cpt_display: bool = False
 
+    # DL-55/56 — appeals case management stays SHADOW-MODE. Sprint G builds the appeal
+    # clocks + escalation state machine but keeps them dark (no user-facing surfaces;
+    # admin read-only) until this flag is flipped per environment.
+    enable_appeals_casemgmt: bool = False
+    # Nudge emails for open load-bearing data-fetch items (Sprint G). Default FALSE so no
+    # email sends without an explicit per-env opt-in; the scan + idempotency run regardless.
+    enable_nudge_emails: bool = False
+    # Nudge cadence: first at +3 days, second at +14 days, then in-app resurfacing only.
+    nudge_first_days: int = 3
+    nudge_second_days: int = 14
+
     def foundry_model(self, model_id: str) -> str:
         """Map an Anthropic model id to its Foundry deployment name. Deployments are
         named after the model ids by default (infra/envs/dev/ai_foundry.tf), so this

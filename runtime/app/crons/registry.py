@@ -12,6 +12,7 @@ from typing import Any
 from app.crons.cms_ncd_lcd_bulk_cron import run_cms_ncd_lcd_bulk_cron
 from app.crons.hospital_mrf_cron import run_hospital_mrf_cron
 from app.crons.medicare_pfs_cron import run_medicare_pfs_cron
+from app.crons.nudge_cron import run_nudge_cron
 from app.crons.outcome_followup import scan_for_outcome_followups
 from app.crons.qdrant_snapshot_cron import run_qdrant_snapshot_cron
 from app.crons.tic_mrf_cron import run_tic_mrf_cron
@@ -35,6 +36,7 @@ CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "hospital_mrf": {"fn": run_hospital_mrf_cron, "schedule": "monthly first Sun"},
     "tic_mrf": {"fn": run_tic_mrf_cron, "schedule": "monthly"},
     "outcome_followup": {"fn": _outcome_followup_cron, "schedule": "daily"},
+    "nudge": {"fn": run_nudge_cron, "schedule": "daily 15:00 UTC"},
     "qdrant_snapshot": {"fn": run_qdrant_snapshot_cron, "schedule": "daily 02:00 UTC"},
     "noop": {"fn": _noop_cron, "schedule": "manual"},
 }
