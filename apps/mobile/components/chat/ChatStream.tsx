@@ -21,7 +21,7 @@ export interface UseChatStream {
   streaming: boolean;
   activeTools: ToolCall[];
   error: string | null;
-  send: (content: string) => Promise<void>;
+  send: (content: string, isRetry?: boolean) => Promise<void>;
   stop: () => Promise<void>;
   reload: () => Promise<void>;
 }
@@ -52,7 +52,7 @@ export function useChatStream(conversationId: string): UseChatStream {
   }, [reload]);
 
   const send = useCallback(
-    async (content: string) => {
+    async (content: string, isRetry = false) => {
       if (streaming || !content.trim()) return;
       setError(null);
       setStreaming(true);
@@ -78,7 +78,9 @@ export function useChatStream(conversationId: string): UseChatStream {
         created_at: nowIso(),
       };
       streamingIdRef.current = asstId;
-      setMessages((m) => [...m, tempUser, tempAsst]);
+      // On retry the prior user message is already in the list — append only the assistant
+      // bubble (Phase 3.4; previously retry re-appended a duplicate user message).
+      setMessages((m) => (isRetry ? [...m, tempAsst] : [...m, tempUser, tempAsst]));
 
       let acc = '';
       const ac = new AbortController();

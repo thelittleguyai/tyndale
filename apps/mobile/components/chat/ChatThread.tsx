@@ -17,7 +17,8 @@ export function ChatThread({
   emptyState,
 }: {
   conversationId: string;
-  emptyState?: React.ReactNode;
+  // A node, or a render-fn that receives `send` so empty-state suggestion chips are tappable.
+  emptyState?: React.ReactNode | ((onSuggest: (text: string) => void) => React.ReactNode);
 }) {
   const { messages, streaming, activeTools, error, send, stop } = useChatStream(conversationId);
   const [citation, setCitation] = useState<ChatCitation | null>(null);
@@ -28,7 +29,7 @@ export function ChatThread({
     for (let i = idx - 1; i >= 0; i--) {
       const prior = messages[i];
       if (prior.role === 'user' && prior.content) {
-        send(prior.content);
+        send(prior.content, true); // retry: don't re-append the user message
         break;
       }
     }
@@ -44,7 +45,11 @@ export function ChatThread({
         keyboardShouldPersistTaps="handled"
       >
         <View className="w-full max-w-3xl self-center">
-          {messages.length === 0 && !streaming ? emptyState : null}
+          {messages.length === 0 && !streaming
+            ? typeof emptyState === 'function'
+              ? emptyState(send)
+              : emptyState
+            : null}
           {messages.map((m) => (
             <ChatMessage
               key={m.message_id}

@@ -26,6 +26,8 @@ import { AuditProgress } from '../../../../components/audit/AuditProgress';
 import { FindingCard } from '../../../../components/audit/FindingCard';
 
 const POLL_INTERVAL_MS = 3000;
+// Stop polling after this long + show a "taking longer than expected" notice (Phase 3.4).
+const AUDIT_POLL_TIMEOUT_MS = 120000;
 // Stable response_id for the composed-summary thumbs (distinct from findings).
 const COMPOSED_RESPONSE_ID = 'composed_response';
 // Treat sub-cent deltas as zero so float noise never triggers the celebration.
@@ -42,6 +44,7 @@ export default function AuditResultScreen() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [status, setStatus] = useState<string>('audit_running');
   const [error, setError] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
   // response_id -> latest thumbs, restored from prior feedback on this case.
   const [ratings, setRatings] = useState<Record<string, ThumbsValue>>({});
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,7 +66,16 @@ export default function AuditResultScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const startedAt = Date.now();
     async function tick() {
+      if (Date.now() - startedAt > AUDIT_POLL_TIMEOUT_MS) {
+        if (!cancelled) setSlow(true);
+        if (polling.current) {
+          clearInterval(polling.current);
+          polling.current = null;
+        }
+        return;
+      }
       try {
         const s = await getAuditStatus(case_file_id);
         if (cancelled) return;
@@ -93,6 +105,19 @@ export default function AuditResultScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-navy-deep p-6">
         <Text className="text-base text-rose">Audit failed: {error}</Text>
+      </View>
+    );
+  }
+  if (slow && !result) {
+    return (
+      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
+        <Text className="mb-2 text-center text-base font-semibold text-white">
+          This is taking longer than expected
+        </Text>
+        <Text className="text-center text-sm text-white/60">
+          Your audit is still running. Check back in a few minutes — we&apos;ll have your results
+          ready.
+        </Text>
       </View>
     );
   }

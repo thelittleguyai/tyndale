@@ -55,13 +55,16 @@ export default function CaseChatScreen() {
           <ActivityIndicator color="#fff" />
         </View>
       ) : (
-        <ChatThread conversationId={convId} emptyState={<CaseEmptyState />} />
+        <ChatThread
+          conversationId={convId}
+          emptyState={(onSuggest) => <CaseEmptyState onSuggest={onSuggest} />}
+        />
       )}
     </View>
   );
 }
 
-function CaseEmptyState() {
+function CaseEmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
   const suggestions = [
     'Why did insurance only cover this much?',
     'Is this charge legitimate?',
@@ -73,12 +76,13 @@ function CaseEmptyState() {
         Start a conversation about this case
       </Text>
       {suggestions.map((s) => (
-        <View
+        <Pressable
           key={s}
-          className="mb-2 self-center rounded-full border border-white/10 bg-navy-soft px-4 py-2"
+          onPress={() => onSuggest(s)}
+          className="mb-2 self-center rounded-full border border-white/10 bg-navy-soft px-4 py-2 hover:border-white/25"
         >
           <Text className="text-sm text-white/60">{s}</Text>
-        </View>
+        </Pressable>
       ))}
     </View>
   );

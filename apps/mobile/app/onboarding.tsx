@@ -6,12 +6,13 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Redirect, router } from 'expo-router';
 
 import { getProfileState, patchProfile } from '../lib/api-client';
 import { CardUpload, formatPhone, validateDob } from '../lib/profile-ui';
 import { useBreakpoint } from '../components/ui/use-breakpoint';
+import { useCurrentUser } from '../lib/auth';
 
 const TERMS_SUMMARY =
   'Tyndale helps you understand and question your medical bills. It provides billing and ' +
@@ -48,6 +49,7 @@ function Field({
 
 export default function Onboarding() {
   const { isPhone } = useBreakpoint();
+  const { user, loading: authLoading } = useCurrentUser();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dob, setDob] = useState('');
@@ -96,6 +98,18 @@ export default function Onboarding() {
       setSubmitting(false);
     }
   };
+
+  // Auth guard (Phase 3.4): /onboarding lives outside the (app) group, so guard it here —
+  // an unauthenticated visitor is bounced to sign-in, not shown the form (whose profile
+  // fetch would 401 into a misleading "check your connection").
+  if (authLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-navy-deep">
+        <ActivityIndicator color="#5eead4" />
+      </View>
+    );
+  }
+  if (!user) return <Redirect href="/sign-in" />;
 
   return (
     <ScrollView

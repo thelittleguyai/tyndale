@@ -269,6 +269,7 @@ async def post_message(
         yield _sse("assistant_message_started", {"message_id": str(asst_id)})
         final: dict | None = None
         try:
+            events_seen = 0
             async for ev in stream_chat_turn(
                 mode=mode,
                 case_id=case_id,
@@ -276,6 +277,19 @@ async def post_message(
                 history=history,
                 user_message=content,
             ):
+                # Cancellation (Phase 3.4): POST /conversations/{id}/stop flips this assistant
+                # row to 'stopped'. Poll it every ~20 events so a long stream actually halts
+                # (within ~1s) instead of running to completion. DB-backed = cross-replica
+                # reliable (the stop request may land on a different replica than this stream);
+                # returning closes the upstream generator, abandoning the Claude stream.
+                events_seen += 1
+                if events_seen % 20 == 0:
+                    async with AsyncSessionLocal() as check_s:
+                        stopped = await check_s.get(Message, asst_id)
+                    if stopped is not None and stopped.status == "stopped":
+                        log.info("chat.stream_cancelled", conversation_id=str(conv_id))
+                        yield _sse("done", {})
+                        return
                 if ev["event"] == "complete":
                     final = ev["data"]
                     continue
