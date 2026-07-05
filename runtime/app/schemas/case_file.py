@@ -61,6 +61,26 @@ class Disclosure(BaseModel):
     chase_inputs: list[str] = Field(default_factory=list)
 
 
+class EobCompletenessOut(BaseModel):
+    """The 'does that look like all of them?' summary (Sprint D, DL-86). ``confirmed`` is
+    null until the user answers; the audit treats totals as complete only when true."""
+
+    eob_count: int
+    plan_year: int | None = None
+    date_start: str | None = None
+    date_end: str | None = None
+    dated_count: int = 0
+    undated_count: int = 0
+    patient_names: list[str] = Field(default_factory=list)
+    covers_family: bool = False
+    confirmed: bool | None = None
+    question: str = ""
+
+
+class EobConfirmRequest(BaseModel):
+    all_uploaded: bool
+
+
 class AuditResult(BaseModel):
     case_file_id: str
     status: str

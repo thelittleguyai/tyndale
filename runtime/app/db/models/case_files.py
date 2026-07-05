@@ -21,8 +21,8 @@ class CaseFile(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('open', 'in_progress', 'encounter_verification_pending', "
-            "'encounter_verified', 'audit_running', 'audit_complete', "
-            "'resolved', 'archived')",
+            "'encounter_verified', 'awaiting_eob_confirmation', 'audit_running', "
+            "'audit_complete', 'resolved', 'archived')",
             name="ck_case_files_status",
         ),
         CheckConstraint(

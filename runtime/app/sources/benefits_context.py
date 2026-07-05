@@ -49,12 +49,21 @@ class CrossValidation:
 
 
 def cross_validate(
-    computed: dict, eob_stated: dict, coverage_stated: dict, as_of: date
+    computed: dict,
+    eob_stated: dict,
+    coverage_stated: dict,
+    as_of: date,
+    *,
+    completeness_confirmed: bool | None = None,
 ) -> CrossValidation:
     """Pure three-way comparison of deductible_applied / oop_applied across the
     computed reconstruction, the EOB-stated YTD, and the user/card-stated coverage
     'met' values. Material disagreement -> a finding spec (computed stays the
-    authoritative answer regardless). No I/O, no LLM."""
+    authoritative answer regardless). No I/O, no LLM.
+
+    ``completeness_confirmed`` gates the 'corroborated/complete' branch (DL-86): agreeing
+    readings are only called corroborated once the user has confirmed the EOB set is
+    complete; otherwise the agreement is flagged provisional."""
     readings = {
         "computed": {m: as_float(computed.get(m)) for m in _METRICS},
         "eob_stated": {m: as_float(eob_stated.get(m)) for m in _METRICS},
@@ -76,11 +85,14 @@ def cross_validate(
                 material = True
 
     if not material:
-        return CrossValidation(
-            agreement=True,
-            deltas=deltas,
-            assumptions=["accumulator corroborated across the available readings"],
-        )
+        if completeness_confirmed:
+            note = "accumulator corroborated across the available readings"
+        else:
+            note = (
+                "readings agree, but the EOB set is not confirmed complete — corroboration "
+                "is provisional pending the completeness confirmation (DL-86)"
+            )
+        return CrossValidation(agreement=True, deltas=deltas, assumptions=[note])
 
     spec = {
         "finding_type": "payer_side",
@@ -191,11 +203,16 @@ class BenefitsContext:
         # upload bytes, which aren't present on this call path.
         _, coverage = await load_case_eobs_coverage(case_file_id)
 
+        # DL-86: the persisted completeness flag gates the 'complete' branch below.
+        completeness_confirmed = None
+        if coverage and "all_plan_year_eobs_confirmed" in coverage:
+            completeness_confirmed = bool(coverage["all_plan_year_eobs_confirmed"])
         cv = cross_validate(
             computed.data,
             eob_stated.data if eob_stated else {},
             coverage or {},
             as_of,
+            completeness_confirmed=completeness_confirmed,
         )
         # Annotate the authoritative (computed) result with the cross-validation verdict.
         computed.provenance.assumptions = list(computed.provenance.assumptions) + cv.assumptions
