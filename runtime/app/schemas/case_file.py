@@ -37,6 +37,17 @@ class FindingOut(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
 
 
+class AuditProvenance(BaseModel):
+    """Sprint B (DL-82): the coverage-regime context an audit ran under, so nothing
+    silently pretends. For any non-commercial (or unconfirmed) regime the audit still
+    runs the generic path but carries an explicit assumption naming the pending
+    population-specific corpus."""
+
+    coverage_regime: str | None = None
+    regime_verified: bool = False
+    assumptions: list[str] = Field(default_factory=list)
+
+
 class AuditResult(BaseModel):
     case_file_id: str
     status: str
@@ -45,3 +56,5 @@ class AuditResult(BaseModel):
     audit: ThreeNumberAudit | None = None
     findings: list[FindingOut]
     summary: str
+    # Sprint B: the regime the audit ran under + any generic-path assumptions.
+    audit_provenance: AuditProvenance | None = None

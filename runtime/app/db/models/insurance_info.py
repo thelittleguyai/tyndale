@@ -11,7 +11,16 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import TIMESTAMP, Date, ForeignKey, Text, UniqueConstraint, func, text
+from sqlalchemy import (
+    TIMESTAMP,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,7 +29,15 @@ from app.db.base import Base
 
 class InsuranceInfo(Base):
     __tablename__ = "insurance_info"
-    __table_args__ = (UniqueConstraint("user_id", name="uq_insurance_info_user"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_insurance_info_user"),
+        CheckConstraint(
+            "coverage_regime IS NULL OR coverage_regime IN ("
+            "'commercial', 'medicare_traditional', 'medicare_advantage', 'medicaid', "
+            "'dual_qmb', 'self_pay', 'tricare_va')",
+            name="ck_insurance_info_coverage_regime",
+        ),
+    )
 
     insurance_info_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -57,6 +74,11 @@ class InsuranceInfo(Base):
     dependents: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     raw_extracted: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     extraction_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Sprint B (DL-82): detected coverage regime + the detection metadata
+    # (method/confidence/evidence/verified). CHECK-constrained to the 7 regimes in
+    # migration 0020; null = not yet detected. Never guessed — see regime_detection.py.
+    coverage_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regime_detection: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

@@ -9,10 +9,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# Canonical 10-step order. The frontend route names match these exactly.
+# Canonical step order. The frontend route names match these exactly. The
+# coverage-regime-confirm step (Sprint B, DL-82) sits right after the card so the
+# regime is settled before benefits are captured under the wrong population's rules.
 INTAKE_STEPS: list[str] = [
     "welcome",
     "insurance-card",
+    "coverage-regime-confirm",
     "coverage-details",
     "benefits",
     "deductible",
@@ -26,6 +29,7 @@ INTAKE_STEPS: list[str] = [
 # Steps the user may skip (graceful degradation — equal-weight in the UI).
 SKIPPABLE_STEPS: set[str] = {
     "insurance-card",
+    "coverage-regime-confirm",
     "coverage-details",
     "benefits",
     "deductible",
@@ -49,6 +53,11 @@ class CapturedData(BaseModel):
     bills_count: int = 0
     eobs_count: int = 0
     visit_context: str | None = None
+    # Sprint B (DL-82): the case's detected/confirmed coverage regime + the detection
+    # metadata (candidate/confidence/evidence/verified) the confirm screen preselects
+    # from. coverage_regime is null until high-confidence detection or a user confirm.
+    coverage_regime: str | None = None
+    regime_detection: dict[str, Any] | None = None
 
 
 class PlanProposal(BaseModel):
@@ -94,6 +103,15 @@ class VisitContextRequest(BaseModel):
 class ExtractRequest(BaseModel):
     case_file_id: str | None = None
     document_id: str
+
+
+class RegimeConfirmRequest(BaseModel):
+    """The user's explicit answer to 'How are you covered?' (Sprint B ladder). The
+    route validates coverage_regime against the seven regimes and marks the detection
+    verified=true (user_declared)."""
+
+    case_file_id: str | None = None
+    coverage_regime: str
 
 
 class CompletionSummary(BaseModel):

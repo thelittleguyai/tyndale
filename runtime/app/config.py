@@ -217,6 +217,18 @@ class Settings(BaseSettings):
     # silently serve the MRI fixture as a real audit; see assert_production_safety().
     allow_fixture_fallback: bool = False
 
+    # DL-88 — surprise-billing / No Surprises Act checks. Default FALSE until the
+    # 50-state + DC seed passes its retrieval gate (check_state_seed.py, DL-81):
+    # applying NSA/state balance-billing rules against an incomplete jurisdiction
+    # seed would state protections the corpus can't actually ground. Dormant for
+    # now; the audit provenance names it when a regime would need those checks.
+    enable_nsa_checks: bool = False
+    # DL-89 — CPT/NCCI/MUE code→description display + code-backed checks. Default
+    # FALSE until the AMA CPT license is executed (Brock owns). DL-54 already keeps
+    # AMA-copyrighted descriptors out of user surfaces; this gates turning code
+    # display on at all once the license lands.
+    enable_cpt_display: bool = False
+
     def foundry_model(self, model_id: str) -> str:
         """Map an Anthropic model id to its Foundry deployment name. Deployments are
         named after the model ids by default (infra/envs/dev/ai_foundry.tf), so this

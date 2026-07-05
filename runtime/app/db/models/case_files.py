@@ -29,6 +29,12 @@ class CaseFile(Base):
             "intake_status IN ('not_started', 'in_progress', 'complete')",
             name="ck_case_files_intake_status",
         ),
+        CheckConstraint(
+            "coverage_regime IS NULL OR coverage_regime IN ("
+            "'commercial', 'medicare_traditional', 'medicare_advantage', 'medicaid', "
+            "'dual_qmb', 'self_pay', 'tricare_va')",
+            name="ck_case_files_coverage_regime",
+        ),
         Index("idx_case_files_intake_status", "intake_status"),
         # Every dashboard / intake / user-scoped query filters on user_id
         # (migration 0019).
@@ -91,3 +97,9 @@ class CaseFile(Base):
     )
     intake_current_step: Mapped[str | None] = mapped_column(Text, nullable=True)
     visit_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Sprint B (DL-82): the case's coverage regime + detection metadata
+    # (method/confidence/evidence/verified). The audit orchestrator reads
+    # coverage_regime to route + tag findings' provenance; null/unconfirmed →
+    # audited under generic rules with an explicit assumption. Never guessed.
+    coverage_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regime_detection: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
