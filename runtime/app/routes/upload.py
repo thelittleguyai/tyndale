@@ -33,6 +33,7 @@ from app.config import get_settings
 from app.db.models.case_files import CaseFile
 from app.db.session import get_session
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
+from app.sources.document_classifier import classify_document
 from app.sources.extraction import run_document_ocr  # OCR engine (CO-12A: moved out of ocr_tools)
 
 router = APIRouter(tags=["v1"])
@@ -56,45 +57,11 @@ BENEFITS_DOC_ALIASES: tuple[str, ...] = (
     "Coverage Summary",
     "Benefits at a Glance",
 )
-_BENEFITS_DOC_MARKERS: tuple[str, ...] = (
-    "SUMMARY OF BENEFITS",
-    "SCHEDULE OF BENEFITS",
-    "SUMMARY PLAN DESCRIPTION",
-    "BENEFIT SUMMARY",
-    "PLAN SUMMARY",
-    "CERTIFICATE OF COVERAGE",
-    "EVIDENCE OF COVERAGE",
-    "OUTLINE OF COVERAGE",
-    "BENEFIT BOOKLET",
-    "MEMBER HANDBOOK",
-    "PLAN DOCUMENT",
-    "COVERAGE SUMMARY",
-    "BENEFITS AT A GLANCE",
-    "CERTIFICATE OF INSURANCE",
-    "(SBC)",
-    "(SPD)",
-    "(COC)",
-    "(EOC)",
-)
-
-
-def _classify(ocr_text: str) -> tuple[str, float]:
-    """Return (document_type, classification_confidence). Walking-skeleton keyword
-    scan; Phase 2H/4 replaces with the upload_classify_document tool + a real model."""
-    t = ocr_text.upper()
-    if "EXPLANATION OF BENEFITS" in t or "EOB" in t or "MEMBER RESPONSIBILITY" in t:
-        return "eob", 0.9
-    if "MEMBER ID" in t or "GROUP NUMBER" in t or "RX BIN" in t:
-        return "insurance_card", 0.9
-    if any(m in t for m in _BENEFITS_DOC_MARKERS):
-        return "plan_summary", 0.85
-    if "ADVERSE BENEFIT DETERMINATION" in t or "DENIAL" in t or "DENIED" in t or "NOT COVERED" in t:
-        return "denial_letter", 0.8
-    if "COLLECTION" in t or "PAST DUE" in t or "FINAL NOTICE" in t or "DELINQUENT" in t:
-        return "collections_notice", 0.8
-    if "AMOUNT DUE" in t or "BILLED" in t or "STATEMENT" in t or "CPT" in t:
-        return "bill", 0.85
-    return "other", 0.4
+def _classify(ocr_text: str, filename: str | None = None) -> tuple[str, float]:
+    """Return (document_type, classification_confidence) via the layered classifier
+    (Sprint E). Adds MSN / MA-EOB / Medicaid-MCO / GFE / TRICARE / VA / community-care
+    types; an ambiguous document is 'unclassified', never guessed."""
+    return classify_document(ocr_text, filename).as_tuple()
 
 
 async def _persist(content: bytes, filename: str) -> str:
@@ -159,7 +126,7 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
     ocr = await run_document_ocr(
         {"content_base64": base64.b64encode(content).decode(), "filename": filename}
     )
-    document_type, confidence = _classify(ocr.get("ocr_text") or "")
+    document_type, confidence = _classify(ocr.get("ocr_text") or "", filename)
     document_id = str(uuid.uuid4())
     entry: dict[str, Any] = {
         "document_id": document_id,
