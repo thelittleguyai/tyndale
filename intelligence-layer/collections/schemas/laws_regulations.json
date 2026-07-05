@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "tyndale:collections:laws_regulations",
   "title": "Tyndale laws_regulations record",
-  "description": "A statute/regulation chunk. Point-in-time filtered: every query filters by date-of-service against effective_date_start/end.",
+  "description": "A statute/regulation chunk. Point-in-time filtered: every query filters by date-of-service against effective_date_start/end. Carries the X6 classification (DL-84) so the runtime can voice CATEGORICAL vs CONDITIONAL claims per the calibrated-voice rules, and supports affirmative no-state-law records (DL-81) so the ABSENCE of a state protection is itself retrievable rather than a silent gap.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,20 +14,28 @@
     "effective_date_end",
     "document_type",
     "chunk_text",
-    "last_verified_date"
+    "last_verified_date",
+    "x6_classification",
+    "checkable_facts",
+    "defeaters",
+    "scope",
+    "as_of"
   ],
   "properties": {
     "chunk_id": { "type": "string" },
     "jurisdiction": {
       "type": "string",
       "pattern": "^(federal|state_[A-Z]{2})$",
-      "description": "'federal' or 'state_<XX>' (two-letter state code)."
+      "description": "'federal' or 'state_<XX>' (two-letter state code; DC is 'state_DC')."
     },
     "statute": {
-      "type": "string",
-      "description": "e.g. '29 U.S.C.', '42 U.S.C.', 'Cal. Health & Safety Code'."
+      "type": ["string", "null"],
+      "description": "e.g. '29 U.S.C.', '42 U.S.C.', 'Cal. Health & Safety Code'. Null ONLY permitted when document_type is 'no_state_law' (an affirmative 'this jurisdiction has no such statute' record)."
     },
-    "section": { "type": "string" },
+    "section": {
+      "type": ["string", "null"],
+      "description": "Null ONLY permitted when document_type is 'no_state_law'."
+    },
     "effective_date_start": { "type": "string", "format": "date" },
     "effective_date_end": {
       "type": ["string", "null"],
@@ -36,20 +44,92 @@
     },
     "document_type": {
       "type": "string",
-      "enum": ["statute", "regulation", "sub_regulatory_guidance"]
+      "enum": ["statute", "regulation", "sub_regulatory_guidance", "no_state_law"],
+      "description": "'no_state_law' is an affirmative record that a jurisdiction lacks a protection in a given area (e.g. no state balance-billing statute reaching self-funded plans); statute/section are null for that type only."
     },
     "parent_title": { "type": "string" },
     "parent_part": { "type": "string" },
     "chunk_text": {
       "type": "string",
-      "description": "The embedded text. Federal statutes/regulations are public domain."
+      "description": "The embedded text. Federal statutes/regulations are public domain. For no_state_law records this is the plain-language statement of what protection is absent and what that means for the user."
     },
     "last_verified_date": {
       "type": "string",
       "format": "date",
       "description": "Set by the Regulation Researcher cron (Phase 5)."
+    },
+    "x6_classification": {
+      "type": "string",
+      "enum": ["CATEGORICAL", "CONDITIONAL"],
+      "description": "DL-84. CATEGORICAL: the rule applies flatly once the authority is on point (e.g. ERISA's 180-day appeal window). CONDITIONAL: the protection turns on facts about the encounter that must be established (see checkable_facts) and can be lost (see defeaters)."
+    },
+    "checkable_facts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The encounter facts that must hold for a CONDITIONAL protection to apply (e.g. 'service was non-emergency', 'out-of-network provider at in-network facility'). May be empty ONLY for CATEGORICAL records; enforced non-empty for CONDITIONAL below."
+    },
+    "defeaters": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Facts that defeat an otherwise-applicable protection (e.g. 'valid NSA notice-and-consent obtained', 'plan is ERISA self-funded so state law is preempted'). May be empty."
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_types_bound", "ground_ambulance_covered"],
+      "description": "Which coverage populations this authority actually binds, and the ground-ambulance answer (a deliberate required field because ground ambulance is the best-known NSA gap and must never be left implicit).",
+      "properties": {
+        "plan_types_bound": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "state_regulated_commercial",
+              "erisa_self_funded",
+              "medicare_traditional",
+              "medicare_advantage",
+              "medicaid",
+              "tricare_va",
+              "all"
+            ]
+          },
+          "description": "The populations this authority reaches. State surprise-billing statutes typically bind only 'state_regulated_commercial' and NOT 'erisa_self_funded'; federal law (NSA, ERISA) may bind 'all' or specific populations."
+        },
+        "ground_ambulance_covered": {
+          "type": ["boolean", "null"],
+          "description": "Whether this authority's balance-billing protection extends to GROUND ambulance. null means 'not applicable to this record' (e.g. a non-surprise-billing statute); for surprise-billing records it MUST be an explicit boolean — the 51-state seed check enforces non-null."
+        }
+      }
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date",
+      "description": "DL-84. The date the X6 classification / statute snapshot was verified by the authoring reviewer. Surfaced in citations so the model can state how current the classification is. Often equal to last_verified_date, but tracked separately because the classification review date can differ from the text-verification date."
     }
   },
+  "allOf": [
+    {
+      "description": "statute + section are null-able ONLY for no_state_law; every other document_type requires real strings.",
+      "if": {
+        "properties": { "document_type": { "not": { "const": "no_state_law" } } }
+      },
+      "then": {
+        "properties": {
+          "statute": { "type": "string" },
+          "section": { "type": "string" }
+        }
+      }
+    },
+    {
+      "description": "CONDITIONAL records must enumerate at least one checkable fact; CATEGORICAL records may leave checkable_facts empty.",
+      "if": {
+        "properties": { "x6_classification": { "const": "CONDITIONAL" } }
+      },
+      "then": {
+        "properties": { "checkable_facts": { "minItems": 1 } }
+      }
+    }
+  ],
   "examples": [
     {
       "chunk_id": "erisa_503_claims_procedure_001",
@@ -62,7 +142,34 @@
       "parent_title": "Title 29 — Labor",
       "parent_part": "Part 2560 — Rules and Regulations for Administration and Enforcement",
       "chunk_text": "A group health plan's claims procedure must allow a claimant at least 180 days following receipt of an adverse benefit determination within which to appeal the determination. The plan must provide a full and fair review of the claim and the adverse determination.",
-      "last_verified_date": "2026-01-15"
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": ["erisa_self_funded", "state_regulated_commercial"],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "state_XX_no_ground_ambulance_balance_billing",
+      "jurisdiction": "state_XX",
+      "statute": null,
+      "section": null,
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "no_state_law",
+      "chunk_text": "This state has no statute protecting patients from balance billing by out-of-network GROUND ambulance providers. Ground ambulance is also excluded from the federal No Surprises Act, so an out-of-network ground-ambulance balance bill is not prohibited by either federal or state law here.",
+      "last_verified_date": "2026-07-03",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": ["all"],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-07-03"
     }
   ]
 }

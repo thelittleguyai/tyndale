@@ -3,26 +3,524 @@
     "fixture": true,
     "collection": "laws_regulations",
     "created": "2026-05-27",
-    "note": "Local-dev fixtures only. Federal statutes/regulations are public domain; chunk_text here is a concise REPRESENTATIVE paraphrase (production chunks are ~800-1500 tokens of full text). Replace in Phase 5 via eCFR/state scrapes."
+    "note": "Local-dev fixtures only. Federal statutes/regulations are public domain; chunk_text here is a concise REPRESENTATIVE paraphrase (production chunks are ~800-1500 tokens of full text). TODO(brock-content): the x6_classification / checkable_facts / defeaters / scope / as_of values on these fixtures are ILLUSTRATIVE, added to exercise the DL-84 schema + retrieval path; the authoritative classifications live in Brock's 51-jurisdiction seed (DL-81/DL-84). Replace in Phase 5 via eCFR/state scrapes.",
+    "schema_version": "x6-2026-07-03"
   },
   "records": [
-    { "chunk_id": "erisa_503_appeal_window", "jurisdiction": "federal", "statute": "29 C.F.R.", "section": "2560.503-1(h)", "effective_date_start": "2002-01-01", "effective_date_end": null, "document_type": "regulation", "parent_title": "Title 29 — Labor", "parent_part": "Part 2560", "chunk_text": "A group health plan's claims procedure must give a claimant at least 180 days following receipt of an adverse benefit determination to appeal, and must provide a full and fair review that does not defer to the initial determination.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "erisa_503_urgent_timing", "jurisdiction": "federal", "statute": "29 C.F.R.", "section": "2560.503-1(i)", "effective_date_start": "2002-01-01", "effective_date_end": null, "document_type": "regulation", "parent_title": "Title 29 — Labor", "parent_part": "Part 2560", "chunk_text": "For urgent-care claims, the plan must notify the claimant of its benefit determination on review as soon as possible, but not later than 72 hours after receipt of the request for review.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "erisa_502a_civil_enforcement", "jurisdiction": "federal", "statute": "29 U.S.C.", "section": "1132(a)", "effective_date_start": "1974-09-02", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 29 — Labor", "parent_part": "ERISA §502", "chunk_text": "A plan participant or beneficiary may bring a civil action to recover benefits due under the terms of the plan, to enforce rights under the plan, or to clarify rights to future benefits, after exhausting the plan's internal appeal process.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "aca_2713_preventive_zero_cost", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "300gg-13", "effective_date_start": "2010-09-23", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "ACA §2713", "chunk_text": "A non-grandfathered group health plan must cover, without any cost-sharing, evidence-based items and services rated A or B by the USPSTF, recommended immunizations, and specified preventive care, when delivered in-network.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "aca_2713_scope_guidance", "jurisdiction": "federal", "statute": "45 C.F.R.", "section": "147.130", "effective_date_start": "2015-07-14", "effective_date_end": null, "document_type": "sub_regulatory_guidance", "parent_title": "Title 45 — Public Welfare", "parent_part": "Part 147", "chunk_text": "Agency guidance clarifies that a polyp removed during a screening colonoscopy does not convert the service to diagnostic for cost-sharing purposes; the colonoscopy remains a preventive service with no cost-sharing.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "aca_2719_appeals_external_review", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "300gg-19", "effective_date_start": "2010-09-23", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "ACA §2719", "chunk_text": "Plans must implement an internal claims-and-appeals process and an external review process. A claimant who exhausts internal appeals is entitled to an independent external review of an adverse determination.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "nsa_300gg111_emergency", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "300gg-111(a)", "effective_date_start": "2022-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "No Surprises Act", "chunk_text": "For emergency services furnished by an out-of-network provider or facility, the patient's cost-sharing must be calculated as if the services were in-network, and the patient may not be balance-billed beyond that in-network cost-sharing amount.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "nsa_300gg111_ancillary", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "300gg-111(b)", "effective_date_start": "2022-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "No Surprises Act", "chunk_text": "For non-emergency services by out-of-network providers at an in-network facility (e.g., anesthesiology, radiology, pathology), balance billing is prohibited absent valid notice-and-consent, which is unavailable for certain ancillary services.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "nsa_300gg111_idr", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "300gg-111(c)", "effective_date_start": "2022-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "No Surprises Act", "chunk_text": "After an initial payment or denial, the provider and plan have a 30-business-day open-negotiation period; if unresolved, either party may initiate the independent dispute resolution (IDR) process. The patient is not a party to IDR.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "mhpaea_1185a_financial_parity", "jurisdiction": "federal", "statute": "29 U.S.C.", "section": "1185a(a)", "effective_date_start": "2010-07-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 29 — Labor", "parent_part": "MHPAEA", "chunk_text": "Financial requirements (e.g., copays, coinsurance, deductibles) and quantitative treatment limits applicable to mental health or substance-use disorder benefits may be no more restrictive than the predominant requirements applied to substantially all medical/surgical benefits.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "mhpaea_1185a_nqtl", "jurisdiction": "federal", "statute": "29 U.S.C.", "section": "1185a(a)(3)", "effective_date_start": "2010-07-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 29 — Labor", "parent_part": "MHPAEA", "chunk_text": "Non-quantitative treatment limitations (e.g., prior authorization, medical-necessity criteria, network admission standards) applied to mental health/substance-use benefits must be comparable to, and applied no more stringently than, those applied to medical/surgical benefits.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "irs_501r4_fap", "jurisdiction": "federal", "statute": "26 U.S.C.", "section": "501(r)(4)", "effective_date_start": "2016-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 26 — Internal Revenue Code", "parent_part": "§501(r)", "chunk_text": "A tax-exempt hospital must establish a written financial assistance policy (FAP) describing eligibility criteria, the basis for calculating amounts charged, and the method for applying for assistance, and must widely publicize the policy.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "irs_501r6_billing_limits", "jurisdiction": "federal", "statute": "26 U.S.C.", "section": "501(r)(6)", "effective_date_start": "2016-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 26 — Internal Revenue Code", "parent_part": "§501(r)", "chunk_text": "A tax-exempt hospital may not engage in extraordinary collection actions against an individual before making reasonable efforts to determine whether the individual is eligible for assistance under its financial assistance policy.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "emtala_1395dd_screening", "jurisdiction": "federal", "statute": "42 U.S.C.", "section": "1395dd", "effective_date_start": "1986-08-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Title 42 — Public Health", "parent_part": "EMTALA", "chunk_text": "A hospital with an emergency department must provide an appropriate medical screening examination to any individual who comes to the ED, and must stabilize an emergency medical condition, regardless of ability to pay or insurance status.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "ca_hsc_1371_9_surprise_billing", "jurisdiction": "state_CA", "statute": "Cal. Health & Safety Code", "section": "1371.9", "effective_date_start": "2017-07-01", "effective_date_end": null, "document_type": "statute", "parent_title": "California Health & Safety Code", "parent_part": "Division 2", "chunk_text": "For non-emergency services by an out-of-network provider at an in-network facility, a California enrollee shall pay no more than the in-network cost-sharing amount, and the provider may not bill the enrollee for any additional amount.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "ca_ins_10123_13_claims_timeframe", "jurisdiction": "state_CA", "statute": "Cal. Ins. Code", "section": "10123.13", "effective_date_start": "2000-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "California Insurance Code", "parent_part": "Part 2", "chunk_text": "A disability insurer must reimburse a complete claim, or portion thereof, as soon as practicable but no later than 30 working days after receipt, and must explain in writing any contested or denied portion.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "ny_fsl_606_surprise_bill", "jurisdiction": "state_NY", "statute": "N.Y. Fin. Serv. Law", "section": "606", "effective_date_start": "2015-03-31", "effective_date_end": null, "document_type": "statute", "parent_title": "New York Financial Services Law", "parent_part": "Article 6", "chunk_text": "An insured who receives a surprise bill is responsible only for the in-network cost-sharing; disputes between the provider and the plan over the balance are resolved through an independent dispute resolution process, holding the patient harmless.", "last_verified_date": "2026-01-15" },
-    { "chunk_id": "tx_ins_1467_mediation", "jurisdiction": "state_TX", "statute": "Tex. Ins. Code", "section": "1467.084", "effective_date_start": "2020-01-01", "effective_date_end": null, "document_type": "statute", "parent_title": "Texas Insurance Code", "parent_part": "Chapter 1467", "chunk_text": "For out-of-network claims subject to the state's balance-billing protections, a party may request mediation or arbitration of the payment dispute; the enrollee is not liable beyond the applicable in-network cost-sharing.", "last_verified_date": "2026-01-15" }
+    {
+      "chunk_id": "erisa_503_appeal_window",
+      "jurisdiction": "federal",
+      "statute": "29 C.F.R.",
+      "section": "2560.503-1(h)",
+      "effective_date_start": "2002-01-01",
+      "effective_date_end": null,
+      "document_type": "regulation",
+      "parent_title": "Title 29 — Labor",
+      "parent_part": "Part 2560",
+      "chunk_text": "A group health plan's claims procedure must give a claimant at least 180 days following receipt of an adverse benefit determination to appeal, and must provide a full and fair review that does not defer to the initial determination.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "erisa_self_funded",
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "erisa_503_urgent_timing",
+      "jurisdiction": "federal",
+      "statute": "29 C.F.R.",
+      "section": "2560.503-1(i)",
+      "effective_date_start": "2002-01-01",
+      "effective_date_end": null,
+      "document_type": "regulation",
+      "parent_title": "Title 29 — Labor",
+      "parent_part": "Part 2560",
+      "chunk_text": "For urgent-care claims, the plan must notify the claimant of its benefit determination on review as soon as possible, but not later than 72 hours after receipt of the request for review.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "erisa_self_funded",
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "erisa_502a_civil_enforcement",
+      "jurisdiction": "federal",
+      "statute": "29 U.S.C.",
+      "section": "1132(a)",
+      "effective_date_start": "1974-09-02",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 29 — Labor",
+      "parent_part": "ERISA §502",
+      "chunk_text": "A plan participant or beneficiary may bring a civil action to recover benefits due under the terms of the plan, to enforce rights under the plan, or to clarify rights to future benefits, after exhausting the plan's internal appeal process.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "erisa_self_funded",
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "aca_2713_preventive_zero_cost",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "300gg-13",
+      "effective_date_start": "2010-09-23",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "ACA §2713",
+      "chunk_text": "A non-grandfathered group health plan must cover, without any cost-sharing, evidence-based items and services rated A or B by the USPSTF, recommended immunizations, and specified preventive care, when delivered in-network.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "plan is non-grandfathered",
+        "service delivered in-network",
+        "service is USPSTF A/B rated or a recommended immunization"
+      ],
+      "defeaters": [
+        "plan is grandfathered"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "aca_2713_scope_guidance",
+      "jurisdiction": "federal",
+      "statute": "45 C.F.R.",
+      "section": "147.130",
+      "effective_date_start": "2015-07-14",
+      "effective_date_end": null,
+      "document_type": "sub_regulatory_guidance",
+      "parent_title": "Title 45 — Public Welfare",
+      "parent_part": "Part 147",
+      "chunk_text": "Agency guidance clarifies that a polyp removed during a screening colonoscopy does not convert the service to diagnostic for cost-sharing purposes; the colonoscopy remains a preventive service with no cost-sharing.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "the colonoscopy was performed as a screening (not diagnostic) service"
+      ],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "aca_2719_appeals_external_review",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "300gg-19",
+      "effective_date_start": "2010-09-23",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "ACA §2719",
+      "chunk_text": "Plans must implement an internal claims-and-appeals process and an external review process. A claimant who exhausts internal appeals is entitled to an independent external review of an adverse determination.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "nsa_300gg111_emergency",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "300gg-111(a)",
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "No Surprises Act",
+      "chunk_text": "For emergency services furnished by an out-of-network provider or facility, the patient's cost-sharing must be calculated as if the services were in-network, and the patient may not be balance-billed beyond that in-network cost-sharing amount.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "service was an emergency service",
+        "provider or facility was out-of-network"
+      ],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "nsa_300gg111_ancillary",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "300gg-111(b)",
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "No Surprises Act",
+      "chunk_text": "For non-emergency services by out-of-network providers at an in-network facility (e.g., anesthesiology, radiology, pathology), balance billing is prohibited absent valid notice-and-consent, which is unavailable for certain ancillary services.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "non-emergency service at an in-network facility",
+        "out-of-network ancillary provider (anesthesiology, radiology, or pathology)"
+      ],
+      "defeaters": [
+        "valid notice-and-consent was obtained (unavailable for certain ancillary services)"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "nsa_300gg111_idr",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "300gg-111(c)",
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "No Surprises Act",
+      "chunk_text": "After an initial payment or denial, the provider and plan have a 30-business-day open-negotiation period; if unresolved, either party may initiate the independent dispute resolution (IDR) process. The patient is not a party to IDR.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "mhpaea_1185a_financial_parity",
+      "jurisdiction": "federal",
+      "statute": "29 U.S.C.",
+      "section": "1185a(a)",
+      "effective_date_start": "2010-07-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 29 — Labor",
+      "parent_part": "MHPAEA",
+      "chunk_text": "Financial requirements (e.g., copays, coinsurance, deductibles) and quantitative treatment limits applicable to mental health or substance-use disorder benefits may be no more restrictive than the predominant requirements applied to substantially all medical/surgical benefits.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "mhpaea_1185a_nqtl",
+      "jurisdiction": "federal",
+      "statute": "29 U.S.C.",
+      "section": "1185a(a)(3)",
+      "effective_date_start": "2010-07-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 29 — Labor",
+      "parent_part": "MHPAEA",
+      "chunk_text": "Non-quantitative treatment limitations (e.g., prior authorization, medical-necessity criteria, network admission standards) applied to mental health/substance-use benefits must be comparable to, and applied no more stringently than, those applied to medical/surgical benefits.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "irs_501r4_fap",
+      "jurisdiction": "federal",
+      "statute": "26 U.S.C.",
+      "section": "501(r)(4)",
+      "effective_date_start": "2016-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 26 — Internal Revenue Code",
+      "parent_part": "§501(r)",
+      "chunk_text": "A tax-exempt hospital must establish a written financial assistance policy (FAP) describing eligibility criteria, the basis for calculating amounts charged, and the method for applying for assistance, and must widely publicize the policy.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "provider is a 501(c)(3) tax-exempt hospital"
+      ],
+      "defeaters": [
+        "provider is a for-profit or government hospital"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "all"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "irs_501r6_billing_limits",
+      "jurisdiction": "federal",
+      "statute": "26 U.S.C.",
+      "section": "501(r)(6)",
+      "effective_date_start": "2016-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 26 — Internal Revenue Code",
+      "parent_part": "§501(r)",
+      "chunk_text": "A tax-exempt hospital may not engage in extraordinary collection actions against an individual before making reasonable efforts to determine whether the individual is eligible for assistance under its financial assistance policy.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "provider is a 501(c)(3) tax-exempt hospital"
+      ],
+      "defeaters": [
+        "provider is a for-profit or government hospital"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "all"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "emtala_1395dd_screening",
+      "jurisdiction": "federal",
+      "statute": "42 U.S.C.",
+      "section": "1395dd",
+      "effective_date_start": "1986-08-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Title 42 — Public Health",
+      "parent_part": "EMTALA",
+      "chunk_text": "A hospital with an emergency department must provide an appropriate medical screening examination to any individual who comes to the ED, and must stabilize an emergency medical condition, regardless of ability to pay or insurance status.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "hospital has an emergency department",
+        "the individual came to the emergency department"
+      ],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "all"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "ca_hsc_1371_9_surprise_billing",
+      "jurisdiction": "state_CA",
+      "statute": "Cal. Health & Safety Code",
+      "section": "1371.9",
+      "effective_date_start": "2017-07-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "California Health & Safety Code",
+      "parent_part": "Division 2",
+      "chunk_text": "For non-emergency services by an out-of-network provider at an in-network facility, a California enrollee shall pay no more than the in-network cost-sharing amount, and the provider may not bill the enrollee for any additional amount.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "non-emergency service",
+        "out-of-network provider at an in-network facility",
+        "plan is California state-regulated (not ERISA self-funded)"
+      ],
+      "defeaters": [
+        "plan is ERISA self-funded, so state law is preempted"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "ca_ins_10123_13_claims_timeframe",
+      "jurisdiction": "state_CA",
+      "statute": "Cal. Ins. Code",
+      "section": "10123.13",
+      "effective_date_start": "2000-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "California Insurance Code",
+      "parent_part": "Part 2",
+      "chunk_text": "A disability insurer must reimburse a complete claim, or portion thereof, as soon as practicable but no later than 30 working days after receipt, and must explain in writing any contested or denied portion.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": null
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "ny_fsl_606_surprise_bill",
+      "jurisdiction": "state_NY",
+      "statute": "N.Y. Fin. Serv. Law",
+      "section": "606",
+      "effective_date_start": "2015-03-31",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "New York Financial Services Law",
+      "parent_part": "Article 6",
+      "chunk_text": "An insured who receives a surprise bill is responsible only for the in-network cost-sharing; disputes between the provider and the plan over the balance are resolved through an independent dispute resolution process, holding the patient harmless.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "the bill is a 'surprise bill' as defined by NY FSL",
+        "plan is New York state-regulated (not ERISA self-funded)"
+      ],
+      "defeaters": [
+        "plan is ERISA self-funded, so state law is preempted"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "tx_ins_1467_mediation",
+      "jurisdiction": "state_TX",
+      "statute": "Tex. Ins. Code",
+      "section": "1467.084",
+      "effective_date_start": "2020-01-01",
+      "effective_date_end": null,
+      "document_type": "statute",
+      "parent_title": "Texas Insurance Code",
+      "parent_part": "Chapter 1467",
+      "chunk_text": "For out-of-network claims subject to the state's balance-billing protections, a party may request mediation or arbitration of the payment dispute; the enrollee is not liable beyond the applicable in-network cost-sharing.",
+      "last_verified_date": "2026-01-15",
+      "x6_classification": "CONDITIONAL",
+      "checkable_facts": [
+        "out-of-network claim subject to Texas balance-billing protections",
+        "plan is Texas state-regulated (not ERISA self-funded)"
+      ],
+      "defeaters": [
+        "plan is ERISA self-funded, so state law is preempted"
+      ],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-01-15"
+    },
+    {
+      "chunk_id": "fl_no_ground_ambulance_balance_billing",
+      "jurisdiction": "state_FL",
+      "statute": null,
+      "section": null,
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "no_state_law",
+      "parent_title": "Florida — surprise billing scope",
+      "parent_part": "Ground ambulance",
+      "chunk_text": "Florida's balance-billing protections do not reach out-of-network GROUND ambulance transport, and ground ambulance is excluded from the federal No Surprises Act. An out-of-network ground-ambulance balance bill is therefore not prohibited by either federal or Florida law; the patient's recourse is negotiation and the provider's financial-assistance policy, not a statutory hold-harmless.",
+      "last_verified_date": "2026-07-03",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "all"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-07-03"
+    },
+    {
+      "chunk_id": "wy_no_surprise_billing_statute",
+      "jurisdiction": "state_WY",
+      "statute": null,
+      "section": null,
+      "effective_date_start": "2022-01-01",
+      "effective_date_end": null,
+      "document_type": "no_state_law",
+      "parent_title": "Wyoming — surprise billing scope",
+      "parent_part": "Out-of-network facility-based services",
+      "chunk_text": "Wyoming has not enacted a comprehensive surprise-billing statute. For state-regulated commercial plans the federal No Surprises Act still applies to emergency and certain facility-based out-of-network services, but there is no additional Wyoming protection layered on top, and ERISA self-funded plans rely on the No Surprises Act alone.",
+      "last_verified_date": "2026-07-03",
+      "x6_classification": "CATEGORICAL",
+      "checkable_facts": [],
+      "defeaters": [],
+      "scope": {
+        "plan_types_bound": [
+          "state_regulated_commercial",
+          "erisa_self_funded"
+        ],
+        "ground_ambulance_covered": false
+      },
+      "as_of": "2026-07-03"
+    }
   ]
 }
