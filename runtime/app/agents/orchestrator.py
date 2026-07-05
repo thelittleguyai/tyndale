@@ -29,6 +29,7 @@ from app.schemas.case_file import (
     AuditProvenance,
     AuditResult,
     Citation,
+    Disclosure,
     FindingOut,
     ThreeNumberAudit,
 )
@@ -42,6 +43,13 @@ from app.schemas.encounter import (
 from app.agents.example_scenarios import backfill_scenarios
 from app.sources import benefits_context
 from app.sources.case_data import load_case_eobs_coverage
+from app.sources.materiality import (
+    DISCLOSURE_TIER_LABELS,
+    USER_CHASE,
+    disclosure_tier,
+    is_material,
+)
+from app.sources.missing_data_priors import MISSING_DATA_PRIORS, missing_cost_share_inputs
 from app.stubs.fixtures import mri_audit_fixture
 
 log = structlog.get_logger(__name__)
@@ -108,11 +116,19 @@ async def _run_accumulator_cross_check(case_file_id: str) -> dict | None:
             eobs_counted=result.data.get("eobs_counted"),
             confidence=result.provenance.confidence,
         )
+        assumptions = list(result.provenance.assumptions)
+        # Disclosure tier (Sprint C, DL-85) threaded into Math Person's context so the
+        # model reads the DETERMINISTIC confidence rather than picking its own.
+        cv_material = any("disagree materially" in a for a in assumptions)
+        disclosure = _compute_disclosure(_coverage, cross_validation_material=cv_material)
         return {
             "as_of": as_of.isoformat(),
             **result.data,
             "confidence": result.provenance.confidence,
-            "assumptions": list(result.provenance.assumptions),
+            "assumptions": assumptions,
+            "disclosure_tier": disclosure.tier,
+            "disclosure_label": disclosure.label,
+            "chase_inputs": disclosure.chase_inputs,
         }
     except Exception as exc:  # noqa: BLE001 — accumulator must never fail an audit
         log.warning(
@@ -193,6 +209,33 @@ async def run_audit(case_file_id: str) -> AuditResult:
     return await _assemble_result(case_file_id, lp.final_text)
 
 
+def _compute_disclosure(coverage: dict | None, *, cross_validation_material: bool) -> Disclosure:
+    """Deterministic disclosure tier (Sprint C, DL-85) from coverage completeness + the
+    accumulator cross-validation verdict. The uncertainty proxy is the widest missing
+    usd-prior span (how far the answer could swing); a missing input whose span crosses
+    USER_CHASE becomes a document to chase (tier 3)."""
+    missing = missing_cost_share_inputs(coverage)
+    width, base = 0.0, 1.0
+    for key in missing:
+        prior = MISSING_DATA_PRIORS.get(key)
+        if prior and prior.unit == "usd" and prior.usd_span() > width:
+            width, base = prior.usd_span(), prior.high
+    tier = disclosure_tier(
+        width, base, missing_inputs=missing, cross_validation_material=cross_validation_material
+    )
+    chase = [
+        key
+        for key in missing
+        if (p := MISSING_DATA_PRIORS.get(key)) and is_material(p.usd_span(), p.high, USER_CHASE)
+    ]
+    return Disclosure(
+        tier=tier,
+        label=DISCLOSURE_TIER_LABELS[tier],
+        missing_inputs=missing,
+        chase_inputs=chase,
+    )
+
+
 def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
     """The coverage-regime context this audit ran under (Sprint B, DL-82). Every
     non-commercial or unconfirmed regime still uses the generic path but carries an
@@ -232,6 +275,11 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
     provenance = _regime_provenance(case)
+    # A persisted accumulator_discrepancy is the cross-validation material signal (DL-72).
+    cv_material = any(getattr(f, "category", None) == "accumulator_discrepancy" for f in rows)
+    disclosure = _compute_disclosure(
+        case.coverage if case else None, cross_validation_material=cv_material
+    )
 
     findings: list[FindingOut] = []
     three_numbers: dict | None = None
@@ -293,6 +341,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             findings=findings,
             summary=composed,
             audit_provenance=provenance,
+            disclosure=disclosure,
         )
 
     return AuditResult(
@@ -302,6 +351,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         findings=findings,
         summary=composed,
         audit_provenance=provenance,
+        disclosure=disclosure,
     )
 
 

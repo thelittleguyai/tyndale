@@ -8,7 +8,13 @@ phases.
 
 from __future__ import annotations
 
-from app.schemas.case_file import AuditResult, Citation, FindingOut, ThreeNumberAudit
+from app.schemas.case_file import (
+    AuditResult,
+    Citation,
+    Disclosure,
+    FindingOut,
+    ThreeNumberAudit,
+)
 
 # Stable id so the stub /v1/audit and tests can reference the same case.
 MRI_CASE_FILE_ID = "00000000-0000-0000-0000-000000000001"
@@ -60,4 +66,7 @@ def mri_audit_fixture(case_file_id: str) -> AuditResult:
             "computes $560. The $640 gap is a payer-side cost-sharing miscalculation "
             "(Tier B, placeholder citation — STUB fixture)."
         ),
+        # Complete-data fixture scenario → disclosure tier 0 (grounded), same shape as the
+        # real path (Sprint C, DL-85).
+        disclosure=Disclosure(tier=0, label="grounded"),
     )

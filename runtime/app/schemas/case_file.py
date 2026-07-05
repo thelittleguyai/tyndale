@@ -48,6 +48,19 @@ class AuditProvenance(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
 
 
+class Disclosure(BaseModel):
+    """Deterministic disclosure tier (Sprint C, DL-85). The audit's confidence is a
+    function of the data, never the model's self-report:
+      0 grounded · 1 note · 2 disclose · 3 chase (ask the user for a document).
+    ``chase_inputs`` are the missing inputs whose plausible span crosses USER_CHASE — the
+    dashboard renders a 'please find this document' card when the tier is 3."""
+
+    tier: int = 0
+    label: str = "grounded"
+    missing_inputs: list[str] = Field(default_factory=list)
+    chase_inputs: list[str] = Field(default_factory=list)
+
+
 class AuditResult(BaseModel):
     case_file_id: str
     status: str
@@ -58,3 +71,5 @@ class AuditResult(BaseModel):
     summary: str
     # Sprint B: the regime the audit ran under + any generic-path assumptions.
     audit_provenance: AuditProvenance | None = None
+    # Sprint C: the deterministic disclosure tier + any documents to chase.
+    disclosure: Disclosure | None = None
