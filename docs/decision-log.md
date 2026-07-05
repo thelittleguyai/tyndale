@@ -749,3 +749,15 @@ capacity affects the whole schedule — while ownership stays with Brock.
 
 **Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 D
 **Decision:** User-facing flows **never** mention other users, "other members," or "the Plan Library" as the source of a plan detail — the DL-73 PHI boundary made visible as a copy rule. A plan detail seeded from the Library is presented as "your plan says…" (to confirm), never "we saw this on another BlueCross PPO." Enforced by a banned-phrases test over user-facing strings (Sprint D); the confirm/reject UI treats every Library-seeded value as an unconfirmed proposal.
+
+## DL-88 — ENABLE_NSA_CHECKS gate (surprise-billing checks off until the 50-state seed passes)
+
+**Date:** 2026-07-03 · **Decided by:** Phil (CTO) · **Sprint:** Batch-1 B
+**Decision:** A config gate `enable_nsa_checks` (env `ENABLE_NSA_CHECKS`, default **false**) guards No Surprises Act / state balance-billing checks. It stays false until `check_state_seed.py` is green (DL-81) — applying NSA/state rules against an incomplete jurisdiction seed would voice protections the corpus can't ground (Grounding Doctrine). Dormant this sprint; the audit provenance names it as an explicit assumption ("surprise-billing / NSA checks not yet enabled") so nothing silently pretends the check ran. Flip to true per environment once the seed gate passes.
+**Reversibility:** the gate is a single boolean read at the audit seam; flipping it on is the only action needed once DL-81's gate is green.
+
+## DL-89 — ENABLE_CPT_DISPLAY gate (CPT/NCCI/MUE code display off until the AMA license lands)
+
+**Date:** 2026-07-03 · **Decided by:** Phil (CTO) · **Sprint:** Batch-1 B
+**Decision:** A config gate `enable_cpt_display` (env `ENABLE_CPT_DISPLAY`, default **false**) guards CPT→description display and NCCI/MUE-backed code checks. It stays false until the AMA CPT license is executed (Brock owns — TODO(brock-content)). This is distinct from DL-54 (which keeps AMA-copyrighted descriptors off user surfaces regardless); DL-89 gates turning code display on at all. Dormant this sprint; NCCI/MUE tools remain Phase-5 stubs behind it.
+**Reversibility:** single boolean; flip on once the license is signed and the code tables are ingested.
