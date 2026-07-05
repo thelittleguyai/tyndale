@@ -60,6 +60,13 @@ MISSING_DATA_PRIORS: dict[str, InputPrior] = {
         low=150.0, base=350.0, high=700.0, unit="usd",
         source="placeholder", note="emergency-room copay",
     ),
+    # Sprint F: Medicaid's 5%-of-household-income cap needs household income, which intake
+    # does not collect (TODO(phil-decision): add the intake question). Until then the cap is
+    # ranged over this prior. Placeholder spread — TODO(brock-content).
+    "household_income": InputPrior(
+        low=20000.0, base=45000.0, high=120000.0, unit="usd",
+        source="placeholder", note="annual household income for the Medicaid 5% cost-share cap",
+    ),
 }
 
 # Cost-share inputs the forward audit needs; absence of any of these is what the disclosure
