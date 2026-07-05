@@ -1,0 +1,123 @@
+name: State seed gate
+
+# Optional gate for the 50-state + DC surprise-billing seed (DL-81). Two jobs:
+#
+#   validate-schemas : portable, runs everywhere — validates every committed
+#                      collection fixture (and the laws_regulations ingestion
+#                      example) against its JSON Schema. Catches schema/fixture
+#                      drift the moment collections content changes.
+#
+#   seed-gate        : the real launch gate — runs runtime/scripts/check_state_seed.py
+#                      (51 jurisdictions, schema-valid, x6 + non-null ground ambulance,
+#                      per-state retrieval smoke). It needs a LIVE, seeded Qdrant, so it
+#                      only runs when the QDRANT_URL secret is configured and is marked
+#                      informational (continue-on-error) — NSA checks stay gated on it
+#                      manually until Brock/Josh's seed lands, not on a green CI run.
+
+on:
+  pull_request:
+    paths:
+      - 'intelligence-layer/collections/**'
+      - '.github/workflows/check-state-seed.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'intelligence-layer/collections/**'
+      - '.github/workflows/check-state-seed.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install runtime deps (for jsonschema)
+        working-directory: runtime
+        run: uv sync --frozen
+      - name: Validate every collection fixture + the ingestion example against its schema
+        run: |
+          uv run --project runtime python - <<'PY'
+          import json, pathlib, sys
+          from jsonschema import Draft7Validator
+
+          root = pathlib.Path("intelligence-layer/collections")
+          schemas = root / "schemas"
+          fixtures = root / "fixtures"
+          failures = 0
+
+          def records(raw):
+              if isinstance(raw, dict):
+                  return raw.get("records", [])
+              return [r for r in raw if isinstance(r, dict) and "_meta" not in r]
+
+          for schema_path in sorted(schemas.glob("*.json")):
+              name = schema_path.stem
+              validator = Draft7Validator(json.loads(schema_path.read_text()))
+              validator.check_schema(json.loads(schema_path.read_text()))
+              fx = fixtures / f"{name}.json"
+              if not fx.exists():
+                  print(f"::warning::no fixture for schema {name}")
+                  continue
+              for rec in records(json.loads(fx.read_text())):
+                  errs = sorted(validator.iter_errors(rec), key=lambda e: list(e.path))
+                  if errs:
+                      failures += 1
+                      print(f"::error::{name}[{rec.get('chunk_id') or rec.get('code') or '?'}]: {errs[0].message}")
+              print(f"{name}: fixture validated")
+
+          # The laws_regulations ingestion example must also stay schema-valid.
+          ex = root / "ingestion" / "laws_regulations.example.jsonl"
+          if ex.exists():
+              v = Draft7Validator(json.loads((schemas / "laws_regulations.json").read_text()))
+              for i, line in enumerate(ex.read_text().splitlines(), 1):
+                  line = line.strip()
+                  if not line:
+                      continue
+                  errs = sorted(v.iter_errors(json.loads(line)), key=lambda e: list(e.path))
+                  if errs:
+                      failures += 1
+                      print(f"::error::ingestion example line {i}: {errs[0].message}")
+              print("laws_regulations ingestion example validated")
+
+          sys.exit(1 if failures else 0)
+          PY
+
+  seed-gate:
+    runs-on: ubuntu-latest
+    needs: validate-schemas
+    # Informational: the seed content is Brock/Josh's (DL-81); this reports the gate
+    # status without blocking merges. NSA checks are flipped on manually once green.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install runtime deps
+        working-directory: runtime
+        run: uv sync --frozen
+      - name: Run the 51-jurisdiction seed gate against the configured Qdrant
+        working-directory: runtime
+        env:
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+        run: |
+          if [ -z "$QDRANT_URL" ]; then
+            echo "No QDRANT_URL secret configured — skipping the live seed gate."
+            echo "The gate runs against the seeded staging/prod Qdrant; schema validation above still ran."
+            exit 0
+          fi
+          # --allow-partial keeps this informational; drop it (and --no-retrieval) once the
+          # 51-jurisdiction seed is complete to make this a hard gate.
+          if [ -z "$VOYAGE_API_KEY" ]; then
+            uv run python scripts/check_state_seed.py --allow-partial --no-retrieval
+          else
+            uv run python scripts/check_state_seed.py --allow-partial
+          fi
