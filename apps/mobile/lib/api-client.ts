@@ -83,12 +83,29 @@ export interface FindingOut {
   citations: Citation[];
 }
 
+/** Deterministic disclosure tier (DL-85): 0 grounded · 1 note · 2 disclose · 3 chase. */
+export interface Disclosure {
+  tier: number;
+  label: string;
+  missing_inputs: string[];
+  chase_inputs: string[];
+}
+
+/** Coverage-regime context the audit ran under (DL-82). */
+export interface AuditProvenance {
+  coverage_regime: string | null;
+  regime_verified: boolean;
+  assumptions: string[];
+}
+
 export interface AuditResult {
   case_file_id: string;
   status: 'open' | 'in_progress' | 'complete' | 'resolved' | 'archived';
   audit: ThreeNumberAudit;
   findings: FindingOut[];
   summary: string;
+  audit_provenance?: AuditProvenance | null;
+  disclosure?: Disclosure | null;
 }
 
 /**

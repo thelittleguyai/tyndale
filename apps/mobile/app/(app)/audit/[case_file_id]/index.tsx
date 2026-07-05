@@ -16,6 +16,7 @@ import { MessageSquare } from 'lucide-react-native';
 
 import {
   AuditResult,
+  Disclosure,
   ThumbsValue,
   getAudit,
   getAuditStatus,
@@ -204,6 +205,8 @@ export default function AuditResultScreen() {
           />
         </View>
 
+        <ChaseCard disclosure={result.disclosure} />
+
         {result.summary ? (
           <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
             <Text className="mb-2 text-xs uppercase tracking-wider text-white/40">Summary</Text>
@@ -246,6 +249,34 @@ export default function AuditResultScreen() {
         </Text>
       </View>
     </ScrollView>
+  );
+}
+
+// Missing inputs the disclosure ladder wants chased map to the document that resolves them.
+const CHASE_DOC_LABELS: Record<string, string> = {
+  deductible_amount: "your plan's Summary of Benefits (the SBC)",
+  oop_max_amount: "your plan's Summary of Benefits (the SBC)",
+  coinsurance_percent: "your plan's Summary of Benefits (the SBC)",
+  copay_specialist: "your plan's Summary of Benefits (the SBC)",
+  copay_er: "your plan's Summary of Benefits (the SBC)",
+};
+
+/** Tier-3 disclosure (DL-85): a document the user should find to collapse a chase-sized
+ * uncertainty range. One minimal card state; renders nothing below tier 3. */
+function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
+  if (!disclosure || disclosure.tier < 3 || disclosure.chase_inputs.length === 0) return null;
+  const docs = Array.from(
+    new Set(disclosure.chase_inputs.map((k) => CHASE_DOC_LABELS[k] ?? 'your plan documents')),
+  );
+  return (
+    <View className="mb-6 rounded-2xl border border-amber/30 bg-amber/10 p-5">
+      <Text className="mb-1 text-sm font-bold text-amber">One thing would sharpen this</Text>
+      <Text className="text-sm leading-6 text-white/80">
+        A few plan details were missing, so these numbers are an estimated range. To pin them
+        down, find {docs.join(' and ')} and add it — I&apos;ll rerun the math with the real
+        figures.
+      </Text>
+    </View>
   );
 }
 
