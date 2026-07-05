@@ -54,7 +54,7 @@ export default function InsuranceCardStep() {
       } else {
         await intakeSkipStep('insurance-card', caseId);
       }
-      goToStep('coverage-details');
+      goToStep('coverage-regime-confirm');
     } catch {
       setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);
@@ -67,7 +67,7 @@ export default function InsuranceCardStep() {
     setSaveErr(null);
     try {
       await intakeSkipStep('insurance-card', caseId);
-      goToStep('coverage-details');
+      goToStep('coverage-regime-confirm');
     } catch {
       setSaveErr(SAVE_ERROR_MESSAGE);
       setBusy(false);

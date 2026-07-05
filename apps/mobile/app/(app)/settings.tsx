@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 
 import {
   getInsuranceInfo,
+  getIntakeState,
   getProfileState,
   getUserProfile,
   fetchCardImageObjectUrl,
@@ -39,6 +40,17 @@ const CONSENT_FULL_TEXT = [
   'Withdrawing: you can turn this off anytime. After you withdraw, we stop using your information going forward. Information already fully de-identified may remain in our improvement datasets because it no longer identifies you.',
 ].join('\n');
 
+// Plain-language labels for the seven coverage regimes (DL-82).
+const REGIME_LABELS: Record<string, string> = {
+  commercial: 'Commercial / employer',
+  medicare_traditional: 'Original Medicare',
+  medicare_advantage: 'Medicare Advantage',
+  medicaid: 'Medicaid',
+  dual_qmb: 'Medicare + Medicaid',
+  self_pay: 'No insurance (self-pay)',
+  tricare_va: 'TRICARE / VA / CHAMPVA',
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const signOut = useSignOut();
@@ -46,6 +58,7 @@ export default function SettingsScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pstate, setPstate] = useState<ProfileState | null>(null);
   const [insurance, setInsurance] = useState<InsuranceInfo | null>(null);
+  const [coverageType, setCoverageType] = useState<string | null>(null);
   const [fn, setFn] = useState('');
   const [ln, setLn] = useState('');
   const [dob, setDob] = useState('');
@@ -69,6 +82,20 @@ export default function SettingsScreen() {
       })
       .catch(() => {/* non-fatal */});
     getInsuranceInfo().then(setInsurance).catch(() => {/* non-fatal */});
+    // Detected/confirmed coverage regime (DL-82) — from the user's active case.
+    getIntakeState()
+      .then((s) => {
+        const cd = s.captured_data;
+        if (cd.coverage_regime) {
+          setCoverageType(REGIME_LABELS[cd.coverage_regime] ?? cd.coverage_regime);
+        } else if (cd.regime_detection?.candidate) {
+          const label = REGIME_LABELS[cd.regime_detection.candidate] ?? cd.regime_detection.candidate;
+          setCoverageType(`${label} (unconfirmed)`);
+        } else {
+          setCoverageType(null);
+        }
+      })
+      .catch(() => {/* non-fatal */});
   }, []);
   useEffect(() => load(), [load]);
 
@@ -209,6 +236,7 @@ export default function SettingsScreen() {
         <Row label="Insurer" value={insurance?.insurer ?? '—'} />
         <Row label="Member ID" value={insurance?.member_id ?? '—'} />
         <Row label="Plan" value={insurance?.plan_name ?? '—'} />
+        <Row label="Coverage type" value={coverageType ?? 'Not set'} />
         <Text className="mb-2 mt-3 text-xs uppercase tracking-widest text-white/45">Card photos</Text>
         <View className="flex-row gap-3">
           <View className="flex-1">

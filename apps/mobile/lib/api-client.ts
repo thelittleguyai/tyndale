@@ -400,6 +400,7 @@ export async function logout(): Promise<void> {
 // --- Intake wizard (Phase CO-1A) --------------------------------------------
 
 import type {
+  CoverageRegime,
   IntakeCompletionSummary,
   IntakeStateResponse,
   IntakeStepAck,
@@ -462,6 +463,18 @@ export async function intakeExtractInsuranceCard(
   return intakeJson('/v1/intake/step/insurance-card/extract', {
     case_file_id: caseFileId,
     document_id: documentId,
+  });
+}
+
+/** POST /v1/intake/step/coverage-regime-confirm/confirm — the verification-ladder
+ * answer to "How are you covered?" (DL-82). Marks the regime verified (user_declared). */
+export async function intakeConfirmRegime(
+  regime: CoverageRegime,
+  caseFileId: string,
+): Promise<IntakeStepAck> {
+  return intakeJson('/v1/intake/step/coverage-regime-confirm/confirm', {
+    case_file_id: caseFileId,
+    coverage_regime: regime,
   });
 }
 

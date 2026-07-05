@@ -66,6 +66,7 @@ export function useWizard() {
 const STEP_LABELS: Record<IntakeStep, string> = {
   welcome: 'Welcome',
   'insurance-card': 'Insurance card',
+  'coverage-regime-confirm': 'Coverage type',
   'coverage-details': 'Coverage details',
   benefits: 'Plan benefits',
   deductible: 'Deductible',
