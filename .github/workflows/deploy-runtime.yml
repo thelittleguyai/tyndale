@@ -178,6 +178,18 @@ jobs:
             --output none
           echo "Updated $CONTAINER_APP -> $IMAGE:${{ github.sha }}"
 
+      # ─── Roll the scheduled cron jobs (Phase 3.2) to the new image ───────
+      # They run `python -m app.crons <name>` on their cron schedule; no need to
+      # start or wait — just point them at the new SHA for their next run.
+      - name: Update cron job images
+        run: |
+          for job in $(az containerapp job list --resource-group "$RESOURCE_GROUP" \
+              --query "[?starts_with(name, '${CONTAINER_APP}-cron-') || starts_with(name, 'tyndale-dev-cron-')].name" -o tsv); do
+            az containerapp job update --name "$job" --resource-group "$RESOURCE_GROUP" \
+              --image "$IMAGE:${{ github.sha }}" --output none
+            echo "Rolled $job -> $IMAGE:${{ github.sha }}"
+          done
+
       - name: Show recent revisions
         run: |
           az containerapp revision list \
