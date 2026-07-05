@@ -38,15 +38,17 @@ from app.agents.llm_health import (
     claude_path_label,
     record_claude_call,
 )
-from app.agents.runner import _block_to_dict, _client, real_claude_enabled
+from app.agents.runner import _block_to_dict, _client, _collect_retrieved_chunks, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
     CrisisClassifierInput,
     PreToolUseInput,
+    StopInput,
     UserPromptSubmitInput,
 )
 from app.hooks.crisis_classifier import crisis_classifier_async
 from app.hooks.pre_tool_use import pre_tool_use_hook
+from app.hooks.stop import _CITATION_RE, stop_hook
 from app.hooks.user_prompt_submit import user_prompt_submit_hook
 from app.tools import call_tool, get_anthropic_tools
 from app.tools.log_knowledge_gap import log_knowledge_gap
@@ -270,6 +272,67 @@ def _build_messages(history: list[dict], user_message: str) -> list[dict]:
     return messages
 
 
+def _resolve_citation(src_id: str, retrieved: list[dict]) -> dict | None:
+    """Match a marker's src_id to a chunk retrieved THIS session; build a chat Citation dict
+    from its payload. None if the src_id wasn't retrieved (ungrounded)."""
+    for ch in retrieved:
+        cid = str(ch.get("source_id") or ch.get("src_id") or ch.get("id") or "")
+        if cid == src_id:
+            snippet = ch.get("snippet") or ch.get("chunk_text") or ch.get("text") or ""
+            return {
+                "source_id": cid,
+                "title": ch.get("title") or ch.get("authority") or ch.get("statute"),
+                "url": ch.get("url"),
+                "snippet": (snippet[:280] or None),
+                "effective_date": ch.get("effective_date") or ch.get("effective_date_start"),
+                "payer": ch.get("payer"),
+                "cpt_code": ch.get("cpt_code") or ch.get("code"),
+                "action_type": None,
+            }
+    return None
+
+
+def _chunks_and_citations(full: str, retrieved: list[dict]) -> tuple[list[dict], list[dict], list[str]]:
+    """Parse [authority §sec, src_id] markers out of the assembled text, resolve them against the
+    session's retrieved chunks, and split the text into tiered content_chunks matching the shared
+    contract (fixture parity). Markers whose src_id was NOT retrieved (ungrounded) are STRIPPED
+    from the displayed text — the Stop citation gate's 'degrade honestly' for the streaming path.
+    Returns (content_chunks, turn_citations, unresolved_labels)."""
+    if not full:
+        return [], [], []
+    resolved: dict[str, dict] = {}
+    unresolved: list[str] = []
+    for authority, src_id in _CITATION_RE.findall(full):
+        if src_id in resolved:
+            continue
+        cit = _resolve_citation(src_id, retrieved)
+        if cit is not None:
+            resolved[src_id] = cit
+        else:
+            unresolved.append(f"{authority.strip()} ({src_id})")
+
+    # Keep resolved markers in the text (cards anchor to them); drop ungrounded ones.
+    display = _CITATION_RE.sub(lambda m: m.group(0) if m.group(2) in resolved else "", full)
+
+    chunks: list[dict] = []
+    for para in (p.strip() for p in re.split(r"\n\n+", display)):
+        if not para:
+            continue
+        para_cits = [
+            resolved[sid] for _a, sid in _CITATION_RE.findall(para) if sid in resolved
+        ]
+        # Tier B = a paragraph carrying a legal/coverage citation; else Tier A (plain fact).
+        chunks.append(
+            {
+                "tier": "B" if para_cits else "A",
+                "text": para,
+                "citations": para_cits,
+                "confidence": None,
+            }
+        )
+    return chunks, list(resolved.values()), unresolved
+
+
 async def _real_stream(
     *, mode: str, case_id, user_id, history: list[dict], user_message: str
 ) -> AsyncIterator[dict]:
@@ -283,6 +346,7 @@ async def _real_stream(
 
     text_parts: list[str] = []
     tool_calls_made: list[dict] = []
+    retrieved_results: list[dict] = []  # raw tool results, for citation-chunk resolution (3.1)
     total_in = total_out = 0
 
     for _ in range(8):  # bounded tool rounds
@@ -379,6 +443,7 @@ async def _real_stream(
             tool_input = pre.sanitized_args
             t0 = time.monotonic()
             result = await call_tool(tu.name, tool_input)
+            retrieved_results.append({"result": result})  # for citation resolution (3.1)
             dur = int((time.monotonic() - t0) * 1000)
             yield {
                 "event": "tool_call_completed",
@@ -407,14 +472,34 @@ async def _real_stream(
 
     record_claude_call(ok=True, path=path)
     full = "\n\n".join(p for p in text_parts if p).strip()
+
+    # 3.1: parse citations + tiers out of the real stream to match the fixture/shared contract,
+    # and apply the Stop citation gate. retrieved chunks come from the raw tool results.
+    retrieved = _collect_retrieved_chunks(retrieved_results)
+    chunks, citations, unresolved = _chunks_and_citations(full, retrieved)
+    if unresolved:
+        # An ungrounded citation slipped through. On the AUDIT (batch) path run_agent regenerates
+        # up to 3x; on this LIVE-STREAMING path a re-run would re-stream tokens, so we DEGRADE
+        # HONESTLY instead — _chunks_and_citations already stripped the ungrounded markers from
+        # the displayed text so the turn never shows a citation it can't back.
+        stop = stop_hook(
+            StopInput(
+                case_file_id=(str(case_id) if case_id else ""),
+                actor="lead_planner",
+                generated_output=full,
+                retrieved_chunks=retrieved,
+                attempt=1,
+            )
+        )
+        log.info("chat.stop_gate.degraded", mode=mode, action=stop.action, unresolved=unresolved)
+
+    display = "\n\n".join(c["text"] for c in chunks)
     yield {
         "event": "complete",
         "data": {
-            "content": full,
-            "content_chunks": (
-                [{"tier": "A", "text": full, "citations": [], "confidence": None}] if full else []
-            ),
-            "citations": [],
+            "content": display or full,
+            "content_chunks": chunks,
+            "citations": citations,
             "confidence_overall": None,
             "usage": {"input_tokens": total_in, "output_tokens": total_out},
             "tool_calls": tool_calls_made,
