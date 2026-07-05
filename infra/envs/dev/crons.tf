@@ -25,7 +25,11 @@ locals {
 resource "azurerm_container_app_job" "cron" {
   for_each = local.scheduled_crons
 
-  name                         = "${local.name_prefix}-cron-${replace(each.key, "_", "-")}"
+  # Azure caps Container App Job names at 32 chars; the longest keys (cms_ncd_lcd_bulk,
+  # outcome_followup) overflow, so truncate the TAIL only — the "<prefix>-cron-" head stays
+  # intact for the deploy workflow's starts_with() image-roll filter, and args=[each.key]
+  # (below) carries the real registry key so behavior is unaffected by a trimmed name.
+  name                         = substr("${local.name_prefix}-cron-${replace(each.key, "_", "-")}", 0, 32)
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
   location                     = local.region
