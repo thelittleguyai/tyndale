@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.routes.admin import audit, cases, crons, knowledge_gaps, qdrant, system, users
+from app.routes.admin import appeals, audit, cases, crons, knowledge_gaps, qdrant, system, users
 from app.routes.admin._deps import admin_user, audit_admin_action
 
 router = APIRouter()
@@ -20,5 +20,6 @@ router.include_router(audit.router)
 router.include_router(system.router)
 router.include_router(crons.router)
 router.include_router(knowledge_gaps.router)
+router.include_router(appeals.router)
 
 __all__ = ["router", "admin_user", "audit_admin_action"]

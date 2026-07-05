@@ -1,6 +1,7 @@
 """ORM models. Importing this package registers all tables on Base.metadata."""
 
 from app.db.models.admin_verdicts import AdminVerdict
+from app.db.models.appeal_tracks import AppealTrack
 from app.db.models.audit_events import AuditEvent
 from app.db.models.case_files import CaseFile
 from app.db.models.cms_ingestion_state import CmsIngestionState
@@ -28,6 +29,7 @@ __all__ = [
     "CaseFile",
     "Finding",
     "Deadline",
+    "AppealTrack",
     "AuditEvent",
     "FeedbackEvent",
     "FeedbackTriageQueue",

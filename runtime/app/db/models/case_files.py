@@ -103,3 +103,8 @@ class CaseFile(Base):
     # audited under generic rules with an explicit assumption. Never guessed.
     coverage_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
     regime_detection: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Sprint G: nudge stages already sent for this case's load-bearing data-fetch items
+    # (e.g. ["+3d", "+14d"]) — the idempotency ledger so a stage never double-sends.
+    nudges_sent: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
