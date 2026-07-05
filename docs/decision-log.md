@@ -714,3 +714,38 @@ capacity affects the whole schedule — while ownership stays with Brock.
 **Decision:** The DL-72 deterministic accumulator engine now runs in the LIVE audit path (it was previously reachable only from tests). A failure-isolated orchestrator helper (`_run_accumulator_cross_check`) calls `BenefitsContext.get_accumulator(case, today)` — the three-way cross-validation whose idempotent writer persists at most ONE open `accumulator_discrepancy` Finding on material disagreement — and hands the computed reconstruction (data + confidence + assumptions) to **Math Person as injected user-message context** (`math_person.run(accumulator=...)`, mirroring the confirmations-injection pattern on Bill Detective; no new agent tool — no accumulator tool description exists in intelligence-layer, and injection guarantees the deterministic figure is in context rather than hoping the agent calls a tool). Call sites: `run_audit` (real-agent path, before Math Person) and `finalize_audit` **before the real/fixture branch** — the cross-check is pure DB math (no LLM), so dev/fixture finalize produces the same discrepancy finding a production run would. Guards: (a) skipped entirely when the case has no uploaded EOB data — an all-zero reconstruction must not spuriously "disagree" with card-stated met values the engine had no data to corroborate; (b) wrapped try/except log-and-continue — the accumulator can NEVER fail an audit (Graceful Degradation Doctrine); (c) the `run_audit` USE_REAL_CLAUDE=false short-circuit stays untouched (canned response, no DB read). `_persist_mri_fixture_finding`'s idempotence check is tightened to category `cost_sharing_miscalculation` so an accumulator finding (also `payer_side`) can't suppress the fixture three-number row.
 **Reasoning:** the engine and its finding discipline were built (DL-72) but inert — no production route computed the accumulator or emitted the discrepancy finding; the minimal seam is a pre-agent orchestrator step, not an orchestrator refactor or a new tool surface.
 **Reversibility:** the seam (pre-agent step + message injection) is minimal and can be upgraded to an agent-invocable `get_accumulator` tool later without touching the engine; the no-EOB guard and the never-fail-the-audit discipline are locked.
+
+## DL-81 — 50-state surprise-billing seed gates V1-Lite launch
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 A
+**Decision:** The 50-state + DC surprise-billing seed (one `laws_regulations` entry per jurisdiction, including affirmative `no_state_law` records) is a **launch gate**: NSA / state-balance-billing checks do not ship to users until `runtime/scripts/check_state_seed.py` passes (51 jurisdictions present, schema-valid, each with an X6 classification and a non-null ground-ambulance answer, per-state retrieval smoke green). Machinery is Claude's; the seed CONTENT is Brock's — TODO(brock-content). Ties to `ENABLE_NSA_CHECKS` (Sprint B, default false until this gate is green).
+
+## DL-82 — seven coverage populations, each on its own rules corpus (never commercial-by-analogy)
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 A/B
+**Decision:** V1-Lite scopes **seven coverage populations** — commercial, Medicare Traditional, Medicare Advantage, Medicaid, dual/QMB, self-pay, TRICARE/VA — and each reasons from **its own rules corpus**. Tyndale must never apply a commercial-plan rule to a government-coverage bill "by analogy"; when the population's corpus is absent, it degrades honestly rather than borrowing another population's rule. Detection + routing land in Sprint B; the population-specific rules content is Brock's — TODO(brock-content).
+
+## DL-83 — NPI-for-eligibility track CLOSED (won't-pursue); 270/271 adapter stays dormant
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 A
+**Decision:** Pursuing NPI-based eligibility (X12 270/271) as a coverage-discovery path is **closed, won't-pursue** — 270/271 is a provider rail Tyndale cannot ride as a consumer agent. The adapter stays **config-gated dormant** (no runtime dependency, no live calls). This **supersedes the open half of DL-52 / DL-70** (which left the eligibility-rail question open); the document-upload + user-confirmation path is the sole coverage-discovery mechanism for V1-Lite.
+
+## DL-84 — X6 classification schema on laws_regulations
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 A
+**Decision:** Every `laws_regulations` record carries an **X6 classification** — `CATEGORICAL` (the rule applies flatly once the authority is on point) or `CONDITIONAL` (the protection turns on `checkable_facts` about the encounter and can be lost to `defeaters`) — plus a `scope` object (`plan_types_bound`, `ground_ambulance_covered`) and an `as_of` verification date. `as_of` + `x6_classification` are surfaced in citation payloads so the model voices CATEGORICAL vs CONDITIONAL claims per the calibrated-voice rules (voice CONTENT stays Brock's doctrine — TODO(brock-content)). Schema + runtime surfacing are implemented this sprint; per-jurisdiction classifications are Brock's seed (DL-81).
+
+## DL-85 — materiality constants ($25/5% audit-flag, $100/10% user-chase; disclosure tiers 0–3)
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 C
+**Decision:** Discrepancy handling uses fixed materiality constants: **audit-flag** at ≥ $25 **or** ≥ 5% of the expected figure; **user-chase** at ≥ $100 **or** ≥ 10%; below audit-flag is logged but not surfaced. Disclosure follows **deterministic tiers 0–3** (0 = silent/immaterial, up to 3 = actively chase with the user). Thresholds are code constants (Sprint C `materiality.py`); the `missing_data_spectrum` priors that widen ranges under incomplete data are Brock's content — TODO(brock-content).
+
+## DL-86 — universal EOB-completeness confirmation before totals are treated complete
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 D
+**Decision:** Before Tyndale treats a set of EOBs/parsed statements as the **complete** picture of what a payer adjudicated, it must run a **source-agnostic completeness confirmation** with the user (an `awaiting_eob_confirmation` case state + endpoint) — the Independent Audit Doctrine cannot compute "what the member should owe" from a partial pile and then present it as total. Applies to every document source (upload, MSN, MA EOB, future FHIR). Machinery in Sprint D.
+
+## DL-87 — Plan Library copy rule (never mention other users or the Library as source)
+
+**Date:** 2026-07-03 · **Decided by:** Brock (owner) · **Sprint:** Batch-1 D
+**Decision:** User-facing flows **never** mention other users, "other members," or "the Plan Library" as the source of a plan detail — the DL-73 PHI boundary made visible as a copy rule. A plan detail seeded from the Library is presented as "your plan says…" (to confirm), never "we saw this on another BlueCross PPO." Enforced by a banned-phrases test over user-facing strings (Sprint D); the confirm/reject UI treats every Library-seeded value as an unconfirmed proposal.
