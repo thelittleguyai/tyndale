@@ -8,19 +8,17 @@ name: Typecheck
 on:
   pull_request:
     paths:
-      - 'apps/mobile/**'
-      - 'apps/web-marketing/**'
-      - 'packages/shared/**'
+      - 'apps/**'
+      - 'packages/**'
   push:
     branches: [main]
     paths:
-      - 'apps/mobile/**'
-      - 'apps/web-marketing/**'
-      - 'packages/shared/**'
+      - 'apps/**'
+      - 'packages/**'
       - '.github/workflows/typecheck.yml'
 
 jobs:
-  typecheck-mobile:
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,18 +27,10 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
-      - run: npm --workspace=apps/mobile run typecheck
-
-  typecheck-web-marketing:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm --workspace=apps/web-marketing run typecheck
+      # Root script (Phase 3.5) fans out to every workspace with a typecheck script —
+      # mobile, admin, web-marketing — via `npm run typecheck --workspaces --if-present`.
+      # (admin was previously unchecked in CI.)
+      - run: npm run typecheck
 
   barrel-export-completeness:
     runs-on: ubuntu-latest

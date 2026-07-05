@@ -6,9 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "lint": "echo 'lint placeholder'",
-    "typecheck": "echo 'typecheck placeholder'",
-    "test": "echo 'test placeholder'"
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=20"

@@ -13,7 +13,20 @@ import type { NextRequest } from 'next/server';
  *     (useRequireAdmin) renders a 404 shell when those calls fail.
  */
 
-const SIGNIN_URL = `https://dev.${process.env.NEXT_PUBLIC_AUTH_DOMAIN || 'tyndaleapp.net'}/signin`;
+// Sign-in URL comes from env (no hardcoded dev./admin. host). Production must set it;
+// local dev falls back to the dev host.
+function resolveSignInUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SIGNIN_URL;
+  if (url) return url;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'NEXT_PUBLIC_SIGNIN_URL is not set. Set it to the member sign-in URL, e.g. https://app.tyndaleapp.net/sign-in.',
+    );
+  }
+  return 'https://dev.tyndaleapp.net/signin';
+}
+
+const SIGNIN_URL = resolveSignInUrl();
 const SESSION_COOKIES = ['__Secure-tyndale_session', 'tyndale_session'];
 
 export function middleware(req: NextRequest) {

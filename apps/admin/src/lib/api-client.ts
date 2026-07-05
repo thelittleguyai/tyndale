@@ -15,7 +15,19 @@ import type {
   QdrantCollectionInfo,
 } from '@tyndale/shared';
 
-const RUNTIME = process.env.NEXT_PUBLIC_RUNTIME_URL || 'http://localhost:4000';
+function resolveRuntimeUrl(): string {
+  const url = process.env.NEXT_PUBLIC_RUNTIME_URL;
+  if (url) return url.replace(/\/+$/, '');
+  // A production build with this unset would silently point admin at localhost — fail loudly.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'NEXT_PUBLIC_RUNTIME_URL is not set. Set it to the runtime API origin, e.g. https://api.tyndaleapp.net.',
+    );
+  }
+  return 'http://localhost:4000';
+}
+
+const RUNTIME = resolveRuntimeUrl();
 
 export class AdminApiError extends Error {
   constructor(

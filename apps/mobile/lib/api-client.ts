@@ -8,8 +8,21 @@
  * Phase 4 wires real auth headers (JWT bearer from NextAuth → mobile session).
  */
 
-const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+function resolveBaseUrl(): string {
+  const url = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (url) return url.replace(/\/+$/, '');
+  // A production/preview build with this unset would silently point every call at
+  // localhost — fail loudly instead. Local dev (`expo start`, __DEV__) keeps the default.
+  if (!__DEV__) {
+    throw new Error(
+      'EXPO_PUBLIC_API_BASE_URL is not set. Set it in the build profile (eas.json / env) to the ' +
+        'runtime API origin, e.g. https://api.tyndaleapp.net.',
+    );
+  }
+  return 'http://localhost:4000';
+}
+
+const BASE_URL = resolveBaseUrl();
 
 // Every runtime call must send the session cookie. The runtime enforces real
 // auth, and the app + API live on different .tyndaleapp.net subdomains (cross-
