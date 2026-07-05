@@ -177,6 +177,15 @@ class BenefitsContext:
     ) -> CoverageResult:
         return await self._registry.resolve(CoverageSource).get_coverage(case_file_id, args)
 
+    async def get_cap(self, case_file_id: str, regime: str, as_of: date):
+        """Regime → cap engine selection (Sprint F). Returns the per-population cost-sharing
+        cap result (member YTD vs the year-versioned cap, over-cap finding on a material
+        breach), or None for regimes with no constants-based cap (commercial/self_pay/dual)."""
+        from app.sources.cap_engines import compute_cap  # local import avoids an import cycle
+
+        eobs, coverage = await load_case_eobs_coverage(case_file_id)
+        return compute_cap(regime, eobs, coverage or {}, as_of)
+
     async def get_accumulator(
         self,
         case_file_id: str,
