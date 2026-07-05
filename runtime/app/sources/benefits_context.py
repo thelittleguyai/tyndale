@@ -27,21 +27,16 @@ from app.sources.base import (
     CoverageSource,
 )
 from app.sources.case_data import as_float, load_case_eobs_coverage
+from app.sources.materiality import AUDIT_FLAG, is_material
 from app.sources.registry import SourceRegistry
 
 # A finding writer persists a discrepancy spec. Injectable so unit tests can assert
 # on emitted findings without a live DB; defaults to a real Finding row.
 FindingWriter = Callable[[str, dict], Awaitable[None]]
 
-# Cross-validation materiality (DL-72; $25 floor set by Brock 2026-06-26):
-# a gap is material when it is larger than $25 (absolute), OR larger than BOTH $1
-# AND 5% (of the larger magnitude). The $1/5% test catches small-but-proportionally-
-# large drift; the $25 absolute floor guarantees a materially large dollar gap can
-# never be masked by the percentage test (e.g. $30 on a $5,000 deductible = 0.6%).
-_ABS_TOL = 1.0
-_PCT_TOL = 0.05
-_ABS_FLOOR = 25.0
-
+# Cross-validation materiality (DL-72; $25 floor set by Brock 2026-06-26) now lives in
+# app.sources.materiality.AUDIT_FLAG ($25 / 5% / $1 abs-tol) — the single home for the
+# thresholds (DL-85). A gap is material per is_material(spread, base, AUDIT_FLAG).
 _METRICS = ("deductible_applied", "oop_applied")
 
 
@@ -77,7 +72,7 @@ def cross_validate(
             spread = round(hi - lo, 2)
             base = max(abs(hi), abs(lo), 1.0)
             deltas[m] = {"spread": spread, "values": vals}
-            if spread > _ABS_FLOOR or (spread > _ABS_TOL and (spread / base) > _PCT_TOL):
+            if is_material(spread, base, AUDIT_FLAG):
                 material = True
 
     if not material:
