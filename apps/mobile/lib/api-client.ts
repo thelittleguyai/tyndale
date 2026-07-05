@@ -169,6 +169,46 @@ export async function getAudit(case_file_id: string): Promise<AuditResult> {
   return (await res.json()) as AuditResult;
 }
 
+/** EOB-completeness confirmation (DL-86). `confirmed` is null until the user answers. */
+export interface EobCompleteness {
+  eob_count: number;
+  plan_year: number | null;
+  date_start: string | null;
+  date_end: string | null;
+  dated_count: number;
+  undated_count: number;
+  patient_names: string[];
+  covers_family: boolean;
+  confirmed: boolean | null;
+  question: string;
+}
+
+/** GET /v1/audit/{id}/eob-completeness — "does that look like all of them?" summary. */
+export async function getEobCompleteness(case_file_id: string): Promise<EobCompleteness> {
+  const res = await cfetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/eob-completeness`,
+  );
+  if (!res.ok) throw new Error(`eob-completeness failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as EobCompleteness;
+}
+
+/** POST /v1/audit/{id}/eob-completeness/confirm — the user's yes/no answer. */
+export async function confirmEobCompleteness(
+  case_file_id: string,
+  all_uploaded: boolean,
+): Promise<EobCompleteness> {
+  const res = await cfetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(case_file_id)}/eob-completeness/confirm`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all_uploaded }),
+    },
+  );
+  if (!res.ok) throw new Error(`eob-confirm failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as EobCompleteness;
+}
+
 // --- Dashboard ---------------------------------------------------------------
 
 import type {
@@ -480,6 +520,31 @@ export async function intakeExtractInsuranceCard(
   return intakeJson('/v1/intake/step/insurance-card/extract', {
     case_file_id: caseFileId,
     document_id: documentId,
+  });
+}
+
+/** POST /v1/intake/plan-proposal/confirm — accept a Plan-Library-proposed design (DL-87).
+ * The proposal is presented as "your plan" for confirmation; provenance stays internal. */
+export async function confirmPlanProposal(
+  planLibraryId: string,
+  caseFileId: string,
+): Promise<IntakeStateResponse> {
+  return intakeJson('/v1/intake/plan-proposal/confirm', {
+    case_file_id: caseFileId,
+    plan_library_id: planLibraryId,
+  });
+}
+
+/** POST /v1/intake/plan-proposal/reject — "something's off"; optionally send corrections. */
+export async function rejectPlanProposal(
+  planLibraryId: string,
+  caseFileId: string,
+  correctedDesign?: Record<string, unknown>,
+): Promise<IntakeStateResponse> {
+  return intakeJson('/v1/intake/plan-proposal/reject', {
+    case_file_id: caseFileId,
+    plan_library_id: planLibraryId,
+    corrected_design: correctedDesign ?? {},
   });
 }
 

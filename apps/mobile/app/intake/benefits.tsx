@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { intakeManualEntry, intakeSkipStep } from '../../lib/api-client';
 import {
@@ -18,7 +19,13 @@ const num = (s: string): number | undefined => {
 };
 
 export default function BenefitsStep() {
-  const { caseId, loading, error } = useWizard();
+  const { state, caseId, loading, error } = useWizard();
+  const router = useRouter();
+  // A Plan-Library proposal short-circuits the SBC ask: confirm the identified plan
+  // instead of re-entering benefits (CO-12C / DL-87).
+  useEffect(() => {
+    if (state?.plan_proposal) router.replace('/intake/plan-proposal' as never);
+  }, [state?.plan_proposal, router]);
   const [ded, setDed] = useState('');
   const [oop, setOop] = useState('');
   const [coins, setCoins] = useState('');

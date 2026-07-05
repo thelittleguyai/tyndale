@@ -17,10 +17,13 @@ import { MessageSquare } from 'lucide-react-native';
 import {
   AuditResult,
   Disclosure,
+  EobCompleteness,
   ThumbsValue,
+  confirmEobCompleteness,
   getAudit,
   getAuditStatus,
   getCaseFeedback,
+  getEobCompleteness,
 } from '../../../../lib/api-client';
 import { ThumbsRating } from '../../../../components/thumbs-rating';
 import { AuditProgress } from '../../../../components/audit/AuditProgress';
@@ -154,6 +157,8 @@ export default function AuditResultScreen() {
           </Link>
         </View>
 
+        <EobCompletenessCard caseFileId={case_file_id} />
+
         {foundSavings ? (
           <View className="mb-6">
             <Text className="mb-3 text-3xl font-bold leading-tight text-sage">
@@ -249,6 +254,60 @@ export default function AuditResultScreen() {
         </Text>
       </View>
     </ScrollView>
+  );
+}
+
+/** EOB-completeness confirmation (DL-86): "does that look like all of them?" — shown until
+ * the user answers, so the audit never treats a partial pile of EOBs as the whole picture. */
+function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
+  const [summary, setSummary] = useState<EobCompleteness | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getEobCompleteness(caseFileId)
+      .then((s) => alive && setSummary(s))
+      .catch(() => {/* non-fatal — the card just won't show */});
+    return () => {
+      alive = false;
+    };
+  }, [caseFileId]);
+
+  const answer = async (allUploaded: boolean) => {
+    setBusy(true);
+    try {
+      setSummary(await confirmEobCompleteness(caseFileId, allUploaded));
+    } catch {
+      setBusy(false);
+    }
+  };
+
+  // Nothing to confirm (no EOBs) or already answered → render nothing.
+  if (!summary || summary.eob_count === 0 || summary.confirmed !== null) return null;
+
+  return (
+    <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
+      <Text className="mb-1 text-xs uppercase tracking-wider text-white/40">
+        Before we finish
+      </Text>
+      <Text className="mb-4 text-base leading-6 text-white/90">{summary.question}</Text>
+      <View className="flex-row gap-3">
+        <Pressable
+          disabled={busy}
+          onPress={() => answer(true)}
+          className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+        >
+          <Text className="text-sm font-bold text-ink">Yes, that&apos;s all of them</Text>
+        </Pressable>
+        <Pressable
+          disabled={busy}
+          onPress={() => answer(false)}
+          className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-white/15 px-4 py-3 hover:bg-white/5"
+        >
+          <Text className="text-sm font-semibold text-white/80">I have more</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
