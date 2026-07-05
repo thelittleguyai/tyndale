@@ -78,6 +78,12 @@ resource "azurerm_container_app" "runtime" {
     key_vault_secret_id = azurerm_key_vault_secret.google_oauth_client_secret.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Phase 3.3: Qdrant now requires auth; the client sends this key (config.qdrant_api_key).
+  secret {
+    name                = "qdrant-api-key"
+    key_vault_secret_id = azurerm_key_vault_secret.qdrant_api_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     min_replicas = 1 # kept warm — avoids 20-30s cold-start latency on user requests
@@ -118,6 +124,10 @@ resource "azurerm_container_app" "runtime" {
         # allow_insecure_connections on the qdrant ingress). Port is explicit because
         # qdrant-client defaults a portless URL to 6333.
         value = "http://${azurerm_container_app.qdrant.ingress[0].fqdn}:80"
+      }
+      env {
+        name        = "QDRANT_API_KEY"
+        secret_name = "qdrant-api-key"
       }
       # Real Claude via DIRECT Anthropic. LITELLM_PROXY_URL is intentionally unset so
       # the runtime's _client() goes straight to the Anthropic API — the litellm proxy
@@ -487,12 +497,36 @@ resource "azurerm_container_app" "litellm" {
 # routing into the internal `main` env returns the platform "Unavailable" page.
 # Ingress stays internal (external_enabled=false) so qdrant is private. Ephemeral
 # storage, so the env move (destroy/recreate) loses nothing.
+# Phase 3.3: Azure Files storage registered on the (external) CAE that qdrant runs in,
+# so the vector store survives restarts (previously ephemeral — a restart wiped every
+# collection, including the 50-state seed).
+resource "azurerm_container_app_environment_storage" "qdrant" {
+  name                         = "qdrant-storage"
+  container_app_environment_id = azurerm_container_app_environment.external.id
+  account_name                 = azurerm_storage_account.main.name
+  share_name                   = azurerm_storage_share.qdrant.name
+  access_key                   = azurerm_storage_account.main.primary_access_key
+  access_mode                  = "ReadWrite"
+}
+
 resource "azurerm_container_app" "qdrant" {
   name                         = "${local.name_prefix}-qdrant"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
   tags                         = local.tags
+
+  # Reuse the runtime UAMI (already Key Vault Secrets User) to pull the API-key secret.
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.runtime.id]
+  }
+
+  secret {
+    name                = "qdrant-api-key"
+    key_vault_secret_id = azurerm_key_vault_secret.qdrant_api_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     # min 1 (NOT scale-to-zero): the runtime reaches qdrant via the env's static-IP
@@ -504,11 +538,27 @@ resource "azurerm_container_app" "qdrant" {
 
     container {
       name   = "qdrant"
-      image  = "qdrant/qdrant:latest"
+      image  = var.qdrant_image # PINNED (Phase 3.3) — never :latest
       cpu    = 0.5
       memory = "1Gi"
-      # Storage persistence: Container Apps + volumes is more complex than dev needs;
-      # dev runs ephemeral. Production attaches Azure Files. Note in README.
+
+      # Auth: qdrant reads QDRANT__SERVICE__API_KEY; the runtime + cron jobs send the same key.
+      env {
+        name        = "QDRANT__SERVICE__API_KEY"
+        secret_name = "qdrant-api-key"
+      }
+
+      # Persist collections on the Azure Files volume (qdrant's default storage dir).
+      volume_mounts {
+        name = "qdrant-storage"
+        path = "/qdrant/storage"
+      }
+    }
+
+    volume {
+      name         = "qdrant-storage"
+      storage_type = "AzureFile"
+      storage_name = azurerm_container_app_environment_storage.qdrant.name
     }
   }
 

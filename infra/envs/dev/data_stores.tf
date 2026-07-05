@@ -133,3 +133,12 @@ resource "azurerm_role_assignment" "kv_admin_deployer" {
   role_definition_name = "Key Vault Administrator"
   principal_id         = data.azurerm_client_config.current.object_id
 }
+
+# --- Phase 3.3: Azure Files share backing Qdrant's persistent storage -------
+# Without this, Qdrant runs on the replica's ephemeral disk — a restart wipes every
+# collection (the 50-state seed, billing codes, etc.). Mounted at /qdrant/storage.
+resource "azurerm_storage_share" "qdrant" {
+  name                 = "qdrant-storage"
+  storage_account_name = azurerm_storage_account.main.name
+  quota                = var.qdrant_storage_quota_gb
+}

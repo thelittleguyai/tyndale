@@ -261,3 +261,16 @@ variable "claude_industry" {
   default     = "technology"
   description = "Anthropic Marketplace attestation: industry (lowercase; one of technology/finance/healthcare/education/retail/manufacturing/government/media/other)."
 }
+
+# --- Phase 3.3: Qdrant launch posture (persistence + auth) ------------------
+variable "qdrant_image" {
+  type        = string
+  default     = "qdrant/qdrant:v1.12.4"
+  description = "Pinned Qdrant image — NEVER :latest. A silent upstream bump could break the on-disk storage format under the persistent volume. Bump deliberately and test a restore. Confirm the tag exists before apply."
+}
+
+variable "qdrant_storage_quota_gb" {
+  type        = number
+  default     = 20
+  description = "Azure Files share size (GB) backing Qdrant's /qdrant/storage volume. The 50-state + billing-code corpora are small; 20 GB is generous headroom."
+}

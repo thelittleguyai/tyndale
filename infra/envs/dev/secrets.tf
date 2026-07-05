@@ -186,3 +186,19 @@ resource "azurerm_key_vault_secret" "database_url" {
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
+
+# --- Phase 3.3: Qdrant API key (auth for the vector DB) ---------------------
+# Random key stamped into Key Vault; the runtime reads it (QDRANT_API_KEY) and the
+# Qdrant server reads it (QDRANT__SERVICE__API_KEY) — both via the runtime UAMI. Turning
+# auth on means the persistent vector store is no longer open on the internal network.
+resource "random_password" "qdrant_api_key" {
+  length  = 48
+  special = false
+}
+
+resource "azurerm_key_vault_secret" "qdrant_api_key" {
+  name         = "QDRANT-API-KEY"
+  value        = random_password.qdrant_api_key.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
