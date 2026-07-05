@@ -1,0 +1,38 @@
+SYNTHETIC FIXTURE — TODO(brock-content: sample PDFs from coverage_rules docs)
+This is a hand-authored text-layer stand-in for a Medicare Summary Notice, matching the
+CMS MSN layout closely enough to exercise the parser. Replace with real sample PDFs.
+
+MEDICARE SUMMARY NOTICE
+Part B (Medical Insurance)
+Notice for: JANE DOE
+Medicare Number: 1EG4-TE5-MK73
+Notice period: January 1, 2026 - June 30, 2026
+
+This is NOT a bill. Keep this notice for your records.
+
+Your Deductible Status:
+You have now met $203.00 of your $240.00 Part B deductible.
+
+====================================================================
+Claim number: 021-12345-678-90
+Provider: DR JANE SMITH, INTERNAL MEDICINE
+Service Provided: Office/outpatient visit, established patient
+Date of Service: 03/15/2026
+Amount Provider Charged: $250.00
+Medicare-Approved Amount: $180.00
+Amount Medicare Paid: $144.00
+Maximum You May Be Billed: $36.00
+
+Claim number: 021-98765-432-10
+Provider: RIVERSIDE RADIOLOGY ASSOCIATES
+Service Provided: MRI brain without contrast
+Date of Service: 04/02/2026
+Amount Provider Charged: $2,400.00
+Medicare-Approved Amount: $1,200.00
+Amount Medicare Paid: $960.00
+Maximum You May Be Billed: $240.00
+
+====================================================================
+How to Handle This Notice / Appeals:
+If you disagree with any decision on this notice, you can appeal.
+Your appeal must be filed by December 28, 2026.

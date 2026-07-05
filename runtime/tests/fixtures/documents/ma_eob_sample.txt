@@ -1,0 +1,24 @@
+SYNTHETIC FIXTURE — TODO(brock-content: sample PDFs from coverage_rules docs)
+Hand-authored text-layer stand-in for a Medicare Advantage (Part C) EOB, matching the CMS
+model EOB layout closely enough to exercise the parser. Replace with real sample PDFs.
+
+EXPLANATION OF BENEFITS
+UnitedHealthcare Medicare Advantage (Part C)
+This is not a bill.
+Member: JOHN ROE
+Plan: UHC Medicare Advantage Complete (HMO)
+Statement period: May 2026
+
+Your Out-of-Pocket Summary:
+You have paid $1,200.00 of your $8,300.00 out-of-pocket maximum this year.
+
+====================================================================
+Claim number: MA-2026-0456
+Provider: LAKESIDE CARDIOLOGY
+Date of service: 05/10/2026
+Date processed: 05/20/2026
+Amount charged: $1,500.00
+Plan approved: $900.00
+Plan paid: $760.00
+Your responsibility: $140.00
+Applied to your out-of-pocket maximum: $140.00
