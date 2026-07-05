@@ -25,7 +25,13 @@ from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
 from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
-from app.schemas.case_file import AuditResult, Citation, FindingOut, ThreeNumberAudit
+from app.schemas.case_file import (
+    AuditProvenance,
+    AuditResult,
+    Citation,
+    FindingOut,
+    ThreeNumberAudit,
+)
 from app.schemas.encounter import (
     DEFAULT_INTRO_MESSAGE,
     ConfirmationsAccepted,
@@ -187,6 +193,33 @@ async def run_audit(case_file_id: str) -> AuditResult:
     return await _assemble_result(case_file_id, lp.final_text)
 
 
+def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
+    """The coverage-regime context this audit ran under (Sprint B, DL-82). Every
+    non-commercial or unconfirmed regime still uses the generic path but carries an
+    explicit assumption naming the pending population corpus, so nothing silently
+    pretends to have applied population-specific rules."""
+    regime = case.coverage_regime if case else None
+    detection = (case.regime_detection if case else None) or {}
+    verified = bool(detection.get("verified"))
+    assumptions: list[str] = []
+    if not regime:
+        assumptions.append(
+            "coverage regime not yet confirmed — audited under generic commercial rules (DL-82)"
+        )
+    elif regime != "commercial":
+        assumptions.append(
+            f"audited under generic commercial rules — {regime} rules corpus pending (DL-82)"
+        )
+    if not get_settings().enable_nsa_checks:
+        assumptions.append(
+            "surprise-billing / No Surprises Act checks are not yet enabled "
+            "(pending the 50-state seed — DL-81/DL-88)"
+        )
+    return AuditProvenance(
+        coverage_regime=regime, regime_verified=verified, assumptions=assumptions
+    )
+
+
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     """Read findings from Postgres and project to AuditResult shape."""
     async with AsyncSessionLocal() as s:
@@ -195,6 +228,10 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             .scalars()
             .all()
         )
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+    provenance = _regime_provenance(case)
 
     findings: list[FindingOut] = []
     three_numbers: dict | None = None
@@ -255,6 +292,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             audit=None,
             findings=findings,
             summary=composed,
+            audit_provenance=provenance,
         )
 
     return AuditResult(
@@ -263,6 +301,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         audit=ThreeNumberAudit(**three_numbers),
         findings=findings,
         summary=composed,
+        audit_provenance=provenance,
     )
 
 

@@ -44,10 +44,16 @@ from app.schemas.intake import (
     ExtractRequest,
     IntakeStateResponse,
     PlanProposal,
+    RegimeConfirmRequest,
     StepAck,
     VisitContextRequest,
 )
 from app.services import plan_library as plan_lib
+from app.sources.regime_detection import (
+    detect_regime,
+    is_valid_regime,
+    signals_from_fields,
+)
 
 router = APIRouter(tags=["v1"])
 
@@ -158,12 +164,35 @@ def _missing_items(case: CaseFile) -> list[str]:
     return out
 
 
+def _document_types(case: CaseFile) -> list[str]:
+    return [d.get("document_type") for d in (case.documents or []) if d.get("document_type")]
+
+
+def _apply_regime_detection(case: CaseFile) -> None:
+    """Re-run deterministic regime detection from the case's current coverage +
+    documents (Sprint B). Never overwrites a VERIFIED regime (user confirm or prior
+    unambiguous evidence is sticky). Unambiguous high-confidence evidence auto-verifies
+    and sets coverage_regime; anything less leaves coverage_regime null so the ladder
+    asks — detection is never guessed into a silent default."""
+    if (case.regime_detection or {}).get("verified"):
+        return
+    detection = detect_regime(signals_from_fields(case.coverage or {}, _document_types(case)))
+    if detection.regime is not None and detection.confidence == "high":
+        detection.verified = True
+        case.coverage_regime = detection.regime
+    else:
+        case.coverage_regime = None
+    case.regime_detection = detection.to_dict()
+
+
 def _captured_data(case: CaseFile) -> CapturedData:
     return CapturedData(
         coverage=dict(case.coverage or {}),
         bills_count=_bills_count(case),
         eobs_count=_eobs_count(case),
         visit_context=case.visit_context,
+        coverage_regime=case.coverage_regime,
+        regime_detection=case.regime_detection,
     )
 
 
@@ -317,6 +346,7 @@ async def manual_entry(
     }
     if merged:
         case.coverage = {**(case.coverage or {}), **merged}
+        _apply_regime_detection(case)  # typed payer/plan/member-id can sharpen the regime
     _advance(case, step_name)
     await session.commit()
     return _ack(case)
@@ -350,10 +380,42 @@ async def extract_insurance_card_step(
     high = fields.high_confidence_coverage()
     if high:
         case.coverage = {**(case.coverage or {}), **high}
+    # Detect the coverage regime off the freshly-extracted card (Sprint B). High-
+    # confidence card/document evidence auto-verifies; otherwise the regime-confirm
+    # step preselects the candidate and asks.
+    _apply_regime_detection(case)
     if case.intake_status != "complete":
         case.intake_status = "in_progress"
     await session.commit()
     return _ack(case, confirmations=fields.confirmations())
+
+
+@router.post("/intake/step/coverage-regime-confirm/confirm", response_model=StepAck)
+async def confirm_coverage_regime(
+    req: RegimeConfirmRequest,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> StepAck:
+    """The verification-ladder answer to 'How are you covered?' — an explicit user
+    confirm sets the regime verified (Sprint B, DL-82). The generic /skip endpoint
+    still advances without setting a regime (leaves it for the audit's generic path)."""
+    if not is_valid_regime(req.coverage_regime):
+        raise HTTPException(status_code=422, detail="invalid coverage_regime")
+    case = await _resolve_case(session, user, req.case_file_id, create=True)
+    case.coverage_regime = req.coverage_regime
+    prior_evidence = list((case.regime_detection or {}).get("evidence") or [])
+    prior_evidence.append("user confirmed coverage regime on the intake ladder")
+    case.regime_detection = {
+        "regime": req.coverage_regime,
+        "candidate": req.coverage_regime,
+        "confidence": "high",
+        "method": "user_declared",
+        "evidence": prior_evidence,
+        "verified": True,
+    }
+    _advance(case, "coverage-regime-confirm")
+    await session.commit()
+    return _ack(case)
 
 
 @router.post("/intake/visit-context", response_model=StepAck)
