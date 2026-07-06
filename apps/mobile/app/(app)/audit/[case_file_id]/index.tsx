@@ -84,7 +84,9 @@ export default function AuditResultScreen() {
         const s = await getAuditStatus(case_file_id);
         if (cancelled) return;
         setStatus(s.status);
-        if (s.status === 'audit_complete') {
+        // Both are terminal — audit_incomplete is a real end state (budget/degrade), not a
+        // stall to keep polling (Item 1): fetch the partial result and stop.
+        if (s.status === 'audit_complete' || s.status === 'audit_incomplete') {
           const r = await getAudit(case_file_id);
           if (cancelled) return;
           setResult(r);
@@ -131,6 +133,13 @@ export default function AuditResultScreen() {
         <AuditProgress status={status} />
       </View>
     );
+  }
+
+  // Terminal partial state (Item 1): the audit stopped without a complete cited summary —
+  // budget exceeded, no three-number finding, or an error. Show the honest partial (this also
+  // narrows result.audit to non-null for the complete path below).
+  if (result.status === 'audit_incomplete' || result.incomplete_reason || !result.audit) {
+    return <AuditIncomplete result={result} caseFileId={case_file_id} />;
   }
 
   const a = result.audit;
@@ -336,6 +345,50 @@ function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
         figures.
       </Text>
     </View>
+  );
+}
+
+/** Terminal partial-result screen (Item 1) when an audit ends audit_incomplete — the numbers
+ * (if any) are shown, with honest degrade copy: we couldn't finish the cited summary. */
+function AuditIncomplete({ result, caseFileId }: { result: AuditResult; caseFileId: string }) {
+  const a = result.audit;
+  const budget = result.incomplete_reason === 'budget_exceeded';
+  return (
+    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 32 }}>
+      <View className="w-full max-w-2xl self-center">
+        <Text className="mb-3 text-2xl font-bold leading-tight text-white">
+          {budget ? 'This audit took longer than expected' : "We couldn't finish this audit"}
+        </Text>
+        <Text className="mb-6 text-base leading-6 text-white/75">
+          {a
+            ? 'We ran the numbers but couldn’t finish the written summary this time — our team has been notified and will take a look. Here’s what we computed.'
+            : 'We couldn’t complete the cited summary this time — our team has been notified. We’ll follow up once it’s sorted.'}
+        </Text>
+
+        {a ? (
+          <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-white/40">What we computed</Text>
+            <ThreeNumberRow label="What you were billed" value={a.provider_billed} dim />
+            <ThreeNumberRow label="What your insurer says you owe" value={a.eob_member_responsibility} />
+            <ThreeNumberRow label="What you should owe" value={a.tyndale_computed} highlight last />
+          </View>
+        ) : null}
+
+        {result.findings.length ? (
+          <>
+            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-white/40">What we found</Text>
+            {result.findings.map((f) => (
+              <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
+            ))}
+          </>
+        ) : null}
+
+        <Text className="mt-12 text-center text-xs text-white/40">
+          Tyndale provides medical billing and coverage advocacy, not medical, legal, or
+          financial advice.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 

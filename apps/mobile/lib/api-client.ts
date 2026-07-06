@@ -100,12 +100,15 @@ export interface AuditProvenance {
 
 export interface AuditResult {
   case_file_id: string;
-  status: 'open' | 'in_progress' | 'complete' | 'resolved' | 'archived';
-  audit: ThreeNumberAudit;
+  status: string; // 'complete' | 'audit_incomplete' | case status
+  /** Null on an audit_incomplete result with no three-number finding. */
+  audit: ThreeNumberAudit | null;
   findings: FindingOut[];
   summary: string;
   audit_provenance?: AuditProvenance | null;
   disclosure?: Disclosure | null;
+  /** Why an audit_incomplete result stopped: budget_exceeded | no_three_number_finding | error. */
+  incomplete_reason?: string | null;
 }
 
 /**
