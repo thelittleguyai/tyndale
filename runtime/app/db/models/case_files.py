@@ -52,7 +52,7 @@ class CaseFile(Base):
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime.datetime] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     # Documents uploaded for this case (bills, EOBs, insurance card, plan summary).
     documents: Mapped[list] = mapped_column(

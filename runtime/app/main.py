@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.hooks import log_stub_warnings
+from app.startup_reconcile import reconcile_interrupted_runs
 from app.middleware.admin_ip_allowlist import AdminIPAllowlistMiddleware
 from app.middleware.cors import add_cors
 from app.middleware.error_handler import add_error_handlers
@@ -60,6 +61,9 @@ async def lifespan(app: FastAPI):
     settings.assert_production_safety()  # CO-15 — fail fast on an unsafe prod config
     log_stub_warnings()
     log.info("runtime.startup", node_env=settings.node_env, version="0.1.0")
+    # Reconcile rows stranded 'running' by a SIGKILL / deploy roll / OOM before this boot, so the
+    # frontend stops polling dead audits and the cron history is honest. Best-effort (never raises).
+    await reconcile_interrupted_runs()
     yield
     log.info("runtime.shutdown")
 

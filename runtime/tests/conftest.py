@@ -53,6 +53,31 @@ def _init_db() -> None:
         async with _engine.begin() as conn:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
             await conn.run_sync(Base.metadata.create_all)
+            # create_all never ALTERs an already-existing table, so a dev's persisted test DB
+            # can carry a stale status CHECK after a constraint grows values (CI starts fresh, so
+            # this is a no-op there). Re-apply the two status checks that have grown over time
+            # (case_files: audit_incomplete; cron_run_log: interrupted) so the suite matches the
+            # models. Additive supersets — every existing row already satisfies them.
+            await conn.execute(
+                text("ALTER TABLE case_files DROP CONSTRAINT IF EXISTS ck_case_files_status")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_status CHECK (status IN "
+                    "('open','in_progress','encounter_verification_pending','encounter_verified',"
+                    "'awaiting_eob_confirmation','audit_running','audit_complete','audit_incomplete',"
+                    "'resolved','archived'))"
+                )
+            )
+            await conn.execute(
+                text("ALTER TABLE cron_run_log DROP CONSTRAINT IF EXISTS ck_cron_run_log_status")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE cron_run_log ADD CONSTRAINT ck_cron_run_log_status CHECK (status "
+                    "IN ('running','success','failed','partial','interrupted'))"
+                )
+            )
         await _engine.dispose()
 
     asyncio.run(_go())

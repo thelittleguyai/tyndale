@@ -20,7 +20,7 @@ class CronRunLog(Base):
     __tablename__ = "cron_run_log"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('running', 'success', 'failed', 'partial')",
+            "status IN ('running', 'success', 'failed', 'partial', 'interrupted')",
             name="ck_cron_run_log_status",
         ),
         CheckConstraint(
