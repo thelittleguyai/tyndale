@@ -27,6 +27,9 @@ dependencies = [
     "azure-core>=1.30",
     "azure-identity>=1.17",
     "azure-storage-blob>=12.20",
+    # Async transport for azure.storage.blob.aio + azure.identity.aio (the upload path).
+    # Not pulled in transitively — without it the aio client ImportErrors at request time.
+    "aiohttp>=3.9",
 ]
 
 [dependency-groups]
