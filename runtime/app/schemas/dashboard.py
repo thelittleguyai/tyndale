@@ -69,6 +69,9 @@ class DashboardPayload(BaseModel):
     # others are routed into the wizard (resuming at intake_current_step).
     intake_status: str = "complete"
     intake_current_step: str | None = None
+    # Whether the user has ANY case file. The gate uses this so the wizard is mandatory only
+    # for brand-new users — anyone with case history is never hard-redirected (2026-07-06 fix).
+    has_cases: bool = False
     open_cases: list[OpenCase] = Field(default_factory=list)
     # Phase 2J — cases eligible for an outcome follow-up prompt (scripted
     # recommendation given > N days ago, no outcome reported yet). Each item is

@@ -97,18 +97,22 @@ def _most_recent_coverage_jsonb(cases: list[CaseFile]) -> dict | None:
 
 
 def _intake_state(cases: list[CaseFile]) -> tuple[str, str | None]:
-    """Drive the intake gate (Phase CO-1A) from the user's most recent case.
+    """Drive the intake gate (Phase CO-1A) — a USER-LEVEL, one-time onboarding, NOT per case.
 
-    No cases yet → ('not_started', 'welcome') so a brand-new user is routed into
-    the wizard. Otherwise the most recent case's intake_status + resume step.
+    No cases yet → ('not_started', 'welcome') routes a brand-new user into the wizard. A user
+    who has EVER completed intake reads 'complete' forever: a newly created case (a fresh
+    upload defaults to intake_status='not_started') must never shadow a completed intake and
+    trap a returning user in the wizard — the 2026-07-06 regression, where the old
+    most-recent-case derivation re-gated returning users the moment they started a new case.
+    Otherwise (no completed case yet) resume the most recent case's wizard step.
     """
     if not cases:
         return "not_started", "welcome"
+    if any((c.intake_status or "") == "complete" for c in cases):
+        return "complete", "complete"
     case = max(cases, key=lambda c: c.created_at or datetime.now(timezone.utc))
-    status = getattr(case, "intake_status", "complete") or "complete"
-    step = getattr(case, "intake_current_step", None)
-    if status != "complete" and not step:
-        step = "welcome"
+    status = case.intake_status or "not_started"
+    step = case.intake_current_step or ("welcome" if status != "complete" else None)
     return status, step
 
 
@@ -254,6 +258,7 @@ async def get_dashboard(
         amount_saved_ytd=amount_saved,
         intake_status=intake_status,
         intake_current_step=intake_current_step,
+        has_cases=len(cases) > 0,
         open_cases=open_cases,
         outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,
