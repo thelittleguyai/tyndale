@@ -1,6 +1,16 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-jest.mock('expo-router', () => ({ router: { replace: jest.fn(), push: jest.fn() } }));
+// onboarding.tsx gained a Phase-3.4 auth guard: it imports Redirect + useCurrentUser and,
+// with no signed-in user, renders <Redirect href="/sign-in" />. The old mock omitted Redirect
+// (→ "Element type is invalid") and left useCurrentUser real (→ no user in jest → it took the
+// Redirect path instead of the form). Mock both so the FORM renders and the gating asserts run.
+jest.mock('expo-router', () => ({
+  router: { replace: jest.fn(), push: jest.fn() },
+  Redirect: () => null,
+}));
+jest.mock('../lib/auth', () => ({
+  useCurrentUser: () => ({ user: { user_id: 'u1', first_name: 'Jane' }, loading: false }),
+}));
 jest.mock('../lib/api-client', () => ({
   __esModule: true,
   getProfileState: jest.fn().mockResolvedValue({
