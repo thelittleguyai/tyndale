@@ -69,11 +69,13 @@ async def _persist(content: bytes, filename: str) -> str:
     settings = get_settings()
     if settings.azure_storage_account_url:
         try:
-            from azure.identity import DefaultAzureCredential
+            # Async client → async credential (the sync DefaultAzureCredential is not
+            # awaitable and breaks the aio client). Both are async context managers, so
+            # `async with` closes the credential's aiohttp session + the client cleanly.
+            from azure.identity.aio import DefaultAzureCredential
             from azure.storage.blob.aio import BlobServiceClient
 
-            cred = DefaultAzureCredential()
-            async with BlobServiceClient(
+            async with DefaultAzureCredential() as cred, BlobServiceClient(
                 account_url=settings.azure_storage_account_url, credential=cred
             ) as svc:
                 container = svc.get_container_client(settings.azure_storage_uploads_container)
