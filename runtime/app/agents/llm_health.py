@@ -48,6 +48,46 @@ def last_claude_call() -> dict[str, str | None]:
         return dict(_last)
 
 
+# Item 1 — last real-agent audit run: duration, terminal reason, Stop-gate regenerations,
+# and per-stage timings. Per-replica, resets on restart (an observability signal, not the
+# audit log). Surfaced on the admin System page next to the Claude-call health.
+_last_audit: dict = {
+    "at": None,
+    "duration_seconds": None,
+    "reason": None,
+    "regens": None,
+    "path": None,
+    "stage_ms": None,
+}
+
+
+def record_audit_run(
+    *,
+    duration_seconds: float,
+    reason: str,
+    regens: int,
+    path: str,
+    stage_ms: dict | None = None,
+) -> None:
+    """Record the most recent audit run's timing + outcome. ``reason`` is 'complete' or the
+    incomplete reason (budget_exceeded | no_three_number_finding | error)."""
+    with _lock:
+        _last_audit.update(
+            at=datetime.now(timezone.utc).isoformat(),
+            duration_seconds=duration_seconds,
+            reason=reason,
+            regens=regens,
+            path=path,
+            stage_ms=stage_ms or {},
+        )
+
+
+def last_audit_run() -> dict:
+    """Snapshot of the last audit run's health (safe to serialize to admins)."""
+    with _lock:
+        return dict(_last_audit)
+
+
 def claude_path_label(settings) -> str:
     """The active Claude routing path: 'foundry' | 'anthropic-direct' | 'stub'.
 

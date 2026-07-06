@@ -93,3 +93,6 @@ class AuditResult(BaseModel):
     audit_provenance: AuditProvenance | None = None
     # Sprint C: the deterministic disclosure tier + any documents to chase.
     disclosure: Disclosure | None = None
+    # Item 1 — why an audit_incomplete result stopped: budget_exceeded | no_three_number_finding
+    # | error. None on a complete run. The frontend renders the honest terminal state from it.
+    incomplete_reason: str | None = None

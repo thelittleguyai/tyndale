@@ -44,6 +44,7 @@ from app.config import get_settings
 from app.hooks.contracts import PostToolUseInput, PreToolUseInput, StopInput
 from app.hooks.post_tool_use import post_tool_use_hook
 from app.hooks.pre_tool_use import guard_send_email, pre_tool_use_hook
+from app.agents.audit_budget import current_audit_budget
 from app.hooks.stop import stop_hook
 from app.tools import call_tool
 
@@ -76,6 +77,9 @@ class RunResult:
     # CO-15 — Stop ship-gate outcome for this run.
     stop_action: str = "ship"  # ship | regenerate | human_review
     human_review_needed: bool = False
+    # Item 1 — True when the Stop gate wanted another regeneration but the audit's
+    # wall-clock / per-run regen budget was spent, so this run shipped early.
+    budget_stopped: bool = False
 
 
 def _client():
@@ -217,6 +221,7 @@ async def run_agent(
     final_text: str = ""
     stop_action: str = "ship"
     human_review_needed = False
+    budget_stopped = False
 
     for attempt in range(1, max_attempts + 1):
         # ---- one generation attempt: the tool-use loop ----
@@ -358,7 +363,19 @@ async def run_agent(
                 unresolved=stop.unresolved_citations,
             )
             break
-        # regenerate: nudge the conversation and re-run (next attempt).
+        # regenerate — UNLESS the audit's budget (wall-clock ceiling or per-run regen cap)
+        # is spent. When it is, ship the current output and flag it so the orchestrator marks
+        # the run audit_incomplete (budget_exceeded) rather than burning another full pass.
+        budget = current_audit_budget()
+        if budget is not None and not budget.take_regen():
+            budget_stopped = True
+            log.warning(
+                "runner.stop.budget_exhausted",
+                actor=actor,
+                attempt=attempt,
+                unresolved=stop.unresolved_citations,
+            )
+            break
         log.info(
             "runner.stop.regenerate",
             actor=actor,
@@ -376,6 +393,7 @@ async def run_agent(
         stop_reason=stop_reason,
         stop_action=stop_action,
         human_review_needed=human_review_needed,
+        budget_stopped=budget_stopped,
     )
 
 

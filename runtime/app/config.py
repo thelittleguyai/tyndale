@@ -240,6 +240,15 @@ class Settings(BaseSettings):
     nudge_first_days: int = 3
     nudge_second_days: int = 14
 
+    # Item 1 (2026-07-06) — hard wall-clock ceiling on a REAL-agent audit run. When exceeded,
+    # the orchestrator stops at the next safe boundary (between agent turns / Stop-gate
+    # regenerations), persists what's computed, and marks the case audit_incomplete
+    # (reason=budget_exceeded) — a case is never left in audit_running forever. The empty-KB
+    # citation stall (regenerate x3, each a multi-minute model pass) is what this bounds.
+    audit_wall_clock_budget_seconds: int = 600
+    # Per-run cap on total Stop-gate citation regenerations (belt to the per-agent <=3).
+    audit_max_regenerations: int = 3
+
     def foundry_model(self, model_id: str) -> str:
         """Map an Anthropic model id to its Foundry deployment name. Deployments are
         named after the model ids by default (infra/envs/dev/ai_foundry.tf), so this

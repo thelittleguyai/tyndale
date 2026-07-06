@@ -13,6 +13,7 @@ raise loudly at audit time.
 
 from __future__ import annotations
 
+import time
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
@@ -20,6 +21,8 @@ import structlog
 from sqlalchemy import select
 
 from app.agents import bill_detective, lead_planner, math_person
+from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
+from app.agents.llm_health import claude_path_label, record_audit_run
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
@@ -63,6 +66,119 @@ async def _set_status(case_file_id: str, status: str) -> None:
         if cf is not None:
             cf.status = status
             await s.commit()
+
+
+def _ms(t0: float) -> int:
+    return int((time.monotonic() - t0) * 1000)
+
+
+async def _run_real_agents(
+    case_file_id: str,
+    accumulator: dict | None,
+    confirmations: list[dict],
+    budget: AuditBudget,
+    session,
+) -> tuple[str, bool, dict]:
+    """Bill Detective → Math Person → Lead Planner under the audit budget (Item 1). Between
+    agents, if the budget is spent, STOP at the safe boundary — don't start another
+    multi-minute turn. Math Person writes the three-number finding, so it survives a Lead
+    Planner cutoff. Returns (composed_summary, budget_stopped, stage_ms)."""
+    stage_ms: dict[str, int] = {}
+    budget_stopped = False
+
+    t = time.monotonic()
+    bd = await bill_detective.run(
+        case_file_id, mode="diagnose", confirmations=confirmations, session=session
+    )
+    stage_ms["bill_detective_ms"] = _ms(t)
+    budget_stopped = budget_stopped or bd.budget_stopped
+    log.info(
+        "orchestrator.bill_detective.done",
+        case_file_id=case_file_id, tool_calls=len(bd.tool_calls), usage=bd.usage,
+    )
+
+    mp_text = ""
+    if budget.expired():
+        log.warning("orchestrator.budget.skipped_agent", case_file_id=case_file_id, stage="math_person")
+        budget_stopped = True
+    else:
+        t = time.monotonic()
+        mp = await math_person.run(case_file_id, accumulator=accumulator, session=session)
+        stage_ms["math_person_ms"] = _ms(t)
+        mp_text = mp.final_text
+        budget_stopped = budget_stopped or mp.budget_stopped
+        log.info(
+            "orchestrator.math_person.done",
+            case_file_id=case_file_id, tool_calls=len(mp.tool_calls), usage=mp.usage,
+        )
+
+    composed = ""
+    if budget.expired():
+        log.warning("orchestrator.budget.skipped_agent", case_file_id=case_file_id, stage="lead_planner")
+        budget_stopped = True
+    else:
+        t = time.monotonic()
+        lp = await lead_planner.compose_final(case_file_id, bd.final_text, mp_text, session=session)
+        stage_ms["lead_planner_ms"] = _ms(t)
+        composed = lp.final_text
+        budget_stopped = budget_stopped or lp.budget_stopped
+        log.info(
+            "orchestrator.lead_planner.done",
+            case_file_id=case_file_id, tool_calls=len(lp.tool_calls), usage=lp.usage,
+            stop_action=lp.stop_action, human_review_needed=lp.human_review_needed,
+        )
+
+    return composed, budget_stopped, stage_ms
+
+
+async def _finalize_result(
+    case_file_id: str,
+    composed: str,
+    budget: AuditBudget,
+    budget_stopped: bool,
+    started: float,
+    stage_ms: dict,
+    path: str,
+    *,
+    manage_status: bool,
+) -> AuditResult:
+    """Assemble the result, pick the terminal status + reason (budget_exceeded overrides a
+    three-number result — the summary couldn't finish), persist the status (finalize path
+    only), and record the run's timing/regens for the admin System page."""
+    result = await _assemble_result(case_file_id, composed)
+    if budget.expired() or budget_stopped:
+        terminal, reason = "audit_incomplete", "budget_exceeded"
+    elif result.audit is not None:
+        terminal, reason = "audit_complete", None
+    else:
+        terminal, reason = "audit_incomplete", "no_three_number_finding"
+    if reason:
+        # Keep any computed three numbers on the result — it's a PARTIAL, not a blank.
+        result = result.model_copy(update={"status": terminal, "incomplete_reason": reason})
+    if manage_status:
+        await _set_status(case_file_id, terminal)
+    duration = round(time.monotonic() - started, 2)
+    record_audit_run(
+        duration_seconds=duration, reason=reason or "complete",
+        regens=budget.regens_used, path=path, stage_ms=stage_ms,
+    )
+    log.info(
+        "orchestrator.audit.done",
+        case_file_id=case_file_id, duration_s=duration, terminal=terminal,
+        reason=reason, regens=budget.regens_used, **stage_ms,
+    )
+    return result
+
+
+def _new_audit_budget(settings) -> tuple[AuditBudget, float]:
+    started = time.monotonic()
+    return (
+        AuditBudget(
+            deadline=started + settings.audit_wall_clock_budget_seconds,
+            regen_remaining=settings.audit_max_regenerations,
+        ),
+        started,
+    )
 
 
 def _has_real_anthropic_creds(settings) -> bool:
@@ -170,43 +286,24 @@ async def run_audit(case_file_id: str) -> AuditResult:
     # caller-commits split — CO-15).
     log.info("orchestrator.run_audit.start", case_file_id=case_file_id)
 
-    async with AsyncSessionLocal() as audit_session:
-        bd = await bill_detective.run(case_file_id, session=audit_session)
-        log.info(
-            "orchestrator.bill_detective.done",
-            case_file_id=case_file_id,
-            tool_calls=len(bd.tool_calls),
-            usage=bd.usage,
-        )
-
-        # CO-12B: deterministic accumulator + cross-validation before Math Person —
-        # writes the accumulator_discrepancy finding (idempotent) and hands the
-        # computed reconstruction to the agent as pre-computed context.
+    # Item 1: run the agents under the wall-clock + regen budget. run_audit does NOT manage
+    # case status (finalize_audit owns the audit_running→terminal state machine).
+    budget, started = _new_audit_budget(settings)
+    token = set_audit_budget(budget)
+    try:
+        # CO-12B: deterministic accumulator + cross-validation (pre-agent, survives regardless).
         accumulator = await _run_accumulator_cross_check(case_file_id)
-
-        mp = await math_person.run(case_file_id, accumulator=accumulator, session=audit_session)
-        log.info(
-            "orchestrator.math_person.done",
-            case_file_id=case_file_id,
-            tool_calls=len(mp.tool_calls),
-            usage=mp.usage,
+        async with AsyncSessionLocal() as audit_session:
+            composed, budget_stopped, stage_ms = await _run_real_agents(
+                case_file_id, accumulator, [], budget, audit_session
+            )
+            await audit_session.commit()
+        return await _finalize_result(
+            case_file_id, composed, budget, budget_stopped, started, stage_ms,
+            claude_path_label(settings), manage_status=False,
         )
-
-        lp = await lead_planner.compose_final(
-            case_file_id, bd.final_text, mp.final_text, session=audit_session
-        )
-        log.info(
-            "orchestrator.lead_planner.done",
-            case_file_id=case_file_id,
-            tool_calls=len(lp.tool_calls),
-            usage=lp.usage,
-            stop_action=lp.stop_action,
-            human_review_needed=lp.human_review_needed,
-        )
-        await audit_session.commit()
-
-    # Assemble the API response from persisted findings.
-    return await _assemble_result(case_file_id, lp.final_text)
+    finally:
+        reset_audit_budget(token)
 
 
 def _compute_disclosure(coverage: dict | None, *, cross_validation_material: bool) -> Disclosure:
@@ -619,35 +716,37 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
     # keeps it a no-op for cases without EOB data (all existing fixture tests).
     accumulator = await _run_accumulator_cross_check(case_file_id)
 
-    composed = ""
-    if use_real:
-        log.info("orchestrator.finalize.real", case_file_id=case_file_id)
-        async with AsyncSessionLocal() as audit_session:
-            bd = await bill_detective.run(
-                case_file_id, mode="diagnose", confirmations=confirmations, session=audit_session
-            )
-            log.info("orchestrator.finalize.bd_done", case_file_id=case_file_id, usage=bd.usage)
-            mp = await math_person.run(case_file_id, accumulator=accumulator, session=audit_session)
-            log.info("orchestrator.finalize.mp_done", case_file_id=case_file_id, usage=mp.usage)
-            lp = await lead_planner.compose_final(
-                case_file_id, bd.final_text, mp.final_text, session=audit_session
-            )
-            log.info(
-                "orchestrator.finalize.lp_done",
-                case_file_id=case_file_id,
-                usage=lp.usage,
-                human_review_needed=lp.human_review_needed,
-            )
-            await audit_session.commit()
-        composed = lp.final_text
-    else:
-        log.info("orchestrator.finalize.fixture", case_file_id=case_file_id)
-        await _persist_mri_fixture_finding(case_file_id)
-        composed = mri_audit_fixture(case_file_id).summary
-
-    result = await _assemble_result(case_file_id, composed)
-    # Don't mark a degraded (no three-number) result "audit_complete" — that would
-    # surface a $0 audit as done (CO-15 T2.3). Reflect the incompleteness.
-    terminal = "audit_complete" if result.audit is not None else "audit_incomplete"
-    await _set_status(case_file_id, terminal)
-    return result
+    # Item 1: run under the wall-clock + regen budget, always resolve to a TERMINAL status
+    # (never leave the case stuck in audit_running), and record the run's timing/regens.
+    budget, started = _new_audit_budget(settings)
+    token = set_audit_budget(budget)
+    path = claude_path_label(settings)
+    try:
+        if use_real:
+            log.info("orchestrator.finalize.real", case_file_id=case_file_id)
+            async with AsyncSessionLocal() as audit_session:
+                composed, budget_stopped, stage_ms = await _run_real_agents(
+                    case_file_id, accumulator, confirmations, budget, audit_session
+                )
+                await audit_session.commit()
+        else:
+            log.info("orchestrator.finalize.fixture", case_file_id=case_file_id)
+            await _persist_mri_fixture_finding(case_file_id)
+            composed, budget_stopped, stage_ms = mri_audit_fixture(case_file_id).summary, False, {}
+        return await _finalize_result(
+            case_file_id, composed, budget, budget_stopped, started, stage_ms, path,
+            manage_status=True,
+        )
+    except Exception as exc:  # noqa: BLE001 — never leave the case in audit_running forever
+        await _set_status(case_file_id, "audit_incomplete")
+        record_audit_run(
+            duration_seconds=round(time.monotonic() - started, 2), reason="error",
+            regens=budget.regens_used, path=path, stage_ms={},
+        )
+        log.error(
+            "orchestrator.finalize.failed",
+            case_file_id=case_file_id, error_class=type(exc).__name__, exc_info=True,
+        )
+        raise
+    finally:
+        reset_audit_budget(token)

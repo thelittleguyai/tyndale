@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.llm_health import claude_path_label, last_claude_call
+from app.agents.llm_health import claude_path_label, last_audit_run, last_claude_call
 from app.auth import CurrentUser
 from app.config import get_settings
 from app.db.models.audit_events import AuditEvent
@@ -74,6 +74,9 @@ async def system_health(
         "qdrant_status": qdrant_status,
         "anthropic_status": anthropic_status,
         "last_claude_call": last_claude_call(),
+        # Item 1 — last real-agent audit run (duration, terminal reason, regen count, stage
+        # timings), next to the Claude-call health.
+        "last_audit_run": last_audit_run(),
         "recent_errors": [
             {
                 "event_id": str(e.event_id),

@@ -22,7 +22,7 @@ class CaseFile(Base):
         CheckConstraint(
             "status IN ('open', 'in_progress', 'encounter_verification_pending', "
             "'encounter_verified', 'awaiting_eob_confirmation', 'audit_running', "
-            "'audit_complete', 'resolved', 'archived')",
+            "'audit_complete', 'audit_incomplete', 'resolved', 'archived')",
             name="ck_case_files_status",
         ),
         CheckConstraint(
