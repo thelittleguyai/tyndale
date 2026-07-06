@@ -13,6 +13,7 @@ from here. Logic moved verbatim from ocr_tools.py in CO-12A — behavior-identic
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import re
 from datetime import date
@@ -79,13 +80,25 @@ async def run_document_ocr(args: dict[str, Any]) -> dict[str, Any]:
     if not settings.use_real_ocr:
         return stub_extract(filename, content)
 
+    # Real OCR. A missing/invalid endpoint or a DI failure must DEGRADE to an error result —
+    # NEVER fake stub text (that would fabricate document content under real OCR), and NEVER a
+    # crash (an uncaught exception here 500s the request; a blocking call kills the replica).
     client = _di_client()
     if client is None:
-        log.warning("ocr.di_credentials_missing", filename=filename)
-        return stub_extract(filename, content)
+        log.error("ocr.di_unavailable", filename=filename)
+        return _ocr_error(filename, content, "di_credentials_missing")
 
-    poller = client.begin_analyze_document("prebuilt-document", body=content)
-    result = poller.result()
+    try:
+        # The Azure DI SDK is SYNCHRONOUS — poller.result() blocks for seconds. Running it
+        # inline in this async handler freezes the event loop, starving the health probe until
+        # Container Apps restarts the replica mid-request (a 503 with no CORS). Offload to a
+        # thread so the worker stays responsive.
+        result = await asyncio.to_thread(_analyze_document, client, content)
+    except Exception as exc:  # noqa: BLE001 — a DI failure degrades, never crashes the request
+        log.error(
+            "ocr.di_failed", filename=filename, error_class=type(exc).__name__, exc_info=True
+        )
+        return _ocr_error(filename, content, f"di_failed:{type(exc).__name__}")
 
     # Compact projection — keep the full Result accessible via 'raw' for the agent
     # to introspect via subsequent calls if it needs more.
@@ -93,6 +106,7 @@ async def run_document_ocr(args: dict[str, Any]) -> dict[str, Any]:
         "filename": filename,
         "byte_count": len(content),
         "ocr_text": (result.content or "")[:50000],
+        "extraction_status": "extracted",
         "pages": [
             {"page_number": p.page_number, "width": p.width, "height": p.height}
             for p in (result.pages or [])
@@ -105,6 +119,28 @@ async def run_document_ocr(args: dict[str, Any]) -> dict[str, Any]:
             for kv in (result.key_value_pairs or [])
         ],
         "tables_count": len(result.tables or []),
+    }
+
+
+def _analyze_document(client, content: bytes):
+    """Synchronous DI analyze — begin + block for the result. Runs in a worker thread (see
+    run_document_ocr) so it never blocks the event loop."""
+    poller = client.begin_analyze_document("prebuilt-document", body=content)
+    return poller.result()
+
+
+def _ocr_error(filename: str, content: bytes, reason: str) -> dict[str, Any]:
+    """A soft OCR failure under real OCR: empty text + extraction_status='error'. The caller
+    persists the document and degrades (Grounding Doctrine) — never fabricated text."""
+    return {
+        "filename": filename,
+        "byte_count": len(content),
+        "ocr_text": "",
+        "extraction_status": "error",
+        "error": reason,
+        "pages": [],
+        "key_value_pairs": [],
+        "tables_count": 0,
     }
 
 
