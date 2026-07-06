@@ -10,16 +10,18 @@
 
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, usePathname } from 'expo-router';
 
 import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
 import { isIntakeDeferred } from '../../lib/intake-deferred';
+import { shouldRedirectToWizard } from '../../lib/intake-gate';
 
-type IntakeGate = { status: string; step: string | null };
+type IntakeGate = { status: string; step: string | null; hasCases: boolean };
 
 export default function AppLayout() {
   const { user, loading } = useCurrentUser();
+  const pathname = usePathname();
   const [intake, setIntake] = useState<IntakeGate | null>(null);
   const [profileDone, setProfileDone] = useState<boolean | null>(null);
   const [intakeLoading, setIntakeLoading] = useState(true);
@@ -36,8 +38,12 @@ export default function AppLayout() {
         .then((p) => p.profile_completed)
         .catch(() => true),
       getDashboard()
-        .then((d) => ({ status: d.intake_status, step: d.intake_current_step }))
-        .catch(() => ({ status: 'complete', step: null }) as IntakeGate),
+        .then((d) => ({
+          status: d.intake_status,
+          step: d.intake_current_step,
+          hasCases: d.has_cases,
+        }))
+        .catch(() => ({ status: 'complete', step: null, hasCases: true }) as IntakeGate),
     ])
       .then(([pdone, ig]) => {
         if (!alive) return;
@@ -67,12 +73,18 @@ export default function AppLayout() {
     return <Redirect href="/onboarding" />;
   }
 
-  // "Save & exit" sets a session-scoped deferred flag: mid-intake users may
-  // reach the dashboard, but brand-new (not_started) users are always routed
-  // into the wizard — they'd only see an empty dashboard otherwise.
-  const intakeDeferred = intake?.status === 'in_progress' && isIntakeDeferred();
-
-  if (intake && intake.status !== 'complete' && !intakeDeferred) {
+  // The wizard is mandatory ONLY for brand-new users (see shouldRedirectToWizard): anyone
+  // with a case file or a completed intake reaches the dashboard and is never hard-redirected
+  // — "Save & exit" always exits — and /audit/* always renders (2026-07-06 fix).
+  if (
+    intake &&
+    shouldRedirectToWizard({
+      intakeStatus: intake.status,
+      hasCases: intake.hasCases,
+      deferred: isIntakeDeferred(),
+      pathname,
+    })
+  ) {
     const target =
       intake.step && intake.step !== 'welcome' && intake.step !== 'complete'
         ? `/intake/${intake.step}`

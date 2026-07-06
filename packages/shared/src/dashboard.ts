@@ -57,6 +57,9 @@ export interface DashboardPayload {
   /** Phase CO-1A — drives the intake gate. 'complete' → dashboard; else wizard. */
   intake_status: string;
   intake_current_step: string | null;
+  /** Whether the user has any case file — the gate only forces brand-new users into the
+   *  wizard, so anyone with case history is never hard-redirected (2026-07-06 fix). */
+  has_cases: boolean;
   open_cases: OpenCase[];
   /** Phase 2J — cases eligible for an outcome follow-up prompt. */
   outcome_prompts: OutcomePromptInline[];
