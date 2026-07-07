@@ -32,10 +32,18 @@ uv run python scripts/e2e_scenarios/run_scenarios.py --only duplicate_cpt_line
 uv run python scripts/e2e_scenarios/run_scenarios.py --generate-only
 ```
 
-Auth uses the **admin-only, dev-only** `POST /v1/admin/test-token` endpoint (404s in production;
-rejects any non-`@e2e.tyndale.test` email). CI: the `E2E Scenarios` workflow (`workflow_dispatch`,
-never scheduled — real Claude token cost) runs the suite against dev with the `E2E_ADMIN_TOKEN`
-secret.
+Auth uses the **dev-only** `POST /v1/admin/test-token` endpoint (404s in production; rejects any
+non-`@e2e.tyndale.test` email), authorized by EITHER:
+
+- **`TYNDALE_E2E_SECRET`** (preferred) — the stable Key Vault shared secret, sent as the
+  `X-E2E-Test-Secret` header. Never expires. Retrieve with
+  `terraform output -raw e2e_test_token_secret` (dev env) and store it as the GitHub repo secret
+  **`E2E_TEST_SECRET`**.
+- **`TYNDALE_ADMIN_TOKEN`** (fallback) — an admin session token (a 7-day JWT; needs refresh).
+
+Local runs (`run_scenarios.py` without `--dev`) need neither — the dev-user stub is already admin.
+CI: the `E2E Scenarios` workflow (`workflow_dispatch`, never scheduled — real Claude token cost)
+runs against dev using those repo secrets.
 
 ## Cost
 

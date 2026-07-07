@@ -61,6 +61,11 @@ resource "azurerm_container_app" "runtime" {
     key_vault_secret_id = azurerm_key_vault_secret.auth_secret.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  secret {
+    name                = "e2e-test-token-secret"
+    key_vault_secret_id = azurerm_key_vault_secret.e2e_test_token_secret.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
   # Only present when a SendGrid key was supplied; otherwise the runtime logs
   # the magic link (dev stub). Gated on the same condition as the KV secret.
   dynamic "secret" {
@@ -242,6 +247,10 @@ resource "azurerm_container_app" "runtime" {
       env {
         name        = "AUTH_SECRET"
         secret_name = "auth-secret"
+      }
+      env {
+        name        = "E2E_TEST_TOKEN_SECRET"
+        secret_name = "e2e-test-token-secret"
       }
       env {
         name        = "GOOGLE_CLIENT_SECRET"

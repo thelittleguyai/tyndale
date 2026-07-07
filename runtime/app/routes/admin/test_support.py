@@ -11,18 +11,19 @@ This is not a general impersonation tool: it only ever issues a token for a synt
 
 from __future__ import annotations
 
+import hmac
+
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import CurrentUser
+from app.auth import current_user
 from app.auth.jwt import InvalidTokenError, create_session_token
 from app.config import get_settings
 from app.db.models.users import User
 from app.db.session import get_session
-from app.routes.admin._deps import admin_user
 
 router = APIRouter(tags=["admin"])
 log = structlog.get_logger(__name__)
@@ -42,17 +43,38 @@ class TestTokenResponse(BaseModel):
     cookie_name: str
 
 
+async def _authorize_test_token(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> str:
+    """Authorize the caller by EITHER path, and return a short label for logging:
+      * 'e2e_secret' — the dev-only shared secret in the X-E2E-Test-Secret header (for CI: stable,
+        no session needed). Constant-time compared; only honored when the secret is configured.
+      * 'admin:<id>' — a logged-in admin session (the interactive path).
+    404 in production, and 404 for any unauthorized caller (DL-60 — reveal nothing)."""
+    settings = get_settings()
+    if settings.is_production:
+        raise HTTPException(status_code=404, detail="Not Found")
+    secret = settings.e2e_test_token_secret
+    provided = request.headers.get("X-E2E-Test-Secret")
+    if secret and provided and hmac.compare_digest(provided, secret):
+        return "e2e_secret"
+    try:
+        user = await current_user(request, session)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="Not Found") from None
+    if user.user_type != "admin":
+        raise HTTPException(status_code=404, detail="Not Found")
+    return f"admin:{user.user_id}"
+
+
 @router.post("/admin/test-token", response_model=TestTokenResponse)
 async def issue_test_token(
     body: TestTokenRequest,
-    admin: CurrentUser = Depends(admin_user),
+    authorized_by: str = Depends(_authorize_test_token),
     session: AsyncSession = Depends(get_session),
 ) -> TestTokenResponse:
+    # _authorize_test_token already enforced dev-only + (shared secret | admin session).
     settings = get_settings()
-    # DEV-ONLY: the endpoint must not exist in production (404, never 403 — reveal nothing).
-    if settings.is_production:
-        raise HTTPException(status_code=404, detail="Not Found")
-
     email = body.email.strip().lower()
     if not email.endswith(SYNTHETIC_EMAIL_SUFFIX):
         raise HTTPException(
@@ -73,7 +95,7 @@ async def issue_test_token(
         await session.rollback()
         raise HTTPException(status_code=503, detail=f"cannot mint token: {exc}") from exc
     await session.commit()
-    log.info("admin.test_token.issued", email=email, by_admin=str(admin.user_id))
+    log.info("admin.test_token.issued", email=email, authorized_by=authorized_by)
     return TestTokenResponse(
         token=token,
         user_id=str(user.user_id),

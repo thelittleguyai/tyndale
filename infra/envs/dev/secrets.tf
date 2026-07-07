@@ -50,6 +50,15 @@ resource "random_password" "auth_secret" {
   min_special = 4
 }
 
+# HP-2: a stable, non-expiring shared secret so CI / the e2e harness can authorize the dev-only
+# /v1/admin/test-token endpoint WITHOUT a 7-day-expiring admin session. header/url-safe (no
+# special chars). Retrieve with `terraform output -raw e2e_test_token_secret` and store it as the
+# GitHub repo secret E2E_TEST_SECRET. Dev only; the endpoint is 404 in production regardless.
+resource "random_password" "e2e_test_token_secret" {
+  length  = 48
+  special = false
+}
+
 # --- User-assigned managed identity for the runtime Container App ------------
 # UAMI lets us grant Key Vault access BEFORE the Container App resolves its
 # secret references — avoids the chicken-and-egg of system-assigned identity.
@@ -132,6 +141,13 @@ resource "azurerm_key_vault_secret" "nextauth_secret" {
 resource "azurerm_key_vault_secret" "auth_secret" {
   name         = "AUTH-SECRET"
   value        = random_password.auth_secret.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+resource "azurerm_key_vault_secret" "e2e_test_token_secret" {
+  name         = "E2E-TEST-TOKEN-SECRET"
+  value        = random_password.e2e_test_token_secret.result
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }

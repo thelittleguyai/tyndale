@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     # user) so local dev works without Google creds. MUST be true in production.
     use_real_auth: bool = False
     auth_secret: str | None = None  # HS256 signing key for session + magic-link JWTs
+    # HP-2: a stable, non-expiring shared secret that lets CI/the e2e harness call the dev-only
+    # /v1/admin/test-token WITHOUT a (7-day-expiring) admin session. Wired from Key Vault on dev
+    # only; None everywhere else — and the endpoint is 404 in production regardless (belt+braces).
+    e2e_test_token_secret: str | None = None
     google_client_id: str | None = None
     google_client_secret: str | None = None
     google_redirect_uri: str = "https://dev.tyndaleapp.net/v1/auth/callback"

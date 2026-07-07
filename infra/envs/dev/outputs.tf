@@ -91,3 +91,9 @@ output "foundry_account_name" {
   value       = local.foundry_account_name
   description = "Foundry account / custom-subdomain name."
 }
+
+output "e2e_test_token_secret" {
+  value       = random_password.e2e_test_token_secret.result
+  sensitive   = true
+  description = "HP-2 e2e harness shared secret. Retrieve with `terraform output -raw e2e_test_token_secret` and set it as the GitHub repo secret E2E_TEST_SECRET (sent as X-E2E-Test-Secret to /v1/admin/test-token)."
+}

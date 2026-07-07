@@ -52,13 +52,25 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
-def authenticate(client: httpx.Client, base_url: str, admin_token: str | None) -> str | None:
-    """Mint the synthetic user's session via the admin test-token endpoint. Returns the synthetic
-    user_id, or None when running against the local dev-user stub (no real auth)."""
-    if admin_token:
+def authenticate(
+    client: httpx.Client, base_url: str, admin_token: str | None, e2e_secret: str | None
+) -> str | None:
+    """Mint the synthetic user's session via the admin test-token endpoint. Prefers the stable,
+    non-expiring shared secret (X-E2E-Test-Secret, from Key Vault → TYNDALE_E2E_SECRET) and falls
+    back to a (7-day) admin session token. Returns the synthetic user_id, or None when running
+    against the local dev-user stub (no real auth)."""
+    headers = {}
+    if e2e_secret:
+        headers["X-E2E-Test-Secret"] = e2e_secret
+    elif admin_token:
         client.cookies.set(COOKIE_NAME, admin_token)
     try:
-        r = client.post(f"{base_url}/v1/admin/test-token", json={"email": SYNTH_EMAIL}, timeout=30)
+        r = client.post(
+            f"{base_url}/v1/admin/test-token",
+            json={"email": SYNTH_EMAIL},
+            headers=headers,
+            timeout=30,
+        )
     except httpx.HTTPError as e:
         raise SystemExit(f"cannot reach {base_url}: {e}") from e
     if r.status_code == 200:
@@ -66,7 +78,7 @@ def authenticate(client: httpx.Client, base_url: str, admin_token: str | None) -
         client.cookies.clear()
         client.cookies.set(COOKIE_NAME, body["token"])
         return body["user_id"]
-    if not admin_token:
+    if not (admin_token or e2e_secret):
         log(f"  test-token unavailable [{r.status_code}] — proceeding as the local dev user")
         return None
     raise SystemExit(f"test-token failed [{r.status_code}]: {r.text}")
@@ -213,7 +225,12 @@ def main() -> int:
 
     log(f"target: {base_url}")
     with httpx.Client(follow_redirects=True) as client:
-        uid = authenticate(client, base_url, os.environ.get("TYNDALE_ADMIN_TOKEN"))
+        uid = authenticate(
+            client,
+            base_url,
+            os.environ.get("TYNDALE_ADMIN_TOKEN"),
+            os.environ.get("TYNDALE_E2E_SECRET"),
+        )
         log(f"authenticated as {uid or 'dev-user'}\n")
         results = [run_scenario(client, base_url, s, workdir) for s in scenarios]
 

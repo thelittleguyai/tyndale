@@ -8,8 +8,11 @@ name: E2E Scenarios (dev, on-demand)
 # scenario; 12 scenarios ≈ a dozen multi-minute agent runs). Trigger it manually when validating
 # a change end-to-end. Uses SYNTHETIC identities only (never real PHI).
 #
-# Requires repo secret E2E_ADMIN_TOKEN — an admin session token used to mint the synthetic test
-# user's session via the dev-only /v1/admin/test-token endpoint.
+# Auth to the dev-only /v1/admin/test-token endpoint (which mints the synthetic test user's
+# session) uses ONE of:
+#   * E2E_TEST_SECRET (preferred) — the stable Key Vault shared secret; set once from
+#     `terraform output -raw e2e_test_token_secret`. Never expires.
+#   * E2E_ADMIN_TOKEN (fallback) — an admin session token (a 7-day JWT; needs periodic refresh).
 
 on:
   workflow_dispatch:
@@ -38,6 +41,9 @@ jobs:
         run: uv sync --frozen
       - name: Run scenarios against dev
         env:
+          # Prefer the stable Key Vault shared secret (set once via `terraform output`);
+          # E2E_ADMIN_TOKEN is a fallback (a 7-day admin session token).
+          TYNDALE_E2E_SECRET: ${{ secrets.E2E_TEST_SECRET }}
           TYNDALE_ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
         run: |
           ONLY_ARGS=""
