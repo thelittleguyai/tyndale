@@ -42,7 +42,15 @@ def _force_real_claude(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_real_mode_empty_translate_degrades_no_fixtures(client: AsyncClient, monkeypatch):
-    case_id = await _fresh_case(client)
+    s = get_settings()
+    # Force a deterministic OCR degradation on upload so the assertions hold regardless of the
+    # ambient env: CI has no .env.local (use_real_ocr defaults False → the stub returns
+    # 'extracted' text), so we pin real OCR ON with no DI creds → the DI-error path we're testing.
+    monkeypatch.setattr(s, "use_real_ocr", True)
+    monkeypatch.setattr(s, "azure_doc_intelligence_endpoint", None)
+    monkeypatch.setattr(s, "azure_doc_intelligence_key", None)
+
+    case_id = await _fresh_case(client)  # upload OCR degrades → doc extraction_status 'error'
     _force_real_claude(monkeypatch)
 
     # Bill Detective runs but persists NO line items (the empty-translate case, e.g. OCR degraded).
