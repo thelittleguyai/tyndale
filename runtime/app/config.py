@@ -245,6 +245,21 @@ class Settings(BaseSettings):
     nudge_first_days: int = 3
     nudge_second_days: int = 14
 
+    # --- Billing (Item 4, dark scaffold — DL-16). Entirely inert while enable_billing is False:
+    # the checkout/webhook routes 404, the audit-gate dependency is a no-op, and the settings UI
+    # stays hidden. Stripe is WALLED OFF from PHI (DL-49): we pass only the user UUID as
+    # client_reference_id and let Stripe's hosted Checkout collect email/payment — we never send
+    # Stripe an email, bill detail, or any health information.
+    enable_billing: bool = False
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_price_monthly: str | None = None  # $11.99/mo price id (DL-16)
+    stripe_price_yearly: str | None = None  # $100/yr price id (DL-16)
+    billing_checkout_success_url: str = "https://app.tyndaleapp.net/settings?billing=success"
+    billing_checkout_cancel_url: str = "https://app.tyndaleapp.net/settings?billing=cancel"
+    # DL-16: the free tier is exactly ONE bill analysis; beyond that a subscription is required.
+    billing_free_analysis_limit: int = 1
+
     # Item 1 (2026-07-06) — hard wall-clock ceiling on a REAL-agent audit run. When exceeded,
     # the orchestrator stops at the next safe boundary (between agent turns / Stop-gate
     # regenerations), persists what's computed, and marks the case audit_incomplete

@@ -8,10 +8,11 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import {
+  getBillingStatus,
   getInsuranceInfo,
   getIntakeState,
   getProfileState,
@@ -19,7 +20,9 @@ import {
   fetchCardImageObjectUrl,
   patchProfile,
   requestAccountDeletion,
+  startBillingCheckout,
   updateConsent,
+  type BillingStatus,
   type InsuranceInfo,
   type ProfileState,
   type UserProfile,
@@ -286,6 +289,9 @@ export default function SettingsScreen() {
         </Text>
       </Section>
 
+      {/* Billing (Item 4) — renders nothing while the dark scaffold is off (enabled:false). */}
+      <BillingSection />
+
       {/* 4. Legal */}
       <Section title="Legal">
         <LinkRow label="Privacy Policy" onPress={() => router.push('/privacy')} />
@@ -369,6 +375,65 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <Text className="mb-3 text-xs uppercase tracking-widest text-white/45">{title}</Text>
       {children}
     </View>
+  );
+}
+
+// Item 4 — flag-hidden billing (DL-16). While the dark scaffold is off the API returns
+// {enabled:false} and this renders NOTHING; when billing is enabled it shows the subscription
+// state + plan CTAs (Stripe hosted Checkout, opened in the browser).
+function BillingSection() {
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getBillingStatus()
+      .then(setBilling)
+      .catch(() => setBilling({ enabled: false }));
+  }, []);
+
+  if (!billing || !billing.enabled) return null; // hidden while the scaffold is dark
+
+  const subscribe = async (plan: 'monthly' | 'yearly') => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const url = await startBillingCheckout(plan);
+      await Linking.openURL(url);
+    } catch {
+      // best-effort; leave the section interactive
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="Subscription">
+      {billing.active ? (
+        <Row label="Plan" value={billing.plan === 'yearly' ? 'Yearly ($100/yr)' : 'Monthly ($11.99/mo)'} />
+      ) : (
+        <>
+          <Text className="mb-3 text-sm leading-6 text-white/70">
+            You have {billing.free_analyses_remaining ?? 0} free bill{' '}
+            {(billing.free_analyses_remaining ?? 0) === 1 ? 'analysis' : 'analyses'} left. Subscribe
+            for unlimited checks.
+          </Text>
+          <View className="flex-row gap-3">
+            <PressableScale
+              onPress={() => subscribe('monthly')}
+              className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+            >
+              <Text className="text-sm font-bold text-ink">$11.99 / month</Text>
+            </PressableScale>
+            <PressableScale
+              onPress={() => subscribe('yearly')}
+              className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-sage/40 px-4 py-3 hover:bg-white/5"
+            >
+              <Text className="text-sm font-bold text-sage">$100 / year</Text>
+            </PressableScale>
+          </View>
+        </>
+      )}
+    </Section>
   );
 }
 

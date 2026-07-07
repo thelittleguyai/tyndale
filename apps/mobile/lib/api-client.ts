@@ -786,6 +786,32 @@ export async function getProfileState(): Promise<ProfileState> {
   return (await res.json()) as ProfileState;
 }
 
+// --- Billing (Item 4, DL-16). `enabled:false` while the dark scaffold is off → hide the UI. ---
+export interface BillingStatus {
+  enabled: boolean;
+  active?: boolean;
+  status?: string;
+  plan?: string | null;
+  current_period_end?: string | null;
+  free_analyses_remaining?: number;
+}
+
+export async function getBillingStatus(): Promise<BillingStatus> {
+  const res = await cfetch(`${BASE_URL}/v1/billing/status`);
+  if (!res.ok) throw new Error(`billing status failed: ${res.status}`);
+  return (await res.json()) as BillingStatus;
+}
+
+export async function startBillingCheckout(plan: 'monthly' | 'yearly'): Promise<string> {
+  const res = await cfetch(`${BASE_URL}/v1/billing/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan }),
+  });
+  if (!res.ok) throw new Error(`checkout failed: ${res.status} ${await res.text()}`);
+  return ((await res.json()) as { checkout_url: string }).checkout_url;
+}
+
 export async function patchProfile(body: ProfilePatch): Promise<ProfileState> {
   const res = await cfetch(`${BASE_URL}/v1/profile`, {
     method: 'PATCH',

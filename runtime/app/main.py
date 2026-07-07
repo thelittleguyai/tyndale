@@ -23,6 +23,7 @@ from app.routes import (
     admin,
     audit,
     auth,
+    billing,
     cases,
     conversations,
     coverage,
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router, prefix="/v1")
     app.include_router(conversations.router, prefix="/v1")
     app.include_router(messages.router, prefix="/v1")
+    app.include_router(billing.router, prefix="/v1")  # Item 4 — dark scaffold (enable_billing gate)
     return app
 
 

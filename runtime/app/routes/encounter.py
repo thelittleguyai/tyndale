@@ -26,6 +26,7 @@ from app.agents.orchestrator import (
 )
 from app.auth import CurrentUser, current_user
 from app.db.session import get_session
+from app.routes.billing import require_active_subscription_or_free_slot
 from app.routes.case_access import require_case_owner
 from app.schemas.encounter import (
     AuditStatusResponse,
@@ -84,6 +85,9 @@ async def post_confirmations(
     background: BackgroundTasks,
     user: CurrentUser = Depends(current_user),
     session: AsyncSession = Depends(get_session),
+    # Item 4 — audit creation gate. A pure no-op while enable_billing is False (dark scaffold);
+    # when on, requires an active subscription or the one free analysis (DL-16).
+    _billing: None = Depends(require_active_subscription_or_free_slot),
 ) -> ConfirmationsAccepted:
     await require_case_owner(case_file_id, user, session)
     if not body.confirmations:
