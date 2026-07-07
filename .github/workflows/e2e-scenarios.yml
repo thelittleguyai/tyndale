@@ -32,6 +32,7 @@ defaults:
 jobs:
   scenarios:
     runs-on: ubuntu-latest
+    environment: dev  # secrets (E2E_TEST_SECRET / E2E_ADMIN_TOKEN) are scoped to the dev environment
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
