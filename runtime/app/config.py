@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None  # Phase 2D — Lead Planner + subagents
     azure_doc_intelligence_endpoint: str | None = None  # Phase 2D — OCR
     azure_doc_intelligence_key: str | None = None  # Phase 2D — OCR
+    # DI model id. 'prebuilt-document' was REMOVED in the GA SDK's API (2024-11-30) and 404s
+    # (ResourceNotFoundError); 'prebuilt-layout' + the key-value-pairs add-on is the successor
+    # that returns the same content/pages/tables/KV projection. Configurable so a future Azure
+    # model rename is an env change, not a redeploy.
+    azure_doc_intelligence_model: str = "prebuilt-layout"
     litellm_proxy_url: str | None = None  # Phase 4 — proxy in front of Anthropic
     litellm_master_key: str | None = None  # Phase 4 — proxy admin key
     azure_key_vault_url: str | None = None  # Phase 4 — audit-log encryption keys

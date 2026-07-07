@@ -124,8 +124,19 @@ async def run_document_ocr(args: dict[str, Any]) -> dict[str, Any]:
 
 def _analyze_document(client, content: bytes):
     """Synchronous DI analyze — begin + block for the result. Runs in a worker thread (see
-    run_document_ocr) so it never blocks the event loop."""
-    poller = client.begin_analyze_document("prebuilt-document", body=content)
+    run_document_ocr) so it never blocks the event loop.
+
+    Uses the configured model (default 'prebuilt-layout'). The legacy 'prebuilt-document' was
+    removed in the GA API (2024-11-30) and 404s — 'prebuilt-layout' + the KEY_VALUE_PAIRS add-on
+    is its successor and returns the same content/pages/tables/key_value_pairs projection."""
+    from azure.ai.documentintelligence.models import DocumentAnalysisFeature
+
+    settings = get_settings()
+    poller = client.begin_analyze_document(
+        settings.azure_doc_intelligence_model,
+        body=content,
+        features=[DocumentAnalysisFeature.KEY_VALUE_PAIRS],
+    )
     return poller.result()
 
 
