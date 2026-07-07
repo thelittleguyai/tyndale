@@ -60,6 +60,23 @@ class CaseSummary(BaseModel):
     last_updated: str = Field(description="ISO-8601 timestamp")
 
 
+class ActiveCase(BaseModel):
+    """A resumable case for the dashboard's status-aware Open Cases card. Covers the FULL
+    lifecycle (not just pre-audit), so a user mid-audit or with results ready always has a way
+    back in — the gap the intake-only resume card left."""
+
+    case_file_id: str
+    status: str = Field(description="raw case status")
+    label: str = Field(description="user-facing status, e.g. 'Verify your visit', 'Results ready'")
+    # Which screen resumes this case: the encounter-verification screen (pre-audit) or the audit
+    # results/progress screen. The audit results screen would spin forever on a pre-encounter
+    # case, so this must be status-driven, not a single hard-coded route.
+    resume: Literal["encounter", "results"]
+    days_open: int = 0
+    next_deadline_date: date | None = None
+    next_deadline_label: str | None = None
+
+
 # --- Top-level payloads ------------------------------------------------------
 class DashboardPayload(BaseModel):
     user: UserBrief
@@ -73,6 +90,9 @@ class DashboardPayload(BaseModel):
     # for brand-new users — anyone with case history is never hard-redirected (2026-07-06 fix).
     has_cases: bool = False
     open_cases: list[OpenCase] = Field(default_factory=list)
+    # Status-aware, full-lifecycle resumable cases for the Open Cases card (2026-07-06). Distinct
+    # from open_cases (which stays pre-audit-only and feeds the status-forward greeting).
+    active_cases: list[ActiveCase] = Field(default_factory=list)
     # Phase 2J — cases eligible for an outcome follow-up prompt (scripted
     # recommendation given > N days ago, no outcome reported yet). Each item is
     # an app.schemas.feedback.OutcomePrompt dict; inlined as dict to avoid a

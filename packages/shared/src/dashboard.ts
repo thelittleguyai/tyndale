@@ -44,6 +44,18 @@ export interface OpenCase {
   next_deadline_label: string | null;
 }
 
+/** A resumable case for the status-aware Open Cases card. `resume` picks the screen: the
+ *  encounter-verification screen (pre-audit) or the audit results/progress screen. */
+export interface ActiveCase {
+  case_file_id: string;
+  status: string;
+  label: string;
+  resume: 'encounter' | 'results';
+  days_open: number;
+  next_deadline_date: string | null; // ISO YYYY-MM-DD
+  next_deadline_label: string | null;
+}
+
 export interface OutcomePromptInline {
   case_file_id: string;
   days_since_recommendation: number;
@@ -61,6 +73,8 @@ export interface DashboardPayload {
    *  wizard, so anyone with case history is never hard-redirected (2026-07-06 fix). */
   has_cases: boolean;
   open_cases: OpenCase[];
+  /** Status-aware, full-lifecycle resumable cases for the Open Cases card (2026-07-06). */
+  active_cases: ActiveCase[];
   /** Phase 2J — cases eligible for an outcome follow-up prompt. */
   outcome_prompts: OutcomePromptInline[];
   status_forward_greeting: string | null;

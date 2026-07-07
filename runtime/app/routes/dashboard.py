@@ -25,6 +25,7 @@ from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
 from app.schemas.dashboard import (
+    ActiveCase,
     CopayAmount,
     CoverageCopays,
     CoverageMeter,
@@ -36,6 +37,22 @@ from app.schemas.dashboard import (
 
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
+
+# Full-lifecycle status -> (user-facing label, which screen resumes it). 'resolved'/'archived'
+# are terminal and intentionally absent (they don't appear on the Open Cases card). The audit
+# results screen would poll forever on a pre-encounter case, so pre-audit statuses resume at the
+# encounter screen and the audit lifecycle resumes at the results screen.
+_ACTIVE_CASE_STATUS: dict[str, tuple[str, str]] = {
+    "open": ("Ready to review", "encounter"),
+    "in_progress": ("Ready to review", "encounter"),
+    "extraction_failed": ("We couldn't read your documents", "encounter"),
+    "encounter_verification_pending": ("Verify your visit", "encounter"),
+    "encounter_verified": ("Audit starting", "results"),
+    "awaiting_eob_confirmation": ("Confirm your EOBs", "results"),
+    "audit_running": ("Audit running", "results"),
+    "audit_complete": ("Results ready", "results"),
+    "audit_incomplete": ("Audit incomplete", "results"),
+}
 
 
 # --- Coverage projection -----------------------------------------------------
@@ -176,26 +193,57 @@ async def _open_cases_payload(
         days_open = max(0, (datetime.now(timezone.utc) - anchor).days)
 
         # Next pending deadline
-        deadline_rows = (
-            (
-                await s.execute(
-                    select(Deadline)
-                    .where(Deadline.case_file_id == case.case_file_id)
-                    .where(Deadline.status == "pending")
-                    .order_by(Deadline.deadline_date.asc())
-                    .limit(1)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        d = deadline_rows[0] if deadline_rows else None
+        d = await _next_pending_deadline(s, case.case_file_id)
 
         out.append(
             OpenCase(
                 case_file_id=str(case.case_file_id),
                 headline=headline,
                 days_open=days_open,
+                next_deadline_date=d.deadline_date if d else None,
+                next_deadline_label=(d.description if d else None),
+            )
+        )
+    return out
+
+
+async def _next_pending_deadline(s: AsyncSession, case_id) -> Deadline | None:
+    """The soonest still-pending deadline for a case, or None."""
+    return (
+        (
+            await s.execute(
+                select(Deadline)
+                .where(Deadline.case_file_id == case_id)
+                .where(Deadline.status == "pending")
+                .order_by(Deadline.deadline_date.asc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+
+async def _active_cases_payload(s: AsyncSession, cases: list[CaseFile]) -> list[ActiveCase]:
+    """Status-aware, full-lifecycle resumable cases for the Open Cases card. Every case whose
+    status is in _ACTIVE_CASE_STATUS (i.e. not resolved/archived) gets a card with a plain-
+    language status and the screen that resumes it. Ordered most-recently-created first so the
+    case a user is actively working sits on top."""
+    out: list[ActiveCase] = []
+    for case in sorted(cases, key=lambda c: c.created_at or datetime.min, reverse=True):
+        mapped = _ACTIVE_CASE_STATUS.get(case.status)
+        if mapped is None:
+            continue  # terminal (resolved/archived) or unknown — not a resumable card
+        label, resume = mapped
+        anchor = case.created_at or datetime.now(timezone.utc)
+        d = await _next_pending_deadline(s, case.case_file_id)
+        out.append(
+            ActiveCase(
+                case_file_id=str(case.case_file_id),
+                status=case.status,
+                label=label,
+                resume=resume,
+                days_open=max(0, (datetime.now(timezone.utc) - anchor).days),
                 next_deadline_date=d.deadline_date if d else None,
                 next_deadline_label=(d.description if d else None),
             )
@@ -251,6 +299,7 @@ async def get_dashboard(
     coverage_summary = _coverage_summary_from_jsonb(_most_recent_coverage_jsonb(cases))
     intake_status, intake_current_step = _intake_state(cases)
     open_cases = await _open_cases_payload(session, str(user.user_id), cases)
+    active_cases = await _active_cases_payload(session, cases)
     amount_saved = await _amount_saved_ytd(session, cases)
 
     greeting = await compose_status_greeting([oc.model_dump(mode="json") for oc in open_cases])
@@ -275,6 +324,7 @@ async def get_dashboard(
         intake_current_step=intake_current_step,
         has_cases=len(cases) > 0,
         open_cases=open_cases,
+        active_cases=active_cases,
         outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,
     )

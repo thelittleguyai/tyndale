@@ -29,6 +29,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import {
+  AlertCircle,
   Calendar,
   CheckCircle2,
   Clock,
@@ -54,7 +55,8 @@ import {
 } from '../../lib/api-client';
 import { useSignOut } from '../../lib/auth';
 import { clearIntakeDeferred } from '../../lib/intake-deferred';
-import { logoSvg, type OpenCase } from '@tyndale/shared';
+import { logoSvg, type ActiveCase } from '@tyndale/shared';
+import { activeCaseRoute } from '../../lib/active-cases';
 import { HeroMotif } from '../../components/hero-motif';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
@@ -154,8 +156,8 @@ export default function DashboardScreen() {
           loading={loading && !data}
         />
 
-        {(data?.open_cases ?? []).length > 0 ? (
-          <OpenCasesSection cases={data!.open_cases} />
+        {(data?.active_cases ?? []).length > 0 ? (
+          <ActiveCasesSection cases={data!.active_cases} />
         ) : null}
 
         <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
@@ -336,8 +338,25 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
   );
 }
 
-// ─── Open cases ──────────────────────────────────────────────────────────────
-function OpenCasesSection({ cases }: { cases: OpenCase[] }) {
+// ─── Open cases (status-aware, full lifecycle) ───────────────────────────────
+// Maps a case status to its card icon/color so a glance tells the user where each case stands:
+// results ready (sage), running/starting (amber), needs attention (rose), otherwise neutral.
+function statusVisual(status: string): { Icon: typeof FileText; color: string; bg: string } {
+  switch (status) {
+    case 'audit_complete':
+      return { Icon: CheckCircle2, color: '#3DAA7E', bg: 'bg-sage/20' };
+    case 'audit_running':
+    case 'encounter_verified':
+      return { Icon: Clock, color: '#E08A3C', bg: 'bg-amber/20' };
+    case 'extraction_failed':
+    case 'audit_incomplete':
+      return { Icon: AlertCircle, color: '#C75252', bg: 'bg-rose/20' };
+    default:
+      return { Icon: FileText, color: '#ffffff', bg: 'bg-white/10' };
+  }
+}
+
+function ActiveCasesSection({ cases }: { cases: ActiveCase[] }) {
   const router = useRouter();
   return (
     <View>
@@ -345,29 +364,34 @@ function OpenCasesSection({ cases }: { cases: OpenCase[] }) {
         Open Cases
       </Text>
       <View className="gap-3">
-        {cases.map((c) => (
-          <PressableScale
-            key={c.case_file_id}
-            onPress={() => router.push(`/audit/${c.case_file_id}` as never)}
-            className="flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
-          >
-            <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
-              <FileText size={18} color="#ffffff" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-white">{c.headline}</Text>
-              <Text className="mt-1 text-xs text-white/55">
-                {c.days_open === 0
-                  ? 'Opened today'
-                  : `Open for ${c.days_open} day${c.days_open === 1 ? '' : 's'}`}
-                {c.next_deadline_label && c.next_deadline_date
-                  ? ` · ${c.next_deadline_label}: ${c.next_deadline_date}`
-                  : ''}
-              </Text>
-            </View>
-            <Text className="text-sm text-white/30">›</Text>
-          </PressableScale>
-        ))}
+        {cases.map((c) => {
+          const { Icon, color, bg } = statusVisual(c.status);
+          return (
+            <PressableScale
+              key={c.case_file_id}
+              onPress={() => router.push(activeCaseRoute(c) as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`${c.label} — open case`}
+              className="flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
+            >
+              <View className={`h-9 w-9 items-center justify-center rounded-md ${bg}`}>
+                <Icon size={18} color={color} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-bold text-white">{c.label}</Text>
+                <Text className="mt-1 text-xs text-white/55">
+                  {c.days_open === 0
+                    ? 'Opened today'
+                    : `Open for ${c.days_open} day${c.days_open === 1 ? '' : 's'}`}
+                  {c.next_deadline_label && c.next_deadline_date
+                    ? ` · ${c.next_deadline_label}: ${c.next_deadline_date}`
+                    : ''}
+                </Text>
+              </View>
+              <Text className="text-sm text-white/30">›</Text>
+            </PressableScale>
+          );
+        })}
       </View>
     </View>
   );
