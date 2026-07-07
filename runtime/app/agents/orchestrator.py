@@ -39,6 +39,7 @@ from app.schemas.case_file import (
 from app.schemas.encounter import (
     DEFAULT_INTRO_MESSAGE,
     ConfirmationsAccepted,
+    DocumentExtraction,
     ExtractResult,
     LineItem,
     LineItemConfirmation,
@@ -487,6 +488,32 @@ def _fixture_line_items() -> list[dict]:
     return [{"line_item_id": str(uuid4()), **it} for it in _FIXTURE_LINE_ITEMS]
 
 
+# Honest, actionable copy shown on the encounter screen when real extraction produced nothing —
+# instead of fabricated line items (Grounding & Graceful Degradation Doctrine).
+EXTRACTION_FAILED_MESSAGE = (
+    "We couldn't read your documents well enough to check them. Try uploading a clearer "
+    "photo or a PDF — good lighting, all four corners in frame, one document per image."
+)
+
+
+def _documents_projection(cf: CaseFile | None) -> list[DocumentExtraction]:
+    """Per-document extraction provenance (which uploads were read vs failed) for the
+    encounter + admin UI, so a degraded audit can never be mistaken for a real one."""
+    out: list[DocumentExtraction] = []
+    for d in (cf.documents if cf else None) or []:
+        if not isinstance(d, dict):
+            continue
+        out.append(
+            DocumentExtraction(
+                filename=d.get("filename") or "document",
+                document_type=d.get("document_type"),
+                extraction_status=d.get("extraction_status") or "unknown",
+                ocr_text_chars=int(d.get("ocr_text_chars") or 0),
+            )
+        )
+    return out
+
+
 async def _load_case(case_file_id: str) -> CaseFile | None:
     async with AsyncSessionLocal() as s:
         return (
@@ -503,21 +530,53 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
         _has_real_anthropic_creds(settings) or settings.litellm_proxy_url
     )
 
+    bd_tool_calls: int | None = None
     if use_real:
         log.info("orchestrator.extract.real", case_file_id=case_file_id)
         bd = await bill_detective.run(case_file_id, mode="translate")
+        bd_tool_calls = len(bd.tool_calls)
         log.info(
             "orchestrator.extract.bd_done",
             case_file_id=case_file_id,
-            tool_calls=len(bd.tool_calls),
+            tool_calls=bd_tool_calls,
             usage=bd.usage,
         )
 
-    # Read whatever the agent persisted; fall back to fixture line items if the
-    # translate pass produced none (or we're on the no-Claude path).
+    # Read whatever the agent persisted.
     cf = await _load_case(case_file_id)
     line_items = list(cf.line_items) if (cf and cf.line_items) else []
+
     if not line_items:
+        if use_real:
+            # Real translate produced nothing — almost always because OCR degraded (empty /
+            # error extraction; e.g. DI rejected the upload). NEVER serve the fixture line items
+            # as if they were the user's bill: two honest degradations stacking into confident
+            # fabrication is the worst failure this product can have. Degrade VISIBLY instead —
+            # mark the case extraction_failed, tell the user honestly, log why.
+            docs = _documents_projection(cf)
+            log.error(
+                "orchestrator.extract.degraded_no_line_items",
+                case_file_id=case_file_id,
+                bd_tool_calls=bd_tool_calls,
+                documents=[
+                    {
+                        "filename": d.filename,
+                        "extraction_status": d.extraction_status,
+                        "ocr_text_chars": d.ocr_text_chars,
+                    }
+                    for d in docs
+                ],
+            )
+            await _set_status(case_file_id, "extraction_failed")
+            return ExtractResult(
+                case_file_id=case_file_id,
+                status="extraction_failed",
+                line_items=[],
+                intro_message=DEFAULT_INTRO_MESSAGE,
+                extraction_message=EXTRACTION_FAILED_MESSAGE,
+                documents=docs,
+            )
+        # Explicit fixture mode ONLY (use_real is False — dev/CI/demo without Claude).
         line_items = _fixture_line_items()
 
     # Phase 2L: every line item must carry example scenarios for the encounter
@@ -540,6 +599,7 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
         status="encounter_verification_pending",
         line_items=[LineItem(**it) for it in line_items],
         intro_message=DEFAULT_INTRO_MESSAGE,
+        documents=_documents_projection(cf),
     )
 
 

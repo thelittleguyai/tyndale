@@ -32,11 +32,27 @@ export interface LineItemConfirmation {
   user_note: string | null;
 }
 
+/** Per-document extraction provenance — which uploads were read vs failed. */
+export interface DocumentExtraction {
+  filename: string;
+  document_type: string | null;
+  extraction_status: string; // 'extracted' | 'error' | 'unreadable' | ...
+  ocr_text_chars: number;
+}
+
 export interface ExtractResult {
   case_file_id: string;
-  status: 'encounter_verification_pending';
+  /**
+   * 'extraction_failed' — real OCR/translate produced nothing; the UI shows the honest
+   * message and re-upload CTA, never fabricated line items.
+   */
+  status: 'encounter_verification_pending' | 'extraction_failed';
   line_items: LineItem[];
   intro_message: string;
+  /** Set only when status === 'extraction_failed': the honest, user-facing reason. */
+  extraction_message?: string | null;
+  /** Per-document extraction provenance. */
+  documents?: DocumentExtraction[];
 }
 
 export interface ConfirmationsAccepted {

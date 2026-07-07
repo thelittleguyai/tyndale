@@ -71,8 +71,11 @@ async def run_insurance_card_ocr(image_bytes: bytes) -> dict[str, Any]:
         return _stub_card_result()
     client = _di_client()
     if client is None:
-        log.warning("insurance_card.di_credentials_missing")
-        return _stub_card_result()
+        # Real OCR is ON but DI is unconfigured — DEGRADE to an empty projection, NEVER the
+        # realistic stub card (that would masquerade fabricated coverage — "Blue Shield PPO",
+        # "JANE Q PUBLIC" — as the user's real card and route the whole audit off fake data).
+        log.error("insurance_card.di_credentials_missing_under_real_ocr")
+        return {"doc_type": _CARD_MODEL, "_stub": False, "fields": {}, "error": "di_unavailable"}
     try:
         poller = client.begin_analyze_document(_CARD_MODEL, body=image_bytes)
         result = poller.result()

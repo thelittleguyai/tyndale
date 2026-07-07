@@ -50,6 +50,29 @@ def test_stub_mode_unaffected(monkeypatch):
     assert r.get("ocr_text")  # the deterministic stub still returns text in dev
 
 
+# --- insurance card: real OCR + no DI creds must DEGRADE, never fabricate a card
+def test_run_insurance_card_ocr_degrades_under_real_ocr(monkeypatch):
+    from app.sources.insurance_card import run_insurance_card_ocr
+
+    s = get_settings()
+    monkeypatch.setattr(s, "use_real_ocr", True)
+    monkeypatch.setattr(s, "azure_doc_intelligence_endpoint", None)
+    monkeypatch.setattr(s, "azure_doc_intelligence_key", None)
+    r = asyncio.run(run_insurance_card_ocr(b"fake-card-bytes"))
+    assert r["fields"] == {}  # NO fabricated "Blue Shield PPO" / "JANE Q PUBLIC" card
+    assert r.get("_stub") is False  # never the realistic stub under real OCR
+    assert r.get("error")  # an honest failure reason is recorded
+
+
+def test_insurance_card_stub_mode_unaffected(monkeypatch):
+    from app.sources.insurance_card import run_insurance_card_ocr
+
+    monkeypatch.setattr(get_settings(), "use_real_ocr", False)
+    r = asyncio.run(run_insurance_card_ocr(b"fake-card-bytes"))
+    assert r.get("_stub") is True  # explicit fixture mode still returns the deterministic card
+    assert r["fields"]
+
+
 # --- route: upload must NOT 503 when real OCR has no creds; it degrades and persists
 @pytest.mark.asyncio
 async def test_upload_succeeds_when_real_ocr_has_no_creds(client: AsyncClient, monkeypatch):

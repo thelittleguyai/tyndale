@@ -55,13 +55,30 @@ class LineItemConfirmation(BaseModel):
     user_note: str | None = None
 
 
+class DocumentExtraction(BaseModel):
+    """Per-document extraction provenance for the encounter/admin UI — so the user can see
+    which uploads were read and which failed, and never mistakes a degraded audit for a real
+    one. Populated on both the success and the extraction_failed paths."""
+
+    filename: str
+    document_type: str | None = None
+    extraction_status: str = Field(description="'extracted' | 'error' | 'unreadable' | ...")
+    ocr_text_chars: int = Field(default=0, description="Length of the extracted OCR text")
+
+
 class ExtractResult(BaseModel):
     case_file_id: str
-    status: Literal["encounter_verification_pending"]
+    # 'extraction_failed' — real OCR/translate produced nothing; we degrade VISIBLY rather than
+    # fabricate line items (the encounter UI shows the honest message, never fixture data).
+    status: Literal["encounter_verification_pending", "extraction_failed"]
     line_items: list[LineItem]
     intro_message: str = Field(
         description="The 'Tyndale double-checking on your behalf' framing for the UI header"
     )
+    # Set only when status == 'extraction_failed': the honest, user-facing reason.
+    extraction_message: str | None = None
+    # Per-document extraction provenance (which uploads were read, which failed).
+    documents: list[DocumentExtraction] = Field(default_factory=list)
 
 
 class ConfirmationsRequest(BaseModel):

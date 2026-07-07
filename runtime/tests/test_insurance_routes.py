@@ -30,6 +30,18 @@ def _upload(card_type: str = "front", mime: str = "image/png") -> dict:
     return {"card_type": card_type, "image_base64": _IMG_B64, "mime_type": mime}
 
 
+@pytest.fixture(autouse=True)
+def _stub_card_ocr(monkeypatch):
+    """CO-17 card routes are validated against the deterministic card STUB. Force stub mode so
+    the ambient dev .env.local (USE_REAL_OCR=true pointed at a placeholder DI endpoint) doesn't
+    turn every extraction into a degraded/empty projection. The real-OCR degradation path — no
+    fabricated card when DI is unavailable — is locked in
+    test_upload_ocr_and_cors.test_run_insurance_card_ocr_degrades_under_real_ocr."""
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "use_real_ocr", False)
+
+
 @pytest.mark.asyncio
 async def test_card_upload_stores_blob_not_base64_and_extracts(client: AsyncClient):
     await _reset_dev_insurance()

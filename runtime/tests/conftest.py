@@ -66,7 +66,7 @@ def _init_db() -> None:
                     "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_status CHECK (status IN "
                     "('open','in_progress','encounter_verification_pending','encounter_verified',"
                     "'awaiting_eob_confirmation','audit_running','audit_complete','audit_incomplete',"
-                    "'resolved','archived'))"
+                    "'extraction_failed','resolved','archived'))"
                 )
             )
             await conn.execute(

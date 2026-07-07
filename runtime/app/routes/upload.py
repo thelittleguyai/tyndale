@@ -138,6 +138,9 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         "classification_confidence": confidence,
         "byte_count": len(content),
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
+        # Full OCR text length (admin visibility): 0 chars alongside extraction_status='error'
+        # is the tell that extraction degraded — so a stalled/degraded audit is diagnosable.
+        "ocr_text_chars": len(ocr.get("ocr_text") or ""),
         # 'extracted' | 'error' — a real-OCR failure degrades here (empty text) instead of
         # crashing the request; the document is still persisted so nothing is lost.
         "extraction_status": ocr.get("extraction_status") or "extracted",

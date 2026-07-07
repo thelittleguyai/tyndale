@@ -88,6 +88,64 @@ export default function EncounterVerificationScreen() {
     );
   }
 
+  // Honest degraded state: real OCR/translate couldn't read the documents. We NEVER show
+  // fabricated line items here — the user sees what failed and a path to re-upload.
+  if (extract && extract.status === 'extraction_failed') {
+    return (
+      <ScrollView
+        className="flex-1 bg-navy-deep"
+        contentContainerStyle={{ padding: 20, paddingTop: 28 }}
+      >
+        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+        </Pressable>
+
+        <View className="mb-5 rounded-2xl bg-teal-deep p-5">
+          <Text className="text-3xl font-bold leading-tight text-white">
+            We couldn't read your documents
+          </Text>
+          <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-white/75">
+            {extract.extraction_message ??
+              'Try uploading a clearer photo or PDF — good lighting, all four corners in frame, one document per image.'}
+          </Text>
+        </View>
+
+        {extract.documents?.length ? (
+          <View className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4">
+            <Text className="mb-2 text-xs uppercase tracking-widest text-white/45">
+              What we received
+            </Text>
+            {extract.documents.map((d, i) => {
+              const ok = d.extraction_status === 'extracted' && d.ocr_text_chars > 0;
+              return (
+                <View key={i} className="flex-row items-center justify-between py-1.5">
+                  <Text className="flex-1 pr-3 text-sm text-white/80" numberOfLines={1}>
+                    {d.filename}
+                  </Text>
+                  <Text className={ok ? 'text-sm text-sage' : 'text-sm text-rose'}>
+                    {ok ? 'Readable' : "Couldn't read"}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
+        <Pressable
+          onPress={() => router.push('/upload')}
+          className="mt-2 rounded-xl bg-sage px-4 py-4"
+        >
+          <Text className="text-center text-base font-bold text-ink">Upload again</Text>
+        </Pressable>
+
+        <Text className="mt-10 text-center text-xs text-white/40">
+          Tyndale provides medical billing and coverage advocacy, not medical, legal, or
+          financial advice.
+        </Text>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <Pressable onPress={() => router.push('/')} className="mb-5 self-start">

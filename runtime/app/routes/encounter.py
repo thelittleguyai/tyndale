@@ -58,9 +58,12 @@ async def get_line_items(
     re-running the translate pass."""
     cf = await require_case_owner(case_file_id, user, session)
     if not cf.line_items:
-        # Not extracted yet — run extraction now (idempotent).
+        # Not extracted yet (or a prior extraction degraded) — run extraction now. It is
+        # idempotent and, in real mode, returns the honest extraction_failed result rather
+        # than fabricating fixture line items.
         return await extract_line_items(case_file_id)
     from app.agents.example_scenarios import backfill_scenarios
+    from app.agents.orchestrator import _documents_projection
     from app.schemas.encounter import DEFAULT_INTRO_MESSAGE, LineItem
 
     # Phase 2L: backfill example scenarios for rows persisted before 2L.
@@ -70,6 +73,7 @@ async def get_line_items(
         status="encounter_verification_pending",
         line_items=[LineItem(**it) for it in items],
         intro_message=DEFAULT_INTRO_MESSAGE,
+        documents=_documents_projection(cf),
     )
 
 

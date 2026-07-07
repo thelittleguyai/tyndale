@@ -125,7 +125,22 @@ async def _open_cases_payload(
     deadline (if any) attached."""
     out: list[OpenCase] = []
     for case in cases:
-        if case.status not in ("open", "in_progress"):
+        if case.status not in ("open", "in_progress", "extraction_failed"):
+            continue
+
+        # A degraded extraction is an open, actionable issue — surface it honestly so the user
+        # knows to re-upload, and never silently drop it off the dashboard.
+        if case.status == "extraction_failed":
+            anchor = case.created_at or datetime.now(timezone.utc)
+            out.append(
+                OpenCase(
+                    case_file_id=str(case.case_file_id),
+                    headline="We couldn't read your documents — try re-uploading a clearer copy",
+                    days_open=max(0, (datetime.now(timezone.utc) - anchor).days),
+                    next_deadline_date=None,
+                    next_deadline_label=None,
+                )
+            )
             continue
 
         # Headline — first prefer the most recent finding's category;
