@@ -348,16 +348,43 @@ def score_output(case: dict, candidate_output: str, judge_reply: dict) -> dict:
 # Integration seams — TODO(brock/eng), wired for --live only.
 # ---------------------------------------------------------------------------
 def run_target_system(case: dict) -> str:
-    """Run a golden case's input through the actual Tyndale skill/agent.
+    """Run a golden case's input through the runtime intelligence layer IN-PROCESS and return the
+    user-facing text the judge scores. Share, don't fork — this drives the SAME `stream_chat_turn`
+    (crisis screen → UserPromptSubmit → Lead Planner / Skill dispatch) the product uses, and
+    accumulates the streamed token deltas.
 
-    TODO(brock/eng): wire this to the runtime intelligence layer (the Lead
-    Planner / Skill dispatch) so it returns the user-facing text for `case`.
-    Until wired, --live raises with a clear message.
+    Requires the runtime importable (its deps installed) plus its infra (DB / Qdrant / model creds)
+    — a --live run happens in the runtime env against a configured backend. Offline never calls
+    this (it uses the stub judge for COVERAGE only).
     """
-    raise NotImplementedError(
-        "run_target_system() is a live-mode integration seam. Wire it to the runtime "
-        "intelligence layer (Lead Planner / Skill dispatch). Offline mode does not call this."
-    )
+    import asyncio
+    import pathlib
+    import sys
+    import uuid
+
+    runtime = pathlib.Path(__file__).resolve().parents[2] / "runtime"
+    if str(runtime) not in sys.path:
+        sys.path.insert(0, str(runtime))
+    from app.agents.chat import stream_chat_turn
+
+    inp = case.get("input", {})
+    user_message = inp.get("user_message") or json.dumps(inp, ensure_ascii=False)
+    eval_user_id = uuid.UUID("00000000-0000-0000-0000-0000000000e5")  # a synthetic eval user
+
+    async def _collect() -> str:
+        parts: list[str] = []
+        async for ev in stream_chat_turn(
+            mode="freeform",
+            case_id=None,
+            user_id=eval_user_id,
+            history=[],
+            user_message=user_message,
+        ):
+            if ev.get("event") == "token":
+                parts.append(ev.get("data", {}).get("delta", ""))
+        return "".join(parts).strip()
+
+    return asyncio.run(_collect())
 
 
 def call_judge_model(system_prompt: str, user_prompt: str) -> dict:

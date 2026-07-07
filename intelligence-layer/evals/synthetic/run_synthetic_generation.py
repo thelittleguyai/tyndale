@@ -155,32 +155,38 @@ def load_schema() -> dict:
 # API client — TODO(brock/eng)
 # ---------------------------------------------------------------------------
 def build_client():
+    """Reuse the RUNTIME's single Claude client factory (CO-18 / DL-79) — share, don't fork.
+
+    The runtime factory (`app.agents.runner._client`) picks Foundry (managed identity — the BAA
+    path, no API key) → LiteLLM proxy → Anthropic-direct from the runtime config, so generation
+    routes exactly like production. It returns an ASYNC client; we wrap it in a tiny SYNC facade so
+    this script's synchronous `call_model` keeps working unchanged (`.messages.create(...)` ->
+    `response.content[0].text`).
+
+    Requires the runtime importable (its deps installed) — a live generation runs in the runtime
+    env, e.g. `cd runtime && uv run python ../intelligence-layer/evals/synthetic/...`. Offline /
+    --dry-run never calls this. Generation stays behind the explicit opt-in (not --dry-run + a
+    configured client path).
     """
-    Construct and return the model client used for generation.
+    import asyncio
+    import pathlib
+    import sys
 
-    TODO(brock/eng): wire this up in Phase 2D. Two supported paths:
+    runtime = pathlib.Path(__file__).resolve().parents[3] / "runtime"
+    if str(runtime) not in sys.path:
+        sys.path.insert(0, str(runtime))
+    from app.agents.runner import _client  # runtime Foundry→proxy→direct factory (async)
 
-      A) Anthropic API directly:
-             import anthropic
-             return anthropic.Anthropic()          # reads ANTHROPIC_API_KEY
+    async_client = _client()
 
-      B) The runtime's hardened LiteLLM proxy (preferred in-cluster, keeps the
-         key server-side and gives us spend logging):
-             import anthropic
-             return anthropic.Anthropic(
-                 base_url=os.environ["LITELLM_PROXY_URL"],
-                 api_key=os.environ["LITELLM_PROXY_KEY"],
-             )
+    class _SyncMessages:
+        def create(self, **kw):
+            return asyncio.run(async_client.messages.create(**kw))
 
-    The returned object must expose ``.messages.create(model=, max_tokens=,
-    messages=[...])`` returning ``response.content[0].text`` (the Anthropic
-    Messages shape). If you route through a different client, adapt
-    ``call_model`` below instead of this function.
-    """
-    raise NotImplementedError(
-        "build_client() is a TODO. Fill in the Anthropic/LiteLLM client (Phase 2D) "
-        "before running a live generation. Use --dry-run to preview without a client."
-    )
+    class _SyncClient:
+        messages = _SyncMessages()
+
+    return _SyncClient()
 
 
 def call_model(client, prompt: str) -> str:
@@ -382,12 +388,19 @@ def main() -> None:
     # The client is only needed for a live run; dry-runs never touch the API.
     client = None
     if not args.dry_run:
-        if "ANTHROPIC_API_KEY" not in os.environ and "LITELLM_PROXY_KEY" not in os.environ:
+        # A configured path is required (explicit opt-in): Foundry managed identity (no key),
+        # a LiteLLM proxy, or an Anthropic key — mirroring the runtime factory build_client reuses.
+        _foundry = os.getenv("USE_FOUNDRY", "").lower() in ("1", "true", "yes")
+        if not (
+            _foundry
+            or "ANTHROPIC_API_KEY" in os.environ
+            or "LITELLM_PROXY_KEY" in os.environ
+        ):
             sys.exit(
-                "No API credentials found (ANTHROPIC_API_KEY / LITELLM_PROXY_KEY). "
-                "Set one, or use --dry-run to preview without calling the API."
+                "No client path configured. Set USE_FOUNDRY=1 (managed identity), "
+                "ANTHROPIC_API_KEY, or LiteLLM proxy creds — or use --dry-run to preview."
             )
-        client = build_client()  # TODO(brock/eng): implemented in Phase 2D
+        client = build_client()  # reuses the runtime Foundry/proxy/direct factory (share)
 
     if args.taxonomy:
         targets = {args.taxonomy: TAXONOMIES[args.taxonomy]}

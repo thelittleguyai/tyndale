@@ -34,9 +34,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need the base/previous commit to compare the golden case count
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       # No pip install: offline mode is stdlib-only by design.
       - name: Validate golden cases + print coverage / ship-gate report
         run: python3 run_golden_evals.py --offline
+      # The known-answer corpus is a ratchet — it may grow, never shrink. Compare the case count
+      # against the PR base (or the previous push) and fail on any decrease. Cases go stale/wrong,
+      # not away; removing coverage must be a loud, deliberate act, not a silent drift.
+      - name: Guard — golden-corpus case count must not decrease
+        working-directory: ${{ github.workspace }}
+        run: |
+          GOLDEN="intelligence-layer/evals/golden"
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "no comparable base commit (${BASE:-none}) — skipping count-decrease guard"
+            exit 0
+          fi
+          count_at() { git ls-tree -r --name-only "$1" -- "$GOLDEN" \
+            | grep -E '\.json$' | grep -vE '/schema\.json$' | wc -l | tr -d ' '; }
+          base_count=$(count_at "$BASE")
+          head_count=$(find "$GOLDEN" -name '*.json' ! -name 'schema.json' | wc -l | tr -d ' ')
+          echo "golden cases: base=$base_count head=$head_count"
+          if [ "$head_count" -lt "$base_count" ]; then
+            echo "::error::golden-corpus case count DECREASED ($base_count -> $head_count). The known-answer corpus must not shrink."
+            exit 1
+          fi

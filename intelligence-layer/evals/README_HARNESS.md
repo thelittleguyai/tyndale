@@ -109,13 +109,17 @@ The machinery is proven; these are the judgment calls that turn the skeleton int
    Brock signs off the rubric text, the per-gate pass thresholds, and the 1–5 scoring anchors,
    then calibrates the judge against a human-labeled subset until **Cohen's κ ≥ 0.6** before
    the judge is trusted for gating.
-3. **Live integration seams.** Two functions are the wiring points, both raising a clear
-   `NotImplementedError` until done:
-   - `run_target_system(case)` — call the runtime intelligence layer (Lead Planner / Skill
-     dispatch) and return the user-facing text for a case's input.
-   - `call_judge_model(...)` — currently a direct Anthropic call; point it at the runtime's
-     hardened LiteLLM proxy if in-cluster spend logging is wanted (mirror
-     `synthetic/run_synthetic_generation.py`'s `build_client()`).
+3. **Live integration seams.** Wired to the runtime (share, don't fork). They need the runtime
+   importable (its deps) + infra (DB / Qdrant / model creds), so a `--live` run happens in the
+   runtime env, e.g. `cd runtime && uv run python ../intelligence-layer/evals/run_golden_evals.py --live`:
+   - `run_target_system(case)` — **wired**: drives the runtime's `stream_chat_turn` (crisis
+     screen → UserPromptSubmit → Lead Planner / Skill dispatch) in-process and returns the
+     accumulated user-facing text.
+   - `synthetic/run_synthetic_generation.py::build_client()` — **wired**: reuses the runtime's
+     Foundry / managed-identity factory (`app.agents.runner._client`) via a sync facade.
+   - `call_judge_model(...)` — still a direct Anthropic call. The **rubric text, per-gate
+     thresholds, and 1–5 anchors stay `TODO(brock)`** (DL-28/62 — never invent the numbers).
+   - CI ratchet: the golden case count may grow but never shrink (`evals.yml` fails on a decrease).
 4. **Reviewer discipline.** Golden README requires a second author to review each case
    before merge, and baseline updates require a second approver (D21). Seeded cases are
    authored `synthetic_opus47` and are **unreviewed** — treat as candidates pending Brock/
