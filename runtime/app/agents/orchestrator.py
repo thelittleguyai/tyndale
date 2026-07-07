@@ -23,7 +23,7 @@ from sqlalchemy import select
 
 from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
-from app.agents.llm_health import claude_path_label, record_audit_run
+from app.agents.llm_health import claude_path_label, record_audit_run, record_system_alert
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
@@ -34,6 +34,7 @@ from app.schemas.case_file import (
     AuditResult,
     Citation,
     Disclosure,
+    DocumentNeed,
     FindingOut,
     ThreeNumberAudit,
 )
@@ -60,13 +61,19 @@ from app.stubs.fixtures import mri_audit_fixture
 log = structlog.get_logger(__name__)
 
 
-async def _set_status(case_file_id: str, status: str) -> None:
+async def _set_status(
+    case_file_id: str, status: str, *, incomplete_reason: str | None = None
+) -> None:
+    """Set the case status and, atomically, its audit_incomplete_reason. The reason is always
+    written (default None), so any non-incomplete transition (audit_running, audit_complete, a
+    re-audit) clears a stale reason — only an audit_incomplete transition carries one."""
     async with AsyncSessionLocal() as s:
         cf = (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
         if cf is not None:
             cf.status = status
+            cf.audit_incomplete_reason = incomplete_reason
             await s.commit()
 
 
@@ -165,17 +172,44 @@ async def _finalize_result(
     three-number result — the summary couldn't finish), persist the status (finalize path
     only), and record the run's timing/regens for the admin System page."""
     result = await _assemble_result(case_file_id, composed)
-    if budget.expired() or budget_stopped:
-        terminal, reason = "audit_incomplete", "budget_exceeded"
-    elif result.audit is not None:
+    # Terminal state + honest reason. Three real numbers = a COMPLETE audit even if the budget cut
+    # the prose summary short (the numbers + findings still ship — a degraded summary, not a
+    # failure). A run cut short with NO numbers is a system_error; agents that ran clean but
+    # couldn't compute the numbers because inputs are missing is the user-actionable
+    # needs_documents state — the wrong-framing bug this fixes (2026-07-07).
+    if result.audit is not None:
+        # Complete — keep _assemble_result's "complete" AuditResult status (the API contract); the
+        # PERSISTED case status is audit_complete. incomplete_reason/documents_needed are already
+        # clean from _assemble_result.
         terminal, reason = "audit_complete", None
     else:
-        terminal, reason = "audit_incomplete", "no_three_number_finding"
-    if reason:
-        # Keep any computed three numbers on the result — it's a PARTIAL, not a blank.
-        result = result.model_copy(update={"status": terminal, "incomplete_reason": reason})
+        terminal = "audit_incomplete"
+        reason = "system_error" if (budget.expired() or budget_stopped) else "needs_documents"
+        # _assemble_result ran BEFORE the reason was persisted (it defaults audit-None to
+        # needs_documents + a checklist) — override with the computed reason, and clear the
+        # checklist unless this really is needs_documents.
+        result = result.model_copy(
+            update={
+                "status": "audit_incomplete",
+                "incomplete_reason": reason,
+                "documents_needed": (
+                    _documents_needed(await _load_case(case_file_id))
+                    if reason == "needs_documents"
+                    else []
+                ),
+            }
+        )
+
     if manage_status:
-        await _set_status(case_file_id, terminal)
+        await _set_status(case_file_id, terminal, incomplete_reason=reason)
+    if reason == "system_error":
+        # The ONLY terminal path that tells the user "our team has been notified" — make it true:
+        # a structured alert the admin System page counts.
+        record_system_alert()
+        log.error(
+            "audit.system_error",
+            case_file_id=case_file_id, terminal=terminal, budget_stopped=budget_stopped,
+        )
     duration = round(time.monotonic() - started, 2)
     record_audit_run(
         duration_seconds=duration, reason=reason or "complete",
@@ -378,6 +412,59 @@ def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
     )
 
 
+# Document-type families already present on a case (so we only ask for what's actually missing).
+_EOB_FAMILY = {"eob", "ma_eob", "msn", "tricare_eob"}
+_BILL_FAMILY = {"bill", "gfe", "itemized_bill"}
+
+
+def _documents_needed(case) -> list[DocumentNeed]:
+    """The honest 'to finish your audit, we need…' checklist for a needs_documents case —
+    derived from what's MISSING on the case (no EOB, no itemized bill, no coverage terms). PHI-
+    free: document types + plain 'how to get it', never amounts or providers."""
+    types = {
+        (d or {}).get("document_type")
+        for d in (getattr(case, "documents", None) or [])
+        if isinstance(d, dict)
+    }
+    needs: list[DocumentNeed] = []
+    if not (types & _EOB_FAMILY):
+        needs.append(
+            DocumentNeed(
+                key="eob",
+                label="Explanation of Benefits (EOB)",
+                how_to_get=(
+                    "Your insurer posts this after they process a claim. Log in to your insurance "
+                    "portal, or call the member number on your card and ask them to send the EOB "
+                    "for this visit."
+                ),
+            )
+        )
+    if not (types & _BILL_FAMILY):
+        needs.append(
+            DocumentNeed(
+                key="itemized_bill",
+                label="Itemized bill",
+                how_to_get=(
+                    "Call the provider's billing office (the number on your statement) and ask for "
+                    "an itemized bill — a detailed bill with the procedure (CPT) codes. They're "
+                    "required to provide one."
+                ),
+            )
+        )
+    if not getattr(case, "coverage", None):
+        needs.append(
+            DocumentNeed(
+                key="sbc",
+                label="Summary of Benefits and Coverage (SBC)",
+                how_to_get=(
+                    "Your plan's benefits summary — find it in your insurance portal under Plan "
+                    "Documents, or ask your HR or insurer for the SBC."
+                ),
+            )
+        )
+    return needs
+
+
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     """Read findings from Postgres and project to AuditResult shape."""
     async with AsyncSessionLocal() as s:
@@ -449,6 +536,9 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         # + composed summary still ship so the user isn't dead-ended (Graceful
         # Degradation Doctrine).
         log.warning("orchestrator.no_three_number_finding", case_file_id=case_file_id)
+        # Read back the persisted honest reason (set at finalize). Default to needs_documents:
+        # a re-fetch of a document-poor case is user-actionable, not a system failure.
+        reason = (case.audit_incomplete_reason if case else None) or "needs_documents"
         return AuditResult(
             case_file_id=case_file_id,
             status="audit_incomplete",
@@ -457,6 +547,8 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             summary=composed,
             audit_provenance=provenance,
             disclosure=disclosure,
+            incomplete_reason=reason,
+            documents_needed=_documents_needed(case) if reason == "needs_documents" else [],
         )
 
     return AuditResult(
@@ -814,7 +906,9 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
             manage_status=True,
         )
     except Exception as exc:  # noqa: BLE001 — never leave the case in audit_running forever
-        await _set_status(case_file_id, "audit_incomplete")
+        # A crash is not user-actionable — it is a system_error (apology copy + a real alert).
+        await _set_status(case_file_id, "audit_incomplete", incomplete_reason="system_error")
+        record_system_alert()
         record_audit_run(
             duration_seconds=round(time.monotonic() - started, 2), reason="error",
             regens=budget.regens_used, path=path, stage_ms={},

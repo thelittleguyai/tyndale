@@ -81,6 +81,15 @@ class EobConfirmRequest(BaseModel):
     all_uploaded: bool
 
 
+class DocumentNeed(BaseModel):
+    """One document the user should get to finish a 'needs_documents' audit. PHI-free by
+    construction — a document TYPE plus plain 'how to get it', never amounts/providers."""
+
+    key: str = Field(description="eob | itemized_bill | sbc")
+    label: str
+    how_to_get: str
+
+
 class AuditResult(BaseModel):
     case_file_id: str
     status: str
@@ -93,6 +102,14 @@ class AuditResult(BaseModel):
     audit_provenance: AuditProvenance | None = None
     # Sprint C: the deterministic disclosure tier + any documents to chase.
     disclosure: Disclosure | None = None
-    # Item 1 — why an audit_incomplete result stopped: budget_exceeded | no_three_number_finding
-    # | error. None on a complete run. The frontend renders the honest terminal state from it.
+    # Why an audit_incomplete case stopped (persisted on the case, read back here):
+    #   'needs_documents' — user-actionable: findings produced, three-number blocked on missing
+    #                       inputs. The app shows a POSITIVE "here's what we found; to finish we
+    #                       need…" screen with documents_needed — never failure language.
+    #   'system_error'    — not user-actionable: budget / citation gate / provider failure. The
+    #                       app shows the apology copy; this is the ONLY case that legitimately
+    #                       says "our team has been notified" (a structured alert is emitted).
+    # None on a complete run.
     incomplete_reason: str | None = None
+    # Populated only when incomplete_reason == 'needs_documents': the honest document checklist.
+    documents_needed: list[DocumentNeed] = Field(default_factory=list)

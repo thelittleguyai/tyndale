@@ -14,6 +14,7 @@ from app.agents.llm_health import (
     claude_path_label,
     last_audit_run,
     last_claude_call,
+    system_alerts,
 )
 from app.auth import CurrentUser
 from app.config import get_settings
@@ -84,6 +85,8 @@ async def system_health(
         "last_audit_run": last_audit_run(),
         # Item 2 — p50/p95 audit wall-clock over recent runs (per-replica).
         "audit_duration_percentiles": audit_duration_percentiles(),
+        # HP-1 — count of system_error audit terminations ("our team has been notified").
+        "system_alerts": system_alerts(),
         "recent_errors": [
             {
                 "event_id": str(e.event_id),

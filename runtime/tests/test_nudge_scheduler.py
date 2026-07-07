@@ -102,6 +102,41 @@ async def test_scan_finds_due_case_bundled():
 
 
 @pytest.mark.asyncio
+async def test_needs_documents_case_is_nudged():
+    """HP-1 wiring: a needs_documents audit (status audit_incomplete) with a load-bearing missing
+    document is scanned exactly like a completed case — audit_incomplete is a nudge scan status,
+    so the honest 'to finish we need…' state feeds the Sprint G scheduler."""
+    uid = await _dev_user_id()
+    created = datetime.now(timezone.utc) - timedelta(days=15)
+    async with AsyncSessionLocal() as s:
+        cf = CaseFile(
+            user_id=uid,
+            status="audit_incomplete",
+            audit_incomplete_reason="needs_documents",
+            coverage=dict(_CHASE_COVERAGE),  # missing cost-share inputs → SBC chase
+        )
+        s.add(cf)
+        await s.flush()
+        s.add(
+            Finding(
+                finding_id=uuid.uuid4(),
+                case_file_id=cf.case_file_id,
+                finding_type="provider_side",
+                category="missing_itemized_bill",
+                subagent_source="lead_planner",
+                voice_tier="C",
+                facts={},
+                created_at=created,
+            )
+        )
+        await s.commit()
+        cfid = str(cf.case_file_id)
+
+    items = await scan_for_nudges()
+    assert any(i.case_file_id == cfid for i in items)  # needs_documents case IS surfaced
+
+
+@pytest.mark.asyncio
 async def test_no_nudge_when_chase_resolved():
     cfid = await _case_with_old_finding(
         15, coverage={"deductible_amount": 2000, "oop_max_amount": 8000, "coinsurance_percent": 20}

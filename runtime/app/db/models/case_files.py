@@ -30,6 +30,11 @@ class CaseFile(Base):
             name="ck_case_files_intake_status",
         ),
         CheckConstraint(
+            "audit_incomplete_reason IS NULL OR "
+            "audit_incomplete_reason IN ('needs_documents', 'system_error')",
+            name="ck_case_files_audit_incomplete_reason",
+        ),
+        CheckConstraint(
             "coverage_regime IS NULL OR coverage_regime IN ("
             "'commercial', 'medicare_traditional', 'medicare_advantage', 'medicaid', "
             "'dual_qmb', 'self_pay', 'tricare_va')",
@@ -108,3 +113,7 @@ class CaseFile(Base):
     nudges_sent: Mapped[list] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
+    # Why an audit_incomplete case stopped, persisted so GET /v1/audit/{id} can render the honest
+    # terminal screen: 'needs_documents' (user-actionable — findings produced, three-number
+    # blocked on missing inputs) | 'system_error' (budget/citation/provider). NULL otherwise.
+    audit_incomplete_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

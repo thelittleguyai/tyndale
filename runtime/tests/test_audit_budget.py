@@ -149,13 +149,16 @@ async def test_finalize_budget_exceeded_persists_incomplete(client: AsyncClient,
 
     result = await finalize_audit(case_id)
     assert result.status == "audit_incomplete"
-    assert result.incomplete_reason == "budget_exceeded"
-    # Never left stuck in audit_running.
+    # Budget cut the run short before ANY three-number result → a system_error (HP-1), not the
+    # user-actionable needs_documents state.
+    assert result.incomplete_reason == "system_error"
+    # Never left stuck in audit_running; the honest reason is PERSISTED for the re-fetch screen.
     async with AsyncSessionLocal() as sess:
         cf = (
             await sess.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
         ).scalar_one()
         assert cf.status == "audit_incomplete"
+        assert cf.audit_incomplete_reason == "system_error"
 
 
 @pytest.mark.asyncio

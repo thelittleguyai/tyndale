@@ -111,6 +111,25 @@ def audit_duration_percentiles() -> dict:
     return {"count": n, "p50_seconds": _pct(50), "p95_seconds": _pct(95)}
 
 
+# Item HP-1 — count of system_error audit terminations (budget/citation/provider/crash), the
+# ONLY terminal path that tells the user "our team has been notified". Per-replica; surfaced on
+# the admin System page so "notified" is actually true and countable.
+_system_alerts: dict = {"count": 0, "last_at": None}
+
+
+def record_system_alert() -> None:
+    """Increment the system_error audit alert counter (admin-visible). Best-effort, non-fatal."""
+    with _lock:
+        _system_alerts["count"] = int(_system_alerts["count"]) + 1
+        _system_alerts["last_at"] = datetime.now(timezone.utc).isoformat()
+
+
+def system_alerts() -> dict:
+    """Snapshot of the system_error alert counter for the admin System page."""
+    with _lock:
+        return dict(_system_alerts)
+
+
 def claude_path_label(settings) -> str:
     """The active Claude routing path: 'foundry' | 'anthropic-direct' | 'stub'.
 

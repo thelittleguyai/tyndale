@@ -235,6 +235,9 @@ async def _active_cases_payload(s: AsyncSession, cases: list[CaseFile]) -> list[
         if mapped is None:
             continue  # terminal (resolved/archived) or unknown — not a resumable card
         label, resume = mapped
+        # HP-1: a document-blocked audit reads as an action, not a failure, on the dashboard too.
+        if case.status == "audit_incomplete" and case.audit_incomplete_reason == "needs_documents":
+            label = "Needs your documents"
         anchor = case.created_at or datetime.now(timezone.utc)
         d = await _next_pending_deadline(s, case.case_file_id)
         out.append(

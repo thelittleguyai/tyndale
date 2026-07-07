@@ -98,6 +98,13 @@ export interface AuditProvenance {
   assumptions: string[];
 }
 
+/** One document to get to finish a needs_documents audit (PHI-free: type + how-to-get). */
+export interface DocumentNeed {
+  key: string; // eob | itemized_bill | sbc
+  label: string;
+  how_to_get: string;
+}
+
 export interface AuditResult {
   case_file_id: string;
   status: string; // 'complete' | 'audit_incomplete' | case status
@@ -107,8 +114,15 @@ export interface AuditResult {
   summary: string;
   audit_provenance?: AuditProvenance | null;
   disclosure?: Disclosure | null;
-  /** Why an audit_incomplete result stopped: budget_exceeded | no_three_number_finding | error. */
+  /**
+   * Why an audit_incomplete result stopped:
+   *  'needs_documents' — user-actionable; render the positive "here's what we found; to finish
+   *                      we need…" screen with documents_needed, NO failure language.
+   *  'system_error'    — not user-actionable; render the apology ("our team has been notified").
+   */
   incomplete_reason?: string | null;
+  /** Populated only when incomplete_reason === 'needs_documents'. */
+  documents_needed?: DocumentNeed[];
 }
 
 /**

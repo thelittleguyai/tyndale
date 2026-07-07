@@ -69,6 +69,26 @@ def _init_db() -> None:
                     "'extraction_failed','resolved','archived'))"
                 )
             )
+            # New nullable column added after the table first existed on a dev's persisted DB.
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS "
+                    "audit_incomplete_reason text"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files DROP CONSTRAINT IF EXISTS "
+                    "ck_case_files_audit_incomplete_reason"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_audit_incomplete_reason "
+                    "CHECK (audit_incomplete_reason IS NULL OR audit_incomplete_reason IN "
+                    "('needs_documents','system_error'))"
+                )
+            )
             await conn.execute(
                 text("ALTER TABLE cron_run_log DROP CONSTRAINT IF EXISTS ck_cron_run_log_status")
             )
