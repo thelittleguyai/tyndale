@@ -13,6 +13,7 @@ raise loudly at audit time.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
@@ -78,40 +79,53 @@ async def _run_real_agents(
     accumulator: dict | None,
     confirmations: list[dict],
     budget: AuditBudget,
-    session,
 ) -> tuple[str, bool, dict]:
-    """Bill Detective → Math Person → Lead Planner under the audit budget (Item 1). Between
-    agents, if the budget is spent, STOP at the safe boundary — don't start another
-    multi-minute turn. Math Person writes the three-number finding, so it survives a Lead
-    Planner cutoff. Returns (composed_summary, budget_stopped, stage_ms)."""
-    stage_ms: dict[str, int] = {}
-    budget_stopped = False
+    """Bill Detective ∥ Math Person, then Lead Planner, under the audit budget (Item 1).
 
-    t = time.monotonic()
-    bd = await bill_detective.run(
-        case_file_id, mode="diagnose", confirmations=confirmations, session=session
-    )
-    stage_ms["bill_detective_ms"] = _ms(t)
-    budget_stopped = budget_stopped or bd.budget_stopped
+    Latency (Item 2): per DL-80 Math Person consumes the PRE-COMPUTED accumulator (injected
+    context), NOT Bill Detective's output — so BD and MP are independent and run CONCURRENTLY,
+    cutting the critical path from BD+MP+LP to max(BD,MP)+LP (measured ~273s→~195s on case
+    e539735e, where BD alone was 143s). Each agent runs on its OWN session for the HIPAA
+    hook-audit rows — tools already open their own sessions for finding writes, so the passed
+    session only ever carried the tool-invocation trail — meaning the concurrent runs never share
+    a session. Lead Planner composes from both; if the budget is spent by then it is skipped at
+    that safe boundary — the three-number finding Math Person wrote survives the cutoff. Returns
+    (composed_summary, budget_stopped, stage_ms)."""
+    stage_ms: dict[str, int] = {}
+
+    async def _bill_detective():
+        t = time.monotonic()
+        async with AsyncSessionLocal() as s:
+            r = await bill_detective.run(
+                case_file_id, mode="diagnose", confirmations=confirmations, session=s
+            )
+            await s.commit()
+        return r, _ms(t)
+
+    async def _math_person():
+        t = time.monotonic()
+        async with AsyncSessionLocal() as s:
+            r = await math_person.run(case_file_id, accumulator=accumulator, session=s)
+            await s.commit()
+        return r, _ms(t)
+
+    # BD and MP are independent — run them at the same time. gather propagates the first error and
+    # cancels the sibling (a stage failure still fails the audit, as before). The budget contextvar
+    # is copied into both tasks, so the regen short-circuit still governs each.
+    wall = time.monotonic()
+    (bd, bd_ms), (mp, mp_ms) = await asyncio.gather(_bill_detective(), _math_person())
+    stage_ms["bill_detective_ms"] = bd_ms
+    stage_ms["math_person_ms"] = mp_ms
+    stage_ms["agents_parallel_wall_ms"] = _ms(wall)  # ≈ max(bd,mp) — the concurrency saving
+    budget_stopped = bd.budget_stopped or mp.budget_stopped
     log.info(
         "orchestrator.bill_detective.done",
         case_file_id=case_file_id, tool_calls=len(bd.tool_calls), usage=bd.usage,
     )
-
-    mp_text = ""
-    if budget.expired():
-        log.warning("orchestrator.budget.skipped_agent", case_file_id=case_file_id, stage="math_person")
-        budget_stopped = True
-    else:
-        t = time.monotonic()
-        mp = await math_person.run(case_file_id, accumulator=accumulator, session=session)
-        stage_ms["math_person_ms"] = _ms(t)
-        mp_text = mp.final_text
-        budget_stopped = budget_stopped or mp.budget_stopped
-        log.info(
-            "orchestrator.math_person.done",
-            case_file_id=case_file_id, tool_calls=len(mp.tool_calls), usage=mp.usage,
-        )
+    log.info(
+        "orchestrator.math_person.done",
+        case_file_id=case_file_id, tool_calls=len(mp.tool_calls), usage=mp.usage,
+    )
 
     composed = ""
     if budget.expired():
@@ -119,7 +133,11 @@ async def _run_real_agents(
         budget_stopped = True
     else:
         t = time.monotonic()
-        lp = await lead_planner.compose_final(case_file_id, bd.final_text, mp_text, session=session)
+        async with AsyncSessionLocal() as s:
+            lp = await lead_planner.compose_final(
+                case_file_id, bd.final_text, mp.final_text, session=s
+            )
+            await s.commit()
         stage_ms["lead_planner_ms"] = _ms(t)
         composed = lp.final_text
         budget_stopped = budget_stopped or lp.budget_stopped
@@ -294,11 +312,10 @@ async def run_audit(case_file_id: str) -> AuditResult:
     try:
         # CO-12B: deterministic accumulator + cross-validation (pre-agent, survives regardless).
         accumulator = await _run_accumulator_cross_check(case_file_id)
-        async with AsyncSessionLocal() as audit_session:
-            composed, budget_stopped, stage_ms = await _run_real_agents(
-                case_file_id, accumulator, [], budget, audit_session
-            )
-            await audit_session.commit()
+        # Agents run concurrently on their own sessions (see _run_real_agents) — no shared session.
+        composed, budget_stopped, stage_ms = await _run_real_agents(
+            case_file_id, accumulator, [], budget
+        )
         return await _finalize_result(
             case_file_id, composed, budget, budget_stopped, started, stage_ms,
             claude_path_label(settings), manage_status=False,
@@ -784,11 +801,10 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
     try:
         if use_real:
             log.info("orchestrator.finalize.real", case_file_id=case_file_id)
-            async with AsyncSessionLocal() as audit_session:
-                composed, budget_stopped, stage_ms = await _run_real_agents(
-                    case_file_id, accumulator, confirmations, budget, audit_session
-                )
-                await audit_session.commit()
+            # Agents run concurrently on their own sessions (see _run_real_agents).
+            composed, budget_stopped, stage_ms = await _run_real_agents(
+                case_file_id, accumulator, confirmations, budget
+            )
         else:
             log.info("orchestrator.finalize.fixture", case_file_id=case_file_id)
             await _persist_mri_fixture_finding(case_file_id)

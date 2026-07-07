@@ -299,6 +299,20 @@ export interface AdminSystemHealth {
     path: string | null;
     detail: string | null;
   };
+  // Item 1/2 — last real-agent audit run + rolling p50/p95 wall-clock (per-replica).
+  last_audit_run: {
+    at: string | null;
+    duration_seconds: number | null;
+    reason: string | null;
+    regens: number | null;
+    path: string | null;
+    stage_ms: Record<string, number> | null;
+  };
+  audit_duration_percentiles: {
+    count: number;
+    p50_seconds: number | null;
+    p95_seconds: number | null;
+  };
   recent_errors: Array<{
     event_id: string;
     timestamp: string | null;

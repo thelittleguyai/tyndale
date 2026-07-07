@@ -27,6 +27,25 @@ function Tile({ label, value, ok }: { label: string; value: string; ok: boolean 
   );
 }
 
+function fmtSec(s: number | null | undefined): string {
+  return s == null ? '—' : `${s.toFixed(1)}s`;
+}
+
+// Per-stage breakdown of the last audit's timings — shows where the minutes went (Item 2).
+const STAGE_LABEL: Record<string, string> = {
+  bill_detective_ms: 'BD',
+  math_person_ms: 'MP',
+  lead_planner_ms: 'LP',
+  agents_parallel_wall_ms: 'BD∥MP wall',
+};
+function stageBreakdown(stage: Record<string, number> | null): string {
+  if (!stage) return '';
+  return Object.entries(stage)
+    .filter(([k]) => STAGE_LABEL[k])
+    .map(([k, v]) => `${STAGE_LABEL[k]} ${(v / 1000).toFixed(1)}s`)
+    .join(' · ');
+}
+
 export default function SystemPage() {
   const [health, setHealth] = useState<AdminSystemHealth | null>(null);
   const [crons, setCrons] = useState<AdminCronSummary[]>([]);
@@ -110,6 +129,37 @@ export default function SystemPage() {
               </>
             ) : null}
           </div>
+
+          {health.audit_duration_percentiles ? (
+            <div className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4 text-sm text-white/60">
+              <span className="text-white/40">Audit latency:</span>{' '}
+              <span className="text-white/80">
+                p50 {fmtSec(health.audit_duration_percentiles.p50_seconds)} · p95{' '}
+                {fmtSec(health.audit_duration_percentiles.p95_seconds)}
+              </span>{' '}
+              <span className="text-white/30">
+                (last {health.audit_duration_percentiles.count} run
+                {health.audit_duration_percentiles.count === 1 ? '' : 's'}, this replica)
+              </span>
+              {health.last_audit_run?.duration_seconds != null ? (
+                <div className="mt-1 text-white/50">
+                  <span className="text-white/40">Last run:</span>{' '}
+                  {fmtSec(health.last_audit_run.duration_seconds)} · {health.last_audit_run.reason}
+                  {health.last_audit_run.regens != null
+                    ? ` · ${health.last_audit_run.regens} regen${
+                        health.last_audit_run.regens === 1 ? '' : 's'
+                      }`
+                    : ''}
+                  {stageBreakdown(health.last_audit_run.stage_ms) ? (
+                    <span className="text-white/30">
+                      {' '}
+                      · {stageBreakdown(health.last_audit_run.stage_ms)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <h2 className="mb-2 text-sm font-semibold text-white/80">Crons</h2>
           {msg ? <p className="mb-2 text-xs text-sage">{msg}</p> : null}

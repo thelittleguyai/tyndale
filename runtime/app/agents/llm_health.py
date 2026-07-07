@@ -10,6 +10,8 @@ NOT the encrypted audit log. State is per-replica (resets on restart), which is 
 
 from __future__ import annotations
 
+import math
+from collections import deque
 from datetime import datetime, timezone
 from threading import Lock
 
@@ -59,6 +61,9 @@ _last_audit: dict = {
     "path": None,
     "stage_ms": None,
 }
+# Item 2 — rolling wall-clock durations of recent audit runs (per-replica, last N) for the
+# p50/p95 line on the admin System page. A coarse latency signal, not a metrics backend.
+_audit_durations: deque[float] = deque(maxlen=200)
 
 
 def record_audit_run(
@@ -80,12 +85,30 @@ def record_audit_run(
             path=path,
             stage_ms=stage_ms or {},
         )
+        _audit_durations.append(duration_seconds)
 
 
 def last_audit_run() -> dict:
     """Snapshot of the last audit run's health (safe to serialize to admins)."""
     with _lock:
         return dict(_last_audit)
+
+
+def audit_duration_percentiles() -> dict:
+    """p50/p95 of recent audit-run wall-clock durations (nearest-rank, per-replica, last N runs
+    including budget-exceeded ones — the honest latency the user actually waited). For the admin
+    System page; resets on restart."""
+    with _lock:
+        vals = sorted(_audit_durations)
+    n = len(vals)
+    if n == 0:
+        return {"count": 0, "p50_seconds": None, "p95_seconds": None}
+
+    def _pct(p: float) -> float:
+        rank = max(1, math.ceil(p / 100 * n))  # 1-based nearest-rank
+        return round(vals[rank - 1], 1)
+
+    return {"count": n, "p50_seconds": _pct(50), "p95_seconds": _pct(95)}
 
 
 def claude_path_label(settings) -> str:
