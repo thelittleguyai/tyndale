@@ -1,0 +1,47 @@
+{
+  "name": "deductible_misapplied",
+  "description": "EOB applies deductible to a service that should be plan-paid (payer-side error).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "80053",
+          "description": "Comprehensive metabolic panel",
+          "charge": 210,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "80053",
+          "billed": 210,
+          "allowed": 60,
+          "plan_paid": 0,
+          "member_resp": 60
+        }
+      ],
+      "member_responsibility": 60
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "payer_side",
+      "cost_sharing"
+    ],
+    "no_fixture": true
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "collections_only",
+  "description": "Statement/collections notice only, no itemized bill or EOB (the Beloit shape).",
+  "documents": [
+    {
+      "type": "collections",
+      "filename": "collections.pdf",
+      "account": "E2E-000123",
+      "amount_due": 2450.0
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_incomplete",
+    "incomplete_reason": "needs_documents",
+    "no_fixture": true
+  }
+}

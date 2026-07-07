@@ -1,0 +1,63 @@
+{
+  "name": "encounter_mismatch_phantom",
+  "description": "A line item the patient denies happened (phantom charge).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "36415",
+          "description": "Routine venipuncture",
+          "charge": 25,
+          "units": 1
+        },
+        {
+          "code": "99213",
+          "description": "Office visit",
+          "charge": 185,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "36415",
+          "billed": 25,
+          "allowed": 15,
+          "plan_paid": 12,
+          "member_resp": 3
+        },
+        {
+          "code": "99213",
+          "billed": 185,
+          "allowed": 120,
+          "plan_paid": 96,
+          "member_resp": 24
+        }
+      ],
+      "member_responsibility": 27
+    }
+  ],
+  "encounter": {
+    "default": "yes",
+    "overrides": {
+      "36415": "no"
+    }
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "phantom",
+      "encounter_mismatch"
+    ],
+    "no_fixture": true
+  }
+}

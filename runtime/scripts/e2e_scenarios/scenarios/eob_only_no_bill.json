@@ -1,0 +1,29 @@
+{
+  "name": "eob_only_no_bill",
+  "description": "EOB present, provider bill missing.",
+  "documents": [
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99284",
+          "billed": 1200,
+          "allowed": 800,
+          "plan_paid": 600,
+          "member_resp": 200
+        }
+      ],
+      "member_responsibility": 200
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "no_fixture": true
+  }
+}

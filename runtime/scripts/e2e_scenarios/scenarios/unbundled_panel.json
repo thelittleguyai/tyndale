@@ -1,0 +1,73 @@
+{
+  "name": "unbundled_panel",
+  "description": "Component labs billed separately instead of the bundled panel (NCCI).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "84443",
+          "description": "TSH",
+          "charge": 60,
+          "units": 1
+        },
+        {
+          "code": "84439",
+          "description": "Free T4",
+          "charge": 55,
+          "units": 1
+        },
+        {
+          "code": "84479",
+          "description": "T3 uptake",
+          "charge": 50,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "84443",
+          "billed": 60,
+          "allowed": 40,
+          "plan_paid": 32,
+          "member_resp": 8
+        },
+        {
+          "code": "84439",
+          "billed": 55,
+          "allowed": 36,
+          "plan_paid": 29,
+          "member_resp": 7
+        },
+        {
+          "code": "84479",
+          "billed": 50,
+          "allowed": 33,
+          "plan_paid": 26,
+          "member_resp": 7
+        }
+      ],
+      "member_responsibility": 22
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "unbundl",
+      "bundling"
+    ],
+    "no_fixture": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "clean_bill_matching_eob",
+  "description": "Clean office visit, bill and EOB agree \u2014 the false-positive control.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99213",
+          "description": "Office visit, established pt",
+          "charge": 185,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99213",
+          "billed": 185,
+          "allowed": 120,
+          "plan_paid": 96,
+          "member_resp": 24
+        }
+      ],
+      "member_responsibility": 24
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "incomplete_reason": null,
+    "finding_types": [],
+    "max_findings": 0,
+    "no_fixture": true
+  }
+}

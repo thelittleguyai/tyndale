@@ -1,0 +1,42 @@
+{
+  "name": "msn_medicare",
+  "description": "Medicare Summary Notice instead of a commercial EOB (regime detection + MSN parser).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99214",
+          "description": "Office visit, moderate complexity",
+          "charge": 260,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "msn",
+      "filename": "msn.pdf",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99214",
+          "billed": 260,
+          "allowed": 110,
+          "plan_paid": 88,
+          "member_resp": 0
+        }
+      ],
+      "maximum_you_may_be_billed": 22.0
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "no_fixture": true
+  }
+}

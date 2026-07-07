@@ -1,0 +1,47 @@
+{
+  "name": "preventive_cost_shared",
+  "description": "Preventive service cost-shared despite ACA 2713 (should be $0 member).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "G0439",
+          "description": "Annual wellness visit, subsequent",
+          "charge": 250,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "G0439",
+          "billed": 250,
+          "allowed": 180,
+          "plan_paid": 140,
+          "member_resp": 40
+        }
+      ],
+      "member_responsibility": 40
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "preventive",
+      "payer_side"
+    ],
+    "no_fixture": true
+  }
+}

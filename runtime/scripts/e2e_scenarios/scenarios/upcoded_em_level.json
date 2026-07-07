@@ -1,0 +1,51 @@
+{
+  "name": "upcoded_em_level",
+  "description": "99215 (high complexity) billed for what the patient describes as a brief visit.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99215",
+          "description": "Office visit, high complexity",
+          "charge": 395,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99215",
+          "billed": 395,
+          "allowed": 240,
+          "plan_paid": 192,
+          "member_resp": 48
+        }
+      ],
+      "member_responsibility": 48
+    }
+  ],
+  "encounter": {
+    "default": "yes",
+    "overrides": {
+      "99215": "no"
+    }
+  },
+  "visit_context": "Quick 10-minute check-in to renew a prescription; no exam.",
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "upcod",
+      "encounter_mismatch"
+    ],
+    "no_fixture": true
+  }
+}

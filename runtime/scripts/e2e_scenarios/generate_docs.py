@@ -1,0 +1,187 @@
+"""Synthetic medical-document PDF generator for the e2e scenario harness (HP-2).
+
+SYNTHETIC IDENTITIES ONLY. Every patient / provider / account number here is fabricated for
+testing — this never contains, and must never contain, real PHI. Documents are parameterized
+(amounts, dates, codes) by the scenario JSON so scenarios stay fresh and can be regenerated.
+
+The text is written so the real pipeline recognizes it: classifier anchors (see
+app/sources/document_classifier.py) pick the document_type, and the OCR text is realistic enough
+for the agents to extract line items / amounts / codes.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+
+# A single synthetic patient/provider identity used across the suite (obviously fake).
+PATIENT = "JORDAN Q. TESTPATIENT"
+PROVIDER = "SYNTHETIC VALLEY MEDICAL CENTER"
+PAYER = "SYNTHETIC MUTUAL HEALTH PLAN"
+
+
+def _lines(c: canvas.Canvas, rows: list[str], *, x: float = inch, top: float = 10 * inch) -> None:
+    y = top
+    for row in rows:
+        if y < inch:  # new page if we run off the bottom
+            c.showPage()
+            y = top
+        c.setFont("Helvetica", 10)
+        c.drawString(x, y, row)
+        y -= 0.22 * inch
+
+
+def _money(n: float) -> str:
+    return f"${n:,.2f}"
+
+
+def make_bill(path: Path, *, account: str, service_date: str, line_items: list[dict], **_: Any) -> None:
+    """Provider itemized statement. Anchors: STATEMENT / AMOUNT DUE / CPT."""
+    total = round(sum(li["charge"] * li.get("units", 1) for li in line_items), 2)
+    rows = [
+        "ITEMIZED STATEMENT OF CHARGES",
+        f"Provider: {PROVIDER}",
+        f"Patient: {PATIENT}    Account #: {account}",
+        f"Date of Service: {service_date}",
+        "",
+        "CPT      Description                                Units   Charge",
+        "-------------------------------------------------------------------",
+    ]
+    for li in line_items:
+        rows.append(
+            f"{li['code']:<8} {li['description'][:38]:<38} {li.get('units', 1):<7} "
+            f"{_money(li['charge'])}"
+        )
+    rows += [
+        "-------------------------------------------------------------------",
+        f"TOTAL AMOUNT DUE: {_money(total)}",
+        "",
+        "This is a bill. Please remit payment or contact billing with questions.",
+    ]
+    c = canvas.Canvas(str(path), pagesize=letter)
+    _lines(c, rows)
+    c.showPage()
+    c.save()
+
+
+def make_eob(
+    path: Path,
+    *,
+    claim_number: str,
+    service_date: str,
+    line_items: list[dict],
+    member_responsibility: float,
+    header: str = "EXPLANATION OF BENEFITS",
+    payer: str = PAYER,
+    extra: list[str] | None = None,
+    **_: Any,
+) -> None:
+    """Payer EOB. Anchors: EXPLANATION OF BENEFITS / MEMBER RESPONSIBILITY. `header`/`payer`/
+    `extra` let a scenario brand this as an MA-EOB, TRICARE EOB, etc."""
+    rows = [
+        header,
+        "THIS IS NOT A BILL",
+        f"Payer: {payer}",
+        f"Member: {PATIENT}    Claim #: {claim_number}",
+        f"Date of Service: {service_date}",
+        *(extra or []),
+        "",
+        "CPT      Billed     Allowed    Plan Paid   Member Resp",
+        "-------------------------------------------------------------------",
+    ]
+    for li in line_items:
+        rows.append(
+            f"{li['code']:<8} {_money(li['billed']):<10} {_money(li['allowed']):<10} "
+            f"{_money(li['plan_paid']):<11} {_money(li['member_resp'])}"
+        )
+    rows += [
+        "-------------------------------------------------------------------",
+        f"TOTAL MEMBER RESPONSIBILITY: {_money(member_responsibility)}",
+    ]
+    c = canvas.Canvas(str(path), pagesize=letter)
+    _lines(c, rows)
+    c.showPage()
+    c.save()
+
+
+def make_msn(
+    path: Path, *, service_date: str, line_items: list[dict], maximum_you_may_be_billed: float, **_: Any
+) -> None:
+    """Medicare Summary Notice. Anchors: MEDICARE SUMMARY NOTICE / MAXIMUM YOU MAY BE BILLED."""
+    rows = [
+        "MEDICARE SUMMARY NOTICE",
+        "This is a summary of your Medicare claims. THIS IS NOT A BILL.",
+        f"Beneficiary: {PATIENT}",
+        f"Date of Service: {service_date}    Provider: {PROVIDER}",
+        "",
+        "Service          Amount Charged   Medicare Approved   Medicare Paid",
+        "-------------------------------------------------------------------",
+    ]
+    for li in line_items:
+        rows.append(
+            f"{li['code']:<16} {_money(li['billed']):<16} {_money(li['allowed']):<19} "
+            f"{_money(li['plan_paid'])}"
+        )
+    rows += [
+        "-------------------------------------------------------------------",
+        f"MAXIMUM YOU MAY BE BILLED: {_money(maximum_you_may_be_billed)}",
+    ]
+    c = canvas.Canvas(str(path), pagesize=letter)
+    _lines(c, rows)
+    c.showPage()
+    c.save()
+
+
+def make_collections(path: Path, *, account: str, amount_due: float, **_: Any) -> None:
+    """Collections / statement-only notice — NO itemization. Anchors: FINAL NOTICE / PAST DUE."""
+    rows = [
+        "FINAL NOTICE - PAST DUE ACCOUNT",
+        f"RE: Account {account} - {PROVIDER}",
+        f"Patient: {PATIENT}",
+        "",
+        f"Your account is PAST DUE in the amount of {_money(amount_due)}.",
+        "This account may be referred to a COLLECTION agency if not paid.",
+        "No itemization of charges is included with this notice.",
+    ]
+    c = canvas.Canvas(str(path), pagesize=letter)
+    _lines(c, rows)
+    c.showPage()
+    c.save()
+
+
+def make_garbage(path: Path, **_: Any) -> None:
+    """A near-empty page — no readable medical content → the pipeline should degrade honestly."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica", 8)
+    c.drawString(inch, 5 * inch, ".")  # essentially blank; OCR yields nothing usable
+    c.showPage()
+    c.save()
+
+
+_MAKERS = {
+    "bill": make_bill,
+    "eob": make_eob,
+    "msn": make_msn,
+    "collections": make_collections,
+    "garbage": make_garbage,
+}
+
+
+def generate_for_scenario(scenario: dict, out_dir: Path) -> list[Path]:
+    """Generate every document declared in a scenario's `documents` list. Returns the file paths
+    in declared order. Each doc entry: {"type": "bill"|"eob"|..., "filename": "...", ...params}."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for i, doc in enumerate(scenario.get("documents", [])):
+        maker = _MAKERS.get(doc["type"])
+        if maker is None:
+            raise ValueError(f"unknown document type: {doc['type']}")
+        filename = doc.get("filename") or f"{i}_{doc['type']}.pdf"
+        path = out_dir / filename
+        maker(path, **{k: v for k, v in doc.items() if k not in {"type", "filename"}})
+        paths.append(path)
+    return paths

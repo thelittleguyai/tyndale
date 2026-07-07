@@ -1,0 +1,17 @@
+{
+  "name": "unreadable_document",
+  "description": "Blank/garbage PDF \u2014 extraction should degrade honestly, never fabricate.",
+  "documents": [
+    {
+      "type": "garbage",
+      "filename": "garbage.pdf"
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "extraction_failed",
+    "no_fixture": true
+  }
+}

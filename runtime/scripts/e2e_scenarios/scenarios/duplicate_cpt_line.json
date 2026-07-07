@@ -1,0 +1,59 @@
+{
+  "name": "duplicate_cpt_line",
+  "description": "Same CPT billed twice \u2014 the original test case (73721 x2).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "73721",
+          "description": "MRI lower extremity w/o contrast",
+          "charge": 1850,
+          "units": 2
+        },
+        {
+          "code": "99213",
+          "description": "Office visit",
+          "charge": 185,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "73721",
+          "billed": 3700,
+          "allowed": 1800,
+          "plan_paid": 1440,
+          "member_resp": 360
+        },
+        {
+          "code": "99213",
+          "billed": 185,
+          "allowed": 120,
+          "plan_paid": 96,
+          "member_resp": 24
+        }
+      ],
+      "member_responsibility": 384
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "duplicate"
+    ],
+    "no_fixture": true
+  }
+}

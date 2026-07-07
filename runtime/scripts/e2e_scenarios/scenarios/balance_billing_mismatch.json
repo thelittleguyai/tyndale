@@ -1,0 +1,47 @@
+{
+  "name": "balance_billing_mismatch",
+  "description": "Bill's patient-responsibility exceeds the EOB's member responsibility.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-000123",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99285",
+          "description": "ER visit, high complexity",
+          "charge": 3900,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-777",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99285",
+          "billed": 3900,
+          "allowed": 1400,
+          "plan_paid": 1120,
+          "member_resp": 280
+        }
+      ],
+      "member_responsibility": 280
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "finding_types": [
+      "balance",
+      "provider_side"
+    ],
+    "no_fixture": true
+  }
+}
