@@ -19,18 +19,20 @@ from dataclasses import dataclass, field
 from app.sources.parsers.ma_eob import parse_ma_eob
 from app.sources.parsers.msn import parse_msn
 
-# Which coverage regime each document type implies (DL-82 populations).
+# Which coverage regime each document type implies (14-value populations, Brock 2026-07-06).
 IMPLIED_REGIME: dict[str, str] = {
     "msn": "medicare_traditional",
     "ma_eob": "medicare_advantage",
-    "mco_notice": "medicaid",
-    "tricare_eob": "tricare_va",
-    "va_statement": "tricare_va",
+    "mco_notice": "medicaid_mco",
+    "tricare_eob": "tricare",
+    "va_statement": "va_champva",
 }
 
-# dual_qmb legitimately holds both Medicare and Medicaid documents, so those don't clash.
+# dual_eligible legitimately holds both Medicare and Medicaid documents, so those don't clash.
 _REGIME_COMPATIBLE: dict[str, set[str]] = {
-    "dual_qmb": {"medicare_traditional", "medicare_advantage", "medicaid"},
+    "dual_eligible": {
+        "medicare_traditional", "medicare_advantage", "medicaid_ffs", "medicaid_mco",
+    },
 }
 
 # Wave 2–3 types with no parser yet. Classified + stored, but not parsed to claims.

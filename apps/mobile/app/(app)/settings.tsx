@@ -43,15 +43,22 @@ const CONSENT_FULL_TEXT = [
   'Withdrawing: you can turn this off anytime. After you withdraw, we stop using your information going forward. Information already fully de-identified may remain in our improvement datasets because it no longer identifies you.',
 ].join('\n');
 
-// Plain-language labels for the seven coverage regimes (DL-82).
+// Plain-language labels for the 14 coverage regimes (Brock 2026-07-06, DL-90).
 const REGIME_LABELS: Record<string, string> = {
-  commercial: 'Commercial / employer',
+  state_regulated_commercial: 'Commercial / employer',
+  erisa_self_funded: 'Self-funded employer (ERISA)',
   medicare_traditional: 'Original Medicare',
   medicare_advantage: 'Medicare Advantage',
-  medicaid: 'Medicaid',
-  dual_qmb: 'Medicare + Medicaid',
+  medicaid_ffs: 'Medicaid',
+  medicaid_mco: 'Medicaid managed care',
+  dual_eligible: 'Medicare + Medicaid',
+  tricare: 'TRICARE',
+  va_champva: 'VA / CHAMPVA',
+  fehb_pshb: 'Federal / postal (FEHB/PSHB)',
+  nonfederal_governmental: 'State / local government',
+  stldi: 'Short-term plan',
+  excepted_coverage: 'Health-sharing / indemnity',
   self_pay: 'No insurance (self-pay)',
-  tricare_va: 'TRICARE / VA / CHAMPVA',
 };
 
 export default function SettingsScreen() {

@@ -183,6 +183,13 @@ def _apply_regime_detection(case: CaseFile) -> None:
     else:
         case.coverage_regime = None
     case.regime_detection = detection.to_dict()
+    # Brock 2026-07-06: persist any deterministically-detected coverage attributes (grandfathered,
+    # qmb_status, …). Merge — never clobber a user-confirmed attribute with a null. PACE routes to a
+    # graceful handoff (detection.handoff) rather than a regime; the intake surface reads it.
+    if detection.attributes:
+        merged = dict(case.coverage_attributes or {})
+        merged.update({k: v for k, v in detection.attributes.items() if v is not None})
+        case.coverage_attributes = merged
 
 
 def _captured_data(case: CaseFile) -> CapturedData:

@@ -98,6 +98,34 @@ def _init_db() -> None:
                     "IN ('running','success','failed','partial','interrupted'))"
                 )
             )
+            # plan_types v2 (Brock 2026-07-06): reconcile coverage_regime 7→14 on a persisted DB +
+            # add coverage_attributes. Convert any stale v1 rows first so the new CHECK holds.
+            from app.plan_types import PLAN_TYPES as _PT
+
+            _regime_in = ", ".join(f"'{t}'" for t in _PT)
+            _renames = {
+                "commercial": "state_regulated_commercial", "medicaid": "medicaid_ffs",
+                "tricare_va": "tricare", "dual_qmb": "dual_eligible",
+            }
+            for _tbl in ("case_files", "insurance_info"):
+                ck = f"ck_{_tbl}_coverage_regime"
+                await conn.execute(text(f"ALTER TABLE {_tbl} DROP CONSTRAINT IF EXISTS {ck}"))
+                for _old, _new in _renames.items():
+                    await conn.execute(
+                        text(
+                            f"UPDATE {_tbl} SET coverage_regime = '{_new}' "
+                            f"WHERE coverage_regime = '{_old}'"
+                        )
+                    )
+                await conn.execute(
+                    text(
+                        f"ALTER TABLE {_tbl} ADD CONSTRAINT {ck} CHECK "
+                        f"(coverage_regime IS NULL OR coverage_regime IN ({_regime_in}))"
+                    )
+                )
+                await conn.execute(
+                    text(f"ALTER TABLE {_tbl} ADD COLUMN IF NOT EXISTS coverage_attributes jsonb")
+                )
         await _engine.dispose()
 
     asyncio.run(_go())

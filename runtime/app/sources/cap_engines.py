@@ -165,10 +165,12 @@ def _fixed_cap_engine(
     )
 
 
-def _medicaid_cap_engine(claims: list[dict], coverage: dict, as_of: date) -> CapResult:
+def _medicaid_cap_engine(regime: str, claims: list[dict], coverage: dict, as_of: date) -> CapResult:
     """Medicaid's 5%-of-household-income cost-share cap. Household income isn't collected
     (TODO(phil-decision): add the intake question), so the cap is RANGED over the income
-    priors rather than dead-ended (Sprint C)."""
+    priors rather than dead-ended (Sprint C). `regime` is the caller's canonical value
+    (medicaid_ffs or medicaid_mco) and is echoed on the result; the constant lookup stays
+    keyed on the shared "medicaid" cap-family (both share the same 5% cap)."""
     plan_year, assumed = _plan_year(coverage, as_of)
     ytd = _cost_share_ytd(claims, plan_year)
     assumptions = ["Medicaid 5%-of-household-income cap; household income not collected — cap ranged over priors"]
@@ -183,19 +185,19 @@ def _medicaid_cap_engine(claims: list[dict], coverage: dict, as_of: date) -> Cap
         excess = round(max(0.0, ytd - cap), 2)
         over = is_material(excess, cap, AUDIT_FLAG) and ytd > cap
         return CapResult(
-            regime="medicaid", cap_name="household_cost_share_cap_pct", cap_amount=cap,
+            regime=regime, cap_name="household_cost_share_cap_pct", cap_amount=cap,
             cap_range=None, member_cost_share_ytd=ytd, over_cap=over,
             excess=excess if over else 0.0, plan_year=plan_year, assumptions=assumptions,
             confidence=0.7, disclosure_tier=2 if over else 0,
             finding_spec=_over_cap_finding(
-                "medicaid", "household_cost_share_cap_pct", cap, ytd, excess, plan_year
+                regime, "household_cost_share_cap_pct", cap, ytd, excess, plan_year
             ) if over else None,
         )
 
     prior = MISSING_DATA_PRIORS["household_income"]
     rng = compute_range(prior.plausible_values(), lambda inc: pct * inc, base_value=prior.base)
     return CapResult(
-        regime="medicaid", cap_name="household_cost_share_cap_pct", cap_amount=rng.base,
+        regime=regime, cap_name="household_cost_share_cap_pct", cap_amount=rng.base,
         cap_range=rng.to_dict(), member_cost_share_ytd=ytd, over_cap=False, excess=0.0,
         plan_year=plan_year, missing_inputs=["household_income"], assumptions=assumptions,
         confidence=0.3,
@@ -229,16 +231,20 @@ def _ma_moop_engine(claims: list[dict], coverage: dict, as_of: date) -> CapResul
     return _fixed_cap_engine("medicare_advantage", "in_network_moop", claims, coverage, as_of)
 
 
-# regime -> engine. Regimes without a constants-based cap (commercial uses the plan OOP-max
-# via the accumulator; self_pay has none; dual_qmb is a $0-cost-share special case) return None.
+# regime -> engine (14-value vocabulary, Brock 2026-07-06). Regimes without a constants-based cap
+# (state_regulated_commercial/erisa_self_funded use the plan OOP-max via the accumulator; self_pay,
+# fehb_pshb, nonfederal_governmental, stldi, excepted_coverage have none here; dual_eligible is a
+# $0-cost-share special case) return None.
 def compute_cap(regime: str, claims: list[dict], coverage: dict | None, as_of: date) -> CapResult | None:
     coverage = coverage or {}
     if regime == "medicare_traditional":
         return _fixed_cap_engine("medicare_traditional", "part_d_oop_cap", claims, coverage, as_of)
-    if regime == "tricare_va":
-        return _fixed_cap_engine("tricare_va", "champva_catastrophic_cap", claims, coverage, as_of)
-    if regime == "medicaid":
-        return _medicaid_cap_engine(claims, coverage, as_of)
+    if regime == "va_champva":
+        return _fixed_cap_engine("va_champva", "champva_catastrophic_cap", claims, coverage, as_of)
+    if regime == "tricare":
+        return _fixed_cap_engine("tricare", "tricare_catastrophic_cap", claims, coverage, as_of)
+    if regime in ("medicaid_ffs", "medicaid_mco"):
+        return _medicaid_cap_engine(regime, claims, coverage, as_of)
     if regime == "medicare_advantage":
         return _ma_moop_engine(claims, coverage, as_of)
     return None

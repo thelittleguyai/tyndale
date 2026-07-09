@@ -22,18 +22,40 @@ export const INTAKE_STEPS = [
 export type IntakeStep = (typeof INTAKE_STEPS)[number];
 export type IntakeStatus = 'not_started' | 'in_progress' | 'complete';
 
-/** The seven coverage regimes (DL-82). Mirrors runtime app/sources/regime_detection.py. */
+/**
+ * The 14 canonical coverage regimes (Brock 2026-07-06). Mirrors runtime app/plan_types.py
+ * PLAN_TYPES exactly — kept in sync by tests/test_plan_types_canonical.py.
+ */
 export const COVERAGE_REGIMES = [
-  'commercial',
+  'state_regulated_commercial',
+  'erisa_self_funded',
   'medicare_traditional',
   'medicare_advantage',
-  'medicaid',
-  'dual_qmb',
+  'medicaid_ffs',
+  'medicaid_mco',
+  'dual_eligible',
   'self_pay',
-  'tricare_va',
+  'tricare',
+  'va_champva',
+  'fehb_pshb',
+  'nonfederal_governmental',
+  'stldi',
+  'excepted_coverage',
 ] as const;
 
 export type CoverageRegime = (typeof COVERAGE_REGIMES)[number];
+
+/** Typed coverage attributes (Brock 2026-07-06) — validated against the regime in the runtime. */
+export interface CoverageAttributes {
+  qmb_status?: boolean | null;
+  ihs_prc_eligible?: boolean | null;
+  grandfathered?: boolean | null;
+  market_segment?: string | null;
+  church_plan?: boolean | null;
+  medigap?: boolean | null;
+  dsnp?: boolean | null;
+  governmental_fully_insured?: boolean | null;
+}
 
 /** Steps the user may skip (graceful degradation — equal-weight in the UI). */
 export const SKIPPABLE_STEPS: ReadonlySet<IntakeStep> = new Set<IntakeStep>([

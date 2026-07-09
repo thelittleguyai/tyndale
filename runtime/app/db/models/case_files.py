@@ -14,6 +14,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.plan_types import PLAN_TYPES
+
+# Canonical 14 regimes as a SQL IN-list — single source of truth (app.plan_types).
+_REGIME_SQL_IN = ", ".join(f"'{t}'" for t in PLAN_TYPES)
 
 
 class CaseFile(Base):
@@ -35,9 +39,7 @@ class CaseFile(Base):
             name="ck_case_files_audit_incomplete_reason",
         ),
         CheckConstraint(
-            "coverage_regime IS NULL OR coverage_regime IN ("
-            "'commercial', 'medicare_traditional', 'medicare_advantage', 'medicaid', "
-            "'dual_qmb', 'self_pay', 'tricare_va')",
+            f"coverage_regime IS NULL OR coverage_regime IN ({_REGIME_SQL_IN})",
             name="ck_case_files_coverage_regime",
         ),
         Index("idx_case_files_intake_status", "intake_status"),
@@ -108,6 +110,10 @@ class CaseFile(Base):
     # audited under generic rules with an explicit assumption. Never guessed.
     coverage_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
     regime_detection: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Brock 2026-07-06 — typed coverage attributes (qmb_status, medigap, dsnp, grandfathered, …)
+    # validated against the regime by app.plan_types. NOT buckets; a nullable value = the
+    # attribute is unknown (the flagship QMB never-bill check keys on qmb_status IS TRUE only).
+    coverage_attributes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Sprint G: nudge stages already sent for this case's load-bearing data-fetch items
     # (e.g. ["+3d", "+14d"]) — the idempotency ledger so a stage never double-sends.
     nudges_sent: Mapped[list] = mapped_column(

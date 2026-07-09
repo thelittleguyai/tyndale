@@ -121,12 +121,18 @@ async def run(args: argparse.Namespace) -> int:
     invalid: list[str] = []
     no_x6: list[str] = []
     no_ground: list[str] = []
+    fehb_on_state: list[str] = []  # HARD RULE (Brock 2026-07-06): state law never binds fehb_pshb
     for juris in sorted(present & EXPECTED):
         recs = by_juris[juris]
         for rec in recs:
             if list(validator.iter_errors(rec)):
                 first = next(iter(validator.iter_errors(rec)))
                 invalid.append(f"{juris}[{rec.get('chunk_id', '?')}]: {first.message}")
+            # FEHBA preempts state insurance law (5 U.S.C. 8902(m)(1)) — a state-jurisdiction entry
+            # (jurisdiction != 'US') binding fehb_pshb is a wrong-answer error, not a warning.
+            bound = ((rec.get("scope") or {}).get("plan_types_bound")) or []
+            if rec.get("jurisdiction") != "US" and "fehb_pshb" in bound:
+                fehb_on_state.append(f"{juris}[{rec.get('chunk_id', '?')}]")
         if not any(r.get("x6_classification") for r in recs):
             no_x6.append(juris)
         if not any(_ground_ambulance_answered(r) for r in recs):
@@ -163,6 +169,8 @@ async def run(args: argparse.Namespace) -> int:
         print(f"  - {line}")
     print(f"missing x6_classification    : {len(no_x6)}" + (f" ({', '.join(no_x6)})" if no_x6 else ""))
     print(f"null ground-ambulance answer : {len(no_ground)}" + (f" ({', '.join(no_ground)})" if no_ground else ""))
+    print(f"state law binding fehb_pshb  : {len(fehb_on_state)}" + (
+        f" ({', '.join(fehb_on_state)})" if fehb_on_state else "") + "  [must be 0 — FEHBA preempts state law]")
     if args.no_retrieval:
         print("retrieval smoke       : skipped (--no-retrieval)")
     elif not retrieval_ran:
@@ -178,6 +186,7 @@ async def run(args: argparse.Namespace) -> int:
         and not invalid
         and not no_x6
         and not no_ground
+        and not fehb_on_state
         and (args.no_retrieval or not retrieval_ran or not retrieval_failures)
     )
     strict_retrieval_gap = args.strict and (args.no_retrieval or not retrieval_ran)

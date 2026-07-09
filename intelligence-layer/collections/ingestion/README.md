@@ -19,9 +19,53 @@ are new in the X6 revision (DL-84) and easy to get wrong:
 | `x6_classification` | `CATEGORICAL` — the rule applies flatly once the authority is on point (e.g. ERISA's 180-day appeal window). `CONDITIONAL` — the protection turns on facts about the encounter. |
 | `checkable_facts` | The encounter facts that must hold for a **CONDITIONAL** protection to apply (e.g. `"service was non-emergency"`, `"out-of-network provider at an in-network facility"`). **Required non-empty when `CONDITIONAL`**; leave `[]` for `CATEGORICAL`. |
 | `defeaters` | Facts that defeat an otherwise-applicable protection (e.g. `"valid NSA notice-and-consent obtained"`, `"plan is ERISA self-funded so state law is preempted"`). May be `[]`. |
-| `scope.plan_types_bound` | Which coverage populations this authority actually binds. **State** surprise-billing statutes typically bind `["state_regulated_commercial"]` and **NOT** `erisa_self_funded` — that preemption boundary is the whole reason this field exists. |
+| `scope.plan_types_bound` | Which coverage populations this authority actually binds — one or more of the **14 canonical plan types** (see the reference below), or `["all"]`. **State** surprise-billing statutes typically bind `["state_regulated_commercial"]` and **NOT** `erisa_self_funded`; a state entry must **never** bind `fehb_pshb` (the seed gate errors on it). |
 | `scope.ground_ambulance_covered` | Whether this authority's balance-billing protection reaches **ground ambulance**. For a surprise-billing record this MUST be an explicit `true`/`false` — the seed gate rejects `null`. Use `null` only on records where ground ambulance is genuinely not applicable (e.g. an appeals-deadline statute). |
 | `as_of` | The date the classification / statute snapshot was verified by the reviewer. Surfaced in citations. |
+
+### `plan_types_bound` — the 14 canonical values (Brock 2026-07-06)
+
+Pick every population the authority actually reaches. Values (single source: runtime
+`app/plan_types.py`; the schema enum + `packages/shared` mirror it):
+
+| value | population |
+|---|---|
+| `state_regulated_commercial` | fully-insured commercial regulated by the state DOI (state law binds) |
+| `erisa_self_funded` | self-funded ERISA employer plan (state insurance law is **preempted**; federal binds) |
+| `medicare_traditional` | Original Medicare (Parts A/B), incl. Medigap |
+| `medicare_advantage` | Medicare Advantage (Part C) |
+| `medicaid_ffs` | Medicaid fee-for-service |
+| `medicaid_mco` | Medicaid managed care (Molina/Centene/etc.) |
+| `dual_eligible` | dually eligible for Medicare + Medicaid |
+| `self_pay` | uninsured / out-of-pocket (GFE / PPDR rights) |
+| `tricare` | TRICARE (active/retired military) |
+| `va_champva` | VA health care + CHAMPVA |
+| `fehb_pshb` | FEHB/PSHB (federal + postal). **FEHBA preempts state law** (5 U.S.C. 8902(m)(1)) |
+| `nonfederal_governmental` | self-funded state/county/city/school plan (non-ERISA; 45 CFR 147.136) |
+| `stldi` | short-term limited-duration insurance (outside NSA + ACA appeals) |
+| `excepted_coverage` | HCSMs, fixed indemnity, Farm Bureau (not insurance) |
+
+Plus `["all"]` for a law binding every population (e.g. a broad federal statute).
+
+**Hard rules the seed gate enforces:**
+- A **state** entry (`jurisdiction != "US"`) must **never** include `fehb_pshb` — FEHBA preempts
+  state insurance law. `check_state_seed.py` reports this as an error and fails the gate.
+- `stldi` and `excepted_coverage` sit **outside** the No Surprises Act and ACA appeal rights — do
+  not author state/federal surprise-billing or appeal protections as binding them.
+
+**Worked examples:**
+```jsonc
+// A state balance-billing statute (binds state-regulated plans, not ERISA):
+"scope": { "plan_types_bound": ["state_regulated_commercial"], "ground_ambulance_covered": false }
+
+// The federal No Surprises Act (binds broadly, but NOT plans it excludes):
+"scope": { "plan_types_bound": ["state_regulated_commercial", "erisa_self_funded",
+                                 "fehb_pshb", "nonfederal_governmental"],
+           "ground_ambulance_covered": false }
+
+// A Medicaid managed-care member-protection rule:
+"scope": { "plan_types_bound": ["medicaid_mco"], "ground_ambulance_covered": null }
+```
 
 ### Affirmative "no law here" records (DL-81)
 

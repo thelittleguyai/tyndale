@@ -12,16 +12,24 @@ import {
   useWizard,
 } from '../../lib/intake-ui';
 
-// Plain-language labels for the seven coverage regimes (DL-82). The user confirms
-// which one applies so their bills are audited under the right population's rules —
-// never commercial-by-analogy.
+// Plain-language labels for the 14 coverage regimes (Brock 2026-07-06, DL-90). The user confirms
+// which one applies so their bills are audited under the right population's rules — never
+// commercial-by-analogy. The detected candidate is preselected, so this is usually a one-tap
+// confirm; the full list is here for correction.
 const REGIME_OPTIONS: { value: CoverageRegime; label: string; hint: string }[] = [
-  { value: 'commercial', label: 'Commercial or employer insurance', hint: 'A plan through work or one you bought — PPO, HMO, EPO' },
-  { value: 'medicare_traditional', label: 'Original Medicare', hint: 'Parts A & B, the red-white-and-blue card' },
+  { value: 'state_regulated_commercial', label: 'Commercial or employer insurance', hint: 'A plan through work or one you bought — PPO, HMO, EPO' },
+  { value: 'erisa_self_funded', label: 'Self-funded employer plan', hint: 'A large employer that pays claims itself (ERISA) — often says "self-funded" or "plan administrator"' },
+  { value: 'medicare_traditional', label: 'Original Medicare', hint: 'Parts A & B, the red-white-and-blue card (incl. Medigap)' },
   { value: 'medicare_advantage', label: 'Medicare Advantage', hint: 'A private Medicare plan (Part C) — often named for an insurer' },
-  { value: 'medicaid', label: 'Medicaid', hint: 'State coverage, including a Medicaid managed-care plan' },
-  { value: 'dual_qmb', label: 'Both Medicare and Medicaid', hint: 'Dual-eligible / QMB — you have both' },
-  { value: 'tricare_va', label: 'TRICARE, VA, or CHAMPVA', hint: 'Military or veterans coverage' },
+  { value: 'medicaid_ffs', label: 'Medicaid', hint: 'State coverage paid directly by the state' },
+  { value: 'medicaid_mco', label: 'Medicaid managed-care plan', hint: 'State coverage through a private plan (Molina, Centene, etc.)' },
+  { value: 'dual_eligible', label: 'Both Medicare and Medicaid', hint: 'Dual-eligible / QMB — you have both' },
+  { value: 'tricare', label: 'TRICARE', hint: 'Active-duty or retired military coverage' },
+  { value: 'va_champva', label: 'VA or CHAMPVA', hint: "Veterans' health care or CHAMPVA" },
+  { value: 'fehb_pshb', label: 'Federal or postal employee plan', hint: 'FEHB or PSHB — a federal-government or USPS plan' },
+  { value: 'nonfederal_governmental', label: 'State/county/city/school employee plan', hint: 'A government-employer plan (not federal)' },
+  { value: 'stldi', label: 'Short-term health plan', hint: 'Temporary coverage — the card may say "not qualifying health coverage"' },
+  { value: 'excepted_coverage', label: 'Health-sharing or fixed-indemnity plan', hint: 'A cost-sharing ministry or supplemental plan — not full insurance' },
   { value: 'self_pay', label: "I don't have insurance", hint: "You're paying for this yourself" },
 ];
 

@@ -25,6 +25,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.plan_types import PLAN_TYPES
+
+# Canonical 14 regimes as a SQL IN-list — single source of truth (app.plan_types).
+_REGIME_SQL_IN = ", ".join(f"'{t}'" for t in PLAN_TYPES)
 
 
 class InsuranceInfo(Base):
@@ -32,9 +36,7 @@ class InsuranceInfo(Base):
     __table_args__ = (
         UniqueConstraint("user_id", name="uq_insurance_info_user"),
         CheckConstraint(
-            "coverage_regime IS NULL OR coverage_regime IN ("
-            "'commercial', 'medicare_traditional', 'medicare_advantage', 'medicaid', "
-            "'dual_qmb', 'self_pay', 'tricare_va')",
+            f"coverage_regime IS NULL OR coverage_regime IN ({_REGIME_SQL_IN})",
             name="ck_insurance_info_coverage_regime",
         ),
     )
@@ -79,6 +81,8 @@ class InsuranceInfo(Base):
     # migration 0020; null = not yet detected. Never guessed — see regime_detection.py.
     coverage_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
     regime_detection: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Brock 2026-07-06 — typed coverage attributes (see plan_types); nullable value = unknown.
+    coverage_attributes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

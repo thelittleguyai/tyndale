@@ -117,13 +117,13 @@ def test_ma_eob_garbage_input():
 
 # --- regime consistency ---
 def test_regime_consistency_finding():
-    mismatch = regime_consistency_finding("msn", "commercial")
+    mismatch = regime_consistency_finding("msn", "state_regulated_commercial")
     assert mismatch is not None
     assert mismatch["category"] == "regime_document_mismatch"
     assert mismatch["facts"]["document_implies_regime"] == "medicare_traditional"
     # consistent / compatible / unknown → no finding
     assert regime_consistency_finding("msn", "medicare_traditional") is None
-    assert regime_consistency_finding("ma_eob", "dual_qmb") is None
+    assert regime_consistency_finding("ma_eob", "dual_eligible") is None
     assert regime_consistency_finding("msn", None) is None
 
 
@@ -137,7 +137,7 @@ def test_stub_types_have_no_parser():
 async def test_parsed_eob_source_emits_typed_provenance():
     src = ParsedEobSource()
     result = await src.get_claims(
-        "case-1", {"document_type": "msn", "ocr_text": _MSN, "coverage_regime": "commercial"}
+        "case-1", {"document_type": "msn", "ocr_text": _MSN, "coverage_regime": "state_regulated_commercial"}
     )
     assert isinstance(result.provenance, Provenance)
     assert result.provenance.adapter == "MSNExtractor"

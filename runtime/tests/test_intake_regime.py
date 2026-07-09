@@ -65,7 +65,7 @@ async def test_detection_populates_on_manual_entry(client: AsyncClient):
     assert r.status_code == 200
     cap = (await _state(client, cfid))["captured_data"]
     assert cap["regime_detection"] is not None
-    assert cap["regime_detection"]["candidate"] == "medicaid"
+    assert cap["regime_detection"]["candidate"] == "medicaid_ffs"
     assert cap["regime_detection"]["verified"] is False
     assert cap["coverage_regime"] is None  # medium confidence → the ladder still asks
 

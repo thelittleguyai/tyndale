@@ -88,12 +88,20 @@
               "erisa_self_funded",
               "medicare_traditional",
               "medicare_advantage",
-              "medicaid",
-              "tricare_va",
+              "medicaid_ffs",
+              "medicaid_mco",
+              "dual_eligible",
+              "self_pay",
+              "tricare",
+              "va_champva",
+              "fehb_pshb",
+              "nonfederal_governmental",
+              "stldi",
+              "excepted_coverage",
               "all"
             ]
           },
-          "description": "The populations this authority reaches. State surprise-billing statutes typically bind only 'state_regulated_commercial' and NOT 'erisa_self_funded'; federal law (NSA, ERISA) may bind 'all' or specific populations."
+          "description": "The populations this authority reaches (Brock 2026-07-06, 14-value enum + 'all'). State surprise-billing statutes typically bind only 'state_regulated_commercial' and NOT 'erisa_self_funded'; federal law (NSA, ERISA) may bind 'all' or specific populations. HARD RULE: a STATE-law entry (jurisdiction != 'US') must NEVER bind 'fehb_pshb' — FEHBA preempts state insurance law (5 U.S.C. 8902(m)(1)); the 51-state seed check enforces this as an error. 'stldi' and 'excepted_coverage' sit outside NSA / ACA-appeal protections. 'all' is a wildcard for a law binding every population; it is never a detected coverage regime."
         },
         "ground_ambulance_covered": {
           "type": ["boolean", "null"],

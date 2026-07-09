@@ -105,6 +105,19 @@ async def test_complete_seed_passes(memory_qdrant):
 
 
 @pytest.mark.asyncio
+async def test_state_law_binding_fehb_pshb_fails_gate(memory_qdrant):
+    # HARD RULE (Brock 2026-07-06): FEHBA preempts state insurance law, so a STATE-jurisdiction
+    # entry binding fehb_pshb is a wrong-answer error — an otherwise complete seed must NOT pass.
+    recs = [_rec(c) for c in STATES]
+    recs[0]["scope"]["plan_types_bound"] = ["state_regulated_commercial", "fehb_pshb"]
+    await _seed(recs)
+    code, out = await _run_capture(_args())
+    assert "state law binding fehb_pshb  : 1" in out
+    assert "GATE: PASS" not in out
+    assert code == 1
+
+
+@pytest.mark.asyncio
 async def test_null_ground_ambulance_fails_gate(memory_qdrant):
     # All 51 present + schema-valid (null ground ambulance IS schema-legal), but the gate
     # forbids a null ground-ambulance answer for the seed.

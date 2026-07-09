@@ -390,6 +390,8 @@ def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
     non-commercial or unconfirmed regime still uses the generic path but carries an
     explicit assumption naming the pending population corpus, so nothing silently
     pretends to have applied population-specific rules."""
+    from app.plan_types import COMMERCIAL_FAMILY, SUPPRESS_FEDERAL_PROTECTIONS
+
     regime = case.coverage_regime if case else None
     detection = (case.regime_detection if case else None) or {}
     verified = bool(detection.get("verified"))
@@ -398,11 +400,18 @@ def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
         assumptions.append(
             "coverage regime not yet confirmed — audited under generic commercial rules (DL-82)"
         )
-    elif regime != "commercial":
+    elif regime not in COMMERCIAL_FAMILY:
         assumptions.append(
             f"audited under generic commercial rules — {regime} rules corpus pending (DL-82)"
         )
-    if not get_settings().enable_nsa_checks:
+    # stldi / excepted benefits are OUTSIDE the No Surprises Act + ACA appeal rights — asserting
+    # them would be a wrong answer (Brock 2026-07-06). Suppress + say so, not just tag a corpus.
+    if regime in SUPPRESS_FEDERAL_PROTECTIONS:
+        assumptions.append(
+            f"'{regime}' is not qualifying health coverage — the No Surprises Act and ACA "
+            "internal/external appeal rights DO NOT apply and are not asserted for this coverage"
+        )
+    elif not get_settings().enable_nsa_checks:
         assumptions.append(
             "surprise-billing / No Surprises Act checks are not yet enabled "
             "(pending the 50-state seed — DL-81/DL-88)"

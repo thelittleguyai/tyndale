@@ -34,7 +34,7 @@ def _claims(*amounts):
 # --- constants registry ---
 def test_lookup_and_fail_loud():
     assert lookup("medicare_traditional", "part_d_oop_cap", 2026).amount == 2100.0
-    assert lookup("tricare_va", "champva_catastrophic_cap", 2026).amount == 3000.0
+    assert lookup("va_champva", "champva_catastrophic_cap", 2026).amount == 3000.0
     # A structurally-present but value-pending row still returns (loaded=False).
     ma = lookup("medicare_advantage", "in_network_moop", 2026)
     assert ma.amount is None and ma.loaded is False
@@ -56,9 +56,9 @@ def test_missing_constant_finding_shape():
     [
         ("medicare_traditional", _claims(1500), COV, 2100.0, False, 0.0),
         ("medicare_traditional", _claims(1500, 1000), COV, 2100.0, True, 400.0),
-        ("tricare_va", _claims(2900), COV, 3000.0, False, 0.0),
-        ("tricare_va", _claims(3500), COV, 3000.0, True, 500.0),
-        ("medicaid", _claims(3000), {"plan_year": 2026, "household_income": 50000}, 2500.0, True, 500.0),
+        ("va_champva", _claims(2900), COV, 3000.0, False, 0.0),
+        ("va_champva", _claims(3500), COV, 3000.0, True, 500.0),
+        ("medicaid_ffs", _claims(3000), {"plan_year": 2026, "household_income": 50000}, 2500.0, True, 500.0),
         ("medicare_advantage", _claims(9000), {"plan_year": 2026, "oop_max_amount": 8000}, 8000.0, True, 1000.0),
     ],
 )
@@ -74,12 +74,12 @@ def test_cap_engines(regime, claims, coverage, expect_cap, expect_over, expect_e
 
 
 def test_regimes_without_a_cap_engine_return_none():
-    for regime in ("commercial", "self_pay", "dual_qmb"):
+    for regime in ("state_regulated_commercial", "self_pay", "dual_eligible"):
         assert compute_cap(regime, _claims(500), COV, AS_OF) is None
 
 
 def test_medicaid_ranges_over_missing_income():
-    r = compute_cap("medicaid", _claims(3000), COV, AS_OF)
+    r = compute_cap("medicaid_ffs", _claims(3000), COV, AS_OF)
     assert r.cap_range is not None
     assert r.missing_inputs == ["household_income"]
     assert r.disclosure_tier == 3  # chase household income (span crosses USER_CHASE)

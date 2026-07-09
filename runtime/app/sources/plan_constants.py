@@ -47,15 +47,17 @@ PLAN_CONSTANTS: dict[tuple[str, str, int], PlanConstant] = {
     ("medicare_traditional", "part_d_oop_cap", 2026): PlanConstant(
         2100.0, "usd", "2026-07-03", "Batch-1 memo (IRA Part D out-of-pocket cap, 2026)"
     ),
-    ("tricare_va", "champva_catastrophic_cap", 2026): PlanConstant(
+    ("va_champva", "champva_catastrophic_cap", 2026): PlanConstant(
         3000.0, "usd", "2026-07-03", "Batch-1 memo (CHAMPVA catastrophic cap)"
     ),
+    # 'medicaid' is a cap-FAMILY key shared by medicaid_ffs + medicaid_mco (both carry the same
+    # 5%-of-household-income federal cap) — the cap engine routes either regime here.
     ("medicaid", "household_cost_share_cap_pct", 2026): PlanConstant(
         0.05, "fraction", "2026-07-03", "Batch-1 memo (Medicaid 5%-of-household-income cap)",
         "5% of household income per quarter/month depending on state; needs household income input",
     ),
     # Structure present, value pending (memo named the cap but not the number):
-    ("tricare_va", "tricare_catastrophic_cap", 2026): PlanConstant(
+    ("tricare", "tricare_catastrophic_cap", 2026): PlanConstant(
         None, "usd", "2026-07-03", "Batch-1 memo",
         "TODO(brock-content): TRICARE catastrophic cap amount (varies by beneficiary category)",
     ),
@@ -63,6 +65,14 @@ PLAN_CONSTANTS: dict[tuple[str, str, int], PlanConstant] = {
         None, "usd", "2026-07-03", "CMS annual MA MOOP maximum",
         "TODO(brock-content): CMS 2026 MA in-network MOOP maximum; the plan-specific MOOP "
         "comes from the member's EOB/SBC when available",
+    ),
+    # STLDI max duration (Brock 2026-07-06). STATE-DEPENDENT + re-verifiable — never hardcoded:
+    # the federal 4-month rule is under non-enforcement since 2025-08-07 with litigation stayed, so
+    # the effective limit is per-state. amount=None → the engine ranges/chases rather than assert.
+    ("stldi", "max_duration_months", 2026): PlanConstant(
+        None, "months", "2026-07-06", "Brock memo 2026-07-06",
+        "TODO(brock-content): state-dependent STLDI max duration; federal 4-month cap under "
+        "non-enforcement since 2025-08-07 (litigation stayed) — verify the effective limit per state",
     ),
 }
 
