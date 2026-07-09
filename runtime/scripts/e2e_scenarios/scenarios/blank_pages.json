@@ -12,7 +12,7 @@
     "default": "yes"
   },
   "expect": {
-    "terminal": "extraction_failed",
+    "terminal": ["extraction_failed", "not_a_bill"],
     "no_encounter": true
   }
 }

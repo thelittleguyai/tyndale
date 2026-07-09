@@ -155,8 +155,13 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
     """Assert the scenario's expectations. Returns a list of failure strings (empty == pass)."""
     exp = scenario["expect"]
     fails: list[str] = []
-    if terminal != exp["terminal"]:
-        fails.append(f"terminal={terminal!r} expected {exp['terminal']!r}")
+    # `terminal` may be a single value or a list of acceptable honest terminals (e.g. a blank /
+    # garbage PDF may land on extraction_failed OR not_a_bill depending on whether real DI extracts
+    # any trivial text — both are honest no-encounter states, which is what actually matters).
+    want = exp["terminal"]
+    ok = terminal in want if isinstance(want, list) else terminal == want
+    if not ok:
+        fails.append(f"terminal={terminal!r} expected {want!r}")
     # A degradation scenario must NEVER reach the encounter screen: the honest-failure states carry
     # zero line items. Assert both, so a regression that dead-ends on "0 of 0" is caught.
     if exp.get("no_encounter"):
