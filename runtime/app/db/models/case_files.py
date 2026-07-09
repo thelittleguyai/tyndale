@@ -26,7 +26,8 @@ class CaseFile(Base):
         CheckConstraint(
             "status IN ('open', 'in_progress', 'encounter_verification_pending', "
             "'encounter_verified', 'awaiting_eob_confirmation', 'audit_running', "
-            "'audit_complete', 'audit_incomplete', 'extraction_failed', 'resolved', 'archived')",
+            "'audit_complete', 'audit_incomplete', 'extraction_failed', 'not_a_bill', "
+            "'resolved', 'archived')",
             name="ck_case_files_status",
         ),
         CheckConstraint(
@@ -123,3 +124,11 @@ class CaseFile(Base):
     # terminal screen: 'needs_documents' (user-actionable — findings produced, three-number
     # blocked on missing inputs) | 'system_error' (budget/citation/provider). NULL otherwise.
     audit_incomplete_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Member-initiated soft-delete ("remove this case", for junk / mistaken uploads with no
+    # findings). NULL = live. Set together: timestamp + the acting user. Every user-scoped list
+    # query (GET /cases, GET /dashboard) filters soft_deleted_at IS NULL; the row is retained
+    # (audited) rather than hard-deleted.
+    soft_deleted_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    soft_deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

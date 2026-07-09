@@ -104,7 +104,7 @@ async def test_upload_error_response_carries_cors_headers(client: AsyncClient, m
     monkeypatch.setattr("app.routes.upload._persist", _boom)
     r = await client.post(
         "/v1/upload",
-        files={"file": ("bill.pdf", b"pdf", "application/pdf")},
+        files={"file": ("bill.pdf", b"%PDF-1.4 x", "application/pdf")},
         headers={"Origin": _ORIGIN},
     )
     assert r.status_code == 503
@@ -112,3 +112,33 @@ async def test_upload_error_response_carries_cors_headers(client: AsyncClient, m
     # ingress/replica-death 503, which is what the blocking DI call used to cause).
     assert r.headers.get("access-control-allow-origin") == _ORIGIN
     assert r.json()["detail"]  # the user-facing reason is present
+
+
+# --- magic-byte validation: non-PDF/image payloads rejected at the door (422 + CORS)
+@pytest.mark.asyncio
+async def test_invalid_filetype_rejected_with_cors(client: AsyncClient):
+    """A non-PDF/image payload (a .txt grocery list) is rejected before it is stored or OCR'd,
+    with a readable 422 the app can render — CORS-decorated + a detail naming the file. This is
+    the client-slipped-through case + the security gap (anything ≤20MB used to be stored + OCR'd)."""
+    r = await client.post(
+        "/v1/upload",
+        files={"file": ("groceries.txt", b"milk\neggs\nbread\nbananas\n", "text/plain")},
+        headers={"Origin": _ORIGIN},
+    )
+    assert r.status_code == 422, r.text
+    assert r.headers.get("access-control-allow-origin") == _ORIGIN  # renderable by the app
+    detail = r.json()["detail"]
+    assert "groceries.txt" in detail and "PDF or image" in detail
+    assert "case_file_id" not in r.json()  # nothing created
+
+
+@pytest.mark.asyncio
+async def test_empty_and_pdf_and_png_payloads(client: AsyncClient):
+    # Empty file → rejected. A %PDF and a real PNG signature → accepted (200).
+    empty = await client.post("/v1/upload", files={"file": ("blank.pdf", b"", "application/pdf")})
+    assert empty.status_code == 422, empty.text
+    pdf = await client.post("/v1/upload", files={"file": ("b.pdf", b"%PDF-1.4 x", "application/pdf")})
+    assert pdf.status_code == 200, pdf.text
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"fake png body"
+    png = await client.post("/v1/upload", files={"file": ("b.png", png_bytes, "image/png")})
+    assert png.status_code == 200, png.text

@@ -1,0 +1,13 @@
+{
+  "name": "not_a_bill_txt",
+  "description": "A readable .txt grocery list (not a PDF/image). The upload magic-byte gate must reject it at the door (422) — it is never stored, OCR'd, or turned into a 0-item case.",
+  "documents": [
+    {
+      "type": "not_a_bill_txt",
+      "filename": "groceries.txt"
+    }
+  ],
+  "expect": {
+    "upload_rejected": 422
+  }
+}

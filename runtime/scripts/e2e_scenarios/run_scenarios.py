@@ -84,11 +84,24 @@ def authenticate(
     raise SystemExit(f"test-token failed [{r.status_code}]: {r.text}")
 
 
-def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> str:
-    files = [("files", (p.name, p.read_bytes(), "application/pdf")) for p in paths]
+_MIME_BY_SUFFIX = {
+    ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg", ".heic": "image/heic", ".txt": "text/plain",
+}
+
+
+def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> tuple[int, str]:
+    """POST the scenario's documents (MIME inferred from the suffix, so a .txt isn't mislabeled as
+    PDF). Returns (status_code, case_file_id) — case_file_id is "" on a non-200 so the caller can
+    assert an EXPECTED upload rejection (the magic-byte gate)."""
+    files = [
+        ("files", (p.name, p.read_bytes(), _MIME_BY_SUFFIX.get(p.suffix.lower(), "application/octet-stream")))
+        for p in paths
+    ]
     r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
-    r.raise_for_status()
-    return r.json()["case_file_id"]
+    if r.status_code != 200:
+        return r.status_code, ""
+    return 200, r.json()["case_file_id"]
 
 
 def _extract(client: httpx.Client, base_url: str, case_id: str) -> dict:
@@ -138,12 +151,26 @@ def _get_audit(client: httpx.Client, base_url: str, case_id: str) -> dict:
     return r.json()
 
 
-def _check(scenario: dict, terminal: str, audit: dict | None) -> list[str]:
+def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> list[str]:
     """Assert the scenario's expectations. Returns a list of failure strings (empty == pass)."""
     exp = scenario["expect"]
     fails: list[str] = []
     if terminal != exp["terminal"]:
         fails.append(f"terminal={terminal!r} expected {exp['terminal']!r}")
+    # A degradation scenario must NEVER reach the encounter screen: the honest-failure states carry
+    # zero line items. Assert both, so a regression that dead-ends on "0 of 0" is caught.
+    if exp.get("no_encounter"):
+        n = len(extract.get("line_items") or [])
+        if n:
+            fails.append(f"{n} line items on a failure state — must be 0 (never reach encounter)")
+        if terminal == "encounter_verification_pending":
+            fails.append("reached encounter_verification_pending — expected an honest failure state")
+    # Anti-fabrication: no fixture line items may leak, INCLUDING on the extraction_failed path
+    # (this is what the old unreadable_document assertion missed — it only checked the audit).
+    eblob = json.dumps(extract).lower()
+    for marker in FIXTURE_MARKERS:
+        if marker.lower() in eblob:
+            fails.append(f"FIXTURE MARKER {marker!r} leaked into the extract result")
     if audit is not None:
         if exp.get("incomplete_reason", "unset") != "unset":
             got = audit.get("incomplete_reason")
@@ -169,14 +196,29 @@ def _check(scenario: dict, terminal: str, audit: dict | None) -> list[str]:
 
 def run_scenario(client: httpx.Client, base_url: str, scenario: dict, workdir: pathlib.Path) -> dict:
     name = scenario["name"]
+    exp = scenario.get("expect", {})
     timings: dict[str, float] = {}
     case_id = ""
     try:
         paths = generate_for_scenario(scenario, workdir / name)
 
         t = time.monotonic()
-        case_id = _upload(client, base_url, paths)
+        up_status, case_id = _upload(client, base_url, paths)
         timings["upload_s"] = round(time.monotonic() - t, 1)
+
+        # Upload-rejection scenarios (e.g. a non-document .txt): assert the 4xx at the door and
+        # that NO case was created — the magic-byte gate, exercised end-to-end.
+        if "upload_rejected" in exp:
+            fails = []
+            if up_status != exp["upload_rejected"]:
+                fails.append(f"upload status={up_status} expected {exp['upload_rejected']}")
+            if case_id:
+                fails.append("a case was created despite an expected upload rejection")
+            return {"name": name, "case_id": case_id, "terminal": f"upload_{up_status}",
+                    "timings": timings, "pass": not fails, "fails": fails}
+        if up_status != 200:
+            return {"name": name, "case_id": "", "terminal": f"upload_{up_status}",
+                    "timings": timings, "pass": False, "fails": [f"unexpected upload {up_status}"]}
 
         t = time.monotonic()
         extract = _extract(client, base_url, case_id)
@@ -184,15 +226,15 @@ def run_scenario(client: httpx.Client, base_url: str, scenario: dict, workdir: p
 
         terminal = extract.get("status", "")
         audit: dict | None = None
-        # extraction_failed is terminal at the extract step — no encounter/audit.
-        if terminal != "extraction_failed":
+        # The honest-failure states are terminal at the extract step — no encounter/audit.
+        if terminal not in ("extraction_failed", "not_a_bill"):
             _confirm(client, base_url, case_id, extract, scenario.get("encounter", {}))
             t = time.monotonic()
             terminal = _poll_status(client, base_url, case_id)
             timings["audit_s"] = round(time.monotonic() - t, 1)
             audit = _get_audit(client, base_url, case_id)
 
-        fails = _check(scenario, terminal, audit)
+        fails = _check(scenario, terminal, extract, audit)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
                 "pass": not fails, "fails": fails}
     except Exception as e:  # noqa: BLE001 — one scenario's failure never aborts the suite

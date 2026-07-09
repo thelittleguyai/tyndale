@@ -10,7 +10,7 @@ async def test_audit_returns_mri_fixture(client):
     # /v1/audit now requires an owned case (IDOR fix): create one via upload
     # first — the fixture path echoes whatever case_file_id it's given.
     up = await client.post(
-        "/v1/upload", files={"file": ("bill.txt", b"sample bill", "text/plain")}
+        "/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")}
     )
     assert up.status_code == 200, up.text
     case_id = up.json()["case_file_id"]
@@ -69,7 +69,7 @@ async def test_upload_creates_case_and_returns_uuid(client):
     """Phase 2D — upload now persists the file + opens a real case file in
     Postgres. The returned case_file_id is a freshly-minted UUID (no longer
     the fixed MRI fixture id)."""
-    content = b"STUB OCR - fixture bill content."
+    content = b"%PDF-1.4 STUB OCR - fixture bill content."
     files = {"file": ("bill.txt", content, "text/plain")}
     resp = await client.post("/v1/upload", files=files)
     assert resp.status_code == 200

@@ -95,3 +95,61 @@ async def test_fixture_mode_still_serves_fixtures(client: AsyncClient, monkeypat
     assert result.status == "encounter_verification_pending"
     assert result.line_items  # the deterministic fixture still drives dev/CI/demo
     assert any(li.code == _FIXTURE_MARKER for li in result.line_items)
+
+
+@pytest.mark.asyncio
+async def test_readable_but_not_a_bill_degrades_to_not_a_bill(client: AsyncClient, monkeypatch):
+    # A document that READ fine but isn't a bill/EOB → the distinct honest 'not_a_bill' state,
+    # naming the file — NEVER a 0-item encounter, never fixtures.
+    async def _grocery_ocr(args):
+        return {
+            "filename": args.get("filename", "f"),
+            "ocr_text": "milk eggs bread bananas cereal coffee",  # readable, but not a bill
+            "extraction_status": "extracted",
+            "byte_count": 10, "pages": [], "key_value_pairs": [], "tables_count": 0,
+        }
+
+    monkeypatch.setattr("app.routes.upload.run_document_ocr", _grocery_ocr)
+    up = await client.post(
+        "/v1/upload", files={"file": ("groceries.pdf", b"%PDF-1.4 milk eggs", "application/pdf")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+
+    _force_real_claude(monkeypatch)
+
+    async def _empty_translate(case_file_id, mode="translate"):
+        return RunResult(final_text="", tool_calls=[], usage={})
+
+    monkeypatch.setattr(bill_detective, "run", _empty_translate)
+
+    result = await orchestrator.extract_line_items(case_id)
+    assert result.status == "not_a_bill"
+    assert result.line_items == []
+    assert "groceries.pdf" in (result.extraction_message or "")  # names the file
+    assert _FIXTURE_MARKER not in result.model_dump_json()  # no fabrication
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+    assert cf.status == "not_a_bill"
+    assert not cf.line_items
+
+
+@pytest.mark.asyncio
+async def test_zero_item_invariant_never_reaches_encounter(client: AsyncClient, monkeypatch):
+    # Belt-and-suspenders (item 4): even if the fixture path itself yields nothing, the case must
+    # NEVER enter encounter_verification_pending with zero line items — it degrades honestly.
+    case_id = await _fresh_case(client)
+    monkeypatch.setattr(get_settings(), "use_real_claude", False)  # fixture mode
+    monkeypatch.setattr(orchestrator, "_fixture_line_items", lambda: [])  # …that yields nothing
+
+    result = await orchestrator.extract_line_items(case_id)
+    assert result.status != "encounter_verification_pending"
+    assert result.status == "extraction_failed"
+    assert result.line_items == []
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+    assert cf.status != "encounter_verification_pending"

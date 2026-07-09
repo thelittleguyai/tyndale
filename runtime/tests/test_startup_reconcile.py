@@ -30,7 +30,7 @@ def _ago(**kw) -> datetime.datetime:
 
 
 async def _fresh_case(client: AsyncClient) -> uuid.UUID:
-    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"sample bill", "text/plain")})
+    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")})
     assert up.status_code == 200, up.text
     return uuid.UUID(up.json()["case_file_id"])
 

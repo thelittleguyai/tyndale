@@ -113,11 +113,11 @@ async def test_rate_limit_per_route_upload_caps_at_20_per_hour(client, rate_on, 
     monkeypatch.setattr(rate_on, "rate_limit_per_ip_per_minute", 1000)
     monkeypatch.setattr(rate_on, "rate_limit_per_ip_per_hour", 1000)
     r1 = await client.post(
-        "/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")}
+        "/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 STUB OCR - x", "text/plain")}
     )
     assert r1.status_code == 200, r1.text
     r2 = await client.post(
-        "/v1/upload", files={"file": ("bill.txt", b"STUB OCR - x", "text/plain")}
+        "/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 STUB OCR - x", "text/plain")}
     )
     assert r2.status_code == 429
 
@@ -146,7 +146,7 @@ async def test_request_body_size_limit_413s_on_overflow(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_upload_file_size_limit_413s(client, monkeypatch):
     monkeypatch.setattr(get_settings(), "max_upload_file_bytes", 8)
-    files = {"file": ("bill.txt", b"this is definitely more than eight bytes", "text/plain")}
+    files = {"file": ("bill.txt", b"%PDF-1.4 this is definitely more than eight bytes", "text/plain")}
     r = await client.post("/v1/upload", files=files)
     assert r.status_code == 413
 

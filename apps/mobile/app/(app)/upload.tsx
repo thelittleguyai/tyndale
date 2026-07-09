@@ -20,6 +20,11 @@ import { useRouter } from 'expo-router';
 import { FileText, Plus, X } from 'lucide-react-native';
 
 import { extractLineItems, uploadDocuments } from '../../lib/api-client';
+import {
+  ACCEPTED_UPLOAD_HINT,
+  UPLOAD_ACCEPT_ATTR,
+  partitionUploads,
+} from '../../lib/upload-validation';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 
@@ -44,14 +49,21 @@ export default function UploadScreen() {
   const onPicked = (e: any) => {
     const picked: FileList | undefined = e?.target?.files;
     if (!picked || picked.length === 0) return;
-    const added: Queued[] = Array.from(picked).map((f: File) => ({
+    // Enforce the file-type allowlist on the client too (the accept="" attr is only a hint the
+    // user can override). Rejected files never enter the queue; the server re-checks by content.
+    const { accepted, rejectedNames } = partitionUploads(Array.from(picked) as File[]);
+    const added: Queued[] = accepted.map((f: File) => ({
       id: `${f.name}-${f.size}-${Math.random().toString(36).slice(2, 8)}`,
       file: f,
       name: f.name,
       size: f.size,
     }));
     setQueue((q) => [...q, ...added]);
-    setError(null);
+    setError(
+      rejectedNames.length
+        ? `Skipped ${rejectedNames.join(', ')} — ${ACCEPTED_UPLOAD_HINT}`
+        : null,
+    );
     if (inputRef.current) inputRef.current.value = ''; // allow re-picking the same file
   };
 
@@ -97,7 +109,7 @@ export default function UploadScreen() {
           <input
             ref={inputRef}
             type="file"
-            accept="application/pdf,image/*"
+            accept={UPLOAD_ACCEPT_ATTR}
             multiple
             onChange={onPicked}
             style={{ display: 'none' }}

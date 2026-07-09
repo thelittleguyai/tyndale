@@ -88,9 +88,11 @@ export default function EncounterVerificationScreen() {
     );
   }
 
-  // Honest degraded state: real OCR/translate couldn't read the documents. We NEVER show
-  // fabricated line items here — the user sees what failed and a path to re-upload.
-  if (extract && extract.status === 'extraction_failed') {
+  // Honest degraded states — we NEVER show fabricated line items here (the invariant: no 0-item
+  // encounter). 'extraction_failed' = couldn't read the docs; 'not_a_bill' = they read fine but
+  // aren't a bill/EOB. Both show the honest reason (naming the file) + a path to re-upload.
+  if (extract && (extract.status === 'extraction_failed' || extract.status === 'not_a_bill')) {
+    const isNotBill = extract.status === 'not_a_bill';
     return (
       <ScrollView
         className="flex-1 bg-navy-deep"
@@ -102,11 +104,13 @@ export default function EncounterVerificationScreen() {
 
         <View className="mb-5 rounded-2xl bg-teal-deep p-5">
           <Text className="text-3xl font-bold leading-tight text-white">
-            We couldn't read your documents
+            {isNotBill ? "This doesn't look like a medical bill" : "We couldn't read your documents"}
           </Text>
           <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-white/75">
             {extract.extraction_message ??
-              'Try uploading a clearer photo or PDF — good lighting, all four corners in frame, one document per image.'}
+              (isNotBill
+                ? 'Upload a bill, an Explanation of Benefits, an insurance card, or a plan summary and I\'ll check it for you.'
+                : 'Try uploading a clearer photo or PDF — good lighting, all four corners in frame, one document per image.')}
           </Text>
         </View>
 

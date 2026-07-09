@@ -162,12 +162,31 @@ def make_garbage(path: Path, **_: Any) -> None:
     c.save()
 
 
+def make_blank_pages(path: Path, *, pages: int = 2, **_: Any) -> None:
+    """A valid multi-page PDF with NO drawn content — real OCR extracts nothing → the case must
+    degrade to extraction_failed, never a 0-item encounter."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    for _i in range(max(1, int(pages))):
+        c.showPage()  # a page with nothing on it
+    c.save()
+
+
+def make_not_a_bill_txt(path: Path, **_: Any) -> None:
+    """A readable .txt that isn't a medical document (a grocery list). NOT a PDF/image, so the
+    upload magic-byte check must reject it at the door (422) — it never reaches OCR."""
+    path.write_text(
+        "GROCERY LIST\n- milk\n- eggs\n- bread\n- bananas\n- coffee\n- paper towels\n- olive oil\n"
+    )
+
+
 _MAKERS = {
     "bill": make_bill,
     "eob": make_eob,
     "msn": make_msn,
     "collections": make_collections,
     "garbage": make_garbage,
+    "blank_pages": make_blank_pages,
+    "not_a_bill_txt": make_not_a_bill_txt,
 }
 
 

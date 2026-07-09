@@ -68,9 +68,11 @@ class DocumentExtraction(BaseModel):
 
 class ExtractResult(BaseModel):
     case_file_id: str
-    # 'extraction_failed' — real OCR/translate produced nothing; we degrade VISIBLY rather than
-    # fabricate line items (the encounter UI shows the honest message, never fixture data).
-    status: Literal["encounter_verification_pending", "extraction_failed"]
+    # 'extraction_failed' — real OCR/translate produced nothing (unreadable docs); we degrade
+    # VISIBLY rather than fabricate line items. 'not_a_bill' — the doc(s) read fine but none is a
+    # bill/EOB, so there's nothing to audit. Either way the UI shows an honest message + re-upload
+    # CTA and never a 0-item encounter screen.
+    status: Literal["encounter_verification_pending", "extraction_failed", "not_a_bill"]
     line_items: list[LineItem]
     intro_message: str = Field(
         description="The 'Tyndale double-checking on your behalf' framing for the UI header"

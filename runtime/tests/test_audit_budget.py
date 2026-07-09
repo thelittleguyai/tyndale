@@ -125,7 +125,7 @@ async def test_clean_run_unaffected_by_budget(monkeypatch):
 
 # --- orchestrator: budget-exceeded terminal + never-stuck ---
 async def _fresh_case(client: AsyncClient) -> str:
-    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"sample bill", "text/plain")})
+    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")})
     assert up.status_code == 200, up.text
     return up.json()["case_file_id"]
 

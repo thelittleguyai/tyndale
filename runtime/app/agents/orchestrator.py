@@ -613,6 +613,17 @@ EXTRACTION_FAILED_MESSAGE = (
     "photo or a PDF — good lighting, all four corners in frame, one document per image."
 )
 
+# Distinct from extraction_failed: the document(s) READ fine, they just aren't a medical bill or
+# insurance document — so there's nothing to audit. Name the file(s) so the user knows exactly
+# which upload was the problem, and point them at what Tyndale can actually help with.
+def not_a_bill_message(filenames: list[str]) -> str:
+    named = ", ".join(f"“{n}”" for n in filenames) if filenames else "what you uploaded"
+    return (
+        f"This doesn't look like a medical bill or insurance document: {named}. "
+        "Upload a bill, an Explanation of Benefits (EOB), an insurance card, or a plan "
+        "summary and I'll check it for you."
+    )
+
 
 def _documents_projection(cf: CaseFile | None) -> list[DocumentExtraction]:
     """Per-document extraction provenance (which uploads were read vs failed) for the
@@ -665,35 +676,71 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     line_items = list(cf.line_items) if (cf and cf.line_items) else []
 
     if not line_items:
+        # Real translate produced nothing. Decide the honest terminal state from DOCUMENT-READABILITY
+        # TRUTH (per-document OCR provenance) — a case must NEVER land on a 0-item encounter screen
+        # (the reproduced bug: corrupt / blank / non-bill uploads dead-ended there under "0 of 0").
+        # NEVER serve fixtures as the user's bill in real mode: two honest degradations stacking into
+        # a confident fabrication is the worst failure this product can have. Fixture mode (use_real
+        # False — dev/CI/demo without Claude) is the ONLY path that may serve fixtures, and it does
+        # so regardless of OCR status so local dev works with placeholder DI creds.
         if use_real:
-            # Real translate produced nothing — almost always because OCR degraded (empty /
-            # error extraction; e.g. DI rejected the upload). NEVER serve the fixture line items
-            # as if they were the user's bill: two honest degradations stacking into confident
-            # fabrication is the worst failure this product can have. Degrade VISIBLY instead —
-            # mark the case extraction_failed, tell the user honestly, log why.
             docs = _documents_projection(cf)
-            log.error(
-                "orchestrator.extract.degraded_no_line_items",
-                case_file_id=case_file_id,
-                bd_tool_calls=bd_tool_calls,
-                documents=[
-                    {
-                        "filename": d.filename,
-                        "extraction_status": d.extraction_status,
-                        "ocr_text_chars": d.ocr_text_chars,
-                    }
-                    for d in docs
-                ],
-            )
+            readable = [
+                d for d in docs if d.extraction_status == "extracted" and d.ocr_text_chars > 0
+            ]
+            billing_families = _BILL_FAMILY | _EOB_FAMILY
+            readable_billing = [d for d in readable if (d.document_type or "") in billing_families]
+
+            def _degrade(status: str, message: str, event: str) -> ExtractResult:
+                log.error(
+                    event,
+                    case_file_id=case_file_id,
+                    bd_tool_calls=bd_tool_calls,
+                    documents=[
+                        {
+                            "filename": d.filename,
+                            "document_type": d.document_type,
+                            "extraction_status": d.extraction_status,
+                            "ocr_text_chars": d.ocr_text_chars,
+                        }
+                        for d in docs
+                    ],
+                )
+                return ExtractResult(
+                    case_file_id=case_file_id,
+                    status=status,
+                    line_items=[],
+                    intro_message=DEFAULT_INTRO_MESSAGE,
+                    extraction_message=message,
+                    documents=docs,
+                )
+
+            # (a) Every uploaded document failed to read (DI error or empty OCR) → extraction_failed.
+            if docs and not readable:
+                await _set_status(case_file_id, "extraction_failed")
+                return _degrade(
+                    "extraction_failed", EXTRACTION_FAILED_MESSAGE,
+                    "orchestrator.extract.all_documents_unreadable",
+                )
+
+            # (b) At least one document read fine, but NONE is a bill/EOB → there is nothing to
+            # audit. A distinct honest state, naming the file(s), so the user isn't stranded on a
+            # 0-item encounter wondering what went wrong.
+            if readable and not readable_billing:
+                await _set_status(case_file_id, "not_a_bill")
+                return _degrade(
+                    "not_a_bill", not_a_bill_message([d.filename for d in readable]),
+                    "orchestrator.extract.readable_but_not_a_bill",
+                )
+
+            # (c) We recognized a bill/EOB (or have no per-document provenance) but translate
+            # produced nothing usable → extraction_failed. Never falls through to fixtures.
             await _set_status(case_file_id, "extraction_failed")
-            return ExtractResult(
-                case_file_id=case_file_id,
-                status="extraction_failed",
-                line_items=[],
-                intro_message=DEFAULT_INTRO_MESSAGE,
-                extraction_message=EXTRACTION_FAILED_MESSAGE,
-                documents=docs,
+            return _degrade(
+                "extraction_failed", EXTRACTION_FAILED_MESSAGE,
+                "orchestrator.extract.degraded_no_line_items",
             )
+
         # Explicit fixture mode ONLY (use_real is False — dev/CI/demo without Claude).
         line_items = _fixture_line_items()
 
@@ -710,6 +757,22 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
         if row is not None:
             row.line_items = line_items
             await s.commit()
+
+    # INVARIANT (item 4): a case may NEVER enter encounter_verification_pending with zero line
+    # items. Every empty-extraction path above returns an honest terminal state, so line_items is
+    # non-empty here — but guard anyway. A future regression (or a fixture that yields nothing)
+    # must degrade honestly, never strand the user on a "0 of 0 confirmed" encounter screen.
+    if not line_items:
+        log.error("orchestrator.extract.zero_item_invariant_tripped", case_file_id=case_file_id)
+        await _set_status(case_file_id, "extraction_failed")
+        return ExtractResult(
+            case_file_id=case_file_id,
+            status="extraction_failed",
+            line_items=[],
+            intro_message=DEFAULT_INTRO_MESSAGE,
+            extraction_message=EXTRACTION_FAILED_MESSAGE,
+            documents=_documents_projection(cf),
+        )
 
     await _set_status(case_file_id, "encounter_verification_pending")
     return ExtractResult(

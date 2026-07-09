@@ -66,15 +66,24 @@ def _init_db() -> None:
                     "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_status CHECK (status IN "
                     "('open','in_progress','encounter_verification_pending','encounter_verified',"
                     "'awaiting_eob_confirmation','audit_running','audit_complete','audit_incomplete',"
-                    "'extraction_failed','resolved','archived'))"
+                    "'extraction_failed','not_a_bill','resolved','archived'))"
                 )
             )
-            # New nullable column added after the table first existed on a dev's persisted DB.
+            # New nullable columns added after the table first existed on a dev's persisted DB.
             await conn.execute(
                 text(
                     "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS "
                     "audit_incomplete_reason text"
                 )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS "
+                    "soft_deleted_at timestamptz"
+                )
+            )
+            await conn.execute(
+                text("ALTER TABLE case_files ADD COLUMN IF NOT EXISTS soft_deleted_by uuid")
             )
             await conn.execute(
                 text(

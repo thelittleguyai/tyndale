@@ -658,6 +658,14 @@ export async function stopStream(id: string): Promise<void> {
   await cfetch(`${BASE_URL}/v1/conversations/${id}/stop`, { method: 'POST' });
 }
 
+/** Soft-delete a junk / mistaken case (no findings, no completed audit). 409 if it has results. */
+export async function removeCase(caseFileId: string): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/cases/${encodeURIComponent(caseFileId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`removeCase ${res.status}`);
+}
+
 export function parseSseBlock(raw: string): ChatStreamEvent | null {
   let event = 'message';
   let data = '';

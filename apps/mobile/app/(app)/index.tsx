@@ -20,7 +20,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -40,6 +42,7 @@ import {
   Search,
   ShieldCheck,
   User as UserIcon,
+  X,
 } from 'lucide-react-native';
 
 import {
@@ -49,6 +52,7 @@ import {
   getUserProfile,
   listConversations,
   makeFeedbackEvent,
+  removeCase,
   submitFeedback,
   type DashboardPayload,
   type ResolvedValue,
@@ -157,7 +161,7 @@ export default function DashboardScreen() {
         />
 
         {(data?.active_cases ?? []).length > 0 ? (
-          <ActiveCasesSection cases={data!.active_cases} />
+          <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
 
         <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
@@ -356,7 +360,72 @@ function statusVisual(status: string): { Icon: typeof FileText; color: string; b
   }
 }
 
-function ActiveCasesSection({ cases }: { cases: ActiveCase[] }) {
+// A case is user-removable unless it carries a real result (in-flight or complete audit); the
+// server is authoritative (409) and also blocks any case that produced findings.
+const NON_REMOVABLE_STATUSES = new Set(['audit_running', 'audit_complete', 'resolved']);
+
+function confirmRemoveCase(label: string): Promise<boolean> {
+  const msg = `Remove “${label}”? This clears it from your dashboard.`;
+  if (Platform.OS === 'web') {
+    return Promise.resolve(typeof window !== 'undefined' ? window.confirm(msg) : true);
+  }
+  return new Promise((resolve) => {
+    Alert.alert('Remove case', msg, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
+function CaseRemoveButton({
+  caseId,
+  label,
+  onDone,
+}: {
+  caseId: string;
+  label: string;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const onPress = async (e?: any) => {
+    e?.stopPropagation?.(); // don't also open the case (web bubbling; native captures the child)
+    if (busy) return;
+    if (!(await confirmRemoveCase(label))) return;
+    setBusy(true);
+    try {
+      await removeCase(caseId);
+      onDone();
+    } catch {
+      setBusy(false);
+      const m = "We couldn't remove that case — it may have results.";
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(m);
+      else Alert.alert('Could not remove', m);
+    }
+  };
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={`Remove ${label}`}
+      className="ml-1 rounded-full p-1.5 hover:bg-white/10"
+    >
+      {busy ? (
+        <ActivityIndicator size="small" color="#ffffff99" />
+      ) : (
+        <X size={16} color="#ffffff70" />
+      )}
+    </Pressable>
+  );
+}
+
+function ActiveCasesSection({
+  cases,
+  onChanged,
+}: {
+  cases: ActiveCase[];
+  onChanged: () => void;
+}) {
   const router = useRouter();
   return (
     <View>
@@ -389,6 +458,9 @@ function ActiveCasesSection({ cases }: { cases: ActiveCase[] }) {
                 </Text>
               </View>
               <Text className="text-sm text-white/30">›</Text>
+              {NON_REMOVABLE_STATUSES.has(c.status) ? null : (
+                <CaseRemoveButton caseId={c.case_file_id} label={c.label} onDone={onChanged} />
+              )}
             </PressableScale>
           );
         })}

@@ -59,7 +59,7 @@ def _eob(**kw) -> dict:
 
 
 async def _make_case(client: AsyncClient) -> str:
-    files = {"file": ("bill.txt", b"sample bill", "text/plain")}
+    files = {"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")}
     up = await client.post("/v1/upload", files=files)
     assert up.status_code == 200, up.text
     return up.json()["case_file_id"]

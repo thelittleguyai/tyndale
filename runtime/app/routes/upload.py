@@ -113,6 +113,35 @@ async def _persist(content: bytes, filename: str) -> str:
     return str(path)
 
 
+# HEIC/HEIF ISO-BMFF brands (bytes 8-12) we accept — iPhone photos are 'heic'/'mif1'.
+_HEIF_BRANDS = frozenset(
+    {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"hevm", b"hevs", b"mif1", b"msf1", b"heif"}
+)
+
+
+def _sniff_upload_type(content: bytes) -> str | None:
+    """Content-based (magic-byte) file type — the ONLY trustworthy signal (the client MIME/
+    extension is user-controlled). Returns a short type name for a PDF or an Azure-DI-processable
+    image, else None. Closes the security gap where any ≤20MB payload was stored + sent to OCR,
+    and lets a non-document upload fail fast at the door with a readable 422 instead of dead-ending
+    on a 0-item encounter screen."""
+    if not content:
+        return None
+    if content[:4] == b"%PDF":
+        return "pdf"
+    if content[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if content[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if content[:4] in (b"II*\x00", b"MM\x00*"):
+        return "tiff"
+    if content[:2] == b"BM":
+        return "bmp"
+    if len(content) >= 12 and content[4:8] == b"ftyp" and content[8:12] in _HEIF_BRANDS:
+        return "heic"
+    return None
+
+
 async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], UploadedDoc]:
     """Persist + classify one file. Returns (case-file document entry, API doc)."""
     settings = get_settings()
@@ -122,6 +151,17 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
             detail=(
                 f"'{filename}' exceeds the {settings.max_upload_file_bytes}-byte per-file limit. "
                 "Upload a smaller file — V1-Lite does not support chunked upload."
+            ),
+        )
+    # Reject non-PDF/non-image payloads BEFORE storing or OCRing them (security + honesty): a
+    # grocery-list .txt, a Word doc, an empty file, etc. can never become a bill, so fail fast with
+    # a readable reason instead of persisting arbitrary bytes and dead-ending on a 0-item encounter.
+    if _sniff_upload_type(content) is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"'{filename}' doesn't look like a PDF or image. Upload a PDF, or a clear photo "
+                "(JPG, PNG, or HEIC) of your bill, EOB, insurance card, or plan summary."
             ),
         )
     uri = await _persist(content, filename)

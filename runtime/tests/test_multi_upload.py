@@ -22,7 +22,7 @@ from app.routes.upload import _classify
 
 @pytest.mark.asyncio
 async def test_upload_single_file_backwards_compat(client: AsyncClient):
-    content = b"STUB OCR - a hospital bill. Amount Due $100."
+    content = b"%PDF-1.4 STUB OCR - a hospital bill. Amount Due $100."
     r = await client.post("/v1/upload", files={"file": ("bill.txt", content, "text/plain")})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -36,9 +36,9 @@ async def test_upload_single_file_backwards_compat(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_upload_multiple_files_one_request(client: AsyncClient):
     files = [
-        ("files", ("bill.txt", b"Statement Amount Due CPT 70553", "text/plain")),
-        ("files", ("eob.txt", b"Explanation of Benefits member responsibility", "text/plain")),
-        ("files", ("card.txt", b"Member ID 999 Group Number 1 Rx Bin 4", "text/plain")),
+        ("files", ("bill.txt", b"%PDF-1.4 Statement Amount Due CPT 70553", "text/plain")),
+        ("files", ("eob.txt", b"%PDF-1.4 Explanation of Benefits member responsibility", "text/plain")),
+        ("files", ("card.txt", b"%PDF-1.4 Member ID 999 Group Number 1 Rx Bin 4", "text/plain")),
     ]
     r = await client.post("/v1/upload", files=files)
     assert r.status_code == 200, r.text
@@ -54,9 +54,9 @@ async def test_upload_multiple_files_one_request(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_upload_attaches_all_to_one_case_file(client: AsyncClient):
     files = [
-        ("files", ("a.txt", b"bill amount due", "text/plain")),
-        ("files", ("b.txt", b"explanation of benefits", "text/plain")),
-        ("files", ("c.txt", b"member id group number", "text/plain")),
+        ("files", ("a.txt", b"%PDF-1.4 bill amount due", "text/plain")),
+        ("files", ("b.txt", b"%PDF-1.4 explanation of benefits", "text/plain")),
+        ("files", ("c.txt", b"%PDF-1.4 member id group number", "text/plain")),
     ]
     r = await client.post("/v1/upload", files=files)
     body = r.json()
@@ -85,7 +85,7 @@ async def test_upload_size_limit_per_file(client: AsyncClient, monkeypatch):
     monkeypatch.setattr(get_settings(), "max_upload_file_bytes", 8)
     r = await client.post(
         "/v1/upload",
-        files=[("files", ("big.txt", b"way more than eight bytes", "text/plain"))],
+        files=[("files", ("big.txt", b"%PDF-1.4 way more than eight bytes", "text/plain"))],
     )
     assert r.status_code == 413
 
@@ -105,7 +105,7 @@ async def test_upload_size_limit_total_request(client: AsyncClient, monkeypatch)
 
 @pytest.mark.asyncio
 async def test_upload_to_existing_case_file_appends_documents(client: AsyncClient):
-    r1 = await client.post("/v1/upload", files=[("files", ("bill.txt", b"amount due", "text/plain"))])
+    r1 = await client.post("/v1/upload", files=[("files", ("bill.txt", b"%PDF-1.4 amount due", "text/plain"))])
     assert r1.status_code == 200, r1.text
     cfid = r1.json()["case_file_id"]
     assert len(r1.json()["uploads"]) == 1
@@ -113,7 +113,7 @@ async def test_upload_to_existing_case_file_appends_documents(client: AsyncClien
     r2 = await client.post(
         "/v1/upload",
         data={"case_file_id": cfid},
-        files=[("files", ("eob.txt", b"explanation of benefits", "text/plain"))],
+        files=[("files", ("eob.txt", b"%PDF-1.4 explanation of benefits", "text/plain"))],
     )
     assert r2.status_code == 200, r2.text
     assert r2.json()["case_file_id"] == cfid

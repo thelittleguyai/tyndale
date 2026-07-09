@@ -70,7 +70,7 @@ def _force_real(monkeypatch, s):
 
 async def _doc_poor_case(client: AsyncClient) -> str:
     up = await client.post(
-        "/v1/upload", files={"file": ("collections.pdf", b"final notice", "application/pdf")}
+        "/v1/upload", files={"file": ("collections.pdf", b"%PDF-1.4 final notice", "application/pdf")}
     )
     case_id = up.json()["case_file_id"]
     async with AsyncSessionLocal() as s:

@@ -78,7 +78,7 @@ async def test_real_agent_path_persists_and_assembles_three_numbers(
 
     # A real case so the finding's case_file_id resolves.
     up = await client.post(
-        "/v1/upload", files={"file": ("bill.txt", b"sample mri bill", "text/plain")}
+        "/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample mri bill", "text/plain")}
     )
     assert up.status_code == 200, up.text
     case_id = up.json()["case_file_id"]

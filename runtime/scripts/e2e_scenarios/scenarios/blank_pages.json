@@ -1,0 +1,18 @@
+{
+  "name": "blank_pages",
+  "description": "A valid multi-page PDF with no content — OCR extracts nothing, so the case must degrade to extraction_failed and never reach a 0-item encounter.",
+  "documents": [
+    {
+      "type": "blank_pages",
+      "filename": "blank.pdf",
+      "pages": 2
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "extraction_failed",
+    "no_encounter": true
+  }
+}

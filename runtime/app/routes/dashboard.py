@@ -46,6 +46,7 @@ _ACTIVE_CASE_STATUS: dict[str, tuple[str, str]] = {
     "open": ("Ready to review", "encounter"),
     "in_progress": ("Ready to review", "encounter"),
     "extraction_failed": ("We couldn't read your documents", "encounter"),
+    "not_a_bill": ("This isn't a medical bill", "encounter"),
     "encounter_verification_pending": ("Verify your visit", "encounter"),
     "encounter_verified": ("Audit starting", "results"),
     "awaiting_eob_confirmation": ("Confirm your EOBs", "results"),
@@ -292,9 +293,15 @@ async def get_dashboard(
     user: CurrentUser = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> DashboardPayload:
-    # Load all the user's cases once.
+    # Load all the user's cases once (excluding ones the user has removed).
     cases = (
-        (await session.execute(select(CaseFile).where(CaseFile.user_id == user.user_id)))
+        (
+            await session.execute(
+                select(CaseFile)
+                .where(CaseFile.user_id == user.user_id)
+                .where(CaseFile.soft_deleted_at.is_(None))
+            )
+        )
         .scalars()
         .all()
     )

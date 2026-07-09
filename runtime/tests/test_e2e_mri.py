@@ -53,7 +53,7 @@ def force_fixture_path(monkeypatch):
 async def test_upload_persists_case_and_returns_uuid(client: AsyncClient) -> None:
     """Upload route should persist a CaseFile + return its UUID."""
     content = (
-        b"HOSPITAL STATEMENT\n"
+        b"%PDF-1.4 HOSPITAL STATEMENT\n"
         b"CPT 70553 MRI brain w/o & w/ contrast\n"
         b"Billed: $1,200.00\n"
     )
@@ -75,7 +75,7 @@ async def test_upload_persists_case_and_returns_uuid(client: AsyncClient) -> Non
 async def test_upload_classifies_eob(client: AsyncClient) -> None:
     """EOB keywords should land as document_type='eob'."""
     content = (
-        b"EXPLANATION OF BENEFITS\n"
+        b"%PDF-1.4 EXPLANATION OF BENEFITS\n"
         b"Member Responsibility: $1,200.00\n"
     )
     files = {"file": ("eob.txt", content, "text/plain")}
@@ -91,10 +91,10 @@ async def test_upload_classifies_eob(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_upload_two_uploads_create_distinct_cases(client: AsyncClient) -> None:
     """Two uploads should mint two distinct case_file_ids."""
-    files = {"file": ("a.txt", b"first", "text/plain")}
+    files = {"file": ("a.txt", b"%PDF-1.4 first", "text/plain")}
     r1 = await client.post("/v1/upload", files=files)
     assert r1.status_code == 200, r1.text
-    files = {"file": ("b.txt", b"second", "text/plain")}
+    files = {"file": ("b.txt", b"%PDF-1.4 second", "text/plain")}
     r2 = await client.post("/v1/upload", files=files)
     assert r2.status_code == 200, r2.text
     assert r1.json()["case_file_id"] != r2.json()["case_file_id"]
@@ -110,7 +110,7 @@ async def test_audit_fixture_returns_three_numbers(
     """With USE_REAL_CLAUDE off (forced via fixture), audit returns the MRI
     canned response. Doesn't depend on what's in .env.local."""
     # Upload first to get a real case_file_id
-    files = {"file": ("bill.txt", b"sample bill", "text/plain")}
+    files = {"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")}
     up = await client.post("/v1/upload", files=files)
     assert up.status_code == 200, up.text
     case_id = up.json()["case_file_id"]
@@ -149,7 +149,7 @@ async def test_audit_get_idempotent(
     client: AsyncClient, force_fixture_path
 ) -> None:
     """GET /v1/audit/{id} returns the persisted state (used by the mobile poll)."""
-    files = {"file": ("bill.txt", b"sample", "text/plain")}
+    files = {"file": ("bill.txt", b"%PDF-1.4 sample", "text/plain")}
     up = await client.post("/v1/upload", files=files)
     case_id = up.json()["case_file_id"]
     # POST once to materialize state
@@ -181,7 +181,7 @@ async def _poll_status(client: AsyncClient, case_id: str, tries: int = 15) -> st
 
 
 async def _upload_and_extract(client: AsyncClient) -> tuple[str, list[dict]]:
-    files = {"file": ("bill.txt", b"sample bill", "text/plain")}
+    files = {"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")}
     up = await client.post("/v1/upload", files=files)
     assert up.status_code == 200, up.text
     case_id = up.json()["case_file_id"]
@@ -499,7 +499,7 @@ async def test_real_claude_mri_audit(monkeypatch, client: AsyncClient) -> None:
 
     # Upload a more bill-shaped payload so the OCR path has plausible content
     content = (
-        b"HOSPITAL STATEMENT\n"
+        b"%PDF-1.4 HOSPITAL STATEMENT\n"
         b"Date of service: 2026-03-14\n"
         b"CPT 70553 MRI brain w/o & w/ contrast - Billed $1,200.00\n"
         b"EXPLANATION OF BENEFITS\n"

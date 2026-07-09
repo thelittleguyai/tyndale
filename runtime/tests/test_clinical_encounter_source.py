@@ -45,7 +45,7 @@ async def test_unknown_or_invalid_case_degrades_gracefully():
 
 @pytest.mark.asyncio
 async def test_shim_surfaces_case_encounter_data(client: AsyncClient):
-    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"sample bill", "text/plain")})
+    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")})
     assert up.status_code == 200, up.text
     case_id = up.json()["case_file_id"]
 

@@ -12,6 +12,6 @@
   },
   "expect": {
     "terminal": "extraction_failed",
-    "no_fixture": true
+    "no_encounter": true
   }
 }

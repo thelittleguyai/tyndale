@@ -21,6 +21,7 @@ import { router } from 'expo-router';
 
 import { INTAKE_STEPS, type IntakeStateResponse, type IntakeStep } from '@tyndale/shared';
 import { getIntakeState, uploadDocuments, type UploadedDoc } from './api-client';
+import { ACCEPTED_UPLOAD_HINT, UPLOAD_ACCEPT_ATTR, partitionUploads } from './upload-validation';
 import { setIntakeDeferred } from './intake-deferred';
 
 // Cached across step navigations so each screen shares one case file.
@@ -181,10 +182,17 @@ export function UploadField({
   const onPicked = async (e: any) => {
     const picked: FileList | undefined = e?.target?.files;
     if (!picked || picked.length === 0) return;
+    // Enforce the file-type allowlist client-side (accept="" is only a hint); the server re-checks.
+    const { accepted, rejectedNames } = partitionUploads(Array.from(picked) as File[]);
+    if (accepted.length === 0) {
+      setError(`Skipped ${rejectedNames.join(', ')} — ${ACCEPTED_UPLOAD_HINT}`);
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
     setBusy(true);
-    setError(null);
+    setError(rejectedNames.length ? `Skipped ${rejectedNames.join(', ')} — ${ACCEPTED_UPLOAD_HINT}` : null);
     try {
-      const res = await uploadDocuments(Array.from(picked), caseId);
+      const res = await uploadDocuments(accepted, caseId);
       onUploaded(res.uploads);
     } catch {
       setError("We couldn't upload that — check your connection and try again.");
@@ -200,7 +208,7 @@ export function UploadField({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,image/*"
+        accept={UPLOAD_ACCEPT_ATTR}
         multiple
         onChange={onPicked}
         style={{ display: 'none' }}

@@ -43,13 +43,14 @@ export interface DocumentExtraction {
 export interface ExtractResult {
   case_file_id: string;
   /**
-   * 'extraction_failed' — real OCR/translate produced nothing; the UI shows the honest
-   * message and re-upload CTA, never fabricated line items.
+   * 'extraction_failed' — real OCR/translate produced nothing (unreadable docs). 'not_a_bill' —
+   * the doc(s) read fine but none is a bill/EOB, so there's nothing to audit. Either way the UI
+   * shows an honest message + re-upload CTA (never fabricated line items, never a 0-item screen).
    */
-  status: 'encounter_verification_pending' | 'extraction_failed';
+  status: 'encounter_verification_pending' | 'extraction_failed' | 'not_a_bill';
   line_items: LineItem[];
   intro_message: string;
-  /** Set only when status === 'extraction_failed': the honest, user-facing reason. */
+  /** Set when status is a failure state: the honest, user-facing reason (names the file for not_a_bill). */
   extraction_message?: string | null;
   /** Per-document extraction provenance. */
   documents?: DocumentExtraction[];
