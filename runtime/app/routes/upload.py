@@ -24,10 +24,11 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.orchestrator import documents_all_satisfied, finalize_audit
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
@@ -197,6 +198,7 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
 
 @router.post("/upload")
 async def upload(
+    background: BackgroundTasks,
     files: list[UploadFile] = File(default=[]),
     file: UploadFile | None = File(default=None),  # deprecated singular form (14-day compat)
     case_file_id: str | None = Form(default=None),
@@ -234,14 +236,30 @@ async def upload(
         documents.append(entry)
         uploaded.append(api_doc)
 
+    # Capture the pre-upload state BEFORE commit (async expire_on_commit would make these await-only
+    # afterwards) — the trigger for re-running a needs_documents audit once the user has now
+    # supplied every missing input.
+    reaudit = (
+        case is not None
+        and case_file_id is not None
+        and case.status == "audit_incomplete"
+        and case.audit_incomplete_reason == "needs_documents"
+    )
     if case is None:
         case = CaseFile(user_id=user.user_id, status="open", documents=documents)
         session.add(case)
     else:
         case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation
+    reaudit = reaudit and documents_all_satisfied(case)  # …all checklist items now satisfied
     await session.flush()
     cfid = str(case.case_file_id)
     await session.commit()
+
+    if reaudit:
+        # All missing documents provided → re-run the audit (finalize_audit sets audit_running,
+        # then a terminal status). The results screen the user returns to polls status.
+        log.info("upload.needs_documents_satisfied_reaudit", case_file_id=cfid)
+        background.add_task(finalize_audit, cfid)
 
     log.info(
         "upload.processed",

@@ -98,11 +98,13 @@ export interface AuditProvenance {
   assumptions: string[];
 }
 
-/** One document to get to finish a needs_documents audit (PHI-free: type + how-to-get). */
+/** One checklist item to finish a needs_documents audit (PHI-free: type + how-to-get). */
 export interface DocumentNeed {
   key: string; // eob | itemized_bill | sbc
   label: string;
   how_to_get: string;
+  /** True once the case already has this document — drives the checked/unchecked UI state. */
+  have: boolean;
 }
 
 export interface AuditResult {

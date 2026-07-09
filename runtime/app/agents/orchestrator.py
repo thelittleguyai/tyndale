@@ -426,52 +426,60 @@ _EOB_FAMILY = {"eob", "ma_eob", "msn", "tricare_eob"}
 _BILL_FAMILY = {"bill", "gfe", "itemized_bill"}
 
 
+# Document types that satisfy the SBC/coverage-terms need (a benefits summary or the card).
+_COVERAGE_FAMILY = {"plan_summary", "insurance_card"}
+
+
 def _documents_needed(case) -> list[DocumentNeed]:
-    """The honest 'to finish your audit, we need…' checklist for a needs_documents case —
-    derived from what's MISSING on the case (no EOB, no itemized bill, no coverage terms). PHI-
-    free: document types + plain 'how to get it', never amounts or providers."""
+    """The 'to finish your audit' checklist for a needs_documents case — the three canonical audit
+    inputs, EACH with a `have` flag from the case's real document inventory. Returning the full set
+    (not just the missing ones) lets the UI show a true checked/unchecked state and lets the user
+    watch items flip to done as they upload. PHI-free: document types + plain 'how to get it'."""
     types = {
         (d or {}).get("document_type")
         for d in (getattr(case, "documents", None) or [])
         if isinstance(d, dict)
     }
-    needs: list[DocumentNeed] = []
-    if not (types & _EOB_FAMILY):
-        needs.append(
-            DocumentNeed(
-                key="eob",
-                label="Explanation of Benefits (EOB)",
-                how_to_get=(
-                    "Your insurer posts this after they process a claim. Log in to your insurance "
-                    "portal, or call the member number on your card and ask them to send the EOB "
-                    "for this visit."
-                ),
-            )
-        )
-    if not (types & _BILL_FAMILY):
-        needs.append(
-            DocumentNeed(
-                key="itemized_bill",
-                label="Itemized bill",
-                how_to_get=(
-                    "Call the provider's billing office (the number on your statement) and ask for "
-                    "an itemized bill — a detailed bill with the procedure (CPT) codes. They're "
-                    "required to provide one."
-                ),
-            )
-        )
-    if not getattr(case, "coverage", None):
-        needs.append(
-            DocumentNeed(
-                key="sbc",
-                label="Summary of Benefits and Coverage (SBC)",
-                how_to_get=(
-                    "Your plan's benefits summary — find it in your insurance portal under Plan "
-                    "Documents, or ask your HR or insurer for the SBC."
-                ),
-            )
-        )
-    return needs
+    have_eob = bool(types & _EOB_FAMILY)
+    have_bill = bool(types & _BILL_FAMILY)
+    have_sbc = bool(getattr(case, "coverage", None)) or bool(types & _COVERAGE_FAMILY)
+    return [
+        DocumentNeed(
+            key="eob",
+            label="Explanation of Benefits (EOB)",
+            how_to_get=(
+                "Your insurer posts this after they process a claim. Log in to your insurance "
+                "portal, or call the member number on your card and ask them to send the EOB "
+                "for this visit."
+            ),
+            have=have_eob,
+        ),
+        DocumentNeed(
+            key="itemized_bill",
+            label="Itemized bill",
+            how_to_get=(
+                "Call the provider's billing office (the number on your statement) and ask for "
+                "an itemized bill — a detailed bill with the procedure (CPT) codes. They're "
+                "required to provide one."
+            ),
+            have=have_bill,
+        ),
+        DocumentNeed(
+            key="sbc",
+            label="Summary of Benefits and Coverage (SBC)",
+            how_to_get=(
+                "Your plan's benefits summary — find it in your insurance portal under Plan "
+                "Documents, or ask your HR or insurer for the SBC."
+            ),
+            have=have_sbc,
+        ),
+    ]
+
+
+def documents_all_satisfied(case) -> bool:
+    """True once the case has every canonical audit input — the trigger to re-run a
+    needs_documents audit after the user adds the last missing document."""
+    return all(d.have for d in _documents_needed(case))
 
 
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:

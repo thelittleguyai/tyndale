@@ -82,12 +82,15 @@ class EobConfirmRequest(BaseModel):
 
 
 class DocumentNeed(BaseModel):
-    """One document the user should get to finish a 'needs_documents' audit. PHI-free by
-    construction — a document TYPE plus plain 'how to get it', never amounts/providers."""
+    """One item on the 'to finish your audit' checklist. PHI-free by construction — a document
+    TYPE plus plain 'how to get it', never amounts/providers. `have` reflects the case's actual
+    document inventory (True once the user has provided it and extraction succeeded), so the UI
+    renders a real checked/unchecked state instead of guessing from an icon default."""
 
     key: str = Field(description="eob | itemized_bill | sbc")
     label: str
     how_to_get: str
+    have: bool = Field(default=False, description="True if the case already has this document")
 
 
 class AuditResult(BaseModel):

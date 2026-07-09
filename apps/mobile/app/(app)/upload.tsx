@@ -16,7 +16,7 @@
 
 import { useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FileText, Plus, X } from 'lucide-react-native';
 
 import { extractLineItems, uploadDocuments } from '../../lib/api-client';
@@ -38,6 +38,9 @@ function prettyBytes(n: number): string {
 
 export default function UploadScreen() {
   const router = useRouter();
+  // When present, attach to an existing case (e.g. "Add a document" from the needs_documents
+  // checklist) instead of opening a new one.
+  const { caseId } = useLocalSearchParams<{ caseId?: string }>();
   const [queue, setQueue] = useState<Queued[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +78,13 @@ export default function UploadScreen() {
     setUploading(true);
     setProgress(`Uploading ${queue.length} document${queue.length === 1 ? '' : 's'}…`);
     try {
-      const res = await uploadDocuments(queue.map((q) => q.file));
+      const res = await uploadDocuments(queue.map((q) => q.file), caseId);
+      if (caseId) {
+        // Adding to an existing case (needs_documents checklist): the server re-runs the audit if
+        // this completes the set. Return to the case's results screen — it polls the new status.
+        router.replace(`/audit/${caseId}`);
+        return;
+      }
       setProgress('Reading your documents…');
       await extractLineItems(res.case_file_id);
       router.push(`/audit/${res.case_file_id}/encounter`);

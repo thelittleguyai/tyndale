@@ -19,22 +19,43 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.agents import llm_health, runner
-from app.agents.orchestrator import _assemble_result, _documents_needed, finalize_audit
+from app.agents.orchestrator import (
+    _assemble_result,
+    _documents_needed,
+    documents_all_satisfied,
+    finalize_audit,
+)
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
 
 
-# --- pure checklist derivation: ask only for what's actually missing ---
-def test_documents_needed_lists_only_whats_missing():
+# --- checklist derivation: the full 3-item checklist, each with a real have/need flag ---
+def test_documents_needed_flags_have_per_item():
+    # Nothing useful yet (a collections notice only) → all three items present, all unchecked.
     poor = SimpleNamespace(documents=[{"document_type": "collections_notice"}], coverage=None)
-    assert {d.key for d in _documents_needed(poor)} == {"eob", "itemized_bill", "sbc"}
+    poor_needs = _documents_needed(poor)
+    assert {d.key for d in poor_needs} == {"eob", "itemized_bill", "sbc"}
+    assert all(not d.have for d in poor_needs)
+    assert not documents_all_satisfied(poor)
 
+    # Everything present → still the full checklist, but all checked (and re-run is unblocked).
     rich = SimpleNamespace(
         documents=[{"document_type": "eob"}, {"document_type": "bill"}],
         coverage={"deductible": {"total": 1000}},
     )
-    assert _documents_needed(rich) == []
+    rich_needs = _documents_needed(rich)
+    assert {d.key for d in rich_needs} == {"eob", "itemized_bill", "sbc"}
+    assert all(d.have for d in rich_needs)
+    assert documents_all_satisfied(rich)
+
+    # A plan_summary document satisfies the SBC need even without structured coverage extracted yet.
+    partial = SimpleNamespace(
+        documents=[{"document_type": "eob"}, {"document_type": "plan_summary"}], coverage=None,
+    )
+    assert {d.key: d.have for d in _documents_needed(partial)} == {
+        "eob": True, "itemized_bill": False, "sbc": True,
+    }
 
 
 # --- fake Claude client: ships clean text, NO three-number tool call → audit stays None ---
@@ -126,3 +147,75 @@ async def test_system_error_emits_a_real_counted_alert(client: AsyncClient, monk
     assert result.documents_needed == []  # no checklist on a system error
     # "our team has been notified" is made TRUE — the alert is emitted + counted for admins.
     assert llm_health.system_alerts()["count"] == before + 1
+
+
+async def _needs_documents_case(client: AsyncClient, *, documents, coverage) -> str:
+    """A case pinned to audit_incomplete/needs_documents with a given inventory."""
+    up = await client.post(
+        "/v1/upload", files={"file": ("seed.pdf", b"%PDF-1.4 x", "application/pdf")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        cf.status = "audit_incomplete"
+        cf.audit_incomplete_reason = "needs_documents"
+        cf.documents = documents
+        cf.coverage = coverage
+        await s.commit()
+    return case_id
+
+
+def _ocr_returning(text: str):
+    async def _ocr(args):
+        return {
+            "filename": args.get("filename", "f"), "ocr_text": text,
+            "extraction_status": "extracted", "byte_count": 10, "pages": [],
+            "key_value_pairs": [], "tables_count": 0,
+        }
+
+    return _ocr
+
+
+@pytest.mark.asyncio
+async def test_upload_completing_needs_documents_reruns_audit(client: AsyncClient, monkeypatch):
+    # Blocked only on the EOB (bill + coverage already present). Adding the EOB completes the set.
+    case_id = await _needs_documents_case(
+        client, documents=[{"document_type": "bill"}], coverage={"deductible": {"total": 1000}}
+    )
+    monkeypatch.setattr("app.routes.upload.run_document_ocr", _ocr_returning("EXPLANATION OF BENEFITS"))
+    calls: list[str] = []
+
+    async def _spy(cfid):
+        calls.append(cfid)
+
+    monkeypatch.setattr("app.routes.upload.finalize_audit", _spy)
+
+    r = await client.post(
+        "/v1/upload", data={"case_file_id": case_id},
+        files=[("files", ("eob.pdf", b"%PDF-1.4 x", "application/pdf"))],
+    )
+    assert r.status_code == 200, r.text
+    assert calls == [case_id]  # all inputs satisfied → audit re-run triggered
+
+
+@pytest.mark.asyncio
+async def test_upload_not_completing_set_does_not_rerun(client: AsyncClient, monkeypatch):
+    # Still missing the itemized bill + SBC after adding just the EOB → no re-run.
+    case_id = await _needs_documents_case(client, documents=[], coverage=None)
+    monkeypatch.setattr("app.routes.upload.run_document_ocr", _ocr_returning("EXPLANATION OF BENEFITS"))
+    calls: list[str] = []
+
+    async def _spy(cfid):
+        calls.append(cfid)
+
+    monkeypatch.setattr("app.routes.upload.finalize_audit", _spy)
+
+    r = await client.post(
+        "/v1/upload", data={"case_file_id": case_id},
+        files=[("files", ("eob.pdf", b"%PDF-1.4 x", "application/pdf"))],
+    )
+    assert r.status_code == 200, r.text
+    assert calls == []  # set incomplete → audit not re-run

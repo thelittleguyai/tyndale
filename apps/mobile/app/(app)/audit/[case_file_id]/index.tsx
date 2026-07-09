@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { MessageSquare } from 'lucide-react-native';
+import { CheckCircle2, Circle, MessageSquare } from 'lucide-react-native';
 
 import {
   AuditResult,
@@ -356,12 +356,17 @@ function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
 /** needs_documents (HP-1): the audit RAN and found things, but the three-number computation is
  * blocked on missing inputs. POSITIVE framing — what we found so far + the document checklist to
  * finish. No failure language, no "team has been notified". */
-function NeedsDocuments({ result, caseFileId }: { result: AuditResult; caseFileId: string }) {
+export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; caseFileId: string }) {
   const router = useRouter();
   const docs = result.documents_needed ?? [];
+  const remaining = docs.filter((d) => !d.have).length;
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 32 }}>
+    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
+        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+        </Pressable>
+
         <Text className="mb-3 text-2xl font-bold leading-tight text-white">
           Here&rsquo;s what we found so far
         </Text>
@@ -373,22 +378,34 @@ function NeedsDocuments({ result, caseFileId }: { result: AuditResult; caseFileI
         {docs.length ? (
           <View className="mb-6 rounded-2xl border border-sage/30 bg-sage/10 p-5">
             <Text className="mb-3 text-xs uppercase tracking-wider text-sage">
-              To finish your audit, we need
+              {remaining === 0 ? 'All set — re-checking your audit' : 'To finish your audit, we need'}
             </Text>
             {docs.map((d, i) => (
               <View key={d.key} className={i > 0 ? 'mt-4 border-t border-white/10 pt-4' : ''}>
                 <View className="mb-1 flex-row items-start gap-2">
-                  <Text className="text-sage">✓</Text>
-                  <Text className="flex-1 text-base font-bold text-white">{d.label}</Text>
+                  {d.have ? (
+                    <CheckCircle2 size={18} color="#3DAA7E" />
+                  ) : (
+                    <Circle size={18} color="rgba(255,255,255,0.35)" />
+                  )}
+                  <Text
+                    className={`flex-1 text-base font-bold ${d.have ? 'text-white/55 line-through' : 'text-white'}`}
+                  >
+                    {d.label}
+                  </Text>
                 </View>
-                <Text className="ml-5 text-sm leading-6 text-white/70">{d.how_to_get}</Text>
+                {d.have ? null : (
+                  <Text className="ml-6 text-sm leading-6 text-white/70">{d.how_to_get}</Text>
+                )}
               </View>
             ))}
           </View>
         ) : null}
 
         <Pressable
-          onPress={() => router.push('/upload')}
+          onPress={() =>
+            router.push({ pathname: '/upload', params: { caseId: caseFileId } })
+          }
           className="mb-8 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
         >
           <Text className="text-center text-base font-bold text-ink">Add a document</Text>
@@ -421,10 +438,15 @@ function NeedsDocuments({ result, caseFileId }: { result: AuditResult; caseFileI
  * The apology copy, and the ONLY screen that says "our team has been notified" (a real alert was
  * emitted server-side). Any partial numbers/findings still show so nothing is dead-ended. */
 function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: string }) {
+  const router = useRouter();
   const a = result.audit;
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 32 }}>
+    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
+        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+        </Pressable>
+
         <Text className="mb-3 text-2xl font-bold leading-tight text-white">
           We couldn&rsquo;t finish this audit
         </Text>
