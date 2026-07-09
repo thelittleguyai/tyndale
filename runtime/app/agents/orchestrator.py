@@ -482,6 +482,50 @@ def documents_all_satisfied(case) -> bool:
     return all(d.have for d in _documents_needed(case))
 
 
+# Agents persist citations as free-form dicts (the pg_store_finding tool schema is an open object,
+# so real-Claude citations vary in their keys). The strict Citation model must NEVER 500 the audit
+# fetch on a shape it didn't expect — project defensively: normalize the common field aliases,
+# synthesize a marker when absent, and drop a citation only when it carries nothing usable.
+_CITATION_ALIASES: dict[str, tuple[str, ...]] = {
+    "src_id": ("src_id", "source_id", "source", "src", "id"),
+    "authority": ("authority", "title", "name", "source_title", "label"),
+    "section": ("section", "sec", "pincite"),
+    "marker": ("marker", "inline_marker", "citation", "text"),
+}
+
+
+def _project_citation(c: dict) -> Citation | None:
+    def pick(field: str) -> str:
+        for k in _CITATION_ALIASES[field]:
+            v = c.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    authority, src_id = pick("authority"), pick("src_id")
+    marker = pick("marker")
+    if not marker and (authority or src_id):  # synthesize an inline marker when the agent omitted it
+        marker = f"[{authority}{', ' if authority and src_id else ''}{src_id}]"
+    if not (authority or src_id or marker):
+        return None  # nothing usable — drop rather than render an empty citation
+    try:
+        return Citation(
+            authority=authority, section=pick("section") or None, src_id=src_id, marker=marker
+        )
+    except Exception:  # noqa: BLE001 — a malformed agent citation must never 500 the audit fetch
+        return None
+
+
+def _project_citations(raw: object) -> list[Citation]:
+    out: list[Citation] = []
+    for c in raw or []:  # type: ignore[union-attr]
+        if isinstance(c, dict):
+            pc = _project_citation(c)
+            if pc is not None:
+                out.append(pc)
+    return out
+
+
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     """Read findings from Postgres and project to AuditResult shape."""
     async with AsyncSessionLocal() as s:
@@ -509,7 +553,9 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         raw_citations = []
         if isinstance(f.legal_claim, dict):
             raw_citations = f.legal_claim.get("citations") or []
-        citations = [Citation(**c) for c in raw_citations if isinstance(c, dict)]
+        # Defensive projection — real-agent citation dicts vary in shape and must never 500 the
+        # audit fetch (the live bug: a citation missing src_id/marker raised ValidationError here).
+        citations = _project_citations(raw_citations)
         findings.append(
             FindingOut(
                 finding_id=str(f.finding_id),
@@ -696,8 +742,14 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
             readable = [
                 d for d in docs if d.extraction_status == "extracted" and d.ocr_text_chars > 0
             ]
-            billing_families = _BILL_FAMILY | _EOB_FAMILY
-            readable_billing = [d for d in readable if (d.document_type or "") in billing_families]
+            # A doc is "recognized" if the classifier assigned it ANY medical/insurance type (it
+            # only ever returns 'unclassified' for a document it can't place). not_a_bill is
+            # reserved for genuinely non-medical uploads — a recognized-but-non-bill doc (collections
+            # notice, denial letter, insurance card, plan summary) is still a medical document and
+            # must NOT be mislabeled "not a medical bill".
+            readable_recognized = [
+                d for d in readable if (d.document_type or "unclassified") != "unclassified"
+            ]
 
             def _degrade(status: str, message: str, event: str) -> ExtractResult:
                 log.error(
@@ -731,18 +783,20 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
                     "orchestrator.extract.all_documents_unreadable",
                 )
 
-            # (b) At least one document read fine, but NONE is a bill/EOB → there is nothing to
-            # audit. A distinct honest state, naming the file(s), so the user isn't stranded on a
-            # 0-item encounter wondering what went wrong.
-            if readable and not readable_billing:
+            # (b) At least one document read fine, but NONE is recognizable as a medical/insurance
+            # document at all (e.g. a photo of something unrelated) → nothing to audit. A distinct
+            # honest state, naming the file(s), so the user isn't stranded on a 0-item encounter.
+            if readable and not readable_recognized:
                 await _set_status(case_file_id, "not_a_bill")
                 return _degrade(
                     "not_a_bill", not_a_bill_message([d.filename for d in readable]),
                     "orchestrator.extract.readable_but_not_a_bill",
                 )
 
-            # (c) We recognized a bill/EOB (or have no per-document provenance) but translate
-            # produced nothing usable → extraction_failed. Never falls through to fixtures.
+            # (c) We recognized a medical document (bill/EOB, or a collections notice / denial /
+            # card / plan summary) but extracted no billable line items → extraction_failed. This is
+            # NOT "not a bill" — it's a real medical doc we couldn't turn into line items. Never
+            # falls through to fixtures.
             await _set_status(case_file_id, "extraction_failed")
             return _degrade(
                 "extraction_failed", EXTRACTION_FAILED_MESSAGE,

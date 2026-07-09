@@ -137,6 +137,45 @@ async def test_readable_but_not_a_bill_degrades_to_not_a_bill(client: AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_recognized_nonbill_doc_is_extraction_failed_not_not_a_bill(
+    client: AsyncClient, monkeypatch
+):
+    # A RECOGNIZED medical document (a collections notice) that yields no line items must degrade to
+    # extraction_failed — NEVER 'not_a_bill'. not_a_bill is reserved for genuinely non-medical
+    # uploads; mislabeling a collections notice "not a medical bill" was the Phase-1 over-capture.
+    async def _collections_ocr(args):
+        return {
+            "filename": args.get("filename", "f"),
+            "ocr_text": "FINAL NOTICE — PAST DUE. This account is being referred to COLLECTIONS.",
+            "extraction_status": "extracted",
+            "byte_count": 10, "pages": [], "key_value_pairs": [], "tables_count": 0,
+        }
+
+    monkeypatch.setattr("app.routes.upload.run_document_ocr", _collections_ocr)
+    up = await client.post(
+        "/v1/upload", files={"file": ("notice.pdf", b"%PDF-1.4 x", "application/pdf")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+    # Confirm the classifier recognized it (not 'unclassified').
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+    assert cf.documents[-1]["document_type"] == "collections_notice"
+
+    _force_real_claude(monkeypatch)
+
+    async def _empty_translate(case_file_id, mode="translate"):
+        return RunResult(final_text="", tool_calls=[], usage={})
+
+    monkeypatch.setattr(bill_detective, "run", _empty_translate)
+
+    result = await orchestrator.extract_line_items(case_id)
+    assert result.status == "extraction_failed"  # recognized medical doc, not "not_a_bill"
+
+
+@pytest.mark.asyncio
 async def test_zero_item_invariant_never_reaches_encounter(client: AsyncClient, monkeypatch):
     # Belt-and-suspenders (item 4): even if the fixture path itself yields nothing, the case must
     # NEVER enter encounter_verification_pending with zero line items — it degrades honestly.
