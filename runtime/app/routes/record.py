@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.context_loader import orchestration_step
+from app.agents.orchestrator import _documents_needed
 from app.appeals.deadlines import DEADLINE_RULES
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
@@ -19,6 +21,12 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
+from app.routes.case_access import require_case_owner
+from app.schemas.case_summary import (
+    CaseSummaryPayload,
+    FindingBrief,
+    StatusBanner,
+)
 from app.schemas.record import (
     DeadlineInfo,
     RecordAggregates,
@@ -26,8 +34,10 @@ from app.schemas.record import (
     SubCaseRow,
     ThreeNumberBrief,
 )
+from app.sources.gameplan import build_gameplan, humanize_category
 from app.sources.record import (
     confirmed_recovered_by_case,
+    deadlines_for_case,
     identified_estimate_from_findings,
     next_check_in_date,
     open_item_count,
@@ -144,4 +154,93 @@ async def get_record(
             next_check_in_date=min(checkins).isoformat() if checkins else None,
         ),
         has_older=has_older,
+    )
+
+
+# States where the case is legitimately blocked on the user providing more documents — the only
+# states the have/need checklist should surface (a complete audit has no open document items).
+_NEEDS_DOCS_STATES = {"audit_incomplete", "awaiting_eob_confirmation"}
+
+
+def _first(values, *keys) -> str | None:
+    """First non-empty string at any of `keys` across a JSONB list of dicts (best-effort, honest:
+    returns None rather than inventing a value when the structured field isn't present)."""
+    for v in values or []:
+        if isinstance(v, dict):
+            for k in keys:
+                got = v.get(k)
+                if isinstance(got, str) and got.strip():
+                    return got.strip()
+    return None
+
+
+def _finding_brief(f: Finding) -> FindingBrief:
+    facts = f.facts or {}
+    gap = facts.get("gap")
+    try:
+        dollar = round(max(0.0, float(gap)), 2) if gap is not None else None
+    except (TypeError, ValueError):
+        dollar = None
+    claim = (f.legal_claim or {}).get("claim")
+    action = (f.recommendation or {}).get("action")
+    return FindingBrief(
+        finding_id=str(f.finding_id),
+        finding_type=f.finding_type,
+        category=f.category,
+        title=humanize_category(f.category),
+        claim=claim.strip() if isinstance(claim, str) and claim.strip() else None,
+        dollar_impact=dollar,
+        recommendation=action.strip() if isinstance(action, str) and action.strip() else None,
+    )
+
+
+@router.get("/case/{case_file_id}/summary", response_model=CaseSummaryPayload)
+async def get_case_summary(
+    case_file_id: str,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CaseSummaryPayload:
+    """The permanent sub-case summary (D5 §2). Hidden (404) when ENABLE_RECORD_VIEW is off, so the
+    Record feature ships as one gated unit. Ownership-checked (IDOR); a soft-deleted case 404s."""
+    if not get_settings().enable_record_view:
+        raise HTTPException(status_code=404, detail="not found")
+    case = await require_case_owner(case_file_id, user, session)
+    if case.soft_deleted_at is not None:
+        raise HTTPException(status_code=404, detail="case_file not found")
+
+    findings = (
+        await session.execute(
+            select(Finding).where(Finding.case_file_id == case.case_file_id)
+        )
+    ).scalars().all()
+
+    label, _resume = _label_and_resume(case.status)
+    deadlines = await deadlines_for_case(session, case.case_file_id)
+    recovered = await confirmed_recovered_by_case(session, [case.case_file_id])
+
+    tn = three_number_from_findings(findings)
+    open_items = _documents_needed(case) if case.status in _NEEDS_DOCS_STATES else []
+
+    return CaseSummaryPayload(
+        case_file_id=str(case.case_file_id),
+        status_banner=StatusBanner(
+            status=case.status,
+            label=label,
+            response_deadline=DeadlineInfo(**deadlines[0]) if deadlines else None,
+        ),
+        provider=_first(case.eobs, "provider", "provider_name")
+        or _first(case.documents, "provider", "provider_name"),
+        service_date=_first(case.eobs, "date_of_service")
+        or _first(case.documents, "date_of_service", "service_date"),
+        three_number=ThreeNumberBrief(**tn) if tn else None,
+        identified_estimate=identified_estimate_from_findings(findings),
+        recovered_so_far=recovered.get(str(case.case_file_id), 0.0),
+        findings=[_finding_brief(f) for f in findings],
+        open_items=open_items,
+        next_check_in_date=(
+            d.isoformat() if (d := next_check_in_date(case, findings)) else None
+        ),
+        gameplan=build_gameplan(findings),
+        call_mode_intro=orchestration_step("call_mode_intro"),
+        call_mode_outro=orchestration_step("call_mode_outro"),
     )

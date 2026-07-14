@@ -86,16 +86,18 @@ def three_number_from_findings(findings: list[Finding]) -> dict | None:
 
 def identified_estimate_from_findings(findings: list[Finding]) -> float:
     """Potential savings IDENTIFIED by the audit (finding estimate, facts['gap']) — an ESTIMATE,
-    shown separately and labeled, NEVER folded into recovered."""
+    shown separately and labeled, NEVER folded into recovered. Sums the positive gap of EVERY
+    finding, payer-side and provider-side alike: the Independent Audit Doctrine pursues both with
+    equal rigor, and the sub-case summary's gameplan lists provider-side steps with their own
+    dollar figures, so a payer-only total would under-count and contradict its own gameplan."""
     total = 0.0
     for f in findings:
-        if f.finding_type == "payer_side":
-            gap = (f.facts or {}).get("gap")
-            if gap is not None:
-                try:
-                    total += max(0.0, float(gap))
-                except (TypeError, ValueError):
-                    pass
+        gap = (f.facts or {}).get("gap")
+        if gap is not None:
+            try:
+                total += max(0.0, float(gap))
+            except (TypeError, ValueError):
+                pass
     return round(total, 2)
 
 

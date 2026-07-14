@@ -19,6 +19,8 @@ replace each body with the real copy — keep the `{{variable}}` slots.
 - `{{doc_types}}` — comma-joined classified document types received (acknowledgment).
 - `{{delta_dollars}}` — billed-minus-computed savings, formatted e.g. `1,240.00` (three_number_reveal).
 - `{{label}}` / `{{how_to_get}}` — a needs_documents checklist item's label + how-to-get text.
+- `{{party}}` — plain-language who-to-call for a gameplan call, e.g. `your insurance company`
+  (call_script_opener_payer / call_script_opener_provider).
 Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>`.
 
 ## acknowledgment
@@ -83,3 +85,21 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## record_post_audit_keep_doing
 [PLACEHOLDER-eng] Here's what I keep doing for you from here: watching your deadlines, re-checking the moment you add a document, and adding this to your growing record so nothing slips.
+
+## call_script_opener_payer
+[PLACEHOLDER-eng] When you reach {{party}}, give your name and member ID and say you're calling about a billing error you'd like corrected.
+
+## call_script_opener_provider
+[PLACEHOLDER-eng] When you reach {{party}}, give your name and account number and say you're calling about a charge you'd like corrected.
+
+## call_script_get_it_in_writing
+[PLACEHOLDER-eng] Before you hang up, ask them to email or mail you written confirmation of what they agreed to, plus a reference number for the call.
+
+## call_script_if_they_push_back
+[PLACEHOLDER-eng] If they push back, stay calm and ask them to point you to the specific policy or code that justifies the charge — and if they can't, ask for a supervisor or how to start an appeal.
+
+## call_mode_intro
+[PLACEHOLDER-eng] One call at a time. I'll walk you through exactly what to say — tap Next when you're ready for each step.
+
+## call_mode_outro
+[PLACEHOLDER-eng] That's the call. When you hear back, tell me what they said and I'll take it from there.

@@ -234,6 +234,7 @@ export async function confirmEobCompleteness(
 // --- Dashboard ---------------------------------------------------------------
 
 import type {
+  CaseSummaryPayload,
   CasesListPayload,
   CoverageDetailPayload,
   DashboardPayload,
@@ -241,11 +242,13 @@ import type {
 } from '@tyndale/shared';
 
 export type {
+  CaseSummaryPayload,
   CasesListPayload,
   CoverageDetailPayload,
   CoverageMeter,
   CoverageSummary,
   DashboardPayload,
+  GameplanStep,
   OpenCase,
   RecordPayload,
   SubCaseRow,
@@ -256,6 +259,13 @@ export async function getRecord(windowMonths = 12): Promise<RecordPayload> {
   const res = await cfetch(`${BASE_URL}/v1/record?window_months=${windowMonths}`);
   if (!res.ok) throw new Error(`getRecord ${res.status}`);
   return (await res.json()) as RecordPayload;
+}
+
+/** GET /v1/case/{id}/summary — the permanent sub-case summary (D5 §2). 404 when the flag is off. */
+export async function getCaseSummary(caseFileId: string): Promise<CaseSummaryPayload> {
+  const res = await cfetch(`${BASE_URL}/v1/case/${caseFileId}/summary`);
+  if (!res.ok) throw new Error(`getCaseSummary ${res.status}`);
+  return (await res.json()) as CaseSummaryPayload;
 }
 
 /** GET /v1/dashboard — the composite payload for the signed-in dashboard. */
