@@ -8,6 +8,7 @@ export * from './feedback';
 export * from './intake';
 export * from './admin-types';
 export * from './chat';
+export * from './record';
 export * from './provenance';
 export * from './legal';
 export { default } from './design-tokens';

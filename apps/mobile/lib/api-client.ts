@@ -237,6 +237,7 @@ import type {
   CasesListPayload,
   CoverageDetailPayload,
   DashboardPayload,
+  RecordPayload,
 } from '@tyndale/shared';
 
 export type {
@@ -246,7 +247,16 @@ export type {
   CoverageSummary,
   DashboardPayload,
   OpenCase,
+  RecordPayload,
+  SubCaseRow,
 } from '@tyndale/shared';
+
+/** GET /v1/record — the Tyndale Record (D5). 404 when the flag is off. */
+export async function getRecord(windowMonths = 12): Promise<RecordPayload> {
+  const res = await cfetch(`${BASE_URL}/v1/record?window_months=${windowMonths}`);
+  if (!res.ok) throw new Error(`getRecord ${res.status}`);
+  return (await res.json()) as RecordPayload;
+}
 
 /** GET /v1/dashboard — the composite payload for the signed-in dashboard. */
 export async function getDashboard(): Promise<DashboardPayload> {

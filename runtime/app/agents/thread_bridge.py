@@ -280,6 +280,12 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         else:  # needs_documents (default)
             await _ensure_needs_documents(session, conv, case, ensure)
 
+    # Continuous-journey moment (D5): once after a terminal audit, the "what I keep doing for you"
+    # beat (deadline watching, re-audit on new docs, the growing Record). Gated on the Record flag.
+    if status in ("audit_complete", "audit_incomplete") and get_settings().enable_record_view:
+        keep = orchestration_step("record_post_audit_keep_doing")
+        await ensure("record_keep_doing", "system_message", {"text": keep, "tone": "neutral"}, keep)
+
 
 async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     from app.agents.orchestrator import _assemble_result  # lazy — avoids the import cycle
@@ -330,6 +336,22 @@ async def bootstrap_thread(case_file_id: str) -> str | None:
             return None
         conv = await get_case_conversation(session, case_file_id, create_owner=case.user_id)
         await _reconcile(session, conv, case)
+        # Continuous-journey (D5): at the user's FIRST-ever upload, frame this as the start of their
+        # file. Idempotent (marker) + gated on the Record flag.
+        if get_settings().enable_record_view:
+            total = (
+                await session.execute(
+                    select(func.count()).select_from(CaseFile)
+                    .where(CaseFile.user_id == case.user_id)
+                    .where(CaseFile.soft_deleted_at.is_(None))
+                )
+            ).scalar_one()
+            if total <= 1 and "record_first_upload" not in await _markers(session, conv.conversation_id):
+                frame = orchestration_step("record_first_upload_frame")
+                await _insert(
+                    session, conv, "system_message",
+                    {"text": frame, "tone": "neutral", "marker": "record_first_upload"}, frame,
+                )
         await session.commit()
         return str(conv.conversation_id)
 

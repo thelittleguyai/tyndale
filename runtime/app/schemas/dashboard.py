@@ -99,6 +99,9 @@ class DashboardPayload(BaseModel):
     # cross-schema import cycle.
     outcome_prompts: list[dict] = Field(default_factory=list)
     status_forward_greeting: str | None = None
+    # DL-91 D5: when true, the client shows the Tyndale Record (sub-case rows) in place of the
+    # ad-hoc Open Cases list. Reflects the server's enable_record_view flag.
+    record_enabled: bool = False
 
 
 class CasesListPayload(BaseModel):

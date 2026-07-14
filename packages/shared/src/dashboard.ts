@@ -78,6 +78,8 @@ export interface DashboardPayload {
   /** Phase 2J — cases eligible for an outcome follow-up prompt. */
   outcome_prompts: OutcomePromptInline[];
   status_forward_greeting: string | null;
+  /** DL-91 D5: when true, show the Tyndale Record view in place of the ad-hoc Open Cases list. */
+  record_enabled?: boolean;
 }
 
 export interface CaseSummary {

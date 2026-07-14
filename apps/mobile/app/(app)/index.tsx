@@ -48,6 +48,7 @@ import {
 import {
   createConversation,
   getDashboard,
+  getRecord,
   getProfileState,
   getUserProfile,
   listConversations,
@@ -55,6 +56,7 @@ import {
   removeCase,
   submitFeedback,
   type DashboardPayload,
+  type RecordPayload,
   type ResolvedValue,
 } from '../../lib/api-client';
 import { useSignOut } from '../../lib/auth';
@@ -62,6 +64,7 @@ import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { logoSvg, type ActiveCase } from '@tyndale/shared';
 import { activeCaseRoute } from '../../lib/active-cases';
 import { HeroMotif } from '../../components/hero-motif';
+import { RecordSection } from '../../components/record/RecordSection';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
 import { useBreakpoint } from '../../components/ui/use-breakpoint';
@@ -72,6 +75,7 @@ const formatUSD = (n: number) =>
 export default function DashboardScreen() {
   const router = useRouter();
   const [data, setData] = useState<DashboardPayload | null>(null);
+  const [record, setRecord] = useState<RecordPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // CO-17: the profile record carries the real first/last name (both nullable).
@@ -89,6 +93,11 @@ export default function DashboardScreen() {
       setLoading(true);
       const d = await getDashboard();
       setData(d);
+      if (d.record_enabled) {
+        getRecord()
+          .then(setRecord)
+          .catch(() => setRecord(null));
+      }
       setError(null);
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -160,7 +169,9 @@ export default function DashboardScreen() {
           loading={loading && !data}
         />
 
-        {(data?.active_cases ?? []).length > 0 ? (
+        {data?.record_enabled ? (
+          record ? <RecordSection record={record} /> : null
+        ) : (data?.active_cases ?? []).length > 0 ? (
           <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
 

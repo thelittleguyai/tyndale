@@ -35,6 +35,7 @@ from app.routes import (
     intake,
     messages,
     profile,
+    record,
     upload,
     user,
 )
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback.router, prefix="/v1")
     app.include_router(dashboard.router, prefix="/v1")
     app.include_router(cases.router, prefix="/v1")
+    app.include_router(record.router, prefix="/v1")
     app.include_router(coverage.router, prefix="/v1")
     app.include_router(encounter.router, prefix="/v1")
     app.include_router(user.router, prefix="/v1")

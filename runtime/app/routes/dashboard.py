@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.greeting import compose_status_greeting
 from app.auth import CurrentUser, current_user
+from app.config import get_settings
 from app.crons.outcome_followup import scan_for_outcome_followups
 from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
@@ -337,4 +338,5 @@ async def get_dashboard(
         active_cases=active_cases,
         outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,
+        record_enabled=get_settings().enable_record_view,
     )

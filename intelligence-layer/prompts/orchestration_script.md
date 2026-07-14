@@ -77,3 +77,9 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## verification_map_partial_fallback
 [PLACEHOLDER-eng] I caught part of that but want to be sure I don't guess — please tap the answer on each card above.
+
+## record_first_upload_frame
+[PLACEHOLDER-eng] This is the start of your file. I'll remember your plan and watch what happens next — every bill you send becomes part of your record.
+
+## record_post_audit_keep_doing
+[PLACEHOLDER-eng] Here's what I keep doing for you from here: watching your deadlines, re-checking the moment you add a document, and adding this to your growing record so nothing slips.

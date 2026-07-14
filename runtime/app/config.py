@@ -254,6 +254,9 @@ class Settings(BaseSettings):
     # card and stays false until the pricing memo lands (nothing behind it in Phase A).
     enable_chat_first_audit: bool = False  # env: ENABLE_CHAT_FIRST_AUDIT
     enable_first_case_unlock: bool = False  # env: ENABLE_FIRST_CASE_UNLOCK
+    # Tyndale Record + sub-case views (D5, Phase C). Independent of enable_chat_first_audit so the
+    # two flip separately; the classic dashboard is untouched when off.
+    enable_record_view: bool = False  # env: ENABLE_RECORD_VIEW
 
     # --- Billing (Item 4, dark scaffold — DL-16). Entirely inert while enable_billing is False:
     # the checkout/webhook routes 404, the audit-gate dependency is a no-op, and the settings UI
