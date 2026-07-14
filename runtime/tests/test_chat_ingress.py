@@ -82,7 +82,7 @@ async def test_user_prompt_submit_block_short_circuits(monkeypatch):
 
 
 # --- production-config fail-fast assertion -----------------------------------
-def test_production_config_assertion():
+def test_production_config_assertion(real_orchestration_script):
     from app.config import Settings
 
     base = dict(database_url="postgresql+asyncpg://u:p@h/d", node_env="production")

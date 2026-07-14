@@ -24,12 +24,24 @@ parent → parent → parent → ``intelligence-layer/``). Override via the
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
 import structlog
 
 log = structlog.get_logger(__name__)
+
+# Engineering seed-copy sentinel for the orchestration script (D1, Brock 2026-07-10). A
+# staging/production boot fails while any active script value still carries this prefix.
+PLACEHOLDER_PREFIX = "[PLACEHOLDER-eng]"
+
+_FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
+# One `## <snake_case_key>` heading (on its own line) → its string body, up to the next `## `.
+# Meta headings like `## Variables (…)` (not a bare identifier) are ignored.
+_SCRIPT_KEY_RE = re.compile(
+    r"^##\s+([a-z][a-z0-9_]*)\s*$\n+(.+?)(?=\n##\s|\Z)", re.DOTALL | re.MULTILINE
+)
 
 
 def _intelligence_layer_root() -> Path:
@@ -47,6 +59,33 @@ def _read(rel: str) -> str:
         log.warning("context_loader.missing", path=str(path))
         return f"<MISSING: {rel}>\n"
     return path.read_text(encoding="utf-8")
+
+
+@lru_cache(maxsize=1)
+def load_orchestration_script() -> dict[str, str]:
+    """Parse ``prompts/orchestration_script.md`` → ``{key: string}`` (D1, Brock 2026-07-10).
+
+    Each ``## <snake_case_key>`` heading delimits one system-authored thread string; the YAML
+    frontmatter, the ``# title``, and the ``## Variables (…)`` meta section are ignored. A
+    missing file → ``{}`` so the renderer degrades to explicit ``<MISSING-script: key>`` markers
+    rather than crashing. Loaded verbatim — engineering never copy-edits these values."""
+    text = _read("prompts/orchestration_script.md")
+    if text.startswith("<MISSING:"):
+        return {}
+    text = _FRONTMATTER_RE.sub("", text, count=1)
+    return {m.group(1): m.group(2).strip() for m in _SCRIPT_KEY_RE.finditer(text)}
+
+
+def orchestration_step(key: str, /, **variables: object) -> str:
+    """The thread string for ``key`` with ``{{var}}`` slots interpolated. Returns an explicit
+    ``<MISSING-script: key>`` marker (never a silent empty string) when the key is absent, so a
+    missing key is visible in the thread and catchable in tests. Unknown slots are left as-is."""
+    value = load_orchestration_script().get(key)
+    if value is None:
+        return f"<MISSING-script: {key}>"
+    for name, val in variables.items():
+        value = value.replace(f"{{{{{name}}}}}", str(val))
+    return value
 
 
 @lru_cache(maxsize=1)

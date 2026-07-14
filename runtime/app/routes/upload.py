@@ -278,4 +278,17 @@ async def upload(
             received_bytes=first.size_bytes,
             note=f"document_type={first.document_type}",
         )
-    return MultiUploadResponse(case_file_id=cfid, uploads=uploaded)
+    # Chat-first bootstrap (DL-91): a NEW case gets a thread (acknowledgment + live status card) and
+    # the client routes there instead of the classic encounter screen. Flag-gated no-op (returns
+    # None) — appended-to-existing uploads (case_file_id given) never bootstrap.
+    conversation_id: str | None = None
+    if case_file_id is None:
+        from app.agents.thread_bridge import bootstrap_thread
+
+        conversation_id = await bootstrap_thread(cfid)
+    return MultiUploadResponse(
+        case_file_id=cfid,
+        uploads=uploaded,
+        chat_first=conversation_id is not None,
+        conversation_id=conversation_id,
+    )

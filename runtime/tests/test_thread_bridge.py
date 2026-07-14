@@ -1,0 +1,153 @@
+"""Chat-first event bridge (DL-91). The case thread is a pure, IDEMPOTENT projection of case
+state: re-delivering a transition reconciles to the same thread (one status card, no duplicate
+entries), and the thread is fully derivable from (status, line_items, findings) at any time. The
+bridge is inert unless enable_chat_first_audit — the classic flow is untouched when off."""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+
+from app.agents import thread_bridge
+from app.config import get_settings
+from app.db.base import AsyncSessionLocal
+from app.db.models.case_files import CaseFile
+from app.db.models.findings import Finding
+from app.db.models.messages import Message
+
+
+@pytest.fixture
+def chat_first_on(monkeypatch):
+    monkeypatch.setattr(get_settings(), "enable_chat_first_audit", True)
+
+
+async def _upload_new_case(client: AsyncClient) -> tuple[str, str | None]:
+    r = await client.post(
+        "/v1/upload", files=[("files", ("bill.pdf", b"%PDF-1.4 x", "application/pdf"))]
+    )
+    assert r.status_code == 200, r.text
+    b = r.json()
+    return b["case_file_id"], b.get("conversation_id")
+
+
+async def _messages(conversation_id: str) -> list[Message]:
+    async with AsyncSessionLocal() as s:
+        return list(
+            (
+                await s.execute(
+                    select(Message)
+                    .where(Message.conversation_id == uuid.UUID(conversation_id))
+                    .order_by(Message.sequence_number)
+                )
+            ).scalars().all()
+        )
+
+
+async def _set_case(case_id: str, **fields) -> None:
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        for k, v in fields.items():
+            setattr(cf, k, v)
+        await s.commit()
+
+
+def _li(code: str) -> dict:
+    return {"line_item_id": str(uuid.uuid4()), "code": code, "code_system": "CPT",
+            "raw_description": code, "plain_language_translation": "x", "example_scenarios": [],
+            "high_risk": False, "billed_amount": 100.0, "units": 1}
+
+
+@pytest.mark.asyncio
+async def test_flag_off_is_a_noop(client: AsyncClient):
+    r = await client.post(
+        "/v1/upload", files=[("files", ("bill.pdf", b"%PDF-1.4 x", "application/pdf"))]
+    )
+    b = r.json()
+    assert b["chat_first"] is False and b.get("conversation_id") is None  # classic flow untouched
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_creates_thread_with_ack_and_status_card(client: AsyncClient, chat_first_on):
+    _case_id, conv_id = await _upload_new_case(client)
+    assert conv_id
+    msgs = await _messages(conv_id)
+    assert all(m.role == "system" for m in msgs)  # every bridge entry is system-authored
+    assert sum(1 for m in msgs if m.kind == "status_card_update") == 1
+    ack = next(m for m in msgs if m.payload.get("marker") == "ack")
+    assert ack.content and "{{" not in ack.content  # {{doc_types}} slot interpolated, not raw
+
+
+@pytest.mark.asyncio
+async def test_reconcile_is_idempotent(client: AsyncClient, chat_first_on):
+    case_id, conv_id = await _upload_new_case(client)
+    before = await _messages(conv_id)
+    await thread_bridge.bridge_case_state(case_id)  # deliver the same state twice more
+    await thread_bridge.bridge_case_state(case_id)
+    after = await _messages(conv_id)
+    assert len(after) == len(before)  # no duplicates
+    assert sum(1 for m in after if m.kind == "status_card_update") == 1  # ONE card, updated in place
+
+
+@pytest.mark.asyncio
+async def test_thread_derivable_from_state(client: AsyncClient, chat_first_on):
+    case_id, conv_id = await _upload_new_case(client)
+
+    # advance to encounter_verification_pending with 4 line items → verification cards (≤3/group)
+    await _set_case(case_id, status="encounter_verification_pending",
+                    line_items=[_li("99213"), _li("70553"), _li("36415"), _li("80053")])
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    verifs = [m for m in msgs if m.kind == "verification_request"]
+    assert len(verifs) == 2  # 4 items → groups of 3 + 1
+    assert all(len(m.payload["line_items"]) <= thread_bridge.VERIFICATION_GROUP_SIZE for m in verifs)
+    card = next(m for m in msgs if m.kind == "status_card_update")
+    assert {s["key"]: s["state"] for s in card.payload["stages"]}["encounter"] == "active"
+
+    # advance to audit_complete with a three-number finding → the moment card + completion appear
+    async with AsyncSessionLocal() as s:
+        s.add(Finding(
+            case_file_id=uuid.UUID(case_id), finding_type="payer_side",
+            category="cost_sharing_miscalculation", subagent_source="math_person", voice_tier="A",
+            facts={"provider_billed": 1200.0, "eob_member_responsibility": 800.0,
+                   "tyndale_computed": 300.0},
+        ))
+        await s.commit()
+    await _set_case(case_id, status="audit_complete")
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    moment = next(m for m in msgs if m.kind == "moment_card")
+    assert moment.payload["variant"] == "three_number"
+    assert moment.payload["delta"] == 500.0  # eob 800 - computed 300
+    assert {s["state"] for s in next(m for m in msgs if m.kind == "status_card_update").payload["stages"]} == {"done"}
+    # verification cards from the earlier state are still present (thread = full history)
+    assert len([m for m in msgs if m.kind == "verification_request"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_needs_documents_entry_carries_have_flags(client: AsyncClient, chat_first_on):
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+                    documents=[{"document_type": "bill", "filename": "bill.pdf"}], coverage=None)
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    nd = next(m for m in msgs if m.payload.get("marker") == "needs_documents")
+    items = nd.payload["needs_documents"]["items"]
+    by_key = {i["key"]: i["have"] for i in items}
+    assert by_key == {"eob": False, "itemized_bill": True, "sbc": False}  # true have/need state
+
+
+@pytest.mark.asyncio
+async def test_extraction_failed_terminal_message(client: AsyncClient, chat_first_on):
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(case_id, status="extraction_failed")
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    term = next(m for m in msgs if m.payload.get("marker") == "terminal:extraction_failed")
+    assert term.payload["tone"] == "error"
+    card = next(m for m in msgs if m.kind == "status_card_update")
+    assert card.payload["stages"][0]["state"] == "failed" and card.payload["terminal"]

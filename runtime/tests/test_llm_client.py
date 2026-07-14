@@ -136,7 +136,7 @@ def test_production_requires_foundry():
         s.assert_production_safety()
 
 
-def test_production_safe_with_foundry():
+def test_production_safe_with_foundry(real_orchestration_script):
     s = _settings(
         node_env="production",
         use_real_claude=True,

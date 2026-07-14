@@ -83,5 +83,9 @@ async def confirm_eob_completeness(
     elif case.status == "awaiting_eob_confirmation":
         case.status = "encounter_verified"  # unblocked; the audit may proceed
     await session.commit()
+    # This route sets status directly (bypasses _set_status) — bridge the transition too (DL-91).
+    from app.agents import thread_bridge
+
+    await thread_bridge.bridge_case_state(case_file_id)
     eobs, coverage = await load_case_eobs_coverage(case_file_id)
     return EobCompletenessOut(**summarize_eob_completeness(eobs, coverage).to_dict())

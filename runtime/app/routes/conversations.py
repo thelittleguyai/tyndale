@@ -56,6 +56,8 @@ def message_to_out(m: Message) -> MessageOut:
         conversation_id=m.conversation_id,
         sequence_number=m.sequence_number,
         role=m.role,
+        kind=m.kind or "message",
+        payload=m.payload,
         content=m.content,
         content_chunks=m.content_chunks,
         tool_calls=m.tool_calls,

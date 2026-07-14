@@ -91,11 +91,20 @@ class ConversationOut(BaseModel):
     updated_at: datetime.datetime
 
 
+# Chat-first typed thread entries (DL-91). 'message' = the classic text/chunks turn; the rest are
+# bridge-authored (role='system') cards whose structured data rides in `payload`.
+MessageKind = Literal[
+    "message", "status_card_update", "system_message", "moment_card", "verification_request"
+]
+
+
 class MessageOut(BaseModel):
     message_id: uuid.UUID
     conversation_id: uuid.UUID
     sequence_number: int
     role: MessageRole
+    kind: MessageKind = "message"
+    payload: dict | None = None
     content: str | None
     content_chunks: list[ContentChunk] | None = None
     tool_calls: list[ToolCall] | None = None

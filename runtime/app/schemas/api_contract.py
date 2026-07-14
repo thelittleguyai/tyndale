@@ -42,6 +42,10 @@ class MultiUploadResponse(BaseModel):
 
     case_file_id: str
     uploads: list[UploadedDoc]
+    # Chat-first routing (DL-91). When enable_chat_first_audit is on for a NEW case, the case
+    # thread is bootstrapped and the client routes there instead of the classic encounter screen.
+    chat_first: bool = False
+    conversation_id: str | None = None
 
 
 class AuditRequest(BaseModel):

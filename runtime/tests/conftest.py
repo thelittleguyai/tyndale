@@ -24,6 +24,7 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 # raise / prod-assertion paths set this off per-test.
 os.environ.setdefault("ALLOW_FIXTURE_FALLBACK", "true")
 
+import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
@@ -107,6 +108,26 @@ def _init_db() -> None:
                     "IN ('running','success','failed','partial','interrupted'))"
                 )
             )
+            # Chat-first typed thread entries (DL-91): kind + payload on a persisted DB.
+            await conn.execute(
+                text(
+                    "ALTER TABLE messages ADD COLUMN IF NOT EXISTS kind text NOT NULL "
+                    "DEFAULT 'message'"
+                )
+            )
+            await conn.execute(
+                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS payload jsonb")
+            )
+            await conn.execute(
+                text("ALTER TABLE messages DROP CONSTRAINT IF EXISTS ck_messages_kind")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE messages ADD CONSTRAINT ck_messages_kind CHECK (kind IN "
+                    "('message','status_card_update','system_message','moment_card',"
+                    "'verification_request'))"
+                )
+            )
             # plan_types v2 (Brock 2026-07-06): reconcile coverage_regime 7→14 on a persisted DB +
             # add coverage_attributes. Convert any stale v1 rows first so the new CHECK holds.
             from app.plan_types import PLAN_TYPES as _PT
@@ -166,3 +187,20 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture
+def real_orchestration_script(monkeypatch, tmp_path):
+    """A non-placeholder orchestration script (DL-91). A complete staging/production config needs
+    real authored copy, so prod-safety tests request this to represent one."""
+    from app.agents.context_loader import load_orchestration_script
+
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    (prompts / "orchestration_script.md").write_text(
+        "---\nversion: 1.0.0\n---\n\n## acknowledgment\n\nGot your documents.\n"
+    )
+    monkeypatch.setenv("TYNDALE_INTELLIGENCE_LAYER_ROOT", str(tmp_path))
+    load_orchestration_script.cache_clear()
+    yield
+    load_orchestration_script.cache_clear()

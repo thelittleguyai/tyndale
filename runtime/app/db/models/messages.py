@@ -43,6 +43,11 @@ class Message(Base):
             "status IN ('streaming', 'complete', 'stopped', 'failed')",
             name="ck_messages_status",
         ),
+        CheckConstraint(
+            "kind IN ('message', 'status_card_update', 'system_message', 'moment_card', "
+            "'verification_request')",
+            name="ck_messages_kind",
+        ),
         Index(
             "idx_messages_conversation_id_sequence",
             "conversation_id",
@@ -73,6 +78,11 @@ class Message(Base):
     # [{ source_id, title, url, snippet, effective_date, payer? }] (+ create_case_cta action)
     citations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     confidence_overall: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    # Chat-first typed thread entries (DL-91). `kind` discriminates the render — 'message' is the
+    # classic text/chunks turn; the others are bridge-authored (role='system') cards. `payload`
+    # carries the structured card data (status bars / verification group / moment card).
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'message'"))
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'complete'")
     )

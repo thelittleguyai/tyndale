@@ -75,6 +75,12 @@ async def _set_status(
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
             await s.commit()
+    # Chat-first event bridge (DL-91) — render the transition into the case thread. Flag-gated +
+    # error-swallowing inside; a no-op when ENABLE_CHAT_FIRST_AUDIT is off. Lazy import (the bridge
+    # is hooked from here, so it must not be imported at module load).
+    from app.agents import thread_bridge
+
+    await thread_bridge.bridge_case_state(case_file_id)
 
 
 def _ms(t0: float) -> int:

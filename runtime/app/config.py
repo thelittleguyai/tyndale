@@ -249,6 +249,12 @@ class Settings(BaseSettings):
     nudge_first_days: int = 3
     nudge_second_days: int = 14
 
+    # --- Chat-first audit flow (Brock 2026-07-10, DL-91). Phase A behind a flag; the classic
+    # screen flow is fully unchanged when off. enable_first_case_unlock gates the unlock moment
+    # card and stays false until the pricing memo lands (nothing behind it in Phase A).
+    enable_chat_first_audit: bool = False  # env: ENABLE_CHAT_FIRST_AUDIT
+    enable_first_case_unlock: bool = False  # env: ENABLE_FIRST_CASE_UNLOCK
+
     # --- Billing (Item 4, dark scaffold — DL-16). Entirely inert while enable_billing is False:
     # the checkout/webhook routes 404, the audit-gate dependency is a no-op, and the settings UI
     # stays hidden. Stripe is WALLED OFF from PHI (DL-49): we pass only the user UUID as
@@ -310,6 +316,12 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.node_env == "production"
 
+    @property
+    def is_staging_or_prod(self) -> bool:
+        """Staging is a faithful production rehearsal — the prod-only guards that can run without
+        real cloud creds (e.g. the placeholder-copy check) apply to both."""
+        return self.node_env in ("staging", "production")
+
     def warn_missing_in_prod(self) -> None:
         """Log a warning for each prod-relevant optional var that is unset."""
         if not self.is_production:
@@ -341,9 +353,16 @@ class Settings(BaseSettings):
         fallback). Called from main.py's lifespan so an unsafe prod config fails to
         boot. The dev env runs NODE_ENV=development, so this is inert there until a
         real production profile stands up."""
-        if not self.is_production:
-            return
         problems: list[str] = []
+        # D1 (chat-first, Brock 2026-07-10): placeholder orchestration-script copy must NEVER reach
+        # staging or production. Engineering seeds [PLACEHOLDER-eng] values for dev only; a
+        # staging/prod boot FAILS until Brock's authored copy replaces every active key.
+        if self.is_staging_or_prod:
+            problems.extend(self._orchestration_script_placeholder_problems())
+        if not self.is_production:
+            if problems:
+                raise RuntimeError("Unsafe staging config — " + "; ".join(problems))
+            return
         if self.allow_fixture_fallback:
             problems.append("ALLOW_FIXTURE_FALLBACK must be false in production")
         if not self.use_real_claude:
@@ -365,6 +384,18 @@ class Settings(BaseSettings):
             )
         if problems:
             raise RuntimeError("Unsafe production config — " + "; ".join(problems))
+
+    def _orchestration_script_placeholder_problems(self) -> list[str]:
+        """Every active orchestration-script value still flagged [PLACEHOLDER-eng] (engineering
+        seed copy). Lazy import — context_loader reads intelligence-layer at call time only."""
+        from app.agents.context_loader import PLACEHOLDER_PREFIX, load_orchestration_script
+
+        return [
+            f"orchestration_script key '{key}' still carries a {PLACEHOLDER_PREFIX} value — "
+            "Brock's authored copy must replace it before staging/production"
+            for key, value in load_orchestration_script().items()
+            if isinstance(value, str) and value.strip().startswith(PLACEHOLDER_PREFIX)
+        ]
 
     def warn_disabled_real_flags(self) -> None:
         """Log a WARNING in ANY env for real-path flags that are off, so a dev/staging env
