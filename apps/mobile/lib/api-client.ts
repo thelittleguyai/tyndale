@@ -313,6 +313,29 @@ export async function getLineItems(case_file_id: string): Promise<ExtractResult>
   return (await res.json()) as ExtractResult;
 }
 
+export interface VerifyTextResult {
+  result: 'mapped' | 'fallback' | 'partial_fallback' | 'crisis' | 'blocked';
+  method: string;
+  conversation_id?: string | null;
+}
+
+/**
+ * POST /v1/audit/{id}/verify-text — chat-first D4b. Maps a free-text verification reply to a
+ * pre-selectable suggestion (rendered from the thread). NEVER commits — the confirming tap does.
+ */
+export async function verifyText(caseFileId: string, utterance: string): Promise<VerifyTextResult> {
+  const res = await cfetch(
+    `${BASE_URL}/v1/audit/${encodeURIComponent(caseFileId)}/verify-text`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ utterance }),
+    },
+  );
+  if (!res.ok) throw new Error(`verifyText ${res.status}`);
+  return res.json();
+}
+
 /** POST /v1/audit/{id}/confirmations — submit the full set; kicks finalize. */
 export async function submitConfirmations(
   case_file_id: string,

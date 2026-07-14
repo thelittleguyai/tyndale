@@ -31,6 +31,7 @@ export function ThreadVerification({
           key={item.line_item_id}
           item={item}
           draft={drafts[item.line_item_id] ?? { response: null, user_note: '' }}
+          suggested={drafts[item.line_item_id]?.suggested}
           onRespond={(r) => onRespond(item.line_item_id, r)}
           onNote={(n) => onNote(item.line_item_id, n)}
         />

@@ -15,6 +15,7 @@ import type {
   ThreeNumberMomentPayload,
   UnlockMomentPayload,
   VerificationRequestPayload,
+  VerificationSuggestionPayload,
 } from '@tyndale/shared';
 
 import { ChatMessage } from '../chat/ChatMessage';
@@ -22,6 +23,7 @@ import type { Draft } from '../../app/(app)/audit/[case_file_id]/encounter';
 import { StatusCard } from './StatusCard';
 import { ThreeNumberMoment, UnlockMoment } from './MomentCards';
 import { ThreadNeedsDocuments } from './ThreadNeedsDocuments';
+import { ThreadSuggestion } from './ThreadSuggestion';
 import { ThreadVerification } from './ThreadVerification';
 
 function SystemLine({ text, tone }: { text: string; tone?: 'neutral' | 'error' }) {
@@ -39,6 +41,8 @@ export function ThreadEntry({
   drafts,
   onRespond,
   onNote,
+  activeSuggestionId,
+  onConfirmSuggestion,
 }: {
   message: Message;
   caseFileId: string;
@@ -46,11 +50,21 @@ export function ThreadEntry({
   drafts: Record<string, Draft>;
   onRespond: (lineItemId: string, r: LineItemResponse) => void;
   onNote: (lineItemId: string, n: string) => void;
+  activeSuggestionId?: string | null;
+  onConfirmSuggestion?: () => void;
 }) {
   const kind = message.kind ?? 'message';
   const payload = (message.payload ?? {}) as Record<string, unknown>;
 
   switch (kind) {
+    case 'verification_suggestion':
+      return (
+        <ThreadSuggestion
+          payload={payload as unknown as VerificationSuggestionPayload}
+          active={message.message_id === activeSuggestionId}
+          onConfirm={() => onConfirmSuggestion?.()}
+        />
+      );
     case 'status_card_update':
       return <StatusCard payload={payload as unknown as StatusCardPayload} />;
     case 'moment_card':

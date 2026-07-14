@@ -28,7 +28,9 @@ import {
   submitConfirmations,
 } from '../../../../lib/api-client';
 
-export type Draft = { response: LineItemResponse | null; user_note: string };
+// `suggested` (D4b): the answer was pre-selected by the free-text mapper and is awaiting a
+// confirming tap — a UI hint only, never committed until confirmed.
+export type Draft = { response: LineItemResponse | null; user_note: string; suggested?: boolean };
 
 export default function EncounterVerificationScreen() {
   const router = useRouter();
@@ -229,15 +231,24 @@ export function LineItemCard({
   draft,
   onRespond,
   onNote,
+  suggested,
 }: {
   item: LineItem;
   draft: Draft;
   onRespond: (r: LineItemResponse) => void;
   onNote: (n: string) => void;
+  suggested?: boolean;
 }) {
   const { isPhone } = useBreakpoint();
   return (
-    <View className="mb-3 rounded-2xl border border-white/10 bg-navy-soft p-4">
+    <View
+      className={`mb-3 rounded-2xl border bg-navy-soft p-4 ${suggested ? 'border-dashed border-sage/70' : 'border-white/10'}`}
+    >
+      {suggested ? (
+        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-sage">
+          Suggested — tap to confirm
+        </Text>
+      ) : null}
       <View className="mb-2 flex-row items-center justify-between">
         <View className="rounded-md bg-white/10 px-2 py-0.5">
           <Text className="text-[11px] font-semibold text-white/80">{item.code}</Text>

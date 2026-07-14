@@ -2,9 +2,12 @@ import { render } from '@testing-library/react-native';
 
 import type { Message } from '@tyndale/shared';
 
+import { fireEvent } from '@testing-library/react-native';
+
 import { ThreeNumberMoment } from '../components/thread/MomentCards';
 import { StatusCard } from '../components/thread/StatusCard';
 import { ThreadEntry } from '../components/thread/ThreadEntry';
+import { ThreadSuggestion } from '../components/thread/ThreadSuggestion';
 
 describe('chat-first thread renderers (DL-91)', () => {
   it('StatusCard renders the four labeled flow-stage bars', () => {
@@ -69,5 +72,28 @@ describe('chat-first thread renderers (DL-91)', () => {
       />,
     );
     expect(getByText('Checking charges')).toBeTruthy();
+  });
+
+  it('ThreadSuggestion shows the confirm prompt + a working Confirm tap when active (D4b)', () => {
+    const onConfirm = jest.fn();
+    const { getByText, queryByText, rerender } = render(
+      <ThreadSuggestion
+        payload={{ text: "I've marked the second charge as 'didn't happen'", summary: 's', mappings: [] }}
+        active
+        onConfirm={onConfirm}
+      />,
+    );
+    expect(getByText("I've marked the second charge as 'didn't happen'")).toBeTruthy();
+    fireEvent.press(getByText('Confirm'));
+    expect(onConfirm).toHaveBeenCalled();
+    // once confirmed/superseded (inactive) the button is gone
+    rerender(
+      <ThreadSuggestion
+        payload={{ text: 'done', summary: 's', mappings: [] }}
+        active={false}
+        onConfirm={onConfirm}
+      />,
+    );
+    expect(queryByText('Confirm')).toBeNull();
   });
 });
