@@ -14,6 +14,7 @@ Usage:
   uv run python scripts/e2e_scenarios/run_scenarios.py                 # local docker-compose
   uv run python scripts/e2e_scenarios/run_scenarios.py --dev           # deployed dev API
   uv run python scripts/e2e_scenarios/run_scenarios.py --only duplicate_cpt_line
+  uv run python scripts/e2e_scenarios/run_scenarios.py --record        # + assert /v1/record (D5)
   uv run python scripts/e2e_scenarios/run_scenarios.py --generate-only # just make the PDFs
 
 Each run costs real Claude tokens against dev (~1 audit per scenario). Not scheduled.
@@ -261,9 +262,58 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
     return fails
 
 
+def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: str) -> list[str]:
+    """After a scenario reaches its terminal state, the Tyndale Record (D5, DL-91 §5) must show
+    this sub-case with the right status — and recovered_so_far MUST be $0, because the harness
+    never confirms an outcome. A findings estimate leaking into 'recovered' would show up here as
+    a non-zero tally (the §4 confirmed-only rule, proven end-to-end)."""
+    r = client.get(f"{base_url}/v1/record", timeout=30)
+    if r.status_code != 200:
+        return [f"record: GET /v1/record -> {r.status_code} (is ENABLE_RECORD_VIEW on the target?)"]
+    rows = {x["case_file_id"]: x for x in r.json().get("sub_cases", [])}
+    row = rows.get(case_id)
+    if row is None:
+        return [f"record: sub-case {case_id} absent from /v1/record"]
+    fails: list[str] = []
+    if row.get("status") != terminal:
+        fails.append(f"record: row status {row.get('status')} != terminal {terminal}")
+    if row.get("recovered_so_far", 0.0) != 0.0:
+        fails.append(
+            f"record: recovered_so_far={row['recovered_so_far']} with no confirmed outcome "
+            "(a finding ESTIMATE leaked into recovered — §4 violation)"
+        )
+    tn = row.get("three_number")
+    if tn is not None and not any(float(v) for v in tn.values()):
+        fails.append("record: three_number is all-zeros — a no-number case must be None, not {0,0,0}")
+    return fails
+
+
+def _record_aggregate_checks(client: httpx.Client, base_url: str) -> dict:
+    """Suite-level Record sanity after many uploads (DL-91 §5): the multi-upload user has ≥2 rows,
+    and the honest aggregates hold — total_recovered is $0 (no outcomes confirmed anywhere) and no
+    total is negative."""
+    fails: list[str] = []
+    r = client.get(f"{base_url}/v1/record", timeout=30)
+    if r.status_code != 200:
+        fails.append(f"GET /v1/record -> {r.status_code} (is ENABLE_RECORD_VIEW on the target?)")
+    else:
+        body = r.json()
+        subs = body.get("sub_cases", [])
+        agg = body.get("aggregates", {})
+        if len(subs) < 2:
+            fails.append(f"expected >=2 sub-cases after multiple uploads, got {len(subs)}")
+        if agg.get("total_recovered", -1.0) != 0.0:
+            fails.append(f"total_recovered={agg.get('total_recovered')} but no outcome was confirmed")
+        for k in ("total_billed_reviewed", "total_identified", "open_items"):
+            if agg.get(k, 0) < 0:
+                fails.append(f"aggregate {k}={agg.get(k)} is negative")
+    return {"name": "record_aggregates", "case_id": "", "terminal": "-", "timings": {},
+            "pass": not fails, "fails": fails}
+
+
 def run_scenario(
     client: httpx.Client, base_url: str, scenario: dict, workdir: pathlib.Path,
-    *, chat_first: bool = False, no_placeholders: bool = False,
+    *, chat_first: bool = False, no_placeholders: bool = False, record: bool = False,
 ) -> dict:
     name = scenario["name"]
     exp = scenario.get("expect", {})
@@ -315,6 +365,8 @@ def run_scenario(
             fails = fails + _chat_first_checks(
                 _fetch_thread(client, base_url, case_id), terminal, no_placeholders
             )
+        if record and case_id:
+            fails = fails + _record_checks(client, base_url, case_id, terminal)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
                 "pass": not fails, "fails": fails}
     except Exception as e:  # noqa: BLE001 — one scenario's failure never aborts the suite
@@ -333,6 +385,10 @@ def main() -> int:
                          "server must have ENABLE_CHAT_FIRST_AUDIT on)")
     ap.add_argument("--assert-no-placeholders", action="store_true",
                     help="fail if [PLACEHOLDER-eng] copy appears in the thread (staging config)")
+    ap.add_argument("--record", action="store_true",
+                    help="also assert each sub-case appears in /v1/record with the right status + "
+                         "honest $0-recovered, plus a suite-level aggregate check (DL-91 D5 §5; "
+                         "target server must have ENABLE_RECORD_VIEW on)")
     args = ap.parse_args()
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
@@ -361,9 +417,13 @@ def main() -> int:
         log(f"authenticated as {uid or 'dev-user'}\n")
         results = [
             run_scenario(client, base_url, s, workdir, chat_first=args.chat_first,
-                         no_placeholders=args.assert_no_placeholders)
+                         no_placeholders=args.assert_no_placeholders, record=args.record)
             for s in scenarios
         ]
+        # Suite-level Record check: after every upload, the multi-upload user's Record must hold
+        # ≥2 sub-cases with honest aggregates (DL-91 §5). Skipped unless we ran real scenarios.
+        if args.record and not args.only:
+            results.append(_record_aggregate_checks(client, base_url))
 
     # --- report ---
     log("\n" + "=" * 78)

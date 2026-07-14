@@ -163,9 +163,12 @@ CO-002 FINAL approved 2026-05-30; Sprint A in flight.
 
 In code, a **`case`** (the `case_files` row / `case_file_id`) is what the product calls a
 **sub-case** — one uploaded bill/EOB set and its audit. The user-level **"Tyndale Record"** view
-that groups a person's sub-cases is **Phase C** (design decision D5) and does not exist yet; do
-not build Record/sub-case navigation until then. When writing product-facing copy, say
-"sub-case"; in code and comments, `case` is fine.
+that groups a person's sub-cases is **Phase C** (design decision D5), built behind
+`ENABLE_RECORD_VIEW` (default false, independent of `ENABLE_CHAT_FIRST_AUDIT`): `GET /v1/record`,
+the sub-case summary at `GET /v1/case/{id}/summary` + mobile `/case/{id}` (with the gameplan and
+call mode), and the `/audit/{id}` deep-link redirects. Flag-off is a no-op (the classic dashboard
+is unchanged). When writing product-facing copy, say "sub-case"; in code and comments, `case` is
+fine.
 
 The **chat-first audit flow** (DL-91) is Phase A behind `ENABLE_CHAT_FIRST_AUDIT` (default false).
 The classic screen flow is fully retained and unchanged when the flag is off — flag-off *is* the

@@ -15,7 +15,7 @@ import { Redirect, Stack, usePathname } from 'expo-router';
 import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
 import { isIntakeDeferred } from '../../lib/intake-deferred';
-import { shouldRedirectToWizard } from '../../lib/intake-gate';
+import { isCaseWorkRoute, shouldRedirectToWizard } from '../../lib/intake-gate';
 
 type IntakeGate = { status: string; step: string | null; hasCases: boolean };
 
@@ -68,8 +68,11 @@ export default function AppLayout() {
     return <Redirect href="/sign-in" />;
   }
 
-  // CO-17: the profile-onboarding gate runs before the coverage-intake gate.
-  if (profileDone === false) {
+  // CO-17: the profile-onboarding gate runs before the coverage-intake gate. Case-work routes
+  // (/audit, /record, /case) are exempt for the same reason the intake gate exempts them — a
+  // deep link to a running audit, the Record, or a sub-case must render, never bounce an existing
+  // user into onboarding (the 2026-07-06 re-gating class, extended to D5's Record + sub-case).
+  if (profileDone === false && !isCaseWorkRoute(pathname)) {
     return <Redirect href="/onboarding" />;
   }
 

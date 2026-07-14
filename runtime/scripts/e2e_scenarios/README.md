@@ -30,6 +30,10 @@ TYNDALE_ADMIN_TOKEN=<admin session token> \
 # a subset, or just regenerate the PDFs
 uv run python scripts/e2e_scenarios/run_scenarios.py --only duplicate_cpt_line
 uv run python scripts/e2e_scenarios/run_scenarios.py --generate-only
+
+# also assert the chat-first thread / the Tyndale Record match engine state (DL-91). Each flag
+# needs its server flag on: --chat-first → ENABLE_CHAT_FIRST_AUDIT, --record → ENABLE_RECORD_VIEW.
+uv run python scripts/e2e_scenarios/run_scenarios.py --chat-first --record
 ```
 
 Auth uses the **dev-only** `POST /v1/admin/test-token` endpoint (404s in production; rejects any

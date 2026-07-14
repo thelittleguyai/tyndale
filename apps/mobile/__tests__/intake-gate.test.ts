@@ -1,4 +1,4 @@
-import { shouldRedirectToWizard } from '../lib/intake-gate';
+import { isCaseWorkRoute, shouldRedirectToWizard } from '../lib/intake-gate';
 
 describe('intake gate — 2026-07-06 re-gating regression', () => {
   const base = { intakeStatus: 'not_started', hasCases: false, deferred: false, pathname: '/' };
@@ -32,5 +32,25 @@ describe('intake gate — 2026-07-06 re-gating regression', () => {
     expect(shouldRedirectToWizard({ ...base, pathname: '/audit/e29b38fe/encounter' })).toBe(false);
     // …even for a genuinely brand-new user who somehow deep-links to an audit.
     expect(shouldRedirectToWizard({ ...base, hasCases: false, pathname: '/audit/x' })).toBe(false);
+  });
+
+  it('never gates /record or /case/* — the Record + sub-case views are case-work routes (D5)', () => {
+    expect(shouldRedirectToWizard({ ...base, pathname: '/record' })).toBe(false);
+    expect(shouldRedirectToWizard({ ...base, pathname: '/case/e29b38fe' })).toBe(false);
+    // …even for a brand-new user deep-linking straight to a sub-case.
+    expect(shouldRedirectToWizard({ ...base, hasCases: false, pathname: '/case/x' })).toBe(false);
+  });
+});
+
+describe('isCaseWorkRoute — the shared exemption for both the intake and profile gates', () => {
+  it('matches audit, record, and case routes', () => {
+    for (const p of ['/audit/x', '/audit/x/thread', '/record', '/case/x', '/case/x']) {
+      expect(isCaseWorkRoute(p)).toBe(true);
+    }
+  });
+  it('does not match the dashboard, intake, or other routes (and tolerates null)', () => {
+    for (const p of ['/', '/intake/welcome', '/settings', '/onboarding', null]) {
+      expect(isCaseWorkRoute(p)).toBe(false);
+    }
   });
 });

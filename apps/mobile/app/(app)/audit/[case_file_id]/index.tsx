@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CheckCircle2, Circle, MessageSquare } from 'lucide-react-native';
 
 import {
@@ -23,8 +23,10 @@ import {
   getAudit,
   getAuditStatus,
   getCaseFeedback,
+  getDashboard,
   getEobCompleteness,
 } from '../../../../lib/api-client';
+import { recordDeepLinkTarget } from '../../../../lib/record-nav';
 import { ThumbsRating } from '../../../../components/thumbs-rating';
 import { AuditProgress } from '../../../../components/audit/AuditProgress';
 import { FindingCard } from '../../../../components/audit/FindingCard';
@@ -49,6 +51,11 @@ export default function AuditResultScreen() {
   const [status, setStatus] = useState<string>('audit_running');
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
+  // D5 §3: when the Record is enabled, /audit/{id} is a legacy deep link — redirect to the
+  // canonical sub-case surface (summary if results-bearing, else thread). Non-blocking: the
+  // classic screen renders immediately and this only fires when the flag resolves on, so the
+  // shipping flag-off path pays nothing (flag-off IS the transition, D7).
+  const [recordTarget, setRecordTarget] = useState<string | null>(null);
   // response_id -> latest thumbs, restored from prior feedback on this case.
   const [ratings, setRatings] = useState<Record<string, ThumbsValue>>({});
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,6 +73,23 @@ export default function AuditResultScreen() {
         setRatings(map);
       })
       .catch(() => {/* non-fatal */});
+  }, [case_file_id]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [dash, st] = await Promise.all([getDashboard(), getAuditStatus(case_file_id)]);
+        if (alive) {
+          setRecordTarget(recordDeepLinkTarget(case_file_id, st.status, dash.record_enabled ?? false));
+        }
+      } catch {
+        /* fail open — render the classic audit screen */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [case_file_id]);
 
   useEffect(() => {
@@ -106,6 +130,11 @@ export default function AuditResultScreen() {
       if (polling.current) clearInterval(polling.current);
     };
   }, [case_file_id]);
+
+  // D5 §3: hand off to the Record's canonical surface when the flag is on (see recordTarget above).
+  if (recordTarget) {
+    return <Redirect href={recordTarget as never} />;
+  }
 
   if (error) {
     return (
