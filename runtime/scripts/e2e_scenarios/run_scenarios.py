@@ -190,6 +190,29 @@ def _chat_first_checks(messages: list[dict] | None, terminal: str, no_placeholde
     return fails
 
 
+def _free_text_verify_checks(client: httpx.Client, base_url: str, case_id: str, spec: dict) -> list[str]:
+    """D4b: a free-text verification reply maps to a PRE-SELECTABLE suggestion and commits NOTHING
+    (the tap does). POST the utterance, then assert a suggestion in the thread + that the case is
+    still pending verification (the invariant). The normal _confirm afterwards is the confirming
+    tap that actually advances the audit."""
+    fails: list[str] = []
+    r = client.post(
+        f"{base_url}/v1/audit/{case_id}/verify-text", json={"utterance": spec["utterance"]}, timeout=30
+    )
+    if r.status_code != 200:
+        return [f"free-text: verify-text status {r.status_code}"]
+    want = spec.get("expect_result", "mapped")
+    if r.json().get("result") != want:
+        fails.append(f"free-text: result={r.json().get('result')!r} expected {want!r}")
+    thread = _fetch_thread(client, base_url, case_id)
+    if not any(m.get("kind") == "verification_suggestion" for m in (thread or [])):
+        fails.append("free-text: no verification_suggestion posted to the thread")
+    st = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30).json().get("status")
+    if st != "encounter_verification_pending":
+        fails.append(f"free-text INVARIANT: status advanced to {st!r} — free text must commit nothing")
+    return fails
+
+
 def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> list[str]:
     """Assert the scenario's expectations. Returns a list of failure strings (empty == pass)."""
     exp = scenario["expect"]
@@ -272,6 +295,12 @@ def run_scenario(
         timings["extract_s"] = round(time.monotonic() - t, 1)
 
         terminal = extract.get("status", "")
+        # D4b free-text variant: map an utterance to a suggestion (commits nothing) BEFORE the tap.
+        pre_fails: list[str] = []
+        if chat_first and scenario.get("chat_first_verify") and terminal == "encounter_verification_pending":
+            pre_fails = _free_text_verify_checks(
+                client, base_url, case_id, scenario["chat_first_verify"]
+            )
         audit: dict | None = None
         # The honest-failure states are terminal at the extract step — no encounter/audit.
         if terminal not in ("extraction_failed", "not_a_bill"):
@@ -281,7 +310,7 @@ def run_scenario(
             timings["audit_s"] = round(time.monotonic() - t, 1)
             audit = _get_audit(client, base_url, case_id)
 
-        fails = _check(scenario, terminal, extract, audit)
+        fails = pre_fails + _check(scenario, terminal, extract, audit)
         if chat_first and case_id:
             fails = fails + _chat_first_checks(
                 _fetch_thread(client, base_url, case_id), terminal, no_placeholders
