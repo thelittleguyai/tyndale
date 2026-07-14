@@ -83,6 +83,21 @@ class ExtractResult(BaseModel):
     documents: list[DocumentExtraction] = Field(default_factory=list)
 
 
+class VerifyTextRequest(BaseModel):
+    """A free-text verification reply (chat-first D4b). The mapper turns it into a pre-selectable
+    suggestion; the confirming tap — not this — commits via /confirmations."""
+
+    utterance: str
+
+
+class VerifyTextResult(BaseModel):
+    # mapped = a suggestion was posted; fallback / partial_fallback = the tap nudge; crisis / blocked
+    # = chat ingress intervened before the mapper (the utterance never reached it).
+    result: Literal["mapped", "fallback", "partial_fallback", "crisis", "blocked"]
+    method: str = "none"  # deterministic | haiku | none
+    conversation_id: str | None = None
+
+
 class ConfirmationsRequest(BaseModel):
     confirmations: list[LineItemConfirmation]
 

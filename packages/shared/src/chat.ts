@@ -19,7 +19,20 @@ export type MessageKind =
   | 'status_card_update'
   | 'system_message'
   | 'moment_card'
-  | 'verification_request';
+  | 'verification_request'
+  | 'verification_suggestion';
+
+/**
+ * payload for kind='verification_suggestion' (D4b). A free-text reply mapped to cards + intended
+ * answers, PRE-SELECTED pending a confirming tap. Nothing is committed until the tap — the mapper
+ * never writes to the confirmations endpoint.
+ */
+export interface VerificationSuggestionPayload {
+  text: string; // script-keyed confirm prompt (verification.map_confirm, {{summary}} interpolated)
+  summary: string;
+  // intended_answer is the LineItemResponse vocabulary (the mapper's 'unsure' → 'not_sure').
+  mappings: { line_item_id: string; intended_answer: 'yes' | 'no' | 'not_sure' }[];
+}
 
 /** The four FLOW stages the status card renders as labeled bars (each derived from case state). */
 export type ThreadStageKey = 'extraction' | 'translate' | 'encounter' | 'audit';

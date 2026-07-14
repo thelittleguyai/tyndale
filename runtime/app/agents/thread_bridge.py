@@ -139,12 +139,13 @@ async def _markers(session: AsyncSession, conversation_id: uuid.UUID) -> set[str
 
 
 async def _insert(
-    session: AsyncSession, conv: Conversation, kind: str, payload: dict, content: str | None = None
+    session: AsyncSession, conv: Conversation, kind: str, payload: dict | None = None,
+    content: str | None = None, *, role: str = "system",
 ) -> Message:
     m = Message(
         conversation_id=conv.conversation_id,
         sequence_number=await _next_seq(session, conv.conversation_id),
-        role="system",
+        role=role,
         kind=kind,
         payload=payload,
         content=content,
@@ -331,3 +332,58 @@ async def bootstrap_thread(case_file_id: str) -> str | None:
         await _reconcile(session, conv, case)
         await session.commit()
         return str(conv.conversation_id)
+
+
+# --- verify-text writers (D4b, Phase B) — a free-text reply produces a SUGGESTION, never a
+# confirmation (the tap commits). None of these touch case.encounter_confirmations or the status.
+async def _post(
+    case_file_id: str, *, role: str, kind: str, payload: dict | None = None, content: str | None = None
+) -> str | None:
+    async with AsyncSessionLocal() as session:
+        case = (
+            await session.execute(
+                select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_file_id))
+            )
+        ).scalar_one_or_none()
+        if case is None:
+            return None
+        conv = await get_case_conversation(session, case_file_id, create_owner=case.user_id)
+        if conv is None:
+            return None
+        await _insert(session, conv, kind, payload, content=content, role=role)
+        await session.commit()
+        return str(conv.conversation_id)
+
+
+async def post_user_utterance(case_file_id: str, text: str) -> str | None:
+    """Persist the user's free-text verification reply as a user thread message."""
+    return await _post(case_file_id, role="user", kind="message", content=text)
+
+
+async def post_verification_suggestion(
+    case_file_id: str, mappings: list[dict], summary: str
+) -> str | None:
+    """A pre-selectable suggestion (mapped cards + one confirm prompt). NOT a confirmation."""
+    text = orchestration_step("verification_map_confirm", summary=summary)
+    return await _post(
+        case_file_id, role="system", kind="verification_suggestion",
+        payload={"text": text, "summary": summary, "mappings": mappings}, content=text,
+    )
+
+
+async def post_verification_nudge(case_file_id: str, *, partial: bool) -> str | None:
+    """The script-voiced 'please tap' fallback (D4a copy) when the utterance can't be mapped."""
+    key = "verification_map_partial_fallback" if partial else "verification_map_fallback"
+    text = orchestration_step(key)
+    return await _post(
+        case_file_id, role="system", kind="system_message",
+        payload={"text": text, "tone": "neutral"}, content=text,
+    )
+
+
+async def post_system_line(case_file_id: str, text: str, *, tone: str = "neutral") -> str | None:
+    """A one-off system line (e.g. the crisis decline surfaced in-thread)."""
+    return await _post(
+        case_file_id, role="system", kind="system_message",
+        payload={"text": text, "tone": tone}, content=text,
+    )

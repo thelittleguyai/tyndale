@@ -125,7 +125,7 @@ def _init_db() -> None:
                 text(
                     "ALTER TABLE messages ADD CONSTRAINT ck_messages_kind CHECK (kind IN "
                     "('message','status_card_update','system_message','moment_card',"
-                    "'verification_request'))"
+                    "'verification_request','verification_suggestion'))"
                 )
             )
             # plan_types v2 (Brock 2026-07-06): reconcile coverage_regime 7→14 on a persisted DB +

@@ -94,7 +94,8 @@ class ConversationOut(BaseModel):
 # Chat-first typed thread entries (DL-91). 'message' = the classic text/chunks turn; the rest are
 # bridge-authored (role='system') cards whose structured data rides in `payload`.
 MessageKind = Literal[
-    "message", "status_card_update", "system_message", "moment_card", "verification_request"
+    "message", "status_card_update", "system_message", "moment_card", "verification_request",
+    "verification_suggestion",
 ]
 
 

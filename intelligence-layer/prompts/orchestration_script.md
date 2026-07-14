@@ -68,3 +68,12 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## completion
 [PLACEHOLDER-eng] Your audit is complete. Everything I found is below — tap any finding for the details and what to do next.
+
+## verification_map_confirm
+[PLACEHOLDER-eng] I've marked {{summary}} — tap to confirm, or fix any I got wrong.
+
+## verification_map_fallback
+[PLACEHOLDER-eng] I couldn't tell which charge you meant — tap the answer on each card above and I'll take it from there.
+
+## verification_map_partial_fallback
+[PLACEHOLDER-eng] I caught part of that but want to be sure I don't guess — please tap the answer on each card above.

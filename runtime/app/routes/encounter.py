@@ -33,6 +33,8 @@ from app.schemas.encounter import (
     ConfirmationsAccepted,
     ConfirmationsRequest,
     ExtractResult,
+    VerifyTextRequest,
+    VerifyTextResult,
 )
 
 router = APIRouter(tags=["v1"])
@@ -106,3 +108,83 @@ async def get_status(
 ) -> AuditStatusResponse:
     cf = await require_case_owner(case_file_id, user, session)
     return AuditStatusResponse(case_file_id=case_file_id, status=cf.status)
+
+
+@router.post("/audit/{case_file_id}/verify-text", response_model=VerifyTextResult)
+async def verify_text(
+    case_file_id: str,
+    body: VerifyTextRequest,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> VerifyTextResult:
+    """Chat-first D4b: map a free-text verification reply to a PRE-SELECTABLE suggestion. This NEVER
+    commits — the confirming tap does (via /confirmations). Chat ingress (crisis, then injection)
+    runs BEFORE the mapper, so a crisis-flagged message never reaches it. Only runs when the case
+    has pending verification; otherwise free text is normal case chat (409)."""
+    from app.config import get_settings
+
+    if not get_settings().enable_chat_first_audit:
+        raise HTTPException(status_code=404, detail="not found")  # endpoint hidden when flag off
+    cf = await require_case_owner(case_file_id, user, session)
+
+    from app.agents import thread_bridge
+    from app.hooks.contracts import CrisisClassifierInput, UserPromptSubmitInput
+    from app.hooks.crisis_classifier import crisis_classifier_async
+    from app.hooks.user_prompt_submit import user_prompt_submit_hook
+
+    # 1. Crisis screen FIRST (DL-04 precedence, untouched) — never reaches the mapper.
+    if (
+        await crisis_classifier_async(CrisisClassifierInput(raw_message=body.utterance))
+    ).crisis_detected:
+        from app.agents.chat import _CRISIS_DECLINE
+
+        await thread_bridge.post_user_utterance(case_file_id, body.utterance)
+        cid = await thread_bridge.post_system_line(case_file_id, _CRISIS_DECLINE, tone="error")
+        return VerifyTextResult(result="crisis", conversation_id=cid)
+
+    # 2. Injection screen (UserPromptSubmit).
+    ups = user_prompt_submit_hook(
+        UserPromptSubmitInput(
+            user_id=str(user.user_id), case_file_id=case_file_id,
+            raw_message=body.utterance, attached_documents=[],
+        )
+    )
+    if ups.block:
+        cid = await thread_bridge.post_user_utterance(case_file_id, body.utterance)
+        return VerifyTextResult(result="blocked", conversation_id=cid)
+    utterance = ups.scrubbed_message
+
+    # 3. Only maps when verification is pending.
+    if cf.status != "encounter_verification_pending" or not cf.line_items:
+        raise HTTPException(status_code=409, detail="no pending verification for this case")
+
+    cid = await thread_bridge.post_user_utterance(case_file_id, utterance)
+
+    from app.agents.verification_mapper import Card, map_verification, summarize_mappings
+
+    cards = [
+        Card(
+            line_item_id=li["line_item_id"], ordinal=i + 1, code=li.get("code"),
+            description=li.get("plain_language_translation") or li.get("raw_description"),
+            amount=li.get("billed_amount"),
+        )
+        for i, li in enumerate(cf.line_items)
+    ]
+    result = await map_verification(utterance, cards)
+    if result.mappable and result.mappings:
+        summary = summarize_mappings(result.mappings, cards)
+        # The mapper says 'unsure'; the confirmations vocabulary is 'not_sure' — convert at the
+        # boundary so the client applies the suggestion directly to a LineItemResponse draft.
+        await thread_bridge.post_verification_suggestion(
+            case_file_id,
+            [{"line_item_id": m.line_item_id,
+              "intended_answer": "not_sure" if m.intended_answer == "unsure" else m.intended_answer}
+             for m in result.mappings],
+            summary,
+        )
+        return VerifyTextResult(result="mapped", method=result.method, conversation_id=cid)
+    await thread_bridge.post_verification_nudge(case_file_id, partial=result.partial)
+    return VerifyTextResult(
+        result="partial_fallback" if result.partial else "fallback",
+        method=result.method, conversation_id=cid,
+    )
