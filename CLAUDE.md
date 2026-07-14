@@ -158,3 +158,17 @@ Operational: BAA tracker at intelligence-layer/operational/baa_tracker.md.
 Decision log canonical: DL-01 through DL-63 in docs/decision-log.md.
 Cowork numbers DL-NN-style entries chronologically as decisions land.
 CO-002 FINAL approved 2026-05-30; Sprint A in flight.
+
+## Terminology (DL-91)
+
+In code, a **`case`** (the `case_files` row / `case_file_id`) is what the product calls a
+**sub-case** — one uploaded bill/EOB set and its audit. The user-level **"Tyndale Record"** view
+that groups a person's sub-cases is **Phase C** (design decision D5) and does not exist yet; do
+not build Record/sub-case navigation until then. When writing product-facing copy, say
+"sub-case"; in code and comments, `case` is fine.
+
+The **chat-first audit flow** (DL-91) is Phase A behind `ENABLE_CHAT_FIRST_AUDIT` (default false).
+The classic screen flow is fully retained and unchanged when the flag is off — flag-off *is* the
+transition (D7). All system-authored thread copy lives in
+`intelligence-layer/prompts/orchestration_script.md` (Brock's authoring; engineering seeds
+`[PLACEHOLDER-eng]` values that a staging/production boot rejects).

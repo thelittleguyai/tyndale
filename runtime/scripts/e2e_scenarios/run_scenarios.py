@@ -151,6 +151,45 @@ def _get_audit(client: httpx.Client, base_url: str, case_id: str) -> dict:
     return r.json()
 
 
+def _fetch_thread(client: httpx.Client, base_url: str, case_id: str) -> list[dict] | None:
+    """The case's chat-first thread entries (DL-91) — the per-case conversation's messages."""
+    r = client.get(
+        f"{base_url}/v1/conversations",
+        params={"case_id": case_id, "mode": "per_case", "limit": 1}, timeout=30,
+    )
+    r.raise_for_status()
+    convs = r.json().get("conversations", [])
+    if not convs:
+        return None
+    d = client.get(f"{base_url}/v1/conversations/{convs[0]['conversation_id']}", timeout=30)
+    d.raise_for_status()
+    return d.json().get("messages", [])
+
+
+def _chat_first_checks(messages: list[dict] | None, terminal: str, no_placeholders: bool) -> list[str]:
+    """Assert the thread matches engine state: (a) a single status card reflecting the terminal
+    state, (b) the terminal entry type matches, (c) no placeholder copy under staging config."""
+    if messages is None:
+        return ["chat-first: no case thread found"]
+    fails: list[str] = []
+    kinds = [m.get("kind") for m in messages]
+    cards = [m for m in messages if m.get("kind") == "status_card_update"]
+    if len(cards) != 1:
+        fails.append(f"chat-first: expected exactly 1 status card, got {len(cards)}")
+    elif terminal in ("audit_complete", "audit_incomplete", "extraction_failed", "not_a_bill"):
+        if not (cards[0].get("payload") or {}).get("terminal"):
+            fails.append("chat-first: status card not marked terminal at a terminal state")
+    if terminal == "audit_complete" and "moment_card" not in kinds:
+        fails.append("chat-first: audit_complete but no three-number moment card in the thread")
+    if terminal in ("extraction_failed", "not_a_bill"):
+        markers = {(m.get("payload") or {}).get("marker") for m in messages}
+        if f"terminal:{terminal}" not in markers:
+            fails.append(f"chat-first: {terminal} but no terminal message in the thread")
+    if no_placeholders and "[PLACEHOLDER-eng]" in json.dumps(messages):
+        fails.append("chat-first: [PLACEHOLDER-eng] copy leaked into the thread (staging)")
+    return fails
+
+
 def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> list[str]:
     """Assert the scenario's expectations. Returns a list of failure strings (empty == pass)."""
     exp = scenario["expect"]
@@ -199,7 +238,10 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
     return fails
 
 
-def run_scenario(client: httpx.Client, base_url: str, scenario: dict, workdir: pathlib.Path) -> dict:
+def run_scenario(
+    client: httpx.Client, base_url: str, scenario: dict, workdir: pathlib.Path,
+    *, chat_first: bool = False, no_placeholders: bool = False,
+) -> dict:
     name = scenario["name"]
     exp = scenario.get("expect", {})
     timings: dict[str, float] = {}
@@ -240,6 +282,10 @@ def run_scenario(client: httpx.Client, base_url: str, scenario: dict, workdir: p
             audit = _get_audit(client, base_url, case_id)
 
         fails = _check(scenario, terminal, extract, audit)
+        if chat_first and case_id:
+            fails = fails + _chat_first_checks(
+                _fetch_thread(client, base_url, case_id), terminal, no_placeholders
+            )
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
                 "pass": not fails, "fails": fails}
     except Exception as e:  # noqa: BLE001 — one scenario's failure never aborts the suite
@@ -253,6 +299,11 @@ def main() -> int:
     ap.add_argument("--base-url", default=None, help="override the target base URL")
     ap.add_argument("--only", action="append", default=[], help="run only these scenario names")
     ap.add_argument("--generate-only", action="store_true", help="only generate the PDFs, no run")
+    ap.add_argument("--chat-first", action="store_true",
+                    help="also assert the chat-first thread matches engine state (DL-91; target "
+                         "server must have ENABLE_CHAT_FIRST_AUDIT on)")
+    ap.add_argument("--assert-no-placeholders", action="store_true",
+                    help="fail if [PLACEHOLDER-eng] copy appears in the thread (staging config)")
     args = ap.parse_args()
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
@@ -279,7 +330,11 @@ def main() -> int:
             os.environ.get("TYNDALE_E2E_SECRET"),
         )
         log(f"authenticated as {uid or 'dev-user'}\n")
-        results = [run_scenario(client, base_url, s, workdir) for s in scenarios]
+        results = [
+            run_scenario(client, base_url, s, workdir, chat_first=args.chat_first,
+                         no_placeholders=args.assert_no_placeholders)
+            for s in scenarios
+        ]
 
     # --- report ---
     log("\n" + "=" * 78)
