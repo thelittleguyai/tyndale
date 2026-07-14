@@ -28,7 +28,7 @@ import {
   submitConfirmations,
 } from '../../../../lib/api-client';
 
-type Draft = { response: LineItemResponse | null; user_note: string };
+export type Draft = { response: LineItemResponse | null; user_note: string };
 
 export default function EncounterVerificationScreen() {
   const router = useRouter();
@@ -224,7 +224,7 @@ export default function EncounterVerificationScreen() {
   );
 }
 
-function LineItemCard({
+export function LineItemCard({
   item,
   draft,
   onRespond,

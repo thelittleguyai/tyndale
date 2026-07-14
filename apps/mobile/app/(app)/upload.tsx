@@ -85,6 +85,12 @@ export default function UploadScreen() {
         router.replace(`/audit/${caseId}`);
         return;
       }
+      if (res.chat_first) {
+        // Chat-first (DL-91): the thread was bootstrapped server-side; the thread screen drives
+        // extraction + renders the live status card. Classic flow is untouched when the flag is off.
+        router.push(`/audit/${res.case_file_id}/thread`);
+        return;
+      }
       setProgress('Reading your documents…');
       await extractLineItems(res.case_file_id);
       router.push(`/audit/${res.case_file_id}/encounter`);

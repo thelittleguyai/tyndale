@@ -55,6 +55,9 @@ export interface UploadedDoc {
 export interface MultiUploadResponse {
   case_file_id: string;
   uploads: UploadedDoc[];
+  /** Chat-first routing (DL-91): true for a new case when the flag is on; route to the thread. */
+  chat_first?: boolean;
+  conversation_id?: string | null;
 }
 
 export interface Citation {
