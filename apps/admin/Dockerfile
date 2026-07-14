@@ -16,8 +16,10 @@ ENV AUTH_SECRET=build-only-placeholder-replaced-at-runtime-by-container-app-env
 # NEXT_PUBLIC_* are inlined by `next build`, so they must be present at BUILD time.
 ARG NEXT_PUBLIC_RUNTIME_URL=https://api.tyndaleapp.net
 ARG NEXT_PUBLIC_PLAUSIBLE_DOMAIN=admin.tyndaleapp.net
+ARG NEXT_PUBLIC_SIGNIN_URL=https://app.tyndaleapp.net/sign-in
 ENV NEXT_PUBLIC_RUNTIME_URL=$NEXT_PUBLIC_RUNTIME_URL
 ENV NEXT_PUBLIC_PLAUSIBLE_DOMAIN=$NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+ENV NEXT_PUBLIC_SIGNIN_URL=$NEXT_PUBLIC_SIGNIN_URL
 
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/admin/package.json apps/admin/
