@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tyndale redesign — Direction B: Midnight ledger (dark mode) — approved 2026-07-12</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #05080A; margin: 0; padding: 32px; color: #F2F5F3; }
+  .note { max-width: 960px; margin: 0 auto 24px; font-size: 14px; color: #8FA39B; }
+  .frame { max-width: 960px; margin: 0 auto 32px; background: #0C1210; border-radius: 16px; padding: 28px; border: 1px solid #22312B; }
+  .label { font-size: 13px; color: #5C6E67; margin: 0 auto 8px; max-width: 960px; }
+</style>
+</head>
+<body>
+<div class="note"><strong>Direction B — "Midnight ledger" (dark, user-selectable mode).</strong> Approved by Phil 2026-07-12; ships as the dark mode alongside Direction A light default. Palette: page #0C1210 · surface #141D19 · raised #1C2B25 · hairline #22312B · text #F2F5F3 / #8FA39B / #5C6E67 · accent #5DCAA5 (on-accent #04342C) · warning #FAC775 (tint #3D2E12) · moment card #0F3A2D with #1D9E75 border and #5DCAA5 emphasis. Same semantic tokens and type scale as Direction A. See docs/design/README.md.</div>
+
+<div class="label">Record view (dashboard)</div>
+<div class="frame">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:32px;height:32px;border-radius:8px;background:#5DCAA5;color:#04342C;display:flex;align-items:center;justify-content:center;font-weight:500;">T</div>
+      <span style="font-weight:500;color:#F2F5F3;font-size:16px;">Tyndale</span>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <span style="font-size:13px;color:#8FA39B;">Settings</span>
+      <div style="width:30px;height:30px;border-radius:50%;background:#1C2B25;color:#5DCAA5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;">PF</div>
+    </div>
+  </div>
+  <div style="font-size:21px;color:#F2F5F3;font-weight:500;margin-bottom:4px;">Good morning, Phil</div>
+  <div style="font-size:14px;color:#8FA39B;margin-bottom:20px;">One case needs your documents — everything else is on track.</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+    <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px;">
+      <div style="font-size:12px;color:#8FA39B;">Recovered so far</div>
+      <div style="font-size:22px;font-weight:500;color:#5DCAA5;">$0</div>
+      <div style="font-size:11px;color:#5C6E67;">confirmed</div>
+    </div>
+    <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px;">
+      <div style="font-size:12px;color:#8FA39B;">Identified</div>
+      <div style="font-size:22px;font-weight:500;color:#F2F5F3;">$5,519</div>
+      <div style="font-size:11px;color:#5C6E67;">estimated</div>
+    </div>
+    <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px;">
+      <div style="font-size:12px;color:#8FA39B;">Deductible</div>
+      <div style="font-size:22px;font-weight:500;color:#F2F5F3;">$1,750<span style="font-size:13px;color:#5C6E67;"> / $2,000</span></div>
+      <div style="height:4px;background:#22312B;border-radius:2px;margin-top:6px;"><div style="width:87%;height:4px;background:#5DCAA5;border-radius:2px;"></div></div>
+    </div>
+    <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px;">
+      <div style="font-size:12px;color:#8FA39B;">Out-of-pocket max</div>
+      <div style="font-size:22px;font-weight:500;color:#F2F5F3;">$3,200<span style="font-size:13px;color:#5C6E67;"> / $6,500</span></div>
+      <div style="height:4px;background:#22312B;border-radius:2px;margin-top:6px;"><div style="width:49%;height:4px;background:#FAC775;border-radius:2px;"></div></div>
+    </div>
+  </div>
+  <div style="font-size:13px;font-weight:500;color:#8FA39B;margin-bottom:8px;">Your record</div>
+  <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #22312B;">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:#F2F5F3;">Maple Grove Family Medicine</div>
+        <div style="font-size:12px;color:#8FA39B;">Apr 2 visit · you should owe <span style="color:#5DCAA5;font-weight:500;">$28</span> of $374 billed</div>
+      </div>
+      <span style="background:#0F3A2D;color:#9FE1CB;font-size:12px;padding:3px 10px;border-radius:999px;">Results ready</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:#F2F5F3;">Beloit Health System</div>
+        <div style="font-size:12px;color:#8FA39B;">Oct 15 visit · 2 documents needed · dispute window closes Feb 5</div>
+      </div>
+      <span style="background:#3D2E12;color:#FAC775;font-size:12px;padding:3px 10px;border-radius:999px;">Needs documents</span>
+    </div>
+  </div>
+</div>
+
+<div class="label">Thread — status card, three-number reveal moment, verification card</div>
+<div class="frame" style="max-width:560px;">
+  <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:#F2F5F3;margin-bottom:6px;"><span>Checking every charge</span><span style="color:#5DCAA5;">✓</span></div>
+    <div style="display:flex;gap:4px;">
+      <div style="flex:1;height:4px;border-radius:2px;background:#5DCAA5;"></div>
+      <div style="flex:1;height:4px;border-radius:2px;background:#5DCAA5;"></div>
+      <div style="flex:1;height:4px;border-radius:2px;background:#5DCAA5;"></div>
+      <div style="flex:1;height:4px;border-radius:2px;background:#5DCAA5;"></div>
+    </div>
+  </div>
+  <div style="background:#0F3A2D;border:1px solid #1D9E75;border-radius:16px;padding:22px;margin-bottom:12px;">
+    <div style="font-size:12px;color:#9FE1CB;letter-spacing:0.4px;margin-bottom:14px;">Your three numbers</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid #1D9E75;">
+      <span style="font-size:13px;color:#9FE1CB;">What you were billed</span><span style="font-size:18px;color:#E1F5EE;">$374.00</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid #1D9E75;">
+      <span style="font-size:13px;color:#9FE1CB;">What your insurer says</span><span style="font-size:18px;color:#E1F5EE;">$28.40</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0 2px;">
+      <span style="font-size:14px;color:#E1F5EE;font-weight:500;">What you should owe</span><span style="font-size:30px;color:#5DCAA5;font-weight:500;">$28.40</span>
+    </div>
+    <div style="margin-top:12px;background:#04342C;border-radius:8px;padding:8px 12px;font-size:13px;color:#9FE1CB;">The numbers agree — pay the $28.40 with confidence. <span style="opacity:.7">(placeholder — real copy = D1 three_number_reveal key)</span></div>
+  </div>
+  <div style="background:#141D19;border:1px solid #22312B;border-radius:12px;padding:14px 16px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+      <span style="font-size:13px;font-weight:500;color:#F2F5F3;">99214 · Office visit</span><span style="font-size:13px;color:#F2F5F3;">$240</span>
+    </div>
+    <div style="font-size:13px;color:#8FA39B;margin-bottom:10px;">A longer visit where the doctor worked through more than one concern. <span style="color:#5DCAA5;">Show what this usually looks like</span></div>
+    <div style="display:flex;gap:8px;">
+      <span style="flex:1;text-align:center;background:#5DCAA5;color:#04342C;font-size:13px;padding:8px;border-radius:8px;font-weight:500;">Yes, that's right</span>
+      <span style="flex:1;text-align:center;border:1px solid #33463E;color:#8FA39B;font-size:13px;padding:8px;border-radius:8px;">That didn't happen</span>
+      <span style="text-align:center;border:1px solid #33463E;color:#8FA39B;font-size:13px;padding:8px 12px;border-radius:8px;">Not sure</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

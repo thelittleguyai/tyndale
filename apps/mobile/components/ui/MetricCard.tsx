@@ -36,6 +36,7 @@ function ProgressTrack({ value, tone }: { value: number; tone: Tone }) {
 export function MetricCard({
   label,
   value,
+  sub,
   qualifier,
   progress,
   tone = 'accent',
@@ -43,18 +44,23 @@ export function MetricCard({
 }: {
   label: string;
   value: string;
+  /** A faint, smaller suffix after the number (e.g. " / $2,000" on a deductible). */
+  sub?: string;
   qualifier?: string;
   /** 0..1 — renders the 4px track when provided. */
   progress?: number;
   tone?: Tone;
-  /** Optionally color the number (e.g. recovered in success). Defaults to primary text. */
+  /** Optionally color the number (e.g. recovered in accent). Defaults to primary text. */
   valueTone?: Tone;
 }) {
   const numberClass = valueTone ? VALUE_TONE[valueTone] : 'text-primary';
   return (
     <Card className="flex-1">
       <Text className="text-caption text-secondary">{label}</Text>
-      <Text className={`mt-1 text-[22px] font-medium leading-7 ${numberClass}`}>{value}</Text>
+      <Text className={`mt-1 text-[22px] font-medium leading-7 ${numberClass}`}>
+        {value}
+        {sub ? <Text className="text-[13px] font-normal text-faint">{sub}</Text> : null}
+      </Text>
       {qualifier ? <Text className="text-micro text-faint">{qualifier}</Text> : null}
       {progress != null ? <ProgressTrack value={progress} tone={tone} /> : null}
     </Card>

@@ -36,12 +36,9 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Home,
   MessageSquare,
-  Plus,
   Search,
   ShieldCheck,
-  User as UserIcon,
   X,
 } from 'lucide-react-native';
 
@@ -63,11 +60,11 @@ import { useSignOut } from '../../lib/auth';
 import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { logoSvg, type ActiveCase } from '@tyndale/shared';
 import { activeCaseRoute } from '../../lib/active-cases';
-import { HeroMotif } from '../../components/hero-motif';
 import { RecordSection } from '../../components/record/RecordSection';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
 import { useBreakpoint } from '../../components/ui/use-breakpoint';
+import { MetricCard } from '../../components/ui';
 
 const formatUSD = (n: number) =>
   '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -145,27 +142,25 @@ export default function DashboardScreen() {
       <Header firstName={greetingName} lastName={profileName.last} />
 
       <ScreenView wide className="px-5 pt-3">
-        <Hero
-          firstName={greetingName}
-          statusGreeting={data?.status_forward_greeting ?? null}
-          loading={loading && !data}
-        />
+        {/* Greeting + one status line (redesign §3) — existing copy, new type/layout. */}
+        <View className="mb-5 mt-1">
+          <Text className="text-title text-primary">Welcome back, {greetingName}.</Text>
+          <Text className="mt-1 text-body text-secondary">
+            {data?.status_forward_greeting ??
+              (loading && !data ? 'Loading your dashboard…' : 'What would you like to do today?')}
+          </Text>
+        </View>
 
         {data?.intake_status === 'in_progress' ? (
           <FinishSetupCard currentStep={data.intake_current_step} />
         ) : null}
 
-        <CoverageRow1
+        {/* Four uniform MetricCards (redesign §3) — recovered / identified / deductible / OOP. */}
+        <CoverageMetrics
+          recovered={record?.aggregates.total_recovered ?? data?.amount_saved_ytd ?? 0}
+          identified={record?.aggregates.total_identified ?? 0}
           deductible={data?.coverage.deductible ?? null}
           oopMax={data?.coverage.oop_max ?? null}
-          extractionStatus={data?.coverage.extraction_status ?? 'missing'}
-          loading={loading && !data}
-          onUploadPress={() => router.push('/upload')}
-        />
-
-        <CoverageRow2
-          copays={data?.coverage.copays ?? null}
-          amountSaved={data?.amount_saved_ytd ?? 0}
           loading={loading && !data}
         />
 
@@ -563,234 +558,57 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
 }
 
 // ─── Hero ───────────────────────────────────────────────────────────────────
-function Hero({
-  firstName,
-  statusGreeting,
-  loading,
-}: {
-  firstName: string;
-  statusGreeting: string | null;
-  loading: boolean;
-}) {
-  const { isPhone } = useBreakpoint();
-  return (
-    <View className="relative overflow-hidden rounded-2xl bg-surface-raised px-5 py-7">
-      <View className="absolute -right-6 -top-6 opacity-80">
-        <HeroMotif size={isPhone ? 116 : 170} />
-      </View>
-      <View className={`relative z-10 ${isPhone ? 'pr-16' : 'pr-32'}`}>
-        {statusGreeting ? (
-          <Text className="text-2xl font-bold leading-snug text-primary">
-            {statusGreeting}
-          </Text>
-        ) : (
-          <>
-            <Text className="text-3xl font-bold leading-tight text-primary">
-              Welcome back,
-            </Text>
-            <Text className="text-3xl font-bold leading-tight text-primary">
-              {firstName}.
-            </Text>
-          </>
-        )}
-        <Text className="mt-3 text-sm text-secondary">
-          {loading ? 'Loading your dashboard…' : 'What would you like to do today?'}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ─── Coverage row 1 — Deductible + OOP Max ─────────────────────────────────
-function CoverageRow1({
+// ─── Coverage metrics — 4 uniform MetricCards (redesign §3) ────────────────
+// recovered (confirmed) / identified (estimate) / deductible + track / OOP + track.
+function CoverageMetrics({
+  recovered,
+  identified,
   deductible,
   oopMax,
-  extractionStatus,
   loading,
-  onUploadPress,
 }: {
+  recovered: number;
+  identified: number;
   deductible: { total: number; met: number; remaining: number } | null;
   oopMax: { total: number; met: number; remaining: number } | null;
-  extractionStatus: string;
   loading: boolean;
-  onUploadPress: () => void;
 }) {
   if (loading) {
     return (
-      <View className="mt-4 flex-row gap-3">
-        <SkeletonTile className="flex-1 h-24" />
-        <SkeletonTile className="flex-1 h-24" />
+      <View className="mb-2 flex-row flex-wrap gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonTile key={i} className="h-24 min-w-[150px] flex-1" />
+        ))}
       </View>
     );
   }
-  if (extractionStatus === 'missing') {
-    return (
-      <View className="mt-4 rounded-xl border border-dashed border-hairline bg-inset p-5">
-        <Text className="text-sm font-semibold text-primary">No coverage on file yet</Text>
-        <Text className="mt-1 text-xs text-secondary">
-          Upload your insurance card so Tyndale can populate your deductible, out-of-pocket
-          max, and copays here.
-        </Text>
-        <PressableScale
-          onPress={onUploadPress}
-          className="mt-3 self-start rounded-md bg-accent px-3 py-2 hover:bg-accent"
-        >
-          <Text className="text-xs font-bold text-on-accent">Upload insurance card</Text>
-        </PressableScale>
-      </View>
-    );
-  }
+  const pct = (m: { total: number; met: number } | null) =>
+    m && m.total > 0 ? Math.max(0, Math.min(1, m.met / m.total)) : 0;
   return (
-    <View className="mt-4 flex-row gap-3">
-      <CoverageTile
-        label="Deductible"
-        meter={deductible}
-        progressClass="bg-accent"
-      />
-      <CoverageTile
-        label="Out-of-Pocket Max"
-        meter={oopMax}
-        progressClass="bg-warning"
-      />
-    </View>
-  );
-}
-
-function CoverageTile({
-  label,
-  meter,
-  progressClass,
-}: {
-  label: string;
-  meter: { total: number; met: number; remaining: number } | null;
-  progressClass: string;
-}) {
-  if (!meter) {
-    return (
-      <View className="flex-1 rounded-xl bg-surface p-4 shadow-card">
-        <Text className="text-sm font-semibold text-on-accent">{label}</Text>
-        <Text className="mt-2 text-xs text-on-accent">Pending extraction…</Text>
+    <View className="mb-2 flex-row flex-wrap gap-3">
+      <View className="min-w-[150px] flex-1">
+        <MetricCard label="Recovered so far" value={formatUSD(recovered)} qualifier="confirmed" valueTone="accent" />
       </View>
-    );
-  }
-  const pct = Math.max(0, Math.min(1, meter.total > 0 ? meter.met / meter.total : 0));
-  return (
-    <View className="flex-1 rounded-xl bg-surface p-4 shadow-card">
-      <View className="flex-row items-baseline justify-between">
-        <Text className="text-sm font-semibold text-on-accent">{label}</Text>
-        <Text className="text-sm font-semibold text-on-accent">
-          {formatUSD(meter.met)} / {formatUSD(meter.total)}
-        </Text>
+      <View className="min-w-[150px] flex-1">
+        <MetricCard label="Identified" value={formatUSD(identified)} qualifier="estimated" />
       </View>
-      <View className="mt-3 h-1.5 overflow-hidden rounded-full bg-inset">
-        <View
-          className={`h-full ${progressClass}`}
-          style={{ width: `${pct * 100}%` }}
+      <View className="min-w-[150px] flex-1">
+        <MetricCard
+          label="Deductible"
+          value={deductible ? formatUSD(deductible.met) : 'Not set'}
+          sub={deductible ? ` / ${formatUSD(deductible.total)}` : undefined}
+          progress={deductible ? pct(deductible) : undefined}
+          tone="success"
         />
       </View>
-      <View className="mt-2 flex-row items-baseline justify-between">
-        <Text className="text-xs text-on-accent">Amount Spent: {formatUSD(meter.met)}</Text>
-        <Text className="text-xs font-semibold text-accent">
-          {formatUSD(meter.remaining)} remaining
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ─── Coverage row 2 — 3 copays + Amount Saved YTD ──────────────────────────
-function CoverageRow2({
-  copays,
-  amountSaved,
-  loading,
-}: {
-  copays: {
-    pcp_visit: { amount: number };
-    er_visit: { amount: number };
-    specialist: { amount: number };
-  } | null;
-  amountSaved: number;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <View className="mt-3 flex-row gap-3">
-        <SkeletonTile className="flex-1 h-20" />
-        <SkeletonTile className="flex-1 h-20" />
-        <SkeletonTile className="flex-1 h-20" />
-        <SkeletonTile className="flex-1 h-20" />
-      </View>
-    );
-  }
-  return (
-    <View className="mt-3 flex-row flex-wrap gap-3">
-      <CopayTile
-        Icon={Home}
-        iconBgClass="bg-accent-tint"
-        iconColor="#1F4E4A"
-        label="Copay — PCP Visit"
-        amount={copays?.pcp_visit.amount ?? null}
-      />
-      <CopayTile
-        Icon={Plus}
-        iconBgClass="bg-danger-soft"
-        iconColor="#C75252"
-        label="Copay — ER Visit"
-        amount={copays?.er_visit.amount ?? null}
-      />
-      <CopayTile
-        Icon={UserIcon}
-        iconBgClass="bg-surface"
-        iconColor="#FFFFFF"
-        label="Copay — Specialist"
-        amount={copays?.specialist.amount ?? null}
-      />
-      <AmountSavedCard amount={amountSaved} />
-    </View>
-  );
-}
-
-function CopayTile({
-  Icon,
-  iconBgClass,
-  iconColor,
-  label,
-  amount,
-}: {
-  Icon: any;
-  iconBgClass: string;
-  iconColor: string;
-  label: string;
-  amount: number | null;
-}) {
-  return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-surface p-4 shadow-card">
-      <View className="flex-row items-center gap-3">
-        <View className={`h-9 w-9 items-center justify-center rounded-md ${iconBgClass}`}>
-          <Icon size={18} color={iconColor} />
-        </View>
-        <View className="flex-1">
-          <Text className="text-[11px] font-medium text-on-accent">{label}</Text>
-          <Text className="text-lg font-bold text-on-accent">
-            {amount === null ? '—' : formatUSD(amount)}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function AmountSavedCard({ amount }: { amount: number }) {
-  return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-accent-tint p-4 shadow-card">
-      <View className="flex-row items-center gap-3">
-        <View className="h-9 w-9 items-center justify-center rounded-md bg-accent-soft">
-          <CheckCircle2 size={18} color="var(--c-accent)" />
-        </View>
-        <View className="flex-1">
-          <Text className="text-[11px] font-medium text-on-accent">Amount Saved This Year</Text>
-          <Text className="text-lg font-bold text-accent">{formatUSD(amount)}</Text>
-        </View>
+      <View className="min-w-[150px] flex-1">
+        <MetricCard
+          label="Out-of-pocket max"
+          value={oopMax ? formatUSD(oopMax.met) : 'Not set'}
+          sub={oopMax ? ` / ${formatUSD(oopMax.total)}` : undefined}
+          progress={oopMax ? pct(oopMax) : undefined}
+          tone="warning"
+        />
       </View>
     </View>
   );
