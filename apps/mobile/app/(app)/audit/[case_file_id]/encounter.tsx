@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useBreakpoint } from '../../../../components/ui/use-breakpoint';
+import { Disclosure } from '../../../../components/ui';
 import {
   ExtractResult,
   LineItem,
@@ -239,76 +239,70 @@ export function LineItemCard({
   onNote: (n: string) => void;
   suggested?: boolean;
 }) {
-  const { isPhone } = useBreakpoint();
+  const answered = draft.response !== null;
   return (
     <View
-      className={`mb-3 rounded-2xl border bg-surface p-4 ${suggested ? 'border-dashed border-accent' : 'border-hairline'}`}
+      className={`mb-3 rounded-card border p-4 ${
+        suggested ? 'border-dashed border-accent bg-accent-tint' : 'border-hairline bg-surface'
+      }`}
     >
       {suggested ? (
-        <Text className="mb-2 text-xs font-semibold text-accent">
-          Suggested — tap to confirm
-        </Text>
+        <Text className="mb-2 text-caption font-medium text-accent">Suggested — tap to confirm</Text>
       ) : null}
-      <View className="mb-2 flex-row items-center justify-between">
-        <View className="rounded-md bg-inset px-2 py-0.5">
-          <Text className="text-[11px] font-semibold text-secondary">{item.code}</Text>
-        </View>
+
+      {/* Heading row: code · name · billed amount (redesign §3). */}
+      <View className="mb-2 flex-row items-center justify-between gap-2">
+        <Text className="flex-1 text-body font-medium text-primary" numberOfLines={1}>
+          {item.code} · {item.plain_language_translation}
+        </Text>
         {item.billed_amount != null ? (
-          <Text className="text-sm font-semibold text-primary">
+          <Text className="text-body text-primary">
             ${item.billed_amount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </Text>
         ) : null}
       </View>
 
-      <Text className="text-base font-medium text-primary">{item.plain_language_translation}</Text>
-      {item.plain_language_context ? (
-        <Text className="mt-1 text-xs italic text-faint">{item.plain_language_context}</Text>
-      ) : null}
-
-      {item.example_scenarios?.length ? (
-        <View className="mt-3 rounded-xl bg-accent-tint p-3">
-          <Text className="mb-1.5 text-xs font-semibold text-accent">
-            For this kind of visit, you'd typically have:
-          </Text>
-          {item.example_scenarios.map((s, i) => (
-            <View key={i} className="mb-1 flex-row gap-2">
-              <Text className="text-accent">•</Text>
-              <Text className="flex-1 text-sm leading-5 text-secondary">{s}</Text>
+      {/* One body sentence; the explainer + typical-scenarios collapse behind a Disclosure. */}
+      {item.plain_language_context || item.example_scenarios?.length ? (
+        <Disclosure summary="Show what this usually looks like">
+          {item.plain_language_context ? (
+            <Text className="text-caption italic leading-5 text-secondary">
+              {item.plain_language_context}
+            </Text>
+          ) : null}
+          {item.example_scenarios?.length ? (
+            <View className="mt-2">
+              <Text className="mb-1 text-caption text-faint">
+                For this kind of visit, you'd typically have:
+              </Text>
+              {item.example_scenarios.map((s, i) => (
+                <View key={i} className="mb-1 flex-row gap-2">
+                  <Text className="text-accent">•</Text>
+                  <Text className="flex-1 text-caption leading-5 text-secondary">{s}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          ) : null}
+        </Disclosure>
       ) : null}
 
-      <View className={isPhone ? 'mt-3 gap-2' : 'mt-3 flex-row gap-2'}>
-        <OptionButton
-          label="Yes, that's right"
-          selected={draft.response === 'yes'}
-          tone="sage"
-          onPress={() => onRespond('yes')}
-        />
-        <OptionButton
-          label="No, that didn't happen"
-          selected={draft.response === 'no'}
-          tone="rose"
-          onPress={() => onRespond('no')}
-        />
-        <OptionButton
-          label="Not sure"
-          selected={draft.response === 'not_sure'}
-          tone="amber"
-          onPress={() => onRespond('not_sure')}
-        />
+      {/* Primary / secondary / tertiary — visual hierarchy, not three equal grays. The chosen
+          answer keeps a check + full opacity; the others dim so the pick reads at a glance. */}
+      <View className="mt-3 flex-row items-center gap-2">
+        <OptionButton label="Yes, that's right" variant="primary" selected={draft.response === 'yes'} answered={answered} onPress={() => onRespond('yes')} />
+        <OptionButton label="That didn't happen" variant="secondary" selected={draft.response === 'no'} answered={answered} onPress={() => onRespond('no')} />
+        <OptionButton label="Not sure" variant="tertiary" selected={draft.response === 'not_sure'} answered={answered} onPress={() => onRespond('not_sure')} />
       </View>
 
       {draft.response === 'no' ? (
         <View className="mt-3">
-          <Text className="mb-1 text-xs text-secondary">What actually happened?</Text>
+          <Text className="mb-1 text-caption text-secondary">What actually happened?</Text>
           <TextInput
             value={draft.user_note}
             onChangeText={onNote}
             placeholder="Optional — helps us understand the mismatch"
-            placeholderTextColor="rgba(255,255,255,0.35)"
-            className="rounded-md border border-hairline bg-inset px-3 py-2 text-sm text-primary"
+            placeholderTextColor="var(--c-text-faint)"
+            className="rounded-control border border-hairline bg-inset px-3 py-2 text-body text-primary"
           />
         </View>
       ) : null}
@@ -318,34 +312,37 @@ export function LineItemCard({
 
 function OptionButton({
   label,
+  variant,
   selected,
-  tone,
+  answered,
   onPress,
 }: {
   label: string;
+  variant: 'primary' | 'secondary' | 'tertiary';
   selected: boolean;
-  tone: 'sage' | 'rose' | 'amber';
+  answered: boolean;
   onPress: () => void;
 }) {
-  const { isPhone } = useBreakpoint();
-  const selectedClass =
-    tone === 'sage'
-      ? 'border-accent bg-accent-tint'
-      : tone === 'rose'
-        ? 'border-danger bg-danger-tint'
-        : 'border-warning bg-warning-tint';
+  const base =
+    variant === 'primary'
+      ? 'bg-accent'
+      : variant === 'secondary'
+        ? 'border border-hairline'
+        : '';
+  const textCls =
+    variant === 'primary' ? 'text-on-accent' : variant === 'tertiary' ? 'text-secondary' : 'text-primary';
+  const grow = variant === 'tertiary' ? 'self-stretch' : 'flex-1';
   return (
     <Pressable
       onPress={onPress}
-      className={`min-h-[44px] justify-center rounded-lg border px-3 py-2 ${
-        isPhone ? 'w-full' : 'flex-1'
-      } ${selected ? selectedClass : 'border-hairline bg-inset'}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      className={`min-h-[44px] ${grow} flex-row items-center justify-center gap-1 rounded-control px-3 py-2 ${base} ${
+        answered && !selected ? 'opacity-45' : ''
+      }`}
     >
-      <Text
-        className={`text-center text-xs font-semibold ${selected ? 'text-primary' : 'text-secondary'}`}
-      >
-        {label}
-      </Text>
+      {selected ? <Text className={`text-caption ${textCls}`}>✓</Text> : null}
+      <Text className={`text-center text-caption font-medium ${textCls}`}>{label}</Text>
     </Pressable>
   );
 }
