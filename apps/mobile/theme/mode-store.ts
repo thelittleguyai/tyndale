@@ -10,9 +10,10 @@ let memory: ThemeMode = 'light';
 
 function localStore(): Storage | null {
   try {
-    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-      return window.localStorage;
-    }
+    const ls = typeof window !== 'undefined' ? window.localStorage : null;
+    // Guard against an env where localStorage is defined but not a functional Storage (some
+    // RN/test runtimes) — require the methods before trusting it.
+    if (ls && typeof ls.getItem === 'function' && typeof ls.setItem === 'function') return ls;
   } catch {
     // localStorage can throw (privacy mode / SSR) — fall through to memory.
   }
@@ -20,7 +21,13 @@ function localStore(): Storage | null {
 }
 
 export function loadThemeMode(): ThemeMode {
-  const v = localStore()?.getItem(KEY) ?? memory;
+  let v: string | null = null;
+  try {
+    v = localStore()?.getItem(KEY) ?? null;
+  } catch {
+    // ignore — fall back to the in-memory value
+  }
+  v = v ?? memory;
   return v === 'dark' || v === 'system' || v === 'light' ? v : 'light';
 }
 

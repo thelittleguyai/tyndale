@@ -19,3 +19,14 @@ jest.mock('expo-router', () => {
     Link: ({ children }) => React.createElement(React.Fragment, null, children),
   };
 });
+
+// NativeWind's colorScheme runtime isn't initialized under jest, so calling setColorScheme throws.
+// Stub the hook (the ONLY runtime import of 'nativewind' is theme/useTheme). className styling is
+// compiled by the babel transform, not this hook, so component rendering is unaffected.
+jest.mock('nativewind', () => ({
+  useColorScheme: () => ({
+    colorScheme: 'light',
+    setColorScheme: jest.fn(),
+    toggleColorScheme: jest.fn(),
+  }),
+}));

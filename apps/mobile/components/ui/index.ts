@@ -10,3 +10,4 @@ export { MomentCard } from './MomentCard';
 export { SectionHeader } from './SectionHeader';
 export { ListRow } from './ListRow';
 export { Disclosure } from './Disclosure';
+export { ThemeToggle } from './ThemeToggle';

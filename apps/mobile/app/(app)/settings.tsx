@@ -31,6 +31,7 @@ import { useSignOut } from '../../lib/auth';
 import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
+import { Card, ThemeToggle } from '../../components/ui';
 import { CardUpload, formatPhone, isoToMdy, validateDob } from '../../lib/profile-ui';
 
 const CONSENT_FULL_TEXT = [
@@ -186,6 +187,18 @@ export default function SettingsScreen() {
         <Text className="text-sm text-white/60 hover:text-white/90">← Back to dashboard</Text>
       </Pressable>
       <Text className="mb-6 text-3xl font-bold text-white">Settings</Text>
+
+      {/* Appearance — theme toggle (redesign §3). This block is on the new "Clear day / Midnight
+          ledger" tokens, so it flips light↔dark as you switch; the rest of the app takes on the
+          new look as its screens are converted. */}
+      <Card className="mb-4">
+        <Text className="mb-3 text-caption text-secondary">Appearance</Text>
+        <ThemeToggle />
+        <Text className="mt-3 text-body text-secondary">
+          Choose Light, Dark, or follow your device. More of the app takes on the new look as
+          screens are updated.
+        </Text>
+      </Card>
 
       {/* 1. Profile (editable — CO-17) */}
       <Section title="Profile">
