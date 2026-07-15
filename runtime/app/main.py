@@ -29,6 +29,7 @@ from app.routes import (
     coverage,
     dashboard,
     encounter,
+    events,
     feedback,
     health,
     insurance,
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router, prefix="/v1")
     app.include_router(conversations.router, prefix="/v1")
     app.include_router(messages.router, prefix="/v1")
+    app.include_router(events.router, prefix="/v1")
     app.include_router(billing.router, prefix="/v1")  # Item 4 — dark scaffold (enable_billing gate)
     return app
 
