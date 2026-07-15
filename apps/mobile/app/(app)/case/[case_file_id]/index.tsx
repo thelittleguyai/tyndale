@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarClock, CheckCircle2, Circle, MessageSquare } from 'lucide-react-native';
 
 import { CaseSummaryPayload, getCaseSummary } from '../../../../lib/api-client';
+import { displayEnum } from '../../../../lib/enum-display';
 import { Gameplan } from '../../../../components/record/Gameplan';
 
 function money(n: number): string {
@@ -172,7 +173,7 @@ export default function CaseSummaryScreen() {
                 {f.recommendation ? (
                   <Text className="mt-2 text-sm leading-6 text-white/60">
                     <Text className="text-white/45">What to do: </Text>
-                    {f.recommendation}
+                    {displayEnum(f.recommendation)}
                   </Text>
                 ) : null}
               </View>

@@ -11,6 +11,7 @@ import { Pressable, Text, View } from 'react-native';
 import { ChevronDown, ChevronRight } from 'lucide-react-native';
 
 import type { FindingOut, ThumbsValue } from '../../lib/api-client';
+import { displayEnum } from '../../lib/enum-display';
 import { ThumbsRating } from '../thumbs-rating';
 
 const TYPE_LABELS: Record<FindingOut['finding_type'], string> = {
@@ -46,7 +47,8 @@ function formatFactValue(key: string, value: unknown): string {
 
 /** Pull a sensible "what to do" string set out of the loosely-typed recommendation. */
 function recommendationLines(rec: Record<string, unknown>): { main: string | null; support: string | null; rest: string[] } {
-  const main = typeof rec.action === 'string' ? rec.action : null;
+  // displayEnum guards against a raw snake_case action enum leaking to screen (prose passes through).
+  const main = typeof rec.action === 'string' ? displayEnum(rec.action) : null;
   const support = typeof rec.reasoning === 'string' ? rec.reasoning : null;
   const rest: string[] = [];
   for (const [k, v] of Object.entries(rec)) {
