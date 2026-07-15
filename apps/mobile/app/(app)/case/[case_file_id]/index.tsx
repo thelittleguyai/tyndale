@@ -14,6 +14,7 @@ import { CalendarClock, CheckCircle2, Circle, MessageSquare } from 'lucide-react
 import { CaseSummaryPayload, getCaseSummary } from '../../../../lib/api-client';
 import { displayEnum } from '../../../../lib/enum-display';
 import { Gameplan } from '../../../../components/record/Gameplan';
+import { MomentCard } from '../../../../components/ui';
 
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -89,16 +90,20 @@ export default function CaseSummaryScreen() {
           </Text>
         ) : null}
 
-        {/* The three-number moment card, re-hosted — or the honest needs-documents state */}
+        {/* The three-number moment — the sub-case's permanent home for it, rendered as the SAME
+            dark MomentCard as the thread reveal (redesign §3): the soul, not metadata-weight. */}
         {tn ? (
-          <View className="mb-5 rounded-2xl border border-hairline bg-surface p-5">
-            <Text className="mb-3 text-xs text-faint">
-              Your three numbers
-            </Text>
-            <Row label="What you were billed" value={money(tn.provider_billed)} dim />
-            <Row label="What your insurer says you owe" value={money(tn.eob_member_responsibility)} />
-            <Row label="What you should owe" value={money(tn.tyndale_computed)} highlight last />
-          </View>
+          <MomentCard className="mb-5">
+            <Text className="mb-3 text-caption text-moment-text-faint">Your three numbers</Text>
+            <MomentNumber label="What you were billed" value={money(tn.provider_billed)} />
+            <MomentNumber label="What your insurer says you owe" value={money(tn.eob_member_responsibility)} />
+            <View className="flex-row items-baseline justify-between pb-0.5 pt-2.5">
+              <Text className="text-body font-medium text-moment-text">What you should owe</Text>
+              <Text className="text-[30px] font-medium leading-9 text-moment-emphasis">
+                {money(tn.tyndale_computed)}
+              </Text>
+            </View>
+          </MomentCard>
         ) : (
           <View className="mb-5 rounded-2xl border border-hairline bg-surface p-5">
             <Text className="text-base font-semibold text-primary">
@@ -226,30 +231,13 @@ function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
   );
 }
 
-function Row({
-  label,
-  value,
-  highlight,
-  dim,
-  last,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  dim?: boolean;
-  last?: boolean;
-}) {
-  const valueClass = highlight
-    ? 'text-2xl font-bold text-accent'
-    : dim
-      ? 'text-base font-medium text-faint'
-      : 'text-xl font-semibold text-primary';
+// A hairline-separated number row inside the three-number MomentCard (moment tokens, matches the
+// thread reveal).
+function MomentNumber({ label, value }: { label: string; value: string }) {
   return (
-    <View className={`${last ? '' : 'mb-3 '}flex-row items-baseline justify-between`}>
-      <Text className={dim ? 'flex-1 pr-3 text-sm text-faint' : 'flex-1 pr-3 text-sm text-secondary'}>
-        {label}
-      </Text>
-      <Text className={valueClass}>{value}</Text>
+    <View className="flex-row items-baseline justify-between border-b border-moment-border py-1.5">
+      <Text className="flex-1 pr-3 text-caption text-moment-text-faint">{label}</Text>
+      <Text className="text-[18px] text-moment-text">{value}</Text>
     </View>
   );
 }
