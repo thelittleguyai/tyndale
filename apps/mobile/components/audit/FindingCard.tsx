@@ -81,18 +81,18 @@ export function FindingCard({
   // Rose is reserved for confirmed provider-side overcharges; everything else
   // (insurer math, encounter mismatches) reads as caution, not alarm.
   const isRose = finding.finding_type === 'provider_side';
-  const borderClass = isRose ? 'border-rose/40' : 'border-amber/40';
+  const borderClass = isRose ? 'border-danger' : 'border-warning';
 
   const typeLabel = TYPE_LABELS[finding.finding_type] ?? 'Something worth a closer look';
   const tierLabel = TIER_LABELS[finding.voice_tier] ?? 'Worth asking about';
 
   return (
-    <View className={`mb-3 rounded-2xl border ${borderClass} bg-navy-soft p-4`}>
+    <View className={`mb-3 rounded-2xl border ${borderClass} bg-surface p-4`}>
       <View className="mb-2 flex-row items-start justify-between">
-        <Text className="flex-1 pr-2 text-base font-semibold text-white">{typeLabel}</Text>
+        <Text className="flex-1 pr-2 text-base font-semibold text-primary">{typeLabel}</Text>
         <View className="flex-row items-center gap-2 pt-0.5">
-          <View className="rounded-md bg-white/10 px-2 py-0.5">
-            <Text className="text-[10px] font-semibold text-white/70">{tierLabel}</Text>
+          <View className="rounded-md bg-inset px-2 py-0.5">
+            <Text className="text-[10px] font-semibold text-secondary">{tierLabel}</Text>
           </View>
           <ThumbsRating
             target={{ type: 'finding', id: finding.finding_id }}
@@ -104,18 +104,18 @@ export function FindingCard({
       </View>
 
       {recLines && (recLines.main || recLines.rest.length > 0) ? (
-        <View className="mb-3 rounded-xl bg-sage/10 p-3">
-          <Text className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-sage">
+        <View className="mb-3 rounded-xl bg-accent-tint p-3">
+          <Text className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">
             What to do
           </Text>
           {recLines.main ? (
-            <Text className="text-sm leading-5 text-white/90">{recLines.main}</Text>
+            <Text className="text-sm leading-5 text-primary">{recLines.main}</Text>
           ) : null}
           {recLines.support ? (
-            <Text className="mt-1 text-xs leading-4 text-white/60">{recLines.support}</Text>
+            <Text className="mt-1 text-xs leading-4 text-secondary">{recLines.support}</Text>
           ) : null}
           {recLines.rest.map((line) => (
-            <Text key={line} className="mt-1 text-xs leading-4 text-white/60">
+            <Text key={line} className="mt-1 text-xs leading-4 text-secondary">
               {line}
             </Text>
           ))}
@@ -123,10 +123,10 @@ export function FindingCard({
       ) : null}
 
       {typeof lc.claim === 'string' ? (
-        <Text className="mb-2 text-sm leading-5 text-white/85">
+        <Text className="mb-2 text-sm leading-5 text-primary">
           {lc.claim}
           {typeof lc.marker === 'string' ? (
-            <Text className="text-xs text-white/50"> {lc.marker}</Text>
+            <Text className="text-xs text-faint"> {lc.marker}</Text>
           ) : null}
         </Text>
       ) : null}
@@ -139,18 +139,18 @@ export function FindingCard({
             accessibilityRole="button"
           >
             {showDetails ? (
-              <ChevronDown size={13} color="rgba(255,255,255,0.5)" />
+              <ChevronDown size={13} color="var(--c-text-faint)" />
             ) : (
-              <ChevronRight size={13} color="rgba(255,255,255,0.5)" />
+              <ChevronRight size={13} color="var(--c-text-faint)" />
             )}
-            <Text className="text-xs font-semibold text-white/50">Details</Text>
+            <Text className="text-xs font-semibold text-faint">Details</Text>
           </Pressable>
           {showDetails ? (
-            <View className="mt-1 rounded-md bg-black/20 p-3">
+            <View className="mt-1 rounded-md bg-inset p-3">
               {factEntries.map(([k, v]) => (
                 <View key={k} className="mb-1 flex-row justify-between gap-3">
-                  <Text className="flex-1 text-xs text-white/55">{prettifyKey(k)}</Text>
-                  <Text className="text-xs text-white/90">{formatFactValue(k, v)}</Text>
+                  <Text className="flex-1 text-xs text-faint">{prettifyKey(k)}</Text>
+                  <Text className="text-xs text-primary">{formatFactValue(k, v)}</Text>
                 </View>
               ))}
             </View>

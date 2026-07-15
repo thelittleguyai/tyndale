@@ -139,7 +139,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-navy-deep"
+      className="flex-1 bg-page"
       contentContainerStyle={{ paddingBottom: 32 }}
     >
       <Header firstName={greetingName} lastName={profileName.last} />
@@ -175,7 +175,7 @@ export default function DashboardScreen() {
           <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
 
-        <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
+        <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
           Quick Actions
         </Text>
         <View className="flex-row flex-wrap gap-3">
@@ -215,10 +215,10 @@ export default function DashboardScreen() {
         <ChatCTA onPress={openChat} />
 
         {error ? (
-          <Text className="mt-4 text-xs text-rose">Dashboard fetch error: {error}</Text>
+          <Text className="mt-4 text-xs text-danger">Dashboard fetch error: {error}</Text>
         ) : null}
 
-        <Text className="mt-10 text-center text-xs text-white/40">
+        <Text className="mt-10 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
@@ -274,14 +274,14 @@ function OutcomeFollowupCard({
   };
 
   return (
-    <View className="mt-6 rounded-2xl border border-amber/30 bg-navy-soft p-5 shadow-card">
+    <View className="mt-6 rounded-2xl border border-warning bg-surface p-5 shadow-card">
       <View className="mb-2 flex-row items-center gap-3">
-        <View className="h-9 w-9 items-center justify-center rounded-md bg-amber/20">
-          <Clock size={18} color="#E08A3C" />
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-warning-tint">
+          <Clock size={18} color="var(--c-warning)" />
         </View>
-        <Text className="text-base font-bold text-white">Quick check-in: how did it go?</Text>
+        <Text className="text-base font-bold text-primary">Quick check-in: how did it go?</Text>
       </View>
-      <Text className="mb-4 text-sm leading-6 text-white/70">
+      <Text className="mb-4 text-sm leading-6 text-secondary">
         {prompt.days_since_recommendation} days ago I helped you with {prompt.finding_summary}. Did
         it get resolved?
       </Text>
@@ -306,13 +306,13 @@ function OutcomeButton({
 }) {
   const cls =
     tone === 'sage'
-      ? 'bg-sage'
+      ? 'bg-accent'
       : tone === 'amber'
-        ? 'bg-amber'
+        ? 'bg-warning'
         : tone === 'rose'
-          ? 'bg-rose'
-          : 'bg-white/10';
-  const textCls = tone === 'ink' ? 'text-white/70' : 'text-ink';
+          ? 'bg-danger'
+          : 'bg-inset';
+  const textCls = tone === 'ink' ? 'text-secondary' : 'text-on-accent';
   return (
     <PressableScale
       onPress={onPress}
@@ -332,22 +332,22 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
       ? `/intake/${currentStep}`
       : '/intake/welcome';
   return (
-    <View className="mt-4 flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-4 shadow-card">
-      <View className="h-9 w-9 items-center justify-center rounded-md bg-sage/20">
-        <CheckCircle2 size={18} color="#3DAA7E" />
+    <View className="mt-4 flex-row items-center gap-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card">
+      <View className="h-9 w-9 items-center justify-center rounded-md bg-accent-tint">
+        <CheckCircle2 size={18} color="var(--c-accent)" />
       </View>
       <View className="flex-1">
-        <Text className="text-sm font-bold text-white">Finish setting up</Text>
-        <Text className="mt-0.5 text-xs leading-5 text-white/60">
+        <Text className="text-sm font-bold text-primary">Finish setting up</Text>
+        <Text className="mt-0.5 text-xs leading-5 text-secondary">
           Your intake is saved where you left off — a few more steps unlock your full
           dashboard.
         </Text>
       </View>
       <PressableScale
         onPress={() => router.push(target as never)}
-        className="min-h-[44px] items-center justify-center rounded-lg bg-sage px-3 py-2 hover:bg-sage-deep"
+        className="min-h-[44px] items-center justify-center rounded-lg bg-accent px-3 py-2 hover:bg-accent"
       >
-        <Text className="text-xs font-bold text-ink">Resume</Text>
+        <Text className="text-xs font-bold text-on-accent">Resume</Text>
       </PressableScale>
     </View>
   );
@@ -359,15 +359,15 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
 function statusVisual(status: string): { Icon: typeof FileText; color: string; bg: string } {
   switch (status) {
     case 'audit_complete':
-      return { Icon: CheckCircle2, color: '#3DAA7E', bg: 'bg-sage/20' };
+      return { Icon: CheckCircle2, color: '#3DAA7E', bg: 'bg-accent-tint' };
     case 'audit_running':
     case 'encounter_verified':
-      return { Icon: Clock, color: '#E08A3C', bg: 'bg-amber/20' };
+      return { Icon: Clock, color: '#E08A3C', bg: 'bg-warning-tint' };
     case 'extraction_failed':
     case 'audit_incomplete':
-      return { Icon: AlertCircle, color: '#C75252', bg: 'bg-rose/20' };
+      return { Icon: AlertCircle, color: '#C75252', bg: 'bg-danger-tint' };
     default:
-      return { Icon: FileText, color: '#ffffff', bg: 'bg-white/10' };
+      return { Icon: FileText, color: '#ffffff', bg: 'bg-inset' };
   }
 }
 
@@ -419,7 +419,7 @@ function CaseRemoveButton({
       hitSlop={10}
       accessibilityRole="button"
       accessibilityLabel={`Remove ${label}`}
-      className="ml-1 rounded-full p-1.5 hover:bg-white/10"
+      className="ml-1 rounded-full p-1.5 hover:bg-inset"
     >
       {busy ? (
         <ActivityIndicator size="small" color="#ffffff99" />
@@ -440,7 +440,7 @@ function ActiveCasesSection({
   const router = useRouter();
   return (
     <View>
-      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
+      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
         Open Cases
       </Text>
       <View className="gap-3">
@@ -452,14 +452,14 @@ function ActiveCasesSection({
               onPress={() => router.push(activeCaseRoute(c) as never)}
               accessibilityRole="button"
               accessibilityLabel={`${c.label} — open case`}
-              className="flex-row items-center gap-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25"
+              className="flex-row items-center gap-4 rounded-2xl border border-hairline bg-surface p-5 shadow-card hover:border-hairline"
             >
               <View className={`h-9 w-9 items-center justify-center rounded-md ${bg}`}>
                 <Icon size={18} color={color} />
               </View>
               <View className="flex-1">
-                <Text className="text-base font-bold text-white">{c.label}</Text>
-                <Text className="mt-1 text-xs text-white/55">
+                <Text className="text-base font-bold text-primary">{c.label}</Text>
+                <Text className="mt-1 text-xs text-faint">
                   {c.days_open === 0
                     ? 'Opened today'
                     : `Open for ${c.days_open} day${c.days_open === 1 ? '' : 's'}`}
@@ -468,7 +468,7 @@ function ActiveCasesSection({
                     : ''}
                 </Text>
               </View>
-              <Text className="text-sm text-white/30">›</Text>
+              <Text className="text-sm text-faint">›</Text>
               {NON_REMOVABLE_STATUSES.has(c.status) ? null : (
                 <CaseRemoveButton caseId={c.case_file_id} label={c.label} onDone={onChanged} />
               )}
@@ -515,10 +515,10 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
   }, []);
 
   return (
-    <View className="flex-row items-center justify-between bg-navy-soft px-5 py-3">
+    <View className="flex-row items-center justify-between bg-surface px-5 py-3">
       <View className="flex-row items-center gap-2">
         <SvgXml xml={logoSvg} width={28} height={28} />
-        <Text className="text-base font-bold text-white">Tyndale</Text>
+        <Text className="text-base font-bold text-primary">Tyndale</Text>
       </View>
       <View className="flex-row items-center gap-2">
         {isAdmin ? (
@@ -528,32 +528,32 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
             }}
             accessibilityRole="button"
             accessibilityHint="Opens the Tyndale admin console in a new tab"
-            className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
+            className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
           >
-            <ShieldCheck size={14} color="rgba(255,255,255,0.7)" />
-            <Text className="text-xs font-semibold text-white/80">Admin</Text>
+            <ShieldCheck size={14} color="var(--c-text-secondary)" />
+            <Text className="text-xs font-semibold text-secondary">Admin</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
-          className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 active:opacity-80"
+          className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-2.5 py-1.5 hover:bg-inset active:opacity-80"
         >
-          <View className="h-5 w-5 items-center justify-center rounded-full bg-amber/80">
-            <Text className="text-[10px] font-bold text-ink">
+          <View className="h-5 w-5 items-center justify-center rounded-full bg-warning/80">
+            <Text className="text-[10px] font-bold text-on-accent">
               {firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text className="text-xs font-medium text-white/90">
+          <Text className="text-xs font-medium text-primary">
             {lastName ? `${firstName} ${lastName}` : firstName}
           </Text>
         </Pressable>
         <Pressable
           onPress={onSignOut}
           disabled={signingOut}
-          className="min-h-[44px] items-center justify-center rounded-full bg-white/5 px-3 py-1.5 hover:bg-white/10 active:opacity-80"
+          className="min-h-[44px] items-center justify-center rounded-full bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
         >
-          <Text className="text-xs font-semibold text-white/80">
+          <Text className="text-xs font-semibold text-secondary">
             {signingOut ? 'Signing out…' : 'Sign Out'}
           </Text>
         </Pressable>
@@ -574,26 +574,26 @@ function Hero({
 }) {
   const { isPhone } = useBreakpoint();
   return (
-    <View className="relative overflow-hidden rounded-2xl bg-teal-deep px-5 py-7">
+    <View className="relative overflow-hidden rounded-2xl bg-surface-raised px-5 py-7">
       <View className="absolute -right-6 -top-6 opacity-80">
         <HeroMotif size={isPhone ? 116 : 170} />
       </View>
       <View className={`relative z-10 ${isPhone ? 'pr-16' : 'pr-32'}`}>
         {statusGreeting ? (
-          <Text className="text-2xl font-bold leading-snug text-white">
+          <Text className="text-2xl font-bold leading-snug text-primary">
             {statusGreeting}
           </Text>
         ) : (
           <>
-            <Text className="text-3xl font-bold leading-tight text-white">
+            <Text className="text-3xl font-bold leading-tight text-primary">
               Welcome back,
             </Text>
-            <Text className="text-3xl font-bold leading-tight text-white">
+            <Text className="text-3xl font-bold leading-tight text-primary">
               {firstName}.
             </Text>
           </>
         )}
-        <Text className="mt-3 text-sm text-white/80">
+        <Text className="mt-3 text-sm text-secondary">
           {loading ? 'Loading your dashboard…' : 'What would you like to do today?'}
         </Text>
       </View>
@@ -625,17 +625,17 @@ function CoverageRow1({
   }
   if (extractionStatus === 'missing') {
     return (
-      <View className="mt-4 rounded-xl border border-dashed border-white/15 bg-white/5 p-5">
-        <Text className="text-sm font-semibold text-white">No coverage on file yet</Text>
-        <Text className="mt-1 text-xs text-white/60">
+      <View className="mt-4 rounded-xl border border-dashed border-hairline bg-inset p-5">
+        <Text className="text-sm font-semibold text-primary">No coverage on file yet</Text>
+        <Text className="mt-1 text-xs text-secondary">
           Upload your insurance card so Tyndale can populate your deductible, out-of-pocket
           max, and copays here.
         </Text>
         <PressableScale
           onPress={onUploadPress}
-          className="mt-3 self-start rounded-md bg-sage px-3 py-2 hover:bg-sage-deep"
+          className="mt-3 self-start rounded-md bg-accent px-3 py-2 hover:bg-accent"
         >
-          <Text className="text-xs font-bold text-ink">Upload insurance card</Text>
+          <Text className="text-xs font-bold text-on-accent">Upload insurance card</Text>
         </PressableScale>
       </View>
     );
@@ -645,12 +645,12 @@ function CoverageRow1({
       <CoverageTile
         label="Deductible"
         meter={deductible}
-        progressClass="bg-sage"
+        progressClass="bg-accent"
       />
       <CoverageTile
         label="Out-of-Pocket Max"
         meter={oopMax}
-        progressClass="bg-amber"
+        progressClass="bg-warning"
       />
     </View>
   );
@@ -667,30 +667,30 @@ function CoverageTile({
 }) {
   if (!meter) {
     return (
-      <View className="flex-1 rounded-xl bg-white p-4 shadow-card">
-        <Text className="text-sm font-semibold text-ink">{label}</Text>
-        <Text className="mt-2 text-xs text-ink/60">Pending extraction…</Text>
+      <View className="flex-1 rounded-xl bg-surface p-4 shadow-card">
+        <Text className="text-sm font-semibold text-on-accent">{label}</Text>
+        <Text className="mt-2 text-xs text-on-accent">Pending extraction…</Text>
       </View>
     );
   }
   const pct = Math.max(0, Math.min(1, meter.total > 0 ? meter.met / meter.total : 0));
   return (
-    <View className="flex-1 rounded-xl bg-white p-4 shadow-card">
+    <View className="flex-1 rounded-xl bg-surface p-4 shadow-card">
       <View className="flex-row items-baseline justify-between">
-        <Text className="text-sm font-semibold text-ink">{label}</Text>
-        <Text className="text-sm font-semibold text-ink">
+        <Text className="text-sm font-semibold text-on-accent">{label}</Text>
+        <Text className="text-sm font-semibold text-on-accent">
           {formatUSD(meter.met)} / {formatUSD(meter.total)}
         </Text>
       </View>
-      <View className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
+      <View className="mt-3 h-1.5 overflow-hidden rounded-full bg-inset">
         <View
           className={`h-full ${progressClass}`}
           style={{ width: `${pct * 100}%` }}
         />
       </View>
       <View className="mt-2 flex-row items-baseline justify-between">
-        <Text className="text-xs text-ink/60">Amount Spent: {formatUSD(meter.met)}</Text>
-        <Text className="text-xs font-semibold text-sage-deep">
+        <Text className="text-xs text-on-accent">Amount Spent: {formatUSD(meter.met)}</Text>
+        <Text className="text-xs font-semibold text-accent">
           {formatUSD(meter.remaining)} remaining
         </Text>
       </View>
@@ -726,21 +726,21 @@ function CoverageRow2({
     <View className="mt-3 flex-row flex-wrap gap-3">
       <CopayTile
         Icon={Home}
-        iconBgClass="bg-teal-soft"
+        iconBgClass="bg-accent-tint"
         iconColor="#1F4E4A"
         label="Copay — PCP Visit"
         amount={copays?.pcp_visit.amount ?? null}
       />
       <CopayTile
         Icon={Plus}
-        iconBgClass="bg-rose-soft"
+        iconBgClass="bg-danger-soft"
         iconColor="#C75252"
         label="Copay — ER Visit"
         amount={copays?.er_visit.amount ?? null}
       />
       <CopayTile
         Icon={UserIcon}
-        iconBgClass="bg-navy-soft"
+        iconBgClass="bg-surface"
         iconColor="#FFFFFF"
         label="Copay — Specialist"
         amount={copays?.specialist.amount ?? null}
@@ -764,14 +764,14 @@ function CopayTile({
   amount: number | null;
 }) {
   return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-white p-4 shadow-card">
+    <View className="min-w-[160px] flex-1 rounded-xl bg-surface p-4 shadow-card">
       <View className="flex-row items-center gap-3">
         <View className={`h-9 w-9 items-center justify-center rounded-md ${iconBgClass}`}>
           <Icon size={18} color={iconColor} />
         </View>
         <View className="flex-1">
-          <Text className="text-[11px] font-medium text-ink/60">{label}</Text>
-          <Text className="text-lg font-bold text-ink">
+          <Text className="text-[11px] font-medium text-on-accent">{label}</Text>
+          <Text className="text-lg font-bold text-on-accent">
             {amount === null ? '—' : formatUSD(amount)}
           </Text>
         </View>
@@ -782,14 +782,14 @@ function CopayTile({
 
 function AmountSavedCard({ amount }: { amount: number }) {
   return (
-    <View className="min-w-[160px] flex-1 rounded-xl bg-sage-tint p-4 shadow-card">
+    <View className="min-w-[160px] flex-1 rounded-xl bg-accent-tint p-4 shadow-card">
       <View className="flex-row items-center gap-3">
-        <View className="h-9 w-9 items-center justify-center rounded-md bg-sage-soft">
-          <CheckCircle2 size={18} color="#2E8862" />
+        <View className="h-9 w-9 items-center justify-center rounded-md bg-accent-soft">
+          <CheckCircle2 size={18} color="var(--c-accent)" />
         </View>
         <View className="flex-1">
-          <Text className="text-[11px] font-medium text-ink/60">Amount Saved This Year</Text>
-          <Text className="text-lg font-bold text-sage-deep">{formatUSD(amount)}</Text>
+          <Text className="text-[11px] font-medium text-on-accent">Amount Saved This Year</Text>
+          <Text className="text-lg font-bold text-accent">{formatUSD(amount)}</Text>
         </View>
       </View>
     </View>
@@ -816,20 +816,20 @@ function QuickActionTile({
   return (
     <PressableScale
       onPress={onPress}
-      className={`relative rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card hover:border-white/25 ${
+      className={`relative rounded-2xl border border-hairline bg-surface p-5 shadow-card hover:border-hairline ${
         isPhone ? 'w-full' : 'min-w-[260px] flex-1'
       }`}
     >
       {comingSoon ? (
-        <View className="absolute right-3 top-3 rounded-full bg-white/10 px-2 py-0.5">
-          <Text className="text-[10px] font-semibold text-white/50">Coming soon</Text>
+        <View className="absolute right-3 top-3 rounded-full bg-inset px-2 py-0.5">
+          <Text className="text-[10px] font-semibold text-faint">Coming soon</Text>
         </View>
       ) : null}
-      <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
-        <Icon size={18} color="#ffffff" />
+      <View className="h-9 w-9 items-center justify-center rounded-md bg-inset">
+        <Icon size={18} color="var(--c-text-primary)" />
       </View>
-      <Text className="mt-4 text-base font-bold text-white">{title}</Text>
-      <Text className="mt-1 text-xs leading-5 text-white/55">{subtitle}</Text>
+      <Text className="mt-4 text-base font-bold text-primary">{title}</Text>
+      <Text className="mt-1 text-xs leading-5 text-faint">{subtitle}</Text>
     </PressableScale>
   );
 }
@@ -839,20 +839,20 @@ function ChatCTA({ onPress }: { onPress: () => void }) {
   return (
     <PressableScale
       onPress={onPress}
-      className="mt-6 flex-row items-center gap-4 rounded-2xl bg-teal-deep p-5 shadow-card hover:bg-teal"
+      className="mt-6 flex-row items-center gap-4 rounded-2xl bg-surface-raised p-5 shadow-card hover:bg-surface-raised"
     >
-      <View className="h-10 w-10 items-center justify-center rounded-md bg-white/10">
-        <MessageSquare size={20} color="#ffffff" />
+      <View className="h-10 w-10 items-center justify-center rounded-md bg-inset">
+        <MessageSquare size={20} color="var(--c-text-primary)" />
       </View>
       <View className="flex-1">
-        <Text className="text-base font-bold text-white">Chat with AI Assistant</Text>
-        <Text className="text-xs text-white/70">
+        <Text className="text-base font-bold text-primary">Chat with AI Assistant</Text>
+        <Text className="text-xs text-secondary">
           Ask anything about your health, coverage, or care options
         </Text>
       </View>
-      <View className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
-        <View className="h-1.5 w-1.5 rounded-full bg-sage" />
-        <Text className="text-[10px] font-semibold text-white/80">Available now</Text>
+      <View className="flex-row items-center gap-1.5 rounded-full bg-inset px-2.5 py-1">
+        <View className="h-1.5 w-1.5 rounded-full bg-accent" />
+        <Text className="text-[10px] font-semibold text-secondary">Available now</Text>
       </View>
     </PressableScale>
   );
@@ -861,9 +861,9 @@ function ChatCTA({ onPress }: { onPress: () => void }) {
 // ─── Skeleton ──────────────────────────────────────────────────────────────
 function SkeletonTile({ className }: { className?: string }) {
   return (
-    <View className={`rounded-xl bg-white/5 ${className ?? ''}`} >
+    <View className={`rounded-xl bg-inset ${className ?? ''}`} >
       <ActivityIndicator
-        color="rgba(255,255,255,0.35)"
+        color="var(--c-text-faint)"
         style={{ flex: 1 }}
       />
     </View>

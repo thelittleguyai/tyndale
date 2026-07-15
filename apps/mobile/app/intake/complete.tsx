@@ -46,28 +46,28 @@ export default function CompleteStep() {
       error={error}
     >
       {summary?.captured?.length ? (
-        <View className="rounded-2xl border border-white/10 bg-navy-soft p-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-sage">
+        <View className="rounded-2xl border border-hairline bg-surface p-4">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
             Here's what I have
           </Text>
           {summary.captured.map((c, i) => (
             <View key={i} className="mb-1 flex-row gap-2">
-              <Text className="text-sage">✓</Text>
-              <Text className="flex-1 text-sm leading-5 text-white/80">{c}</Text>
+              <Text className="text-accent">✓</Text>
+              <Text className="flex-1 text-sm leading-5 text-secondary">{c}</Text>
             </View>
           ))}
         </View>
       ) : null}
 
       {summary?.missing_items?.length ? (
-        <View className="mt-3 rounded-2xl border border-white/10 bg-navy-soft p-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber">
+        <View className="mt-3 rounded-2xl border border-hairline bg-surface p-4">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-warning">
             When you have these, they'll unlock more
           </Text>
           {summary.missing_items.map((m, i) => (
             <View key={i} className="mb-1 flex-row gap-2">
-              <Text className="text-amber">+</Text>
-              <Text className="flex-1 text-sm leading-5 text-white/70">{m}</Text>
+              <Text className="text-warning">+</Text>
+              <Text className="flex-1 text-sm leading-5 text-secondary">{m}</Text>
             </View>
           ))}
         </View>

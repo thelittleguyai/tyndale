@@ -63,28 +63,28 @@ export default function SignInScreen() {
   };
 
   return (
-    <View className="flex-1 items-center justify-center bg-navy-deep px-6">
+    <View className="flex-1 items-center justify-center bg-page px-6">
       <ScreenView className="items-center">
-        <View className="mb-5 rounded-full bg-cream p-2">
+        <View className="mb-5 rounded-full bg-inset p-2">
           <SvgXml xml={logoSvg} width={56} height={56} />
         </View>
-        <Text className="text-2xl font-bold text-white">Sign in to Tyndale</Text>
+        <Text className="text-2xl font-bold text-primary">Sign in to Tyndale</Text>
 
         <PressableScale
           accessibilityRole="button"
           onPress={onGoogle}
-          className="mt-8 w-full max-w-xs items-center rounded-md bg-white px-6 py-3 shadow-card hover:bg-cream-soft"
+          className="mt-8 w-full max-w-xs items-center rounded-md bg-surface px-6 py-3 shadow-card hover:bg-inset"
         >
-          <Text className="text-base font-semibold text-ink">Continue with Google</Text>
+          <Text className="text-base font-semibold text-on-accent">Continue with Google</Text>
         </PressableScale>
 
-        <Text className="my-5 text-xs uppercase tracking-widest text-white/40">
+        <Text className="my-5 text-xs uppercase tracking-widest text-faint">
           or sign in with email
         </Text>
 
         {sent ? (
           <View className="w-full max-w-xs items-center">
-            <Text className="text-center text-sm leading-6 text-sage">
+            <Text className="text-center text-sm leading-6 text-accent">
               Check your email — we sent a sign-in link to {email}.
             </Text>
             <Pressable
@@ -94,7 +94,7 @@ export default function SignInScreen() {
             >
               <Text
                 className={
-                  cooldown > 0 ? 'text-xs text-white/40' : 'text-xs font-semibold text-sage'
+                  cooldown > 0 ? 'text-xs text-faint' : 'text-xs font-semibold text-accent'
                 }
               >
                 {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend link'}
@@ -110,22 +110,22 @@ export default function SignInScreen() {
               placeholderTextColor="rgba(255,255,255,0.35)"
               autoCapitalize="none"
               keyboardType="email-address"
-              className="rounded-md border border-white/20 bg-white/5 px-4 py-3 text-base text-white"
+              className="rounded-md border border-hairline bg-inset px-4 py-3 text-base text-primary"
             />
             <PressableScale
               onPress={onEmail}
               disabled={busy || !email.trim()}
               className={
                 busy || !email.trim()
-                  ? 'mt-3 items-center rounded-md bg-white/10 px-6 py-3'
-                  : 'mt-3 items-center rounded-md bg-sage px-6 py-3 shadow-card hover:bg-sage-deep'
+                  ? 'mt-3 items-center rounded-md bg-inset px-6 py-3'
+                  : 'mt-3 items-center rounded-md bg-accent px-6 py-3 shadow-card hover:bg-accent'
               }
             >
               <Text
                 className={
                   busy || !email.trim()
-                    ? 'text-base font-semibold text-white/50'
-                    : 'text-base font-bold text-ink'
+                    ? 'text-base font-semibold text-faint'
+                    : 'text-base font-bold text-on-accent'
                 }
               >
                 {busy ? 'Sending…' : 'Send magic link'}
@@ -134,9 +134,9 @@ export default function SignInScreen() {
           </View>
         )}
 
-        {error ? <Text className="mt-5 text-sm text-rose">{error}</Text> : null}
+        {error ? <Text className="mt-5 text-sm text-danger">{error}</Text> : null}
 
-        <Text className="mt-10 max-w-xs text-center text-xs text-white/40">
+        <Text className="mt-10 max-w-xs text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
           advice.
         </Text>

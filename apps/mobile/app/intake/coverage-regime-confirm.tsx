@@ -103,13 +103,13 @@ export default function CoverageRegimeConfirmStep() {
               key={opt.value}
               onPress={() => setSelected(opt.value)}
               className={`rounded-2xl border p-4 ${
-                active ? 'border-sage bg-sage/10' : 'border-white/15 bg-navy-soft'
+                active ? 'border-accent bg-accent-tint' : 'border-hairline bg-surface'
               }`}
             >
-              <Text className={`text-base font-semibold ${active ? 'text-sage' : 'text-white'}`}>
+              <Text className={`text-base font-semibold ${active ? 'text-accent' : 'text-primary'}`}>
                 {opt.label}
               </Text>
-              <Text className="mt-0.5 text-[13px] leading-5 text-white/60">{opt.hint}</Text>
+              <Text className="mt-0.5 text-[13px] leading-5 text-secondary">{opt.hint}</Text>
             </Pressable>
           );
         })}

@@ -46,38 +46,38 @@ export default function PlanProposalScreen() {
   const rows = formatDesign(proposal.benefit_design as Record<string, unknown>);
 
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 32 }}>
+    <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 32 }}>
       <View className="w-full max-w-xl self-center">
-        <Text className="mb-2 text-2xl font-bold leading-tight text-white">
+        <Text className="mb-2 text-2xl font-bold leading-tight text-primary">
           Confirm your plan details
         </Text>
-        <Text className="mb-5 text-[15px] leading-6 text-white/80">{proposal.summary}</Text>
+        <Text className="mb-5 text-[15px] leading-6 text-secondary">{proposal.summary}</Text>
 
         {rows.length ? (
-          <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
+          <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
             {rows.map((r) => (
-              <Text key={r} className="mb-1.5 text-base text-white/90">
+              <Text key={r} className="mb-1.5 text-base text-primary">
                 • {r}
               </Text>
             ))}
           </View>
         ) : null}
 
-        {err ? <Text className="mb-3 text-sm text-rose">{err}</Text> : null}
+        {err ? <Text className="mb-3 text-sm text-danger">{err}</Text> : null}
 
         <Pressable
           disabled={busy}
           onPress={finish(() => confirmPlanProposal(proposal.plan_library_id, caseId))}
-          className="mb-3 min-h-[48px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+          className="mb-3 min-h-[48px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-base font-bold text-ink">Yes, that&apos;s my plan</Text>
+          <Text className="text-base font-bold text-on-accent">Yes, that&apos;s my plan</Text>
         </Pressable>
         <Pressable
           disabled={busy}
           onPress={finish(() => rejectPlanProposal(proposal.plan_library_id, caseId))}
-          className="min-h-[48px] items-center justify-center rounded-xl border border-white/15 px-4 py-3 hover:bg-white/5"
+          className="min-h-[48px] items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
         >
-          <Text className="text-base font-semibold text-white/80">Something looks off</Text>
+          <Text className="text-base font-semibold text-secondary">Something looks off</Text>
         </Pressable>
       </View>
     </ScrollView>

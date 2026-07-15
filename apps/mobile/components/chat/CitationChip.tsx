@@ -22,10 +22,10 @@ export function CitationChip({
       onPress={() => onPress(citation)}
       accessibilityRole="button"
       hitSlop={10}
-      className="flex-row items-center gap-1 rounded-full border border-sage/30 bg-sage/10 px-2 py-1"
+      className="flex-row items-center gap-1 rounded-full border border-accent bg-accent-tint px-2 py-1"
     >
-      <BookOpen size={11} color="#3DAA7E" />
-      <Text className="text-[11px] text-sage">{label(citation)}</Text>
+      <BookOpen size={11} color="var(--c-accent)" />
+      <Text className="text-[11px] text-accent">{label(citation)}</Text>
     </Pressable>
   );
 }

@@ -35,24 +35,24 @@ export default function CaseChatScreen() {
   }, [caseId]);
 
   return (
-    <View className="flex-1 bg-navy-deep">
-      <View className="flex-row items-center justify-between border-b border-white/10 bg-navy-soft px-4 py-3">
+    <View className="flex-1 bg-page">
+      <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href={`/audit/${caseId}`} asChild>
           <Pressable className="flex-row items-center gap-1">
-            <ChevronLeft size={18} color="rgba(255,255,255,0.7)" />
-            <Text className="text-sm text-white/70">Case</Text>
+            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <Text className="text-sm text-secondary">Case</Text>
           </Pressable>
         </Link>
-        <Text className="text-sm font-bold text-white">Chat about this case</Text>
+        <Text className="text-sm font-bold text-primary">Chat about this case</Text>
         <View className="w-12" />
       </View>
       {error ? (
         <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-rose">{error}</Text>
+          <Text className="text-danger">{error}</Text>
         </View>
       ) : !convId ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="var(--c-text-primary)" />
         </View>
       ) : (
         <ChatThread
@@ -72,16 +72,16 @@ function CaseEmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
   ];
   return (
     <View className="px-2 py-8">
-      <Text className="mb-3 text-center text-base font-semibold text-white">
+      <Text className="mb-3 text-center text-base font-semibold text-primary">
         Start a conversation about this case
       </Text>
       {suggestions.map((s) => (
         <Pressable
           key={s}
           onPress={() => onSuggest(s)}
-          className="mb-2 self-center rounded-full border border-white/10 bg-navy-soft px-4 py-2 hover:border-white/25"
+          className="mb-2 self-center rounded-full border border-hairline bg-surface px-4 py-2 hover:border-hairline"
         >
-          <Text className="text-sm text-white/60">{s}</Text>
+          <Text className="text-sm text-secondary">{s}</Text>
         </Pressable>
       ))}
     </View>

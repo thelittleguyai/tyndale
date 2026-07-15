@@ -19,32 +19,32 @@ export function ThreadNeedsDocuments({
 }) {
   const router = useRouter();
   return (
-    <View className="my-2 w-full rounded-2xl border border-sage/30 bg-sage/10 p-5">
-      <Text className="mb-3 text-base leading-6 text-white/85">{payload.intro}</Text>
+    <View className="my-2 w-full rounded-2xl border border-accent bg-accent-tint p-5">
+      <Text className="mb-3 text-base leading-6 text-primary">{payload.intro}</Text>
       {payload.items.map((d, i) => (
-        <View key={d.key} className={i > 0 ? 'mt-3 border-t border-white/10 pt-3' : ''}>
+        <View key={d.key} className={i > 0 ? 'mt-3 border-t border-hairline pt-3' : ''}>
           <View className="mb-1 flex-row items-start gap-2">
             {d.have ? (
-              <CheckCircle2 size={18} color="#3DAA7E" />
+              <CheckCircle2 size={18} color="var(--c-accent)" />
             ) : (
-              <Circle size={18} color="rgba(255,255,255,0.35)" />
+              <Circle size={18} color="var(--c-text-faint)" />
             )}
             <Text
-              className={`flex-1 text-base font-bold ${d.have ? 'text-white/55 line-through' : 'text-white'}`}
+              className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}
             >
               {d.label}
             </Text>
           </View>
           {d.have ? null : (
-            <Text className="ml-6 text-sm leading-6 text-white/70">{d.how_to_get}</Text>
+            <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>
           )}
         </View>
       ))}
       <Pressable
         onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}
-        className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3"
+        className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
       >
-        <Text className="text-center text-base font-bold text-ink">Add a document</Text>
+        <Text className="text-center text-base font-bold text-on-accent">Add a document</Text>
       </Pressable>
     </View>
   );

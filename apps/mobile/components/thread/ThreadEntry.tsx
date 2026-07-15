@@ -28,8 +28,8 @@ import { ThreadVerification } from './ThreadVerification';
 
 function SystemLine({ text, tone }: { text: string; tone?: 'neutral' | 'error' }) {
   return (
-    <View className={`my-2 w-full rounded-2xl p-4 ${tone === 'error' ? 'bg-rose/10' : 'bg-teal-deep'}`}>
-      <Text className="text-[15px] leading-6 text-white/90">{text}</Text>
+    <View className={`my-2 w-full rounded-2xl p-4 ${tone === 'error' ? 'bg-danger-tint' : 'bg-surface-raised'}`}>
+      <Text className="text-[15px] leading-6 text-primary">{text}</Text>
     </View>
   );
 }

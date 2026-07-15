@@ -179,14 +179,14 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+    <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <Pressable
         onPress={() => router.push('/')}
         className="mb-5 self-start active:opacity-70"
       >
-        <Text className="text-sm text-white/60 hover:text-white/90">← Back to dashboard</Text>
+        <Text className="text-sm text-secondary hover:text-primary">← Back to dashboard</Text>
       </Pressable>
-      <Text className="mb-6 text-3xl font-bold text-white">Settings</Text>
+      <Text className="mb-6 text-3xl font-bold text-primary">Settings</Text>
 
       {/* Appearance — theme toggle (redesign §3). This block is on the new "Clear day / Midnight
           ledger" tokens, so it flips light↔dark as you switch; the rest of the app takes on the
@@ -225,19 +225,19 @@ export default function SettingsScreen() {
         />
         <Row label="Email" value={pstate?.email ?? profile?.email ?? '—'} />
         <View className="mt-2 flex-row items-center justify-between">
-          <Text className="text-sm text-white/60">Account type</Text>
+          <Text className="text-sm text-secondary">Account type</Text>
           <View
             className={
               profile?.user_type === 'admin'
-                ? 'rounded-full bg-sage/20 px-3 py-1'
-                : 'rounded-full bg-white/10 px-3 py-1'
+                ? 'rounded-full bg-accent-tint px-3 py-1'
+                : 'rounded-full bg-inset px-3 py-1'
             }
           >
             <Text
               className={
                 profile?.user_type === 'admin'
-                  ? 'text-xs font-bold text-sage'
-                  : 'text-xs font-semibold text-white/80'
+                  ? 'text-xs font-bold text-accent'
+                  : 'text-xs font-semibold text-secondary'
               }
             >
               {profile?.user_type ?? 'user'}
@@ -246,9 +246,9 @@ export default function SettingsScreen() {
         </View>
         <PressableScale
           onPress={saveProfile}
-          className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+          className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-sm font-bold text-ink">
+          <Text className="text-sm font-bold text-on-accent">
             {savingProfile ? 'Saving…' : 'Save profile'}
           </Text>
         </PressableScale>
@@ -260,7 +260,7 @@ export default function SettingsScreen() {
         <Row label="Member ID" value={insurance?.member_id ?? '—'} />
         <Row label="Plan" value={insurance?.plan_name ?? '—'} />
         <Row label="Coverage type" value={coverageType ?? 'Not set'} />
-        <Text className="mb-2 mt-3 text-xs uppercase tracking-widest text-white/45">Card photos</Text>
+        <Text className="mb-2 mt-3 text-xs uppercase tracking-widest text-faint">Card photos</Text>
         <View className="flex-row gap-3">
           <View className="flex-1">
             <CardThumb side="front" present={!!insurance?.has_front} />
@@ -275,13 +275,13 @@ export default function SettingsScreen() {
 
       {/* 2. Improvement consent */}
       <Section title="Help us improve Tyndale">
-        <Text className="text-sm leading-6 text-white/70">
+        <Text className="text-sm leading-6 text-secondary">
           Help make Tyndale better. With your permission, we’ll use your bills and your feedback
           — with all your personal information removed — to improve how Tyndale catches errors.
           This is optional, never affects the service you receive, and you can turn it off anytime.
         </Text>
         <View className="mt-4 flex-row items-center justify-between">
-          <Text className="text-base font-semibold text-white">Improve Tyndale with my data</Text>
+          <Text className="text-base font-semibold text-primary">Improve Tyndale with my data</Text>
           <Switch
             value={!!profile?.improvement_consent}
             onValueChange={onToggleConsent}
@@ -294,7 +294,7 @@ export default function SettingsScreen() {
           onPress={() => setConsentModal(true)}
           className="mt-3 self-start active:opacity-70"
         >
-          <Text className="text-xs font-semibold text-sage hover:text-sage-deep">
+          <Text className="text-xs font-semibold text-accent hover:text-accent">
             What does this share?
           </Text>
         </Pressable>
@@ -304,7 +304,7 @@ export default function SettingsScreen() {
       <Section title="Notifications">
         <DisabledRow label="Email notifications" />
         <DisabledRow label="SMS notifications" />
-        <Text className="mt-2 text-xs text-white/45">
+        <Text className="mt-2 text-xs text-faint">
           Notification preferences arrive when SendGrid + Twilio come online.
         </Text>
       </Section>
@@ -325,30 +325,30 @@ export default function SettingsScreen() {
         <LinkRow label="Delete Account" tone="rose" onPress={() => setDeleteModal(true)} />
       </Section>
 
-      <Text className="mt-8 text-center text-xs text-white/40">
+      <Text className="mt-8 text-center text-xs text-faint">
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
         advice.
       </Text>
 
       {toast ? (
-        <View className="mt-4 rounded-lg bg-sage/20 px-4 py-3">
-          <Text className="text-center text-sm font-semibold text-sage">{toast}</Text>
+        <View className="mt-4 rounded-lg bg-accent-tint px-4 py-3">
+          <Text className="text-center text-sm font-semibold text-accent">{toast}</Text>
         </View>
       ) : null}
 
       {/* Consent detail modal */}
       <Modal visible={consentModal} transparent animationType="slide" onRequestClose={() => setConsentModal(false)}>
         <View className="flex-1 justify-end bg-black/50">
-          <View className="max-h-[80%] rounded-t-3xl bg-navy-soft p-6">
-            <Text className="mb-3 text-xl font-bold text-white">Data Improvement Consent</Text>
+          <View className="max-h-[80%] rounded-t-3xl bg-surface p-6">
+            <Text className="mb-3 text-xl font-bold text-primary">Data Improvement Consent</Text>
             <ScrollView className="max-h-[60vh]">
-              <Text className="text-sm leading-6 text-white/80">{CONSENT_FULL_TEXT}</Text>
+              <Text className="text-sm leading-6 text-secondary">{CONSENT_FULL_TEXT}</Text>
             </ScrollView>
             <PressableScale
               onPress={() => setConsentModal(false)}
-              className="mt-4 rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+              className="mt-4 rounded-xl bg-inset px-4 py-3 hover:bg-inset"
             >
-              <Text className="text-center text-sm font-semibold text-white">Close</Text>
+              <Text className="text-center text-sm font-semibold text-primary">Close</Text>
             </PressableScale>
           </View>
         </View>
@@ -357,9 +357,9 @@ export default function SettingsScreen() {
       {/* Delete-account modal (stub) */}
       <Modal visible={deleteModal} transparent animationType="fade" onRequestClose={() => setDeleteModal(false)}>
         <View className="flex-1 items-center justify-center bg-black/60 p-6">
-          <View className="w-full max-w-md rounded-2xl bg-navy-soft p-6">
-            <Text className="text-xl font-bold text-white">Delete account?</Text>
-            <Text className="mt-3 text-sm leading-6 text-white/70">
+          <View className="w-full max-w-md rounded-2xl bg-surface p-6">
+            <Text className="text-xl font-bold text-primary">Delete account?</Text>
+            <Text className="mt-3 text-sm leading-6 text-secondary">
               This removes your name, contact info, and insurance details from Tyndale and signs
               you out right away. De-identified examples we’ve already promoted to improve Tyndale
               stay in our improvement dataset because they no longer identify you.
@@ -368,16 +368,16 @@ export default function SettingsScreen() {
               <PressableScale
                 onPress={() => setDeleteModal(false)}
                 disabled={deleting}
-                className="flex-1 rounded-xl bg-white/10 px-4 py-3 hover:bg-white/15"
+                className="flex-1 rounded-xl bg-inset px-4 py-3 hover:bg-inset"
               >
-                <Text className="text-center text-sm font-semibold text-white">Cancel</Text>
+                <Text className="text-center text-sm font-semibold text-primary">Cancel</Text>
               </PressableScale>
               <PressableScale
                 onPress={onDeleteAccount}
                 disabled={deleting}
-                className="flex-1 rounded-xl bg-rose px-4 py-3 hover:opacity-90"
+                className="flex-1 rounded-xl bg-danger px-4 py-3 hover:opacity-90"
               >
-                <Text className="text-center text-sm font-bold text-white">
+                <Text className="text-center text-sm font-bold text-primary">
                   {deleting ? 'Deleting…' : 'Delete my account'}
                 </Text>
               </PressableScale>
@@ -391,8 +391,8 @@ export default function SettingsScreen() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-4 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card">
-      <Text className="mb-3 text-xs uppercase tracking-widest text-white/45">{title}</Text>
+    <View className="mb-4 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
+      <Text className="mb-3 text-xs uppercase tracking-widest text-faint">{title}</Text>
       {children}
     </View>
   );
@@ -432,7 +432,7 @@ function BillingSection() {
         <Row label="Plan" value={billing.plan === 'yearly' ? 'Yearly ($100/yr)' : 'Monthly ($11.99/mo)'} />
       ) : (
         <>
-          <Text className="mb-3 text-sm leading-6 text-white/70">
+          <Text className="mb-3 text-sm leading-6 text-secondary">
             You have {billing.free_analyses_remaining ?? 0} free bill{' '}
             {(billing.free_analyses_remaining ?? 0) === 1 ? 'analysis' : 'analyses'} left. Subscribe
             for unlimited checks.
@@ -440,15 +440,15 @@ function BillingSection() {
           <View className="flex-row gap-3">
             <PressableScale
               onPress={() => subscribe('monthly')}
-              className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+              className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             >
-              <Text className="text-sm font-bold text-ink">$11.99 / month</Text>
+              <Text className="text-sm font-bold text-on-accent">$11.99 / month</Text>
             </PressableScale>
             <PressableScale
               onPress={() => subscribe('yearly')}
-              className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-sage/40 px-4 py-3 hover:bg-white/5"
+              className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-accent px-4 py-3 hover:bg-inset"
             >
-              <Text className="text-sm font-bold text-sage">$100 / year</Text>
+              <Text className="text-sm font-bold text-accent">$100 / year</Text>
             </PressableScale>
           </View>
         </>
@@ -460,8 +460,8 @@ function BillingSection() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View className="mb-2 flex-row items-center justify-between">
-      <Text className="text-sm text-white/60">{label}</Text>
-      <Text className="text-sm text-white">{value}</Text>
+      <Text className="text-sm text-secondary">{label}</Text>
+      <Text className="text-sm text-primary">{value}</Text>
     </View>
   );
 }
@@ -481,15 +481,15 @@ function EditField({
 }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1 text-sm text-white/60">{label}</Text>
+      <Text className="mb-1 text-sm text-secondary">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="rgba(255,255,255,0.3)"
-        className="min-h-[44px] rounded-lg border border-white/15 bg-black/20 px-3 py-2.5 text-base text-white"
+        className="min-h-[44px] rounded-lg border border-hairline bg-inset px-3 py-2.5 text-base text-primary"
       />
-      {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+      {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
     </View>
   );
 }
@@ -509,16 +509,16 @@ function CardThumb({ side, present }: { side: 'front' | 'back'; present: boolean
   }, [side, present]);
   if (!present || !uri) return null;
   return (
-    <Image source={{ uri }} resizeMode="cover" className="mb-2 h-24 w-full rounded-xl bg-black/20" />
+    <Image source={{ uri }} resizeMode="cover" className="mb-2 h-24 w-full rounded-xl bg-inset" />
   );
 }
 
 function DisabledRow({ label }: { label: string }) {
   return (
     <View className="mb-2 flex-row items-center justify-between">
-      <Text className="text-sm text-white/40">{label}</Text>
-      <View className="rounded-full bg-white/5 px-2 py-0.5">
-        <Text className="text-[10px] font-semibold text-white/40">Coming soon</Text>
+      <Text className="text-sm text-faint">{label}</Text>
+      <View className="rounded-full bg-inset px-2 py-0.5">
+        <Text className="text-[10px] font-semibold text-faint">Coming soon</Text>
       </View>
     </View>
   );
@@ -536,10 +536,10 @@ function LinkRow({
   return (
     <PressableScale
       onPress={onPress}
-      className="mb-1 -mx-2 flex-row items-center justify-between rounded-lg px-2 py-1.5 hover:bg-white/5"
+      className="mb-1 -mx-2 flex-row items-center justify-between rounded-lg px-2 py-1.5 hover:bg-inset"
     >
-      <Text className={tone === 'rose' ? 'text-sm text-rose' : 'text-sm text-white/90'}>{label}</Text>
-      <Text className="text-sm text-white/30">›</Text>
+      <Text className={tone === 'rose' ? 'text-sm text-danger' : 'text-sm text-primary'}>{label}</Text>
+      <Text className="text-sm text-faint">›</Text>
     </PressableScale>
   );
 }

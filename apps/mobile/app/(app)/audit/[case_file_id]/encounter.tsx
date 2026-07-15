@@ -84,8 +84,8 @@ export default function EncounterVerificationScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
-        <Text className="text-base text-rose">{error}</Text>
+      <View className="flex-1 items-center justify-center bg-page p-6">
+        <Text className="text-base text-danger">{error}</Text>
       </View>
     );
   }
@@ -97,18 +97,18 @@ export default function EncounterVerificationScreen() {
     const isNotBill = extract.status === 'not_a_bill';
     return (
       <ScrollView
-        className="flex-1 bg-navy-deep"
+        className="flex-1 bg-page"
         contentContainerStyle={{ padding: 20, paddingTop: 28 }}
       >
         <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+          <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 
-        <View className="mb-5 rounded-2xl bg-teal-deep p-5">
-          <Text className="text-3xl font-bold leading-tight text-white">
+        <View className="mb-5 rounded-2xl bg-surface-raised p-5">
+          <Text className="text-3xl font-bold leading-tight text-primary">
             {isNotBill ? "This doesn't look like a medical bill" : "We couldn't read your documents"}
           </Text>
-          <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-white/75">
+          <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-secondary">
             {extract.extraction_message ??
               (isNotBill
                 ? 'Upload a bill, an Explanation of Benefits, an insurance card, or a plan summary and I\'ll check it for you.'
@@ -117,18 +117,18 @@ export default function EncounterVerificationScreen() {
         </View>
 
         {extract.documents?.length ? (
-          <View className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4">
-            <Text className="mb-2 text-xs uppercase tracking-widest text-white/45">
+          <View className="mb-5 rounded-2xl border border-hairline bg-surface p-4">
+            <Text className="mb-2 text-xs uppercase tracking-widest text-faint">
               What we received
             </Text>
             {extract.documents.map((d, i) => {
               const ok = d.extraction_status === 'extracted' && d.ocr_text_chars > 0;
               return (
                 <View key={i} className="flex-row items-center justify-between py-1.5">
-                  <Text className="flex-1 pr-3 text-sm text-white/80" numberOfLines={1}>
+                  <Text className="flex-1 pr-3 text-sm text-secondary" numberOfLines={1}>
                     {d.filename}
                   </Text>
-                  <Text className={ok ? 'text-sm text-sage' : 'text-sm text-rose'}>
+                  <Text className={ok ? 'text-sm text-accent' : 'text-sm text-danger'}>
                     {ok ? 'Readable' : "Couldn't read"}
                   </Text>
                 </View>
@@ -139,12 +139,12 @@ export default function EncounterVerificationScreen() {
 
         <Pressable
           onPress={() => router.push('/upload')}
-          className="mt-2 rounded-xl bg-sage px-4 py-4"
+          className="mt-2 rounded-xl bg-accent px-4 py-4"
         >
-          <Text className="text-center text-base font-bold text-ink">Upload again</Text>
+          <Text className="text-center text-base font-bold text-on-accent">Upload again</Text>
         </Pressable>
 
-        <Text className="mt-10 text-center text-xs text-white/40">
+        <Text className="mt-10 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
@@ -153,28 +153,28 @@ export default function EncounterVerificationScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+    <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-        <Text className="text-sm text-white/60">← Back to dashboard</Text>
+        <Text className="text-sm text-secondary">← Back to dashboard</Text>
       </Pressable>
 
-      <View className="mb-5 rounded-2xl bg-teal-deep p-5">
-        <Text className="text-3xl font-bold leading-tight text-white">
+      <View className="mb-5 rounded-2xl bg-surface-raised p-5">
+        <Text className="text-3xl font-bold leading-tight text-primary">
           Can you confirm what you were seen for?
         </Text>
-        <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-white/75">
+        <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-secondary">
           Sometimes the bill doesn't reflect what actually occurred. That's why we try to confirm
           with you what actually happened during the visit.
         </Text>
       </View>
 
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="text-xs uppercase tracking-widest text-white/45">
+        <Text className="text-xs uppercase tracking-widest text-faint">
           {confirmedCount} of {lineItems.length} confirmed
         </Text>
-        <View className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
+        <View className="h-1.5 w-32 overflow-hidden rounded-full bg-inset">
           <View
-            className="h-full bg-sage"
+            className="h-full bg-accent"
             style={{ width: `${lineItems.length ? (confirmedCount / lineItems.length) * 100 : 0}%` }}
           />
         </View>
@@ -195,15 +195,15 @@ export default function EncounterVerificationScreen() {
         onPress={onContinue}
         className={
           allConfirmed && !submitting
-            ? 'mt-2 rounded-xl bg-sage px-4 py-4'
-            : 'mt-2 rounded-xl bg-white/10 px-4 py-4'
+            ? 'mt-2 rounded-xl bg-accent px-4 py-4'
+            : 'mt-2 rounded-xl bg-inset px-4 py-4'
         }
       >
         <Text
           className={
             allConfirmed && !submitting
-              ? 'text-center text-base font-bold text-ink'
-              : 'text-center text-base font-semibold text-white/50'
+              ? 'text-center text-base font-bold text-on-accent'
+              : 'text-center text-base font-semibold text-faint'
           }
         >
           {submitting
@@ -214,11 +214,11 @@ export default function EncounterVerificationScreen() {
         </Text>
       </Pressable>
 
-      <Text className="mt-4 text-center text-xs text-white/45">
+      <Text className="mt-4 text-center text-xs text-faint">
         You can return later — your confirmations are saved when you continue.
       </Text>
 
-      <Text className="mt-10 text-center text-xs text-white/40">
+      <Text className="mt-10 text-center text-xs text-faint">
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or
         financial advice.
       </Text>
@@ -242,38 +242,38 @@ export function LineItemCard({
   const { isPhone } = useBreakpoint();
   return (
     <View
-      className={`mb-3 rounded-2xl border bg-navy-soft p-4 ${suggested ? 'border-dashed border-sage/70' : 'border-white/10'}`}
+      className={`mb-3 rounded-2xl border bg-surface p-4 ${suggested ? 'border-dashed border-accent' : 'border-hairline'}`}
     >
       {suggested ? (
-        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-sage">
+        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
           Suggested — tap to confirm
         </Text>
       ) : null}
       <View className="mb-2 flex-row items-center justify-between">
-        <View className="rounded-md bg-white/10 px-2 py-0.5">
-          <Text className="text-[11px] font-semibold text-white/80">{item.code}</Text>
+        <View className="rounded-md bg-inset px-2 py-0.5">
+          <Text className="text-[11px] font-semibold text-secondary">{item.code}</Text>
         </View>
         {item.billed_amount != null ? (
-          <Text className="text-sm font-semibold text-white">
+          <Text className="text-sm font-semibold text-primary">
             ${item.billed_amount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </Text>
         ) : null}
       </View>
 
-      <Text className="text-base font-medium text-white">{item.plain_language_translation}</Text>
+      <Text className="text-base font-medium text-primary">{item.plain_language_translation}</Text>
       {item.plain_language_context ? (
-        <Text className="mt-1 text-xs italic text-white/50">{item.plain_language_context}</Text>
+        <Text className="mt-1 text-xs italic text-faint">{item.plain_language_context}</Text>
       ) : null}
 
       {item.example_scenarios?.length ? (
-        <View className="mt-3 rounded-xl bg-sage/10 p-3">
-          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-sage">
+        <View className="mt-3 rounded-xl bg-accent-tint p-3">
+          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
             For this kind of visit, you'd typically have:
           </Text>
           {item.example_scenarios.map((s, i) => (
             <View key={i} className="mb-1 flex-row gap-2">
-              <Text className="text-sage">•</Text>
-              <Text className="flex-1 text-sm leading-5 text-white/75">{s}</Text>
+              <Text className="text-accent">•</Text>
+              <Text className="flex-1 text-sm leading-5 text-secondary">{s}</Text>
             </View>
           ))}
         </View>
@@ -302,13 +302,13 @@ export function LineItemCard({
 
       {draft.response === 'no' ? (
         <View className="mt-3">
-          <Text className="mb-1 text-xs text-white/60">What actually happened?</Text>
+          <Text className="mb-1 text-xs text-secondary">What actually happened?</Text>
           <TextInput
             value={draft.user_note}
             onChangeText={onNote}
             placeholder="Optional — helps us understand the mismatch"
             placeholderTextColor="rgba(255,255,255,0.35)"
-            className="rounded-md border border-white/15 bg-black/20 px-3 py-2 text-sm text-white"
+            className="rounded-md border border-hairline bg-inset px-3 py-2 text-sm text-primary"
           />
         </View>
       ) : null}
@@ -330,19 +330,19 @@ function OptionButton({
   const { isPhone } = useBreakpoint();
   const selectedClass =
     tone === 'sage'
-      ? 'border-sage bg-sage/20'
+      ? 'border-accent bg-accent-tint'
       : tone === 'rose'
-        ? 'border-rose bg-rose/20'
-        : 'border-amber bg-amber/20';
+        ? 'border-danger bg-danger-tint'
+        : 'border-warning bg-warning-tint';
   return (
     <Pressable
       onPress={onPress}
       className={`min-h-[44px] justify-center rounded-lg border px-3 py-2 ${
         isPhone ? 'w-full' : 'flex-1'
-      } ${selected ? selectedClass : 'border-white/10 bg-white/5'}`}
+      } ${selected ? selectedClass : 'border-hairline bg-inset'}`}
     >
       <Text
-        className={`text-center text-xs font-semibold ${selected ? 'text-white' : 'text-white/70'}`}
+        className={`text-center text-xs font-semibold ${selected ? 'text-primary' : 'text-secondary'}`}
       >
         {label}
       </Text>

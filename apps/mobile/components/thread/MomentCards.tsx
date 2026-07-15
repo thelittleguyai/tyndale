@@ -14,8 +14,8 @@ function money(n: number): string {
 export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPayload }) {
   const foundSavings = payload.delta > 0.005;
   return (
-    <View className="my-3 w-full rounded-3xl border border-sage/40 bg-sage/10 p-6 shadow-card">
-      <Text className="mb-4 text-lg font-bold leading-snug text-white">{payload.headline}</Text>
+    <View className="my-3 w-full rounded-3xl border border-accent bg-accent-tint p-6 shadow-card">
+      <Text className="mb-4 text-lg font-bold leading-snug text-primary">{payload.headline}</Text>
       <View className="gap-2">
         <Row label="What you were billed" value={money(payload.provider_billed)} dim />
         <Row
@@ -43,17 +43,17 @@ function Row({
   dim?: boolean;
 }) {
   return (
-    <View className="flex-row items-center justify-between border-t border-white/10 pt-2 first:border-t-0 first:pt-0">
-      <Text className={`text-sm ${dim ? 'text-white/45' : 'text-white/70'}`}>{label}</Text>
+    <View className="flex-row items-center justify-between border-t border-hairline pt-2 first:border-t-0 first:pt-0">
+      <Text className={`text-sm ${dim ? 'text-faint' : 'text-secondary'}`}>{label}</Text>
       <Text
         className={
           highlight
-            ? 'text-2xl font-bold text-sage'
+            ? 'text-2xl font-bold text-accent'
             : secondary
-              ? 'text-base text-white/80'
+              ? 'text-base text-secondary'
               : dim
-                ? 'text-base text-white/45'
-                : 'text-base text-white'
+                ? 'text-base text-faint'
+                : 'text-base text-primary'
         }
       >
         {value}
@@ -70,17 +70,17 @@ function Row({
  */
 export function UnlockMoment({ payload }: { payload: UnlockMomentPayload }) {
   return (
-    <View className="my-3 w-full rounded-3xl border border-amber/40 bg-amber/10 p-6 shadow-card">
-      <Text className="mb-3 text-xl font-bold text-white">{payload.headline}</Text>
+    <View className="my-3 w-full rounded-3xl border border-warning bg-warning-tint p-6 shadow-card">
+      <Text className="mb-3 text-xl font-bold text-primary">{payload.headline}</Text>
       <View className="mb-4 gap-2">
         {payload.value_points.map((p, i) => (
           <View key={i} className="flex-row items-start gap-2">
-            <Text className="text-sage">✓</Text>
-            <Text className="flex-1 text-sm leading-6 text-white/80">{p}</Text>
+            <Text className="text-accent">✓</Text>
+            <Text className="flex-1 text-sm leading-6 text-secondary">{p}</Text>
           </View>
         ))}
       </View>
-      <Text className="text-center text-sm font-semibold text-white/90">{payload.footnote}</Text>
+      <Text className="text-center text-sm font-semibold text-primary">{payload.footnote}</Text>
     </View>
   );
 }

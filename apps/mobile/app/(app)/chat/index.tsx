@@ -35,53 +35,53 @@ export default function ChatListScreen() {
   };
 
   return (
-    <View className="flex-1 bg-navy-deep">
-      <View className="flex-row items-center justify-between border-b border-white/10 bg-navy-soft px-4 py-3">
+    <View className="flex-1 bg-page">
+      <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/" asChild>
           <Pressable className="min-h-[44px] flex-row items-center gap-1 active:opacity-70">
-            <ChevronLeft size={18} color="rgba(255,255,255,0.7)" />
-            <Text className="text-sm text-white/70 hover:text-white/90">Home</Text>
+            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <Text className="text-sm text-secondary hover:text-primary">Home</Text>
           </Pressable>
         </Link>
-        <Text className="text-base font-bold text-white">Ask Tyndale</Text>
+        <Text className="text-base font-bold text-primary">Ask Tyndale</Text>
         <PressableScale
           onPress={start}
-          className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-sage px-3 py-1.5 hover:bg-sage-deep"
+          className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-accent px-3 py-1.5 hover:bg-accent"
         >
-          <Plus size={14} color="#0A1E1C" />
-          <Text className="text-xs font-bold text-ink">New</Text>
+          <Plus size={14} color="var(--c-on-accent)" />
+          <Text className="text-xs font-bold text-on-accent">New</Text>
         </PressableScale>
       </View>
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingVertical: 16 }}>
         <ScreenView>
-          {loading ? <ActivityIndicator color="#fff" className="mt-8" /> : null}
+          {loading ? <ActivityIndicator color="var(--c-text-primary)" className="mt-8" /> : null}
 
           {!loading && items.length === 0 ? (
-            <View className="mt-6 rounded-2xl border border-white/10 bg-navy-soft p-5 shadow-card">
-              <Text className="text-sm leading-6 text-white/70">
+            <View className="mt-6 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
+              <Text className="text-sm leading-6 text-secondary">
                 Ask anything about medical billing. I can help with insurance terms, billing
                 codes, your rights, appeals processes, and more. For specific bill analysis,
                 upload your documents in a case file.
               </Text>
               <PressableScale
                 onPress={start}
-                className="mt-4 min-h-[44px] justify-center self-start rounded-xl bg-sage px-4 py-2.5 hover:bg-sage-deep"
+                className="mt-4 min-h-[44px] justify-center self-start rounded-xl bg-accent px-4 py-2.5 hover:bg-accent"
               >
-                <Text className="text-sm font-bold text-ink">Start a conversation</Text>
+                <Text className="text-sm font-bold text-on-accent">Start a conversation</Text>
               </PressableScale>
             </View>
           ) : null}
 
           {items.map((c) => (
             <Link key={c.conversation_id} href={`/chat/${c.conversation_id}`} asChild>
-              <PressableScale className="mb-2 flex-row items-center gap-3 rounded-xl border border-white/10 bg-navy-soft p-4 hover:border-white/25">
-                <MessageSquare size={16} color="rgba(255,255,255,0.5)" />
+              <PressableScale className="mb-2 flex-row items-center gap-3 rounded-xl border border-hairline bg-surface p-4 hover:border-hairline">
+                <MessageSquare size={16} color="var(--c-text-faint)" />
                 <View className="flex-1">
-                  <Text className="text-sm font-semibold text-white/90" numberOfLines={1}>
+                  <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
                     {c.title || 'Untitled conversation'}
                   </Text>
-                  <Text className="text-xs text-white/40">{c.message_count} messages</Text>
+                  <Text className="text-xs text-faint">{c.message_count} messages</Text>
                 </View>
               </PressableScale>
             </Link>

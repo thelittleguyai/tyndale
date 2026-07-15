@@ -20,15 +20,15 @@ export default function ConversationScreen() {
   }, [id]);
 
   return (
-    <View className="flex-1 bg-navy-deep">
-      <View className="flex-row items-center justify-between border-b border-white/10 bg-navy-soft px-4 py-3">
+    <View className="flex-1 bg-page">
+      <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/chat" asChild>
           <Pressable className="flex-row items-center gap-1">
-            <ChevronLeft size={18} color="rgba(255,255,255,0.7)" />
-            <Text className="text-sm text-white/70">Chats</Text>
+            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <Text className="text-sm text-secondary">Chats</Text>
           </Pressable>
         </Link>
-        <Text className="flex-1 px-3 text-center text-sm font-bold text-white" numberOfLines={1}>
+        <Text className="flex-1 px-3 text-center text-sm font-bold text-primary" numberOfLines={1}>
           {title || 'Ask Tyndale'}
         </Text>
         <View className="w-12" />
@@ -41,7 +41,7 @@ export default function ConversationScreen() {
 function FreeformEmpty() {
   return (
     <View className="px-2 py-10">
-      <Text className="text-center text-sm leading-6 text-white/50">
+      <Text className="text-center text-sm leading-6 text-faint">
         Ask anything about medical billing — insurance terms, billing codes, your rights,
         appeals. For a specific bill, upload your documents to open a case.
       </Text>

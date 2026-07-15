@@ -20,15 +20,15 @@ import {
 
 function Block({ block }: { block: LegalBlock }) {
   if (block.kind === 'p') {
-    return <Text className="mt-3 text-base leading-relaxed text-white/75">{block.text}</Text>;
+    return <Text className="mt-3 text-base leading-relaxed text-secondary">{block.text}</Text>;
   }
   if (block.kind === 'bullets') {
     return (
       <View className="mt-3">
         {block.items.map((item, i) => (
           <View key={i} className="mb-2 flex-row">
-            <Text className="mr-2 text-base leading-relaxed text-white/50">•</Text>
-            <Text className="flex-1 text-base leading-relaxed text-white/75">{item}</Text>
+            <Text className="mr-2 text-base leading-relaxed text-faint">•</Text>
+            <Text className="flex-1 text-base leading-relaxed text-secondary">{item}</Text>
           </View>
         ))}
       </View>
@@ -36,8 +36,8 @@ function Block({ block }: { block: LegalBlock }) {
   }
   // callout — all-caps disclaimer / plain-language box
   return (
-    <View className="mt-4 rounded-token-md border border-white/15 bg-white/5 p-4">
-      <Text className="text-sm leading-relaxed text-white/80">{block.text}</Text>
+    <View className="mt-4 rounded-token-md border border-hairline bg-inset p-4">
+      <Text className="text-sm leading-relaxed text-secondary">{block.text}</Text>
     </View>
   );
 }
@@ -46,19 +46,19 @@ export function LegalDocView({ doc, published }: { doc: LegalDoc; published: boo
   return (
     <View>
       {!published && (
-        <View className="mb-6 rounded-token-md border border-amber/60 bg-amber/15 p-4">
-          <Text className="text-sm font-semibold leading-relaxed text-amber">{DRAFT_BANNER_TEXT}</Text>
+        <View className="mb-6 rounded-token-md border border-warning/60 bg-warning/15 p-4">
+          <Text className="text-sm font-semibold leading-relaxed text-warning">{DRAFT_BANNER_TEXT}</Text>
         </View>
       )}
 
-      <Text className="text-3xl font-bold text-white">{doc.title}</Text>
+      <Text className="text-3xl font-bold text-primary">{doc.title}</Text>
       {doc.showsEffectiveDate && (
-        <Text className="mt-2 text-sm text-white/50">Effective Date: {legalField('effectiveDate')}</Text>
+        <Text className="mt-2 text-sm text-faint">Effective Date: {legalField('effectiveDate')}</Text>
       )}
 
       {/* Advocacy-not-advice disclaimer, always shown up top. */}
-      <View className="mt-4 rounded-token-md border border-teal-soft/30 bg-teal-soft/10 p-4">
-        <Text className="text-sm leading-relaxed text-white/70">{ADVOCACY_DISCLAIMER}</Text>
+      <View className="mt-4 rounded-token-md border border-hairline bg-accent-tint p-4">
+        <Text className="text-sm leading-relaxed text-secondary">{ADVOCACY_DISCLAIMER}</Text>
       </View>
 
       {doc.intro.map((block, i) => (
@@ -67,7 +67,7 @@ export function LegalDocView({ doc, published }: { doc: LegalDoc; published: boo
 
       {doc.sections.map((section, si) => (
         <View key={si} className="mt-8">
-          <Text className="text-xl font-semibold text-white">
+          <Text className="text-xl font-semibold text-primary">
             {section.num ? `${section.num}. ` : ''}
             {section.heading}
           </Text>

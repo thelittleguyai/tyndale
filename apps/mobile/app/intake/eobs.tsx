@@ -51,7 +51,7 @@ export default function EobsStep() {
         <UploadField caseId={caseId} label="Add your EOB(s)" onUploaded={onUploaded} />
       ) : null}
       {count > 0 ? (
-        <Text className="mt-3 text-sm text-sage">
+        <Text className="mt-3 text-sm text-accent">
           {count} EOB{count === 1 ? '' : 's'} added — now I can audit both sides.
         </Text>
       ) : null}

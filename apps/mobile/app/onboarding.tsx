@@ -34,15 +34,15 @@ function Field({
 }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1 text-sm text-white/70">{label}</Text>
+      <Text className="mb-1 text-sm text-secondary">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="rgba(255,255,255,0.3)"
-        className="min-h-[44px] rounded-lg border border-white/15 bg-black/20 px-3 py-2.5 text-base text-white"
+        className="min-h-[44px] rounded-lg border border-hairline bg-inset px-3 py-2.5 text-base text-primary"
       />
-      {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+      {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
     </View>
   );
 }
@@ -104,8 +104,8 @@ export default function Onboarding() {
   // fetch would 401 into a misleading "check your connection").
   if (authLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep">
-        <ActivityIndicator color="#5eead4" />
+      <View className="flex-1 items-center justify-center bg-page">
+        <ActivityIndicator color="var(--c-accent)" />
       </View>
     );
   }
@@ -113,13 +113,13 @@ export default function Onboarding() {
 
   return (
     <ScrollView
-      className="flex-1 bg-navy-deep"
+      className="flex-1 bg-page"
       contentContainerStyle={{ padding: 20, paddingTop: 28, paddingBottom: 48 }}
     >
       <View className="w-full max-w-2xl self-center">
-        <View className="mb-5 rounded-2xl bg-teal-deep p-5">
-          <Text className="text-2xl font-bold leading-tight text-white">Welcome to Tyndale</Text>
-          <Text className="mt-2 text-[15px] leading-6 text-white/80">
+        <View className="mb-5 rounded-2xl bg-surface-raised p-5">
+          <Text className="text-2xl font-bold leading-tight text-primary">Welcome to Tyndale</Text>
+          <Text className="mt-2 text-[15px] leading-6 text-secondary">
             A few details so we can set up your account — this takes a minute.
           </Text>
         </View>
@@ -147,8 +147,8 @@ export default function Onboarding() {
           placeholder="(555) 123-4567"
         />
 
-        <Text className="mb-2 mt-4 text-sm font-semibold text-white">Insurance card (optional)</Text>
-        <Text className="mb-3 text-xs leading-5 text-white/55">
+        <Text className="mb-2 mt-4 text-sm font-semibold text-primary">Insurance card (optional)</Text>
+        <Text className="mb-3 text-xs leading-5 text-faint">
           Add a photo and Tyndale reads your plan details automatically. You can skip this and add
           it later in Settings.
         </Text>
@@ -162,7 +162,7 @@ export default function Onboarding() {
         </View>
 
         {/* Terms — the checkbox unlocks only after the user opens "Review Terms". */}
-        <View className="mt-5 rounded-2xl border border-white/10 bg-navy-soft p-4">
+        <View className="mt-5 rounded-2xl border border-hairline bg-surface p-4">
           <Pressable
             onPress={() => {
               setShowTerms((o) => !o);
@@ -170,11 +170,11 @@ export default function Onboarding() {
             }}
             className="min-h-[44px] flex-row items-center justify-between"
           >
-            <Text className="text-sm font-semibold text-sage">Review Terms of Service</Text>
-            <Text className="text-sm text-white/40">{showTerms ? '▲' : '▼'}</Text>
+            <Text className="text-sm font-semibold text-accent">Review Terms of Service</Text>
+            <Text className="text-sm text-faint">{showTerms ? '▲' : '▼'}</Text>
           </Pressable>
           {showTerms ? (
-            <Text className="mt-2 text-xs leading-5 text-white/70">{TERMS_SUMMARY}</Text>
+            <Text className="mt-2 text-xs leading-5 text-secondary">{TERMS_SUMMARY}</Text>
           ) : null}
           <Pressable
             onPress={() => reviewedTerms && setTerms((t) => !t)}
@@ -183,39 +183,39 @@ export default function Onboarding() {
           >
             <View
               className={`h-6 w-6 items-center justify-center rounded-md border ${
-                terms ? 'border-sage bg-sage' : 'border-white/30'
+                terms ? 'border-accent bg-accent' : 'border-hairline'
               } ${reviewedTerms ? '' : 'opacity-40'}`}
             >
-              {terms ? <Text className="text-xs font-bold text-ink">✓</Text> : null}
+              {terms ? <Text className="text-xs font-bold text-on-accent">✓</Text> : null}
             </View>
-            <Text className={`flex-1 text-sm ${reviewedTerms ? 'text-white/85' : 'text-white/40'}`}>
+            <Text className={`flex-1 text-sm ${reviewedTerms ? 'text-primary' : 'text-faint'}`}>
               I agree to the Terms of Service and Privacy Policy.
               {reviewedTerms ? '' : ' (Review first)'}
             </Text>
           </Pressable>
         </View>
 
-        {error ? <Text className="mt-3 text-sm text-rose">{error}</Text> : null}
+        {error ? <Text className="mt-3 text-sm text-danger">{error}</Text> : null}
 
         <Pressable
           disabled={!canContinue}
           onPress={submit}
           className={
             canContinue
-              ? 'mt-6 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-4'
-              : 'mt-6 min-h-[44px] items-center justify-center rounded-xl bg-white/10 px-4 py-4'
+              ? 'mt-6 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-4'
+              : 'mt-6 min-h-[44px] items-center justify-center rounded-xl bg-inset px-4 py-4'
           }
         >
           <Text
             className={
-              canContinue ? 'text-base font-bold text-ink' : 'text-base font-semibold text-white/50'
+              canContinue ? 'text-base font-bold text-on-accent' : 'text-base font-semibold text-faint'
             }
           >
             {submitting ? 'Saving…' : 'Continue to Tyndale'}
           </Text>
         </Pressable>
 
-        <Text className="mt-10 text-center text-xs text-white/40">
+        <Text className="mt-10 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
           advice.
         </Text>

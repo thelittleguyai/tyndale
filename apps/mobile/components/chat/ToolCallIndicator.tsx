@@ -25,10 +25,10 @@ export function ToolCallIndicator({ tools }: { tools: ToolCall[] }) {
       {tools.map((t, i) => (
         <View
           key={`${t.tool_name}-${i}`}
-          className="flex-row items-center gap-2 self-start rounded-full bg-teal-deep/50 px-3 py-1.5"
+          className="flex-row items-center gap-2 self-start rounded-full bg-inset px-3 py-1.5"
         >
-          <ActivityIndicator size="small" color="#3DAA7E" />
-          <Text className="text-xs text-white/70">
+          <ActivityIndicator size="small" color="var(--c-accent)" />
+          <Text className="text-xs text-secondary">
             {t.subagent || 'Tyndale'} is {phrase(t.tool_name)}…
           </Text>
         </View>

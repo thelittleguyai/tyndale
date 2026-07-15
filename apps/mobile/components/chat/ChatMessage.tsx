@@ -11,8 +11,8 @@ import { CreateCaseCta } from './CreateCaseCta';
 
 function ConfidenceBadge({ value }: { value: number }) {
   const pct = Math.round(value * 100);
-  const border = value >= 0.75 ? 'border-sage/40' : value >= 0.5 ? 'border-amber/40' : 'border-rose/40';
-  const txt = value >= 0.75 ? 'text-sage' : value >= 0.5 ? 'text-amber' : 'text-rose';
+  const border = value >= 0.75 ? 'border-accent' : value >= 0.5 ? 'border-warning' : 'border-danger';
+  const txt = value >= 0.75 ? 'text-accent' : value >= 0.5 ? 'text-warning' : 'text-danger';
   return (
     <View className={`rounded-full border px-2 py-0.5 ${border}`}>
       <Text className={`text-[10px] font-semibold ${txt}`}>{pct}% confident</Text>
@@ -30,14 +30,14 @@ function TierBlock({
   if (chunk.tier === 'C') {
     return (
       <View className="mt-2">
-        <Text className="mb-1 text-[10px] uppercase tracking-wide text-white/40">Recommendation</Text>
-        <Text className="text-sm italic leading-6 text-white/80">{chunk.text}</Text>
+        <Text className="mb-1 text-[10px] uppercase tracking-wide text-faint">Recommendation</Text>
+        <Text className="text-sm italic leading-6 text-secondary">{chunk.text}</Text>
       </View>
     );
   }
   return (
     <View className="mt-2">
-      <Text className="text-sm leading-6 text-white/90">{chunk.text}</Text>
+      <Text className="text-sm leading-6 text-primary">{chunk.text}</Text>
       {chunk.tier === 'B' && chunk.citations?.length ? (
         <View className="mt-1.5 flex-row flex-wrap gap-1.5">
           {chunk.citations.map((c, i) => (
@@ -63,8 +63,8 @@ export function ChatMessage({
   if (message.role === 'user') {
     return (
       <View className="mb-3 items-end">
-        <View className="max-w-[85%] rounded-2xl rounded-tr-sm bg-sage px-3.5 py-2.5">
-          <Text className="text-sm leading-5 text-ink">{message.content}</Text>
+        <View className="max-w-[85%] rounded-2xl rounded-tr-sm bg-accent px-3.5 py-2.5">
+          <Text className="text-sm leading-5 text-on-accent">{message.content}</Text>
         </View>
       </View>
     );
@@ -79,10 +79,10 @@ export function ChatMessage({
   const failed = message.status === 'failed';
   const stopped = message.status === 'stopped';
   const cardTone = failed
-    ? 'border-rose/40 bg-rose/10'
+    ? 'border-danger bg-danger-tint'
     : stopped
-      ? 'border-amber/40 bg-amber/10'
-      : 'border-white/10 bg-navy-soft';
+      ? 'border-warning bg-warning-tint'
+      : 'border-hairline bg-surface';
 
   return (
     <View className="mb-3 items-start">
@@ -90,29 +90,29 @@ export function ChatMessage({
         {chunks.length ? (
           chunks.map((ch, i) => <TierBlock key={i} chunk={ch} onCitation={onCitation} />)
         ) : (
-          <Text className="text-sm leading-6 text-white/90">
+          <Text className="text-sm leading-6 text-primary">
             {message.content || (message.status === 'streaming' ? '…' : '')}
           </Text>
         )}
 
         {hasCta ? <CreateCaseCta conversationId={conversationId} /> : null}
 
-        {stopped ? <Text className="mt-2 text-xs text-amber">Generation stopped.</Text> : null}
+        {stopped ? <Text className="mt-2 text-xs text-warning">Generation stopped.</Text> : null}
 
         {failed ? (
           <View className="mt-2 flex-row flex-wrap items-center gap-2">
-            <AlertTriangle size={13} color="#C75252" />
-            <Text className="text-xs text-rose">
+            <AlertTriangle size={13} color="var(--c-danger)" />
+            <Text className="text-xs text-danger">
               {message.error_message || 'Something went wrong.'}
             </Text>
             {onRetry ? (
               <Pressable
                 onPress={() => onRetry(message)}
                 hitSlop={10}
-                className="flex-row items-center gap-1 rounded-md border border-white/15 px-2 py-1"
+                className="flex-row items-center gap-1 rounded-md border border-hairline px-2 py-1"
               >
-                <RotateCcw size={11} color="rgba(255,255,255,0.7)" />
-                <Text className="text-[11px] text-white/70">Retry</Text>
+                <RotateCcw size={11} color="var(--c-text-secondary)" />
+                <Text className="text-[11px] text-secondary">Retry</Text>
               </Pressable>
             ) : null}
           </View>
@@ -120,7 +120,7 @@ export function ChatMessage({
 
         {message.status === 'complete' &&
         (footerCitations.length || message.confidence_overall != null) ? (
-          <View className="mt-2.5 flex-row flex-wrap items-center gap-1.5 border-t border-white/5 pt-2">
+          <View className="mt-2.5 flex-row flex-wrap items-center gap-1.5 border-t border-hairline pt-2">
             {footerCitations.map((c, i) => (
               <CitationChip key={`f${i}`} citation={c} onPress={onCitation} />
             ))}

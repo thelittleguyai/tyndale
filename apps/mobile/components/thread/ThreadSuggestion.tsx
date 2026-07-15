@@ -18,14 +18,14 @@ export function ThreadSuggestion({
   onConfirm: () => void;
 }) {
   return (
-    <View className="my-2 w-full rounded-2xl border border-sage/30 bg-sage/10 p-4">
-      <Text className="text-[15px] leading-6 text-white/90">{payload.text}</Text>
+    <View className="my-2 w-full rounded-2xl border border-accent bg-accent-tint p-4">
+      <Text className="text-[15px] leading-6 text-primary">{payload.text}</Text>
       {active ? (
         <Pressable
           onPress={onConfirm}
-          className="mt-3 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3"
+          className="mt-3 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
         >
-          <Text className="text-center text-base font-bold text-ink">Confirm</Text>
+          <Text className="text-center text-base font-bold text-on-accent">Confirm</Text>
         </Pressable>
       ) : null}
     </View>

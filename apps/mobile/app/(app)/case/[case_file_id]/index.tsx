@@ -39,24 +39,24 @@ export default function CaseSummaryScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
-        <Text className="mb-2 text-center text-base font-semibold text-white">
+      <View className="flex-1 items-center justify-center bg-page p-6">
+        <Text className="mb-2 text-center text-base font-semibold text-primary">
           This case isn&rsquo;t available
         </Text>
-        <Text className="mb-5 text-center text-sm text-white/60">
+        <Text className="mb-5 text-center text-sm text-secondary">
           We couldn&rsquo;t load this summary. It may have been removed, or the Record view isn&rsquo;t
           enabled for your account yet.
         </Text>
-        <Pressable onPress={() => router.push('/')} className="min-h-[44px] items-center justify-center rounded-xl border border-white/15 px-5 py-3">
-          <Text className="text-sm font-semibold text-white/80">← Back to dashboard</Text>
+        <Pressable onPress={() => router.push('/')} className="min-h-[44px] items-center justify-center rounded-xl border border-hairline px-5 py-3">
+          <Text className="text-sm font-semibold text-secondary">← Back to dashboard</Text>
         </Pressable>
       </View>
     );
   }
   if (!summary) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
-        <Text className="text-sm text-white/55">Loading your case…</Text>
+      <View className="flex-1 items-center justify-center bg-page p-6">
+        <Text className="text-sm text-faint">Loading your case…</Text>
       </View>
     );
   }
@@ -65,18 +65,18 @@ export default function CaseSummaryScreen() {
   const openNeeded = summary.open_items.filter((d) => !d.have).length;
 
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+    <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
         <View className="mb-5 flex-row items-center justify-between">
           <Pressable onPress={() => router.push('/')} className="min-h-[44px] justify-center">
-            <Text className="text-sm text-white/60">← Record</Text>
+            <Text className="text-sm text-secondary">← Record</Text>
           </Pressable>
           <Pressable
             onPress={() => router.push(`/audit/${caseFileId}/thread` as never)}
             className="min-h-[44px] flex-row items-center gap-1.5"
           >
-            <MessageSquare size={13} color="rgba(255,255,255,0.7)" />
-            <Text className="text-xs font-semibold text-white/70">Chat</Text>
+            <MessageSquare size={13} color="var(--c-text-secondary)" />
+            <Text className="text-xs font-semibold text-secondary">Chat</Text>
           </Pressable>
         </View>
 
@@ -84,15 +84,15 @@ export default function CaseSummaryScreen() {
         <StatusBanner summary={summary} />
 
         {(summary.provider || summary.service_date) ? (
-          <Text className="mb-5 text-sm text-white/55">
+          <Text className="mb-5 text-sm text-faint">
             {[summary.provider, summary.service_date].filter(Boolean).join(' · ')}
           </Text>
         ) : null}
 
         {/* The three-number moment card, re-hosted — or the honest needs-documents state */}
         {tn ? (
-          <View className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-white/40">
+          <View className="mb-5 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">
               Your three numbers
             </Text>
             <Row label="What you were billed" value={money(tn.provider_billed)} dim />
@@ -100,11 +100,11 @@ export default function CaseSummaryScreen() {
             <Row label="What you should owe" value={money(tn.tyndale_computed)} highlight last />
           </View>
         ) : (
-          <View className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-5">
-            <Text className="text-base font-semibold text-white">
+          <View className="mb-5 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="text-base font-semibold text-primary">
               We&rsquo;re not done computing your numbers yet
             </Text>
-            <Text className="mt-1 text-sm leading-6 text-white/65">
+            <Text className="mt-1 text-sm leading-6 text-secondary">
               {openNeeded > 0
                 ? 'To finish and lock in what you should owe, we need the documents below.'
                 : 'This case is still in progress — check the chat for the latest.'}
@@ -120,30 +120,30 @@ export default function CaseSummaryScreen() {
 
         {/* Open items — needs-documents have/need checklist */}
         {summary.open_items.length ? (
-          <View className="mb-5 rounded-2xl border border-sage/30 bg-sage/10 p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-sage">
+          <View className="mb-5 rounded-2xl border border-accent bg-accent-tint p-5">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-accent">
               {openNeeded === 0 ? 'All documents received' : 'To finish, we need'}
             </Text>
             {summary.open_items.map((d, i) => (
-              <View key={d.key} className={i > 0 ? 'mt-4 border-t border-white/10 pt-4' : ''}>
+              <View key={d.key} className={i > 0 ? 'mt-4 border-t border-hairline pt-4' : ''}>
                 <View className="mb-1 flex-row items-start gap-2">
                   {d.have ? (
-                    <CheckCircle2 size={18} color="#3DAA7E" />
+                    <CheckCircle2 size={18} color="var(--c-accent)" />
                   ) : (
-                    <Circle size={18} color="rgba(255,255,255,0.35)" />
+                    <Circle size={18} color="var(--c-text-faint)" />
                   )}
-                  <Text className={`flex-1 text-base font-bold ${d.have ? 'text-white/55 line-through' : 'text-white'}`}>
+                  <Text className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}>
                     {d.label}
                   </Text>
                 </View>
-                {d.have ? null : <Text className="ml-6 text-sm leading-6 text-white/70">{d.how_to_get}</Text>}
+                {d.have ? null : <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>}
               </View>
             ))}
             <Pressable
               onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}
-              className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+              className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             >
-              <Text className="text-center text-base font-bold text-ink">Add a document</Text>
+              <Text className="text-center text-base font-bold text-on-accent">Add a document</Text>
             </Pressable>
           </View>
         ) : null}
@@ -158,21 +158,21 @@ export default function CaseSummaryScreen() {
         {/* Findings */}
         {summary.findings.length ? (
           <View className="mb-5">
-            <Text className="mb-3 mt-2 text-xs uppercase tracking-wider text-white/40">
+            <Text className="mb-3 mt-2 text-xs uppercase tracking-wider text-faint">
               What we found
             </Text>
             {summary.findings.map((f) => (
-              <View key={f.finding_id} className="mb-3 rounded-2xl border border-white/10 bg-navy-soft p-4">
+              <View key={f.finding_id} className="mb-3 rounded-2xl border border-hairline bg-surface p-4">
                 <View className="mb-1 flex-row items-center justify-between gap-2">
-                  <Text className="flex-1 text-base font-bold text-white">{f.title}</Text>
+                  <Text className="flex-1 text-base font-bold text-primary">{f.title}</Text>
                   {f.dollar_impact ? (
-                    <Text className="text-sm font-semibold text-sage">up to {money(f.dollar_impact)}</Text>
+                    <Text className="text-sm font-semibold text-accent">up to {money(f.dollar_impact)}</Text>
                   ) : null}
                 </View>
-                {f.claim ? <Text className="text-sm leading-6 text-white/75">{f.claim}</Text> : null}
+                {f.claim ? <Text className="text-sm leading-6 text-secondary">{f.claim}</Text> : null}
                 {f.recommendation ? (
-                  <Text className="mt-2 text-sm leading-6 text-white/60">
-                    <Text className="text-white/45">What to do: </Text>
+                  <Text className="mt-2 text-sm leading-6 text-secondary">
+                    <Text className="text-faint">What to do: </Text>
                     {displayEnum(f.recommendation)}
                   </Text>
                 ) : null}
@@ -183,16 +183,16 @@ export default function CaseSummaryScreen() {
 
         {/* Next check-in (nudge) */}
         {summary.next_check_in_date ? (
-          <View className="mb-6 flex-row items-center gap-2 rounded-2xl border border-white/10 bg-navy-soft p-4">
-            <CalendarClock size={16} color="rgba(255,255,255,0.55)" />
-            <Text className="text-sm text-white/70">
-              Next check-in <Text className="font-semibold text-white/90">{summary.next_check_in_date}</Text> —
+          <View className="mb-6 flex-row items-center gap-2 rounded-2xl border border-hairline bg-surface p-4">
+            <CalendarClock size={16} color="var(--c-text-secondary)" />
+            <Text className="text-sm text-secondary">
+              Next check-in <Text className="font-semibold text-primary">{summary.next_check_in_date}</Text> —
               I&rsquo;ll nudge you if there&rsquo;s no update.
             </Text>
           </View>
         ) : null}
 
-        <Text className="mt-8 text-center text-xs text-white/40">
+        <Text className="mt-8 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
           advice.
         </Text>
@@ -202,24 +202,24 @@ export default function CaseSummaryScreen() {
 }
 
 const BANNER_TONE: Record<string, string> = {
-  audit_complete: 'border-sage/30 bg-sage/10',
-  resolved: 'border-sage/30 bg-sage/10',
-  audit_incomplete: 'border-amber/30 bg-amber/10',
-  awaiting_eob_confirmation: 'border-amber/30 bg-amber/10',
-  extraction_failed: 'border-rose/30 bg-rose/10',
-  not_a_bill: 'border-rose/30 bg-rose/10',
+  audit_complete: 'border-accent bg-accent-tint',
+  resolved: 'border-accent bg-accent-tint',
+  audit_incomplete: 'border-warning bg-warning-tint',
+  awaiting_eob_confirmation: 'border-warning bg-warning-tint',
+  extraction_failed: 'border-danger bg-danger-tint',
+  not_a_bill: 'border-danger bg-danger-tint',
 };
 
 function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
   const b = summary.status_banner;
-  const tone = BANNER_TONE[b.status] ?? 'border-white/10 bg-navy-soft';
+  const tone = BANNER_TONE[b.status] ?? 'border-hairline bg-surface';
   const dl = b.response_deadline;
   return (
     <View className={`mb-3 rounded-2xl border p-4 ${tone}`}>
-      <Text className="text-base font-bold text-white">{b.label}</Text>
+      <Text className="text-base font-bold text-primary">{b.label}</Text>
       {dl?.due_date ? (
-        <Text className="mt-1 text-sm text-white/70">
-          {dl.label} — respond by <Text className="font-semibold text-white/90">{dl.due_date}</Text>
+        <Text className="mt-1 text-sm text-secondary">
+          {dl.label} — respond by <Text className="font-semibold text-primary">{dl.due_date}</Text>
         </Text>
       ) : null}
     </View>
@@ -240,13 +240,13 @@ function Row({
   last?: boolean;
 }) {
   const valueClass = highlight
-    ? 'text-2xl font-bold text-sage'
+    ? 'text-2xl font-bold text-accent'
     : dim
-      ? 'text-base font-medium text-white/55'
-      : 'text-xl font-semibold text-white';
+      ? 'text-base font-medium text-faint'
+      : 'text-xl font-semibold text-primary';
   return (
     <View className={`${last ? '' : 'mb-3 '}flex-row items-baseline justify-between`}>
-      <Text className={dim ? 'flex-1 pr-3 text-sm text-white/45' : 'flex-1 pr-3 text-sm text-white/70'}>
+      <Text className={dim ? 'flex-1 pr-3 text-sm text-faint' : 'flex-1 pr-3 text-sm text-secondary'}>
         {label}
       </Text>
       <Text className={valueClass}>{value}</Text>
@@ -266,12 +266,12 @@ function Tally({
   tone: 'sage' | 'muted';
 }) {
   return (
-    <View className="flex-1 rounded-2xl border border-white/10 bg-navy-soft p-4">
-      <Text className="text-xs text-white/55">{label}</Text>
-      <Text className={`mt-0.5 text-xl font-bold ${tone === 'sage' ? 'text-sage' : 'text-white'}`}>
+    <View className="flex-1 rounded-2xl border border-hairline bg-surface p-4">
+      <Text className="text-xs text-faint">{label}</Text>
+      <Text className={`mt-0.5 text-xl font-bold ${tone === 'sage' ? 'text-accent' : 'text-primary'}`}>
         {value}
       </Text>
-      <Text className="text-[10px] uppercase tracking-wide text-white/40">{hint}</Text>
+      <Text className="text-[10px] uppercase tracking-wide text-faint">{hint}</Text>
     </View>
   );
 }

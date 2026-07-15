@@ -94,10 +94,10 @@ export default function BenefitsStep() {
         />
       ) : null}
       {sbcUploaded ? (
-        <Text className="mb-3 mt-3 text-sm text-sage">Got it — I'll read your SBC.</Text>
+        <Text className="mb-3 mt-3 text-sm text-accent">Got it — I'll read your SBC.</Text>
       ) : null}
 
-      <Text className="mb-2 mt-4 text-xs uppercase tracking-widest text-white/45">
+      <Text className="mb-2 mt-4 text-xs uppercase tracking-widest text-faint">
         Or enter the key numbers
       </Text>
       <Field label="Deductible (in-network)" value={ded} onChangeText={setDed} placeholder="$" keyboardType="numeric" />

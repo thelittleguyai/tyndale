@@ -26,9 +26,9 @@ function CallBeats({ step }: { step: GameplanStep }) {
       <Beat label="Get it in writing" body={s.get_it_in_writing} />
       {s.if_they_push_back.length ? (
         <View>
-          <Text className="mb-1 text-xs uppercase tracking-wider text-amber">If they push back</Text>
+          <Text className="mb-1 text-xs uppercase tracking-wider text-warning">If they push back</Text>
           {s.if_they_push_back.map((line, i) => (
-            <Text key={i} className="text-sm leading-6 text-white/80">
+            <Text key={i} className="text-sm leading-6 text-secondary">
               {line}
             </Text>
           ))}
@@ -41,8 +41,8 @@ function CallBeats({ step }: { step: GameplanStep }) {
 function Beat({ label, body, accent }: { label: string; body: string; accent?: boolean }) {
   return (
     <View>
-      <Text className="mb-1 text-xs uppercase tracking-wider text-white/40">{label}</Text>
-      <Text className={`text-sm leading-6 ${accent ? 'font-semibold text-sage' : 'text-white/85'}`}>
+      <Text className="mb-1 text-xs uppercase tracking-wider text-faint">{label}</Text>
+      <Text className={`text-sm leading-6 ${accent ? 'font-semibold text-accent' : 'text-primary'}`}>
         {body}
       </Text>
     </View>
@@ -51,26 +51,26 @@ function Beat({ label, body, accent }: { label: string; body: string; accent?: b
 
 function StepCard({ step, open, onToggle }: { step: GameplanStep; open: boolean; onToggle: () => void }) {
   return (
-    <View className="mb-3 overflow-hidden rounded-2xl border border-white/10 bg-navy-soft">
+    <View className="mb-3 overflow-hidden rounded-2xl border border-hairline bg-surface">
       <Pressable onPress={onToggle} className="min-h-[44px] flex-row items-center gap-3 p-4">
-        <View className="h-7 w-7 items-center justify-center rounded-full bg-teal-deep">
-          <Text className="text-sm font-bold text-white">{step.index}</Text>
+        <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-raised">
+          <Text className="text-sm font-bold text-primary">{step.index}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-base font-bold text-white">{step.title}</Text>
-          <Text className="text-xs text-white/55">
+          <Text className="text-base font-bold text-primary">{step.title}</Text>
+          <Text className="text-xs text-faint">
             Call {step.party_label}
             {step.dollar_impact ? ` · up to ${money(step.dollar_impact)}` : ''}
           </Text>
         </View>
         {open ? (
-          <ChevronUp size={18} color="rgba(255,255,255,0.5)" />
+          <ChevronUp size={18} color="var(--c-text-faint)" />
         ) : (
-          <ChevronDown size={18} color="rgba(255,255,255,0.5)" />
+          <ChevronDown size={18} color="var(--c-text-faint)" />
         )}
       </Pressable>
       {open ? (
-        <View className="border-t border-white/10 p-4">
+        <View className="border-t border-hairline p-4">
           <CallBeats step={step} />
         </View>
       ) : null}
@@ -92,8 +92,8 @@ export function Gameplan({
   if (steps.length === 0) return null;
   return (
     <View className="mb-6">
-      <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-white/40">Your game plan</Text>
-      <Text className="mb-3 text-sm leading-5 text-white/65">
+      <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-faint">Your game plan</Text>
+      <Text className="mb-3 text-sm leading-5 text-secondary">
         Work the list top to bottom — the biggest-dollar call is first. Tap any step for exactly
         what to say.
       </Text>
@@ -107,10 +107,10 @@ export function Gameplan({
       ))}
       <Pressable
         onPress={() => setCallMode(true)}
-        className="mt-1 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+        className="mt-1 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 hover:bg-accent"
       >
-        <Phone size={16} color="#0B1F2A" />
-        <Text className="text-base font-bold text-ink">Walk me through the calls</Text>
+        <Phone size={16} color="var(--c-on-accent)" />
+        <Text className="text-base font-bold text-on-accent">Walk me through the calls</Text>
       </Pressable>
       {callMode ? (
         <CallMode
@@ -150,26 +150,26 @@ export function CallMode({
   const onOutro = page > steps.length;
 
   return (
-    <View className="absolute inset-0 z-50 bg-navy-deep" testID="call-mode">
+    <View className="absolute inset-0 z-50 bg-page" testID="call-mode">
       <View className="flex-row items-center justify-between px-5 pb-3 pt-14">
-        <Text className="text-xs uppercase tracking-widest text-white/45">
+        <Text className="text-xs uppercase tracking-widest text-faint">
           {step ? `Call ${step.index} of ${steps.length}` : onOutro ? 'After the call' : 'Get ready'}
         </Text>
         <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="call-mode-close">
-          <X size={22} color="rgba(255,255,255,0.7)" />
+          <X size={22} color="var(--c-text-secondary)" />
         </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 24 }}>
         <View className="w-full max-w-2xl self-center">
           {onIntro ? (
-            <Text className="mt-6 text-xl leading-8 text-white/90">{intro}</Text>
+            <Text className="mt-6 text-xl leading-8 text-primary">{intro}</Text>
           ) : onOutro ? (
-            <Text className="mt-6 text-xl leading-8 text-white/90">{outro}</Text>
+            <Text className="mt-6 text-xl leading-8 text-primary">{outro}</Text>
           ) : step ? (
             <>
-              <Text className="mb-1 mt-2 text-2xl font-bold text-white">{step.title}</Text>
-              <Text className="mb-6 text-sm text-white/55">
+              <Text className="mb-1 mt-2 text-2xl font-bold text-primary">{step.title}</Text>
+              <Text className="mb-6 text-sm text-faint">
                 Call {step.party_label}
                 {step.dollar_impact ? ` · up to ${money(step.dollar_impact)}` : ''}
               </Text>
@@ -183,27 +183,27 @@ export function CallMode({
         {page > firstPage ? (
           <Pressable
             onPress={() => setPage((p) => p - 1)}
-            className="min-h-[48px] flex-1 items-center justify-center rounded-xl border border-white/15 px-4 py-3 hover:bg-white/5"
+            className="min-h-[48px] flex-1 items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
             testID="call-mode-back"
           >
-            <Text className="text-base font-semibold text-white/80">Back</Text>
+            <Text className="text-base font-semibold text-secondary">Back</Text>
           </Pressable>
         ) : null}
         {page < lastPage ? (
           <Pressable
             onPress={() => setPage((p) => p + 1)}
-            className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+            className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             testID="call-mode-next"
           >
-            <Text className="text-base font-bold text-ink">{onIntro ? "I'm ready" : 'Next'}</Text>
+            <Text className="text-base font-bold text-on-accent">{onIntro ? "I'm ready" : 'Next'}</Text>
           </Pressable>
         ) : (
           <Pressable
             onPress={onClose}
-            className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+            className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             testID="call-mode-done"
           >
-            <Text className="text-base font-bold text-ink">Done</Text>
+            <Text className="text-base font-bold text-on-accent">Done</Text>
           </Pressable>
         )}
       </View>

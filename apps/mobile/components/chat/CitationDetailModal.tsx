@@ -10,8 +10,8 @@ import type { ChatCitation } from '@tyndale/shared';
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <View className="mb-3">
-      <Text className="mb-0.5 text-[11px] uppercase tracking-wide text-white/40">{label}</Text>
-      <Text className="text-sm text-white/85">{value}</Text>
+      <Text className="mb-0.5 text-[11px] uppercase tracking-wide text-faint">{label}</Text>
+      <Text className="text-sm text-primary">{value}</Text>
     </View>
   );
 }
@@ -33,14 +33,14 @@ export function CitationDetailModal({
         {c ? (
           <Pressable
             onPress={() => undefined}
-            className="max-h-[80%] w-full max-w-xl rounded-2xl border border-white/10 bg-navy-soft p-5"
+            className="max-h-[80%] w-full max-w-xl rounded-2xl border border-hairline bg-surface p-5"
           >
             <View className="mb-3 flex-row items-start justify-between gap-3">
-              <Text className="flex-1 text-base font-bold text-white">
+              <Text className="flex-1 text-base font-bold text-primary">
                 {c.title || 'Source'}
               </Text>
               <Pressable onPress={onClose} hitSlop={8}>
-                <X size={18} color="rgba(255,255,255,0.6)" />
+                <X size={18} color="var(--c-text-secondary)" />
               </Pressable>
             </View>
             <ScrollView>
@@ -56,10 +56,10 @@ export function CitationDetailModal({
               {c.url ? (
                 <Pressable
                   onPress={() => Linking.openURL(c.url as string).catch(() => undefined)}
-                  className="mt-1 flex-row items-center gap-2 self-start rounded-lg border border-white/15 px-3 py-2"
+                  className="mt-1 flex-row items-center gap-2 self-start rounded-lg border border-hairline px-3 py-2"
                 >
-                  <ExternalLink size={14} color="#3DAA7E" />
-                  <Text className="text-xs font-semibold text-sage">Open source in browser</Text>
+                  <ExternalLink size={14} color="var(--c-accent)" />
+                  <Text className="text-xs font-semibold text-accent">Open source in browser</Text>
                 </Pressable>
               ) : null}
             </ScrollView>

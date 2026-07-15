@@ -69,11 +69,11 @@ export function ChatComposer({
   };
 
   return (
-    <View className="border-t border-white/10 bg-navy-soft px-3 py-3">
+    <View className="border-t border-hairline bg-surface px-3 py-3">
       <View className="w-full max-w-3xl flex-row items-end gap-2 self-center">
         <View
-          className={`flex-1 rounded-2xl border bg-navy-deep px-4 py-2.5 ${
-            focused ? 'border-sage/60' : 'border-white/10'
+          className={`flex-1 rounded-2xl border bg-page px-4 py-2.5 ${
+            focused ? 'border-accent' : 'border-hairline'
           }`}
         >
           <TextInput
@@ -88,7 +88,7 @@ export function ChatComposer({
             multiline
             maxLength={8000}
             editable={!streaming}
-            className="text-base text-white"
+            className="text-base text-primary"
             style={[{ height: inputHeight, lineHeight: 22 }, webNoOutline]}
           />
         </View>
@@ -97,9 +97,9 @@ export function ChatComposer({
             onPress={onStop}
             accessibilityRole="button"
             accessibilityLabel="Stop generating"
-            className="h-11 w-11 items-center justify-center rounded-full bg-rose hover:opacity-90"
+            className="h-11 w-11 items-center justify-center rounded-full bg-danger hover:opacity-90"
           >
-            <Square size={15} color="#fff" fill="#fff" />
+            <Square size={15} color="var(--c-text-primary)" fill="#fff" />
           </PressableScale>
         ) : (
           <PressableScale
@@ -107,14 +107,14 @@ export function ChatComposer({
             disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Send message"
-            className={`h-11 w-11 items-center justify-center rounded-full ${canSend ? 'bg-sage hover:bg-sage-deep' : 'bg-white/10'}`}
+            className={`h-11 w-11 items-center justify-center rounded-full ${canSend ? 'bg-accent hover:bg-accent' : 'bg-inset'}`}
           >
             <Send size={17} color={canSend ? '#0A1E1C' : 'rgba(255,255,255,0.4)'} />
           </PressableScale>
         )}
       </View>
       {text.length > 600 ? (
-        <Text className="mt-1 w-full max-w-3xl self-center text-right text-[10px] text-white/30">
+        <Text className="mt-1 w-full max-w-3xl self-center text-right text-[10px] text-faint">
           {text.length}/8000
         </Text>
       ) : null}

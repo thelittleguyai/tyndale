@@ -39,9 +39,9 @@ export function ThumbsDownModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={skip}>
       <View className="flex-1 justify-end bg-black/50">
-        <View className="rounded-t-3xl bg-navy-soft p-6">
-          <Text className="text-xl font-bold text-white">What was wrong?</Text>
-          <Text className="mt-1 text-sm text-white/60">
+        <View className="rounded-t-3xl bg-surface p-6">
+          <Text className="text-xl font-bold text-primary">What was wrong?</Text>
+          <Text className="mt-1 text-sm text-secondary">
             Your feedback helps Tyndale get better. (Optional)
           </Text>
 
@@ -55,11 +55,11 @@ export function ThumbsDownModal({
                     onPress={() => toggle(value)}
                     className={
                       on
-                        ? 'rounded-full border border-sage bg-sage/20 px-3 py-2'
-                        : 'rounded-full border border-white/15 bg-white/5 px-3 py-2'
+                        ? 'rounded-full border border-accent bg-accent-tint px-3 py-2'
+                        : 'rounded-full border border-hairline bg-inset px-3 py-2'
                     }
                   >
-                    <Text className={on ? 'text-xs font-semibold text-white' : 'text-xs text-white/70'}>
+                    <Text className={on ? 'text-xs font-semibold text-primary' : 'text-xs text-secondary'}>
                       {label}
                     </Text>
                   </Pressable>
@@ -73,16 +73,16 @@ export function ThumbsDownModal({
               placeholder="Tell us more (optional)"
               placeholderTextColor="rgba(255,255,255,0.35)"
               multiline
-              className="mt-4 min-h-[72px] rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm text-white"
+              className="mt-4 min-h-[72px] rounded-lg border border-hairline bg-inset px-3 py-2 text-sm text-primary"
             />
           </ScrollView>
 
           <View className="mt-5 flex-row gap-3">
-            <Pressable onPress={skip} className="flex-1 rounded-xl bg-white/5 px-4 py-3">
-              <Text className="text-center text-sm font-semibold text-white/70">Skip</Text>
+            <Pressable onPress={skip} className="flex-1 rounded-xl bg-inset px-4 py-3">
+              <Text className="text-center text-sm font-semibold text-secondary">Skip</Text>
             </Pressable>
-            <Pressable onPress={submit} className="flex-1 rounded-xl bg-sage px-4 py-3">
-              <Text className="text-center text-sm font-bold text-ink">Submit</Text>
+            <Pressable onPress={submit} className="flex-1 rounded-xl bg-accent px-4 py-3">
+              <Text className="text-center text-sm font-bold text-on-accent">Submit</Text>
             </Pressable>
           </View>
         </View>

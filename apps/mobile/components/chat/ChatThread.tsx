@@ -36,7 +36,7 @@ export function ChatThread({
   };
 
   return (
-    <View className="flex-1 bg-navy-deep">
+    <View className="flex-1 bg-page">
       <ScrollView
         ref={scrollRef}
         className="flex-1"
@@ -60,7 +60,7 @@ export function ChatThread({
             />
           ))}
           <ToolCallIndicator tools={activeTools} />
-          {error ? <Text className="mt-1 text-xs text-rose">{error}</Text> : null}
+          {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
         </View>
       </ScrollView>
       <ChatComposer onSend={send} onStop={stop} streaming={streaming} />

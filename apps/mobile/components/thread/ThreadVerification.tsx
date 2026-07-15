@@ -24,7 +24,7 @@ export function ThreadVerification({
   return (
     <View className="my-2 w-full">
       {payload.group_index === 0 ? (
-        <Text className="mb-3 text-base leading-6 text-white/85">{payload.intro}</Text>
+        <Text className="mb-3 text-base leading-6 text-primary">{payload.intro}</Text>
       ) : null}
       {payload.line_items.map((item) => (
         <LineItemCard
@@ -36,7 +36,7 @@ export function ThreadVerification({
           onNote={(n) => onNote(item.line_item_id, n)}
         />
       ))}
-      <Text className="mt-1 text-xs italic text-white/45">{payload.nudge}</Text>
+      <Text className="mt-1 text-xs italic text-faint">{payload.nudge}</Text>
     </View>
   );
 }

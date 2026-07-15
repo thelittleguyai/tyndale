@@ -138,18 +138,18 @@ export default function AuditResultScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
-        <Text className="text-base text-rose">Audit failed: {error}</Text>
+      <View className="flex-1 items-center justify-center bg-page p-6">
+        <Text className="text-base text-danger">Audit failed: {error}</Text>
       </View>
     );
   }
   if (slow && !result) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep p-6">
-        <Text className="mb-2 text-center text-base font-semibold text-white">
+      <View className="flex-1 items-center justify-center bg-page p-6">
+        <Text className="mb-2 text-center text-base font-semibold text-primary">
           This is taking longer than expected
         </Text>
-        <Text className="text-center text-sm text-white/60">
+        <Text className="text-center text-sm text-secondary">
           Your audit is still running. Check back in a few minutes — we&apos;ll have your results
           ready.
         </Text>
@@ -158,7 +158,7 @@ export default function AuditResultScreen() {
   }
   if (!result) {
     return (
-      <View className="flex-1 justify-center bg-navy-deep">
+      <View className="flex-1 justify-center bg-page">
         <AuditProgress status={status} />
       </View>
     );
@@ -184,18 +184,18 @@ export default function AuditResultScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-navy-deep"
+      className="flex-1 bg-page"
       contentContainerStyle={{ padding: 20, paddingTop: 32 }}
     >
       <View className="w-full max-w-2xl self-center">
         <View className="mb-6 flex-row gap-2">
-          <View className="min-h-[44px] items-center justify-center rounded-full bg-teal-deep px-4 py-1.5">
-            <Text className="text-xs font-semibold text-white">Overview</Text>
+          <View className="min-h-[44px] items-center justify-center rounded-full bg-surface-raised px-4 py-1.5">
+            <Text className="text-xs font-semibold text-primary">Overview</Text>
           </View>
           <Link href={`/audit/${case_file_id}/chat`} asChild>
-            <Pressable className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5">
-              <MessageSquare size={13} color="rgba(255,255,255,0.7)" />
-              <Text className="text-xs font-semibold text-white/70">Chat</Text>
+            <Pressable className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-hairline px-4 py-1.5">
+              <MessageSquare size={13} color="var(--c-text-secondary)" />
+              <Text className="text-xs font-semibold text-secondary">Chat</Text>
             </Pressable>
           </Link>
         </View>
@@ -204,38 +204,38 @@ export default function AuditResultScreen() {
 
         {foundSavings ? (
           <View className="mb-6">
-            <Text className="mb-3 text-3xl font-bold leading-tight text-sage">
+            <Text className="mb-3 text-3xl font-bold leading-tight text-accent">
               We found ${dollars(delta)} you may not owe
             </Text>
-            <Text className="text-base leading-6 text-white/75">
+            <Text className="text-base leading-6 text-secondary">
               Your insurer says you owe ${dollars(a.eob_member_responsibility)} — our math says $
               {dollars(a.tyndale_computed)}.
             </Text>
           </View>
         ) : cleanBill ? (
           <View className="mb-6">
-            <Text className="mb-3 text-3xl font-bold leading-tight text-white">
+            <Text className="mb-3 text-3xl font-bold leading-tight text-primary">
               Good news — this bill checks out
             </Text>
-            <Text className="text-base leading-6 text-white/75">
+            <Text className="text-base leading-6 text-secondary">
               We compared every line against your plan and Medicare rates and didn&rsquo;t find
               anything to dispute.
             </Text>
           </View>
         ) : (
           <View className="mb-6">
-            <Text className="mb-3 text-3xl font-bold leading-tight text-white">
+            <Text className="mb-3 text-3xl font-bold leading-tight text-primary">
               Bill check complete
             </Text>
-            <Text className="text-base leading-6 text-white/75">
+            <Text className="text-base leading-6 text-secondary">
               The totals line up, but we flagged a few things below worth a closer look.
             </Text>
           </View>
         )}
 
-        <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
+        <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
           {foundSavings ? (
-            <Text className="mb-3 text-xs uppercase tracking-wider text-white/40">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">
               How we got there
             </Text>
           ) : null}
@@ -256,11 +256,11 @@ export default function AuditResultScreen() {
         <ChaseCard disclosure={result.disclosure} />
 
         {result.summary ? (
-          <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
-            <Text className="mb-2 text-xs uppercase tracking-wider text-white/40">Summary</Text>
-            <Text className="text-base leading-6 text-white/90">{result.summary}</Text>
-            <View className="mt-4 flex-row items-center justify-between border-t border-white/10 pt-3">
-              <Text className="text-xs text-white/45">Was this helpful?</Text>
+          <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="mb-2 text-xs uppercase tracking-wider text-faint">Summary</Text>
+            <Text className="text-base leading-6 text-primary">{result.summary}</Text>
+            <View className="mt-4 flex-row items-center justify-between border-t border-hairline pt-3">
+              <Text className="text-xs text-faint">Was this helpful?</Text>
               <ThumbsRating
                 target={{ type: 'response', id: COMPOSED_RESPONSE_ID }}
                 caseFileId={case_file_id}
@@ -273,10 +273,10 @@ export default function AuditResultScreen() {
 
         {hasFindings ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-white/40">
+            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">
               What we found
             </Text>
-            <Text className="mb-3 text-sm leading-5 text-white/65">
+            <Text className="mb-3 text-sm leading-5 text-secondary">
               Most billing issues like these are fixable with a phone call or a short letter —
               Tyndale will guide you.
             </Text>
@@ -291,7 +291,7 @@ export default function AuditResultScreen() {
           </>
         ) : null}
 
-        <Text className="mt-12 text-center text-xs text-white/40">
+        <Text className="mt-12 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
@@ -329,25 +329,25 @@ function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
   if (!summary || summary.eob_count === 0 || summary.confirmed !== null) return null;
 
   return (
-    <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
-      <Text className="mb-1 text-xs uppercase tracking-wider text-white/40">
+    <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
+      <Text className="mb-1 text-xs uppercase tracking-wider text-faint">
         Before we finish
       </Text>
-      <Text className="mb-4 text-base leading-6 text-white/90">{summary.question}</Text>
+      <Text className="mb-4 text-base leading-6 text-primary">{summary.question}</Text>
       <View className="flex-row gap-3">
         <Pressable
           disabled={busy}
           onPress={() => answer(true)}
-          className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+          className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-sm font-bold text-ink">Yes, that&apos;s all of them</Text>
+          <Text className="text-sm font-bold text-on-accent">Yes, that&apos;s all of them</Text>
         </Pressable>
         <Pressable
           disabled={busy}
           onPress={() => answer(false)}
-          className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-white/15 px-4 py-3 hover:bg-white/5"
+          className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
         >
-          <Text className="text-sm font-semibold text-white/80">I have more</Text>
+          <Text className="text-sm font-semibold text-secondary">I have more</Text>
         </Pressable>
       </View>
     </View>
@@ -371,9 +371,9 @@ function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
     new Set(disclosure.chase_inputs.map((k) => CHASE_DOC_LABELS[k] ?? 'your plan documents')),
   );
   return (
-    <View className="mb-6 rounded-2xl border border-amber/30 bg-amber/10 p-5">
-      <Text className="mb-1 text-sm font-bold text-amber">One thing would sharpen this</Text>
-      <Text className="text-sm leading-6 text-white/80">
+    <View className="mb-6 rounded-2xl border border-warning bg-warning-tint p-5">
+      <Text className="mb-1 text-sm font-bold text-warning">One thing would sharpen this</Text>
+      <Text className="text-sm leading-6 text-secondary">
         A few plan details were missing, so these numbers are an estimated range. To pin them
         down, find {docs.join(' and ')} and add it — I&apos;ll rerun the math with the real
         figures.
@@ -390,41 +390,41 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
   const docs = result.documents_needed ?? [];
   const remaining = docs.filter((d) => !d.have).length;
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+    <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
         <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+          <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 
-        <Text className="mb-3 text-2xl font-bold leading-tight text-white">
+        <Text className="mb-3 text-2xl font-bold leading-tight text-primary">
           Here&rsquo;s what we found so far
         </Text>
-        <Text className="mb-6 text-base leading-6 text-white/75">
+        <Text className="mb-6 text-base leading-6 text-secondary">
           We&rsquo;ve started your audit. To finish it and lock in the numbers, we need a couple of
           documents from you — here&rsquo;s how to get each one.
         </Text>
 
         {docs.length ? (
-          <View className="mb-6 rounded-2xl border border-sage/30 bg-sage/10 p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-sage">
+          <View className="mb-6 rounded-2xl border border-accent bg-accent-tint p-5">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-accent">
               {remaining === 0 ? 'All set — re-checking your audit' : 'To finish your audit, we need'}
             </Text>
             {docs.map((d, i) => (
-              <View key={d.key} className={i > 0 ? 'mt-4 border-t border-white/10 pt-4' : ''}>
+              <View key={d.key} className={i > 0 ? 'mt-4 border-t border-hairline pt-4' : ''}>
                 <View className="mb-1 flex-row items-start gap-2">
                   {d.have ? (
-                    <CheckCircle2 size={18} color="#3DAA7E" />
+                    <CheckCircle2 size={18} color="var(--c-accent)" />
                   ) : (
-                    <Circle size={18} color="rgba(255,255,255,0.35)" />
+                    <Circle size={18} color="var(--c-text-faint)" />
                   )}
                   <Text
-                    className={`flex-1 text-base font-bold ${d.have ? 'text-white/55 line-through' : 'text-white'}`}
+                    className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}
                   >
                     {d.label}
                   </Text>
                 </View>
                 {d.have ? null : (
-                  <Text className="ml-6 text-sm leading-6 text-white/70">{d.how_to_get}</Text>
+                  <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>
                 )}
               </View>
             ))}
@@ -435,17 +435,17 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
           onPress={() =>
             router.push({ pathname: '/upload', params: { caseId: caseFileId } })
           }
-          className="mb-8 min-h-[44px] items-center justify-center rounded-xl bg-sage px-4 py-3 hover:bg-sage-deep"
+          className="mb-8 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-center text-base font-bold text-ink">Add a document</Text>
+          <Text className="text-center text-base font-bold text-on-accent">Add a document</Text>
         </Pressable>
 
         {result.findings.length ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-white/40">
+            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">
               What we&rsquo;ve found so far
             </Text>
-            <Text className="mb-3 text-sm leading-5 text-white/65">
+            <Text className="mb-3 text-sm leading-5 text-secondary">
               These are worth acting on now — Tyndale will guide you.
             </Text>
             {result.findings.map((f) => (
@@ -454,7 +454,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
           </>
         ) : null}
 
-        <Text className="mt-12 text-center text-xs text-white/40">
+        <Text className="mt-12 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
@@ -470,24 +470,24 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
   const router = useRouter();
   const a = result.audit;
   return (
-    <ScrollView className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
+    <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
         <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-          <Text className="text-sm text-white/60">← Back to dashboard</Text>
+          <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 
-        <Text className="mb-3 text-2xl font-bold leading-tight text-white">
+        <Text className="mb-3 text-2xl font-bold leading-tight text-primary">
           We couldn&rsquo;t finish this audit
         </Text>
-        <Text className="mb-6 text-base leading-6 text-white/75">
+        <Text className="mb-6 text-base leading-6 text-secondary">
           {a
             ? 'We ran the numbers but couldn’t finish the written summary this time — our team has been notified and will take a look. Here’s what we computed.'
             : 'Something went wrong on our end this time — our team has been notified. We’ll follow up once it’s sorted; you don’t need to do anything.'}
         </Text>
 
         {a ? (
-          <View className="mb-6 rounded-2xl border border-white/10 bg-navy-soft p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-white/40">What we computed</Text>
+          <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">What we computed</Text>
             <ThreeNumberRow label="What you were billed" value={a.provider_billed} dim />
             <ThreeNumberRow label="What your insurer says you owe" value={a.eob_member_responsibility} />
             <ThreeNumberRow label="What you should owe" value={a.tyndale_computed} highlight last />
@@ -496,14 +496,14 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
 
         {result.findings.length ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-white/40">What we found</Text>
+            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">What we found</Text>
             {result.findings.map((f) => (
               <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
             ))}
           </>
         ) : null}
 
-        <Text className="mt-12 text-center text-xs text-white/40">
+        <Text className="mt-12 text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or
           financial advice.
         </Text>
@@ -531,15 +531,15 @@ function ThreeNumberRow({
   last?: boolean;
 }) {
   const valueClass = highlight
-    ? 'text-2xl font-bold text-sage'
+    ? 'text-2xl font-bold text-accent'
     : dim
-      ? 'text-base font-medium text-white/55'
+      ? 'text-base font-medium text-faint'
       : secondary
-        ? 'text-lg font-semibold text-white/80'
-        : 'text-xl font-semibold text-white';
+        ? 'text-lg font-semibold text-secondary'
+        : 'text-xl font-semibold text-primary';
   return (
     <View className={`${last ? '' : 'mb-3 '}flex-row items-baseline justify-between`}>
-      <Text className={dim ? 'flex-1 pr-3 text-sm text-white/45' : 'flex-1 pr-3 text-sm text-white/70'}>
+      <Text className={dim ? 'flex-1 pr-3 text-sm text-faint' : 'flex-1 pr-3 text-sm text-secondary'}>
         {label}
       </Text>
       <Text className={valueClass}>

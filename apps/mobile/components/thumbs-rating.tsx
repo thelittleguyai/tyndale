@@ -85,8 +85,8 @@ export function ThumbsRating({
         hitSlop={8}
         className={
           rating === 'up'
-            ? 'rounded-md bg-sage/20 p-1.5'
-            : 'rounded-md bg-white/5 p-1.5'
+            ? 'rounded-md bg-accent-tint p-1.5'
+            : 'rounded-md bg-inset p-1.5'
         }
       >
         <ThumbsUp size={size} color={rating === 'up' ? '#3DAA7E' : 'rgba(255,255,255,0.5)'} />
@@ -97,8 +97,8 @@ export function ThumbsRating({
         hitSlop={8}
         className={
           rating === 'down'
-            ? 'rounded-md bg-rose/20 p-1.5'
-            : 'rounded-md bg-white/5 p-1.5'
+            ? 'rounded-md bg-danger-tint p-1.5'
+            : 'rounded-md bg-inset p-1.5'
         }
       >
         <ThumbsDown size={size} color={rating === 'down' ? '#C75252' : 'rgba(255,255,255,0.5)'} />

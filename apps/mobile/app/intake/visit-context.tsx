@@ -53,10 +53,10 @@ export default function VisitContextStep() {
           placeholderTextColor="rgba(255,255,255,0.3)"
           multiline
           numberOfLines={5}
-          className="min-h-[120px] rounded-xl border border-white/15 bg-black/20 p-3 text-base leading-6 text-white"
+          className="min-h-[120px] rounded-xl border border-hairline bg-inset p-3 text-base leading-6 text-primary"
           textAlignVertical="top"
         />
-        <Text className="mt-1 self-end text-xs text-white/40">
+        <Text className="mt-1 self-end text-xs text-faint">
           {text.length}/{MAX}
         </Text>
       </View>

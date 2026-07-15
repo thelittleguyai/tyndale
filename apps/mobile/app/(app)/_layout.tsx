@@ -58,8 +58,8 @@ export default function AppLayout() {
 
   if (loading || (user && intakeLoading)) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep">
-        <ActivityIndicator color="#fff" />
+      <View className="flex-1 items-center justify-center bg-page">
+        <ActivityIndicator color="var(--c-text-primary)" />
       </View>
     );
   }

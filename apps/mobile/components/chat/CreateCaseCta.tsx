@@ -13,10 +13,10 @@ export function CreateCaseCta({ conversationId }: { conversationId: string }) {
         router.push({ pathname: '/upload', params: { fromConversation: conversationId } })
       }
       accessibilityRole="button"
-      className="mt-3 flex-row items-center gap-2 self-start rounded-xl bg-sage px-4 py-2.5"
+      className="mt-3 flex-row items-center gap-2 self-start rounded-xl bg-accent px-4 py-2.5"
     >
-      <FilePlus2 size={16} color="#0A1E1C" />
-      <Text className="text-sm font-bold text-ink">Upload documents &amp; create a case</Text>
+      <FilePlus2 size={16} color="var(--c-on-accent)" />
+      <Text className="text-sm font-bold text-on-accent">Upload documents &amp; create a case</Text>
     </Pressable>
   );
 }

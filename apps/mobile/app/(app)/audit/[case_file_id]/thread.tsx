@@ -183,18 +183,18 @@ export default function CaseThreadScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep">
-        <ActivityIndicator color="#3DAA7E" />
+      <View className="flex-1 items-center justify-center bg-page">
+        <ActivityIndicator color="var(--c-accent)" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-navy-deep">
+    <View className="flex-1 bg-page">
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
         <View className="w-full max-w-2xl self-center">
           <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
-            <Text className="text-sm text-white/60">← Back to dashboard</Text>
+            <Text className="text-sm text-secondary">← Back to dashboard</Text>
           </Pressable>
           {messages.map((m) => (
             <ThreadEntry
@@ -212,22 +212,22 @@ export default function CaseThreadScreen() {
         </View>
       </ScrollView>
       {pendingVerification ? (
-        <View className="w-full max-w-2xl flex-row items-end gap-2 self-center border-t border-white/10 bg-navy-deep px-4 py-3">
+        <View className="w-full max-w-2xl flex-row items-end gap-2 self-center border-t border-hairline bg-page px-4 py-3">
           <TextInput
             value={composer}
             onChangeText={setComposer}
             placeholder="Answer in your own words, or tap the cards…"
             placeholderTextColor="rgba(255,255,255,0.4)"
             multiline
-            className="max-h-24 flex-1 rounded-2xl bg-navy-soft px-4 py-2.5 text-[15px] text-white"
+            className="max-h-24 flex-1 rounded-2xl bg-surface px-4 py-2.5 text-[15px] text-primary"
             onSubmitEditing={sendText}
           />
           <Pressable
             onPress={sendText}
             disabled={sending || !composer.trim()}
-            className={`min-h-[44px] items-center justify-center rounded-full px-4 ${sending || !composer.trim() ? 'bg-white/10' : 'bg-sage'}`}
+            className={`min-h-[44px] items-center justify-center rounded-full px-4 ${sending || !composer.trim() ? 'bg-inset' : 'bg-accent'}`}
           >
-            <Text className={sending || !composer.trim() ? 'text-white/40' : 'font-bold text-ink'}>Send</Text>
+            <Text className={sending || !composer.trim() ? 'text-faint' : 'font-bold text-on-accent'}>Send</Text>
           </Pressable>
         </View>
       ) : null}

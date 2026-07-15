@@ -102,17 +102,17 @@ export default function UploadScreen() {
   };
 
   return (
-    <Screen className="flex-1 bg-navy-deep" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
+    <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
       <Pressable
         onPress={() => router.push('/')}
         className="mb-5 self-start active:opacity-70"
       >
-        <Text className="text-sm text-white/60 hover:text-white/90">← Back to dashboard</Text>
+        <Text className="text-sm text-secondary hover:text-primary">← Back to dashboard</Text>
       </Pressable>
 
-      <View className="mb-6 rounded-2xl bg-teal-deep p-5">
-        <Text className="text-3xl font-bold text-white">Upload your documents</Text>
-        <Text className="mt-2 text-sm leading-6 text-white/80">
+      <View className="mb-6 rounded-2xl bg-surface-raised p-5">
+        <Text className="text-3xl font-bold text-primary">Upload your documents</Text>
+        <Text className="mt-2 text-sm leading-6 text-secondary">
           Add as many as you have — bills, EOBs, insurance cards, plan summaries. We sort them
           out for you.
         </Text>
@@ -132,51 +132,51 @@ export default function UploadScreen() {
           {queue.length === 0 ? (
             <PressableScale
               onPress={pickFiles}
-              className="items-center rounded-2xl border-2 border-dashed border-white/20 bg-navy-soft p-8 shadow-card hover:border-sage/50"
+              className="items-center rounded-2xl border-2 border-dashed border-hairline bg-surface p-8 shadow-card hover:border-accent"
             >
-              <Plus size={24} color="#3DAA7E" />
-              <Text className="mt-2 text-base font-semibold text-white">Add documents</Text>
-              <Text className="mt-1 text-xs text-white/50">PDF or image — pick one or several</Text>
+              <Plus size={24} color="var(--c-accent)" />
+              <Text className="mt-2 text-base font-semibold text-primary">Add documents</Text>
+              <Text className="mt-1 text-xs text-faint">PDF or image — pick one or several</Text>
             </PressableScale>
           ) : (
             <View>
               {queue.map((q) => (
                 <View
                   key={q.id}
-                  className="mb-2 flex-row items-center gap-3 rounded-xl border border-white/10 bg-navy-soft p-3"
+                  className="mb-2 flex-row items-center gap-3 rounded-xl border border-hairline bg-surface p-3"
                 >
-                  <View className="h-9 w-9 items-center justify-center rounded-md bg-white/10">
-                    <FileText size={18} color="#ffffff" />
+                  <View className="h-9 w-9 items-center justify-center rounded-md bg-inset">
+                    <FileText size={18} color="var(--c-text-primary)" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-white" numberOfLines={1}>
+                    <Text className="text-sm font-medium text-primary" numberOfLines={1}>
                       {q.name}
                     </Text>
-                    <Text className="text-xs text-white/50">{prettyBytes(q.size)}</Text>
+                    <Text className="text-xs text-faint">{prettyBytes(q.size)}</Text>
                   </View>
                   <PressableScale
                     onPress={() => remove(q.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${q.name}`}
-                    className="h-8 w-8 items-center justify-center rounded-full bg-white/5 hover:bg-white/15"
+                    className="h-8 w-8 items-center justify-center rounded-full bg-inset hover:bg-inset"
                   >
-                    <X size={16} color="rgba(255,255,255,0.7)" />
+                    <X size={16} color="var(--c-text-secondary)" />
                   </PressableScale>
                 </View>
               ))}
               <PressableScale
                 onPress={pickFiles}
-                className="mt-1 flex-row items-center gap-2 self-start rounded-lg bg-white/5 px-3 py-2 hover:bg-white/10"
+                className="mt-1 flex-row items-center gap-2 self-start rounded-lg bg-inset px-3 py-2 hover:bg-inset"
               >
-                <Plus size={16} color="#3DAA7E" />
-                <Text className="text-sm font-semibold text-sage">Add another</Text>
+                <Plus size={16} color="var(--c-accent)" />
+                <Text className="text-sm font-semibold text-accent">Add another</Text>
               </PressableScale>
             </View>
           )}
         </>
       ) : (
-        <View className="rounded-2xl border border-white/10 bg-navy-soft p-6">
-          <Text className="text-base text-white/80">
+        <View className="rounded-2xl border border-hairline bg-surface p-6">
+          <Text className="text-base text-secondary">
             Open Tyndale on the web to upload for now. The native file picker and camera capture
             arrive with the iOS/Android app.
           </Text>
@@ -188,15 +188,15 @@ export default function UploadScreen() {
         onPress={submitAll}
         className={
           queue.length === 0 || uploading
-            ? 'mt-6 items-center rounded-xl bg-white/10 px-4 py-4'
-            : 'mt-6 items-center rounded-xl bg-sage px-4 py-4 shadow-card hover:bg-sage-deep'
+            ? 'mt-6 items-center rounded-xl bg-inset px-4 py-4'
+            : 'mt-6 items-center rounded-xl bg-accent px-4 py-4 shadow-card hover:bg-accent'
         }
       >
         <Text
           className={
             queue.length === 0 || uploading
-              ? 'text-base font-semibold text-white/50'
-              : 'text-base font-bold text-ink'
+              ? 'text-base font-semibold text-faint'
+              : 'text-base font-bold text-on-accent'
           }
         >
           {uploading
@@ -207,10 +207,10 @@ export default function UploadScreen() {
         </Text>
       </PressableScale>
 
-      {progress ? <Text className="mt-4 text-sm text-sage">{progress}</Text> : null}
-      {error ? <Text className="mt-4 text-sm text-rose">Upload failed: {error}</Text> : null}
+      {progress ? <Text className="mt-4 text-sm text-accent">{progress}</Text> : null}
+      {error ? <Text className="mt-4 text-sm text-danger">Upload failed: {error}</Text> : null}
 
-      <Text className="mt-12 text-center text-xs text-white/40">
+      <Text className="mt-12 text-center text-xs text-faint">
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
         advice.
       </Text>

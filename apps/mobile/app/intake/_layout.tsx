@@ -14,8 +14,8 @@ export default function IntakeLayout() {
   const { user, loading } = useCurrentUser();
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-navy-deep">
-        <ActivityIndicator color="#5eead4" />
+      <View className="flex-1 items-center justify-center bg-page">
+        <ActivityIndicator color="var(--c-accent)" />
       </View>
     );
   }

@@ -57,10 +57,10 @@ export function AuditProgress({ status }: { status: string }) {
 
   return (
     <View className="w-full max-w-2xl self-center px-6">
-      <Text className="mb-1 text-xl font-bold text-white">Checking your bill</Text>
-      <Text className="mb-6 text-sm text-white/55">This usually takes a minute or two.</Text>
+      <Text className="mb-1 text-xl font-bold text-primary">Checking your bill</Text>
+      <Text className="mb-6 text-sm text-faint">This usually takes a minute or two.</Text>
 
-      <View className="rounded-2xl border border-white/10 bg-navy-soft p-5">
+      <View className="rounded-2xl border border-hairline bg-surface p-5">
         {STAGES.map((label, i) => {
           const done = i < activeStage;
           const active = i === activeStage;
@@ -71,22 +71,22 @@ export function AuditProgress({ status }: { status: string }) {
             >
               <View className="mr-3 h-6 w-6 items-center justify-center">
                 {done ? (
-                  <View className="h-6 w-6 items-center justify-center rounded-full bg-sage/20">
-                    <Check size={14} color="#3DAA7E" strokeWidth={3} />
+                  <View className="h-6 w-6 items-center justify-center rounded-full bg-accent-tint">
+                    <Check size={14} color="var(--c-accent)" strokeWidth={3} />
                   </View>
                 ) : active ? (
-                  <ActivityIndicator size="small" color="#3DAA7E" />
+                  <ActivityIndicator size="small" color="var(--c-accent)" />
                 ) : (
-                  <View className="h-2 w-2 rounded-full bg-white/20" />
+                  <View className="h-2 w-2 rounded-full bg-inset" />
                 )}
               </View>
               <Text
                 className={
                   done
-                    ? 'text-sm text-white/60'
+                    ? 'text-sm text-secondary'
                     : active
-                      ? 'text-sm font-semibold text-white'
-                      : 'text-sm text-white/35'
+                      ? 'text-sm font-semibold text-primary'
+                      : 'text-sm text-faint'
                 }
               >
                 {label}
@@ -96,7 +96,7 @@ export function AuditProgress({ status }: { status: string }) {
         })}
       </View>
 
-      <Text className="mt-5 text-center text-xs text-white/45">
+      <Text className="mt-5 text-center text-xs text-faint">
         Feel free to come back — we&rsquo;ll keep working.
       </Text>
     </View>

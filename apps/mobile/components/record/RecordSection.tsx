@@ -14,17 +14,17 @@ function money(n: number): string {
 }
 
 const STATUS_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
-  audit_complete: { label: 'Results ready', bg: 'bg-sage/20', fg: 'text-sage' },
-  audit_running: { label: 'Auditing', bg: 'bg-amber/20', fg: 'text-amber' },
-  encounter_verified: { label: 'Auditing', bg: 'bg-amber/20', fg: 'text-amber' },
-  audit_incomplete: { label: 'Needs documents', bg: 'bg-amber/20', fg: 'text-amber' },
-  extraction_failed: { label: "Couldn't read", bg: 'bg-rose/20', fg: 'text-rose' },
-  not_a_bill: { label: 'Not a bill', bg: 'bg-rose/20', fg: 'text-rose' },
-  encounter_verification_pending: { label: 'Verify visit', bg: 'bg-teal-deep/50', fg: 'text-white' },
+  audit_complete: { label: 'Results ready', bg: 'bg-accent-tint', fg: 'text-accent' },
+  audit_running: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning' },
+  encounter_verified: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning' },
+  audit_incomplete: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning' },
+  extraction_failed: { label: "Couldn't read", bg: 'bg-danger-tint', fg: 'text-danger' },
+  not_a_bill: { label: 'Not a bill', bg: 'bg-danger-tint', fg: 'text-danger' },
+  encounter_verification_pending: { label: 'Verify visit', bg: 'bg-inset', fg: 'text-primary' },
 };
 
 function Chip({ status }: { status: string }) {
-  const c = STATUS_CHIP[status] ?? { label: status, bg: 'bg-white/10', fg: 'text-white/70' };
+  const c = STATUS_CHIP[status] ?? { label: status, bg: 'bg-inset', fg: 'text-secondary' };
   return (
     <View className={`rounded-full px-2.5 py-0.5 ${c.bg}`}>
       <Text className={`text-[11px] font-semibold ${c.fg}`}>{c.label}</Text>
@@ -35,9 +35,9 @@ function Chip({ status }: { status: string }) {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <View className="flex-1">
-      <Text className="text-xs text-white/60">{label}</Text>
-      <Text className="mt-0.5 text-xl font-bold text-white">{value}</Text>
-      {hint ? <Text className="text-[10px] uppercase tracking-wide text-white/45">{hint}</Text> : null}
+      <Text className="text-xs text-secondary">{label}</Text>
+      <Text className="mt-0.5 text-xl font-bold text-primary">{value}</Text>
+      {hint ? <Text className="text-[10px] uppercase tracking-wide text-faint">{hint}</Text> : null}
     </View>
   );
 }
@@ -46,34 +46,34 @@ function Row({ row, onPress }: { row: SubCaseRow; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      className="mb-2 rounded-2xl border border-white/10 bg-navy-soft p-4 hover:border-white/25"
+      className="mb-2 rounded-2xl border border-hairline bg-surface p-4 hover:border-hairline"
     >
       <View className="mb-1 flex-row items-center justify-between gap-2">
-        <Text className="flex-1 text-base font-bold text-white" numberOfLines={1}>
+        <Text className="flex-1 text-base font-bold text-primary" numberOfLines={1}>
           {row.label}
         </Text>
         <Chip status={row.status} />
       </View>
       {row.three_number ? (
-        <Text className="text-sm text-white/70">
-          You should owe <Text className="font-bold text-sage">{money(row.three_number.tyndale_computed)}</Text>
+        <Text className="text-sm text-secondary">
+          You should owe <Text className="font-bold text-accent">{money(row.three_number.tyndale_computed)}</Text>
           {'  ·  billed '}
           {money(row.three_number.provider_billed)}
         </Text>
       ) : (
-        <Text className="text-sm text-white/50">More documents needed to finish</Text>
+        <Text className="text-sm text-faint">More documents needed to finish</Text>
       )}
       <View className="mt-1.5 flex-row flex-wrap items-center gap-x-3 gap-y-1">
         {row.open_item_count > 0 ? (
-          <Text className="text-xs text-amber">
+          <Text className="text-xs text-warning">
             {row.open_item_count} open item{row.open_item_count === 1 ? '' : 's'}
           </Text>
         ) : null}
         {row.recovered_so_far > 0 ? (
-          <Text className="text-xs text-sage">Recovered {money(row.recovered_so_far)} so far</Text>
+          <Text className="text-xs text-accent">Recovered {money(row.recovered_so_far)} so far</Text>
         ) : null}
         {row.next_deadline?.due_date ? (
-          <Text className="text-xs text-rose">
+          <Text className="text-xs text-danger">
             {row.next_deadline.label} due {row.next_deadline.due_date}
           </Text>
         ) : null}
@@ -87,10 +87,10 @@ export function RecordSection({ record }: { record: RecordPayload }) {
   const a = record.aggregates;
   return (
     <View>
-      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-white/45">
+      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
         Your Tyndale Record
       </Text>
-      <View className="mb-4 rounded-2xl bg-teal-deep p-5">
+      <View className="mb-4 rounded-2xl bg-surface-raised p-5">
         <View className="mb-4 flex-row gap-4">
           <Stat label="Recovered so far" value={money(a.total_recovered)} hint="confirmed" />
           <Stat label="Identified" value={money(a.total_identified)} hint="estimated" />
@@ -106,7 +106,7 @@ export function RecordSection({ record }: { record: RecordPayload }) {
       </View>
 
       {record.sub_cases.length === 0 ? (
-        <Text className="mb-2 text-sm text-white/50">
+        <Text className="mb-2 text-sm text-faint">
           No bills in your record yet — upload one to get started.
         </Text>
       ) : (
@@ -125,7 +125,7 @@ export function RecordSection({ record }: { record: RecordPayload }) {
         ))
       )}
       {record.has_older ? (
-        <Text className="mt-1 text-sm text-white/50">Full history →</Text>
+        <Text className="mt-1 text-sm text-faint">Full history →</Text>
       ) : null}
     </View>
   );
