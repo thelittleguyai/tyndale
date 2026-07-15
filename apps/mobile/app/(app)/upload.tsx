@@ -27,6 +27,7 @@ import {
 } from '../../lib/upload-validation';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
+import { Button, ListRow } from '../../components/ui';
 
 type Queued = { id: string; file: File; name: string; size: number };
 
@@ -110,9 +111,9 @@ export default function UploadScreen() {
         <Text className="text-sm text-secondary hover:text-primary">← Back to dashboard</Text>
       </Pressable>
 
-      <View className="mb-6 rounded-2xl bg-surface-raised p-5">
-        <Text className="text-3xl font-bold text-primary">Upload your documents</Text>
-        <Text className="mt-2 text-sm leading-6 text-secondary">
+      <View className="mb-6">
+        <Text className="text-title text-primary">Upload your documents</Text>
+        <Text className="mt-1 text-body text-secondary">
           Add as many as you have — bills, EOBs, insurance cards, plan summaries. We sort them
           out for you.
         </Text>
@@ -139,37 +140,35 @@ export default function UploadScreen() {
               <Text className="mt-1 text-xs text-faint">PDF or image — pick one or several</Text>
             </PressableScale>
           ) : (
-            <View>
+            <View className="gap-2">
               {queue.map((q) => (
-                <View
+                <ListRow
                   key={q.id}
-                  className="mb-2 flex-row items-center gap-3 rounded-xl border border-hairline bg-surface p-3"
-                >
-                  <View className="h-9 w-9 items-center justify-center rounded-md bg-inset">
-                    <FileText size={18} color="var(--c-text-primary)" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-primary" numberOfLines={1}>
-                      {q.name}
-                    </Text>
-                    <Text className="text-xs text-faint">{prettyBytes(q.size)}</Text>
-                  </View>
-                  <PressableScale
-                    onPress={() => remove(q.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${q.name}`}
-                    className="h-8 w-8 items-center justify-center rounded-full bg-inset hover:bg-inset"
-                  >
-                    <X size={16} color="var(--c-text-secondary)" />
-                  </PressableScale>
-                </View>
+                  leading={
+                    <View className="h-9 w-9 items-center justify-center rounded-control bg-inset">
+                      <FileText size={18} color="var(--c-text-primary)" />
+                    </View>
+                  }
+                  title={q.name}
+                  subtitle={prettyBytes(q.size)}
+                  trailing={
+                    <PressableScale
+                      onPress={() => remove(q.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${q.name}`}
+                      className="h-8 w-8 items-center justify-center rounded-full bg-inset"
+                    >
+                      <X size={16} color="var(--c-text-secondary)" />
+                    </PressableScale>
+                  }
+                />
               ))}
               <PressableScale
                 onPress={pickFiles}
-                className="mt-1 flex-row items-center gap-2 self-start rounded-lg bg-inset px-3 py-2 hover:bg-inset"
+                className="mt-1 flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
               >
                 <Plus size={16} color="var(--c-accent)" />
-                <Text className="text-sm font-semibold text-accent">Add another</Text>
+                <Text className="text-body font-medium text-accent">Add another</Text>
               </PressableScale>
             </View>
           )}
@@ -183,29 +182,20 @@ export default function UploadScreen() {
         </View>
       )}
 
-      <PressableScale
-        disabled={queue.length === 0 || uploading}
-        onPress={submitAll}
-        className={
-          queue.length === 0 || uploading
-            ? 'mt-6 items-center rounded-xl bg-inset px-4 py-4'
-            : 'mt-6 items-center rounded-xl bg-accent px-4 py-4 shadow-card hover:bg-accent'
-        }
-      >
-        <Text
-          className={
-            queue.length === 0 || uploading
-              ? 'text-base font-semibold text-faint'
-              : 'text-base font-bold text-on-accent'
+      <View className="mt-6">
+        <Button
+          variant="primary"
+          disabled={queue.length === 0 || uploading}
+          onPress={submitAll}
+          label={
+            uploading
+              ? `Uploading ${queue.length}…`
+              : queue.length === 0
+                ? 'Select documents to start'
+                : `Submit ${queue.length} document${queue.length === 1 ? '' : 's'}`
           }
-        >
-          {uploading
-            ? `Uploading ${queue.length}…`
-            : queue.length === 0
-              ? 'Select documents to start'
-              : `Submit ${queue.length} document${queue.length === 1 ? '' : 's'}`}
-        </Text>
-      </PressableScale>
+        />
+      </View>
 
       {progress ? <Text className="mt-4 text-sm text-accent">{progress}</Text> : null}
       {error ? <Text className="mt-4 text-sm text-danger">Upload failed: {error}</Text> : null}
