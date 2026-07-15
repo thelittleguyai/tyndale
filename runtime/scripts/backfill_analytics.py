@@ -14,6 +14,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import datetime
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))  # runtime/ on the path
 
 
 def _date(s: str) -> datetime.date:
