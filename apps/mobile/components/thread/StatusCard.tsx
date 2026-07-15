@@ -9,15 +9,16 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import type { StatusCardPayload, ThreadStageState } from '@tyndale/shared';
 
 function Bar({ state }: { state: ThreadStageState }) {
-  if (state === 'done') return <View className="h-1.5 rounded-full bg-accent" />;
-  if (state === 'failed') return <View className="h-1.5 rounded-full bg-danger" />;
-  if (state === 'active') return <View className="h-1.5 rounded-full bg-surface-raised/60" />; // indeterminate
-  return <View className="h-1.5 rounded-full bg-inset" />; // pending — empty track
+  // A bar fills (accent) only when its stage is genuinely done/failed — no fabricated progress
+  // (D2). Active + pending both show an empty inset track; the row's spinner conveys activity.
+  if (state === 'done') return <View className="h-1 rounded-full bg-accent" />;
+  if (state === 'failed') return <View className="h-1 rounded-full bg-danger" />;
+  return <View className="h-1 rounded-full bg-inset" />;
 }
 
 export function StatusCard({ payload }: { payload: StatusCardPayload }) {
   return (
-    <View className="my-2 w-full rounded-2xl border border-hairline bg-surface p-4">
+    <View className="my-2 w-full rounded-card border border-hairline bg-surface p-4">
       {payload.stages.map((s) => (
         <View key={s.key} className="mb-3 last:mb-0">
           <View className="mb-1.5 flex-row items-center justify-between">

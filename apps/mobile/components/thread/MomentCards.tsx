@@ -5,59 +5,44 @@
 import { Text, View } from 'react-native';
 
 import type { ThreeNumberMomentPayload, UnlockMomentPayload } from '@tyndale/shared';
+import { MomentCard } from '../ui';
 
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** D0 three-number reveal. Full-width sage-framed moment; the headline is the script-keyed frame. */
+/**
+ * D0 three-number reveal — the designed moment (redesign §3). A dark MomentCard that pops on the
+ * page in both modes: a caption, two hairline-separated numbers, then the third at 30/500 in the
+ * emphasis color, and the script-keyed frame (payload.headline) as a one-line verdict strip in an
+ * inset well. This is the fix for the "moments aren't moments" critique.
+ */
 export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPayload }) {
-  const foundSavings = payload.delta > 0.005;
   return (
-    <View className="my-3 w-full rounded-3xl border border-accent bg-accent-tint p-6 shadow-card">
-      <Text className="mb-4 text-lg font-bold leading-snug text-primary">{payload.headline}</Text>
-      <View className="gap-2">
-        <Row label="What you were billed" value={money(payload.provider_billed)} dim />
-        <Row
-          label="What your insurer says you owe"
-          value={money(payload.eob_member_responsibility)}
-          secondary={foundSavings}
-        />
-        <Row label="What you should owe" value={money(payload.tyndale_computed)} highlight />
+    <MomentCard className="my-3">
+      <Text className="mb-3 text-caption text-moment-text-faint">Your three numbers</Text>
+      <MomentRow label="What you were billed" value={money(payload.provider_billed)} />
+      <MomentRow label="What your insurer says you owe" value={money(payload.eob_member_responsibility)} />
+      <View className="flex-row items-baseline justify-between pb-0.5 pt-2.5">
+        <Text className="text-body font-medium text-moment-text">What you should owe</Text>
+        <Text className="text-[30px] font-medium leading-9 text-moment-emphasis">
+          {money(payload.tyndale_computed)}
+        </Text>
       </View>
-    </View>
+      {payload.headline ? (
+        <View className="mt-3 rounded-control px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
+          <Text className="text-caption leading-5 text-moment-text">{payload.headline}</Text>
+        </View>
+      ) : null}
+    </MomentCard>
   );
 }
 
-function Row({
-  label,
-  value,
-  highlight,
-  secondary,
-  dim,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  secondary?: boolean;
-  dim?: boolean;
-}) {
+function MomentRow({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-row items-center justify-between border-t border-hairline pt-2 first:border-t-0 first:pt-0">
-      <Text className={`text-sm ${dim ? 'text-faint' : 'text-secondary'}`}>{label}</Text>
-      <Text
-        className={
-          highlight
-            ? 'text-2xl font-bold text-accent'
-            : secondary
-              ? 'text-base text-secondary'
-              : dim
-                ? 'text-base text-faint'
-                : 'text-base text-primary'
-        }
-      >
-        {value}
-      </Text>
+    <View className="flex-row items-baseline justify-between border-b border-moment-border py-1.5">
+      <Text className="text-caption text-moment-text-faint">{label}</Text>
+      <Text className="text-[18px] text-moment-text">{value}</Text>
     </View>
   );
 }

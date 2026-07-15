@@ -46,7 +46,7 @@ export function LegalDocView({ doc, published }: { doc: LegalDoc; published: boo
   return (
     <View>
       {!published && (
-        <View className="mb-6 rounded-token-md border border-warning/60 bg-warning/15 p-4">
+        <View className="mb-6 rounded-token-md border border-warning bg-warning-tint p-4">
           <Text className="text-sm font-semibold leading-relaxed text-warning">{DRAFT_BANNER_TEXT}</Text>
         </View>
       )}
