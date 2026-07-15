@@ -98,6 +98,10 @@ async def get_analytics(
         d = DEFINITIONS[key]
         num, den, backfilled = summed.get(key, (0.0, None, False))
         den_f = None if den is None else float(den)
+        # Rule 1: a ratio ALWAYS names its denominator — 0 when there's no data yet, never None
+        # (a count legitimately has no denominator). This is what the fresh-DB case exercises.
+        if d.kind == "ratio" and den_f is None:
+            den_f = 0.0
         value = (num / den_f) if (den_f and den_f > 0) else None
         return MetricOut(
             key=key, definition=d.definition, kind=d.kind,
