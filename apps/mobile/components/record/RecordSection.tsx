@@ -1,7 +1,8 @@
 /**
- * The Tyndale Record (D5, DL-91) — the user-level master view that replaces the ad-hoc Open Cases
- * list when ENABLE_RECORD_VIEW is on. Record-level aggregates (recovered CONFIRMED vs identified
- * ESTIMATE, shown separately + labeled) then sub-case rows with at-a-glance status chips. Each row
+ * The Tyndale Record list (D5, DL-91) — the user-level sub-case list, shown on the dashboard when
+ * ENABLE_RECORD_VIEW is on. Redesigned to Direction A (§3): a single "Your record" Card of
+ * divider-separated rows (provider · outcome/need · status chip); the Record-level aggregates now
+ * live in the four MetricCards at the top of the dashboard, so they're not repeated here. Each row
  * routes to its sub-case summary (results-bearing) or thread (in-flight).
  */
 import { useRouter } from 'expo-router';
@@ -13,119 +14,110 @@ function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "2026-04-02" → "Apr 2" (no Date/timezone parsing). Null-safe for best-effort service dates. */
+function shortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  const month = MONTHS[parseInt(m[2], 10) - 1];
+  return month ? `${month} ${parseInt(m[3], 10)}` : null;
+}
+
 const STATUS_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
   audit_complete: { label: 'Results ready', bg: 'bg-accent-tint', fg: 'text-accent' },
-  audit_running: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning' },
-  encounter_verified: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning' },
-  audit_incomplete: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning' },
-  extraction_failed: { label: "Couldn't read", bg: 'bg-danger-tint', fg: 'text-danger' },
-  not_a_bill: { label: 'Not a bill', bg: 'bg-danger-tint', fg: 'text-danger' },
-  encounter_verification_pending: { label: 'Verify visit', bg: 'bg-inset', fg: 'text-primary' },
+  resolved: { label: 'Resolved', bg: 'bg-accent-tint', fg: 'text-accent' },
+  audit_running: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  encounter_verified: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  audit_incomplete: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  awaiting_eob_confirmation: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  extraction_failed: { label: "Couldn't read", bg: 'bg-danger-tint', fg: 'text-danger-on-tint' },
+  not_a_bill: { label: 'Not a bill', bg: 'bg-danger-tint', fg: 'text-danger-on-tint' },
+  encounter_verification_pending: { label: 'Verify visit', bg: 'bg-inset', fg: 'text-secondary' },
 };
 
 function Chip({ status }: { status: string }) {
   const c = STATUS_CHIP[status] ?? { label: status, bg: 'bg-inset', fg: 'text-secondary' };
   return (
-    <View className={`rounded-full px-2.5 py-0.5 ${c.bg}`}>
-      <Text className={`text-[11px] font-semibold ${c.fg}`}>{c.label}</Text>
+    <View className={`self-start rounded-full px-2.5 py-1 ${c.bg}`}>
+      <Text className={`text-caption font-medium ${c.fg}`}>{c.label}</Text>
     </View>
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Subtitle({ row }: { row: SubCaseRow }) {
+  const date = shortDate(row.service_date);
+  if (row.three_number) {
+    return (
+      <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
+        {date ? `${date} visit · ` : ''}you should owe{' '}
+        <Text className="font-medium text-accent">{money(row.three_number.tyndale_computed)}</Text> of{' '}
+        {money(row.three_number.provider_billed)} billed
+      </Text>
+    );
+  }
+  const parts: string[] = [];
+  if (date) parts.push(`${date} visit`);
+  if (row.open_item_count > 0) {
+    parts.push(`${row.open_item_count} document${row.open_item_count === 1 ? '' : 's'} needed`);
+  }
+  if (row.next_deadline?.due_date) parts.push(`${row.next_deadline.label} closes ${row.next_deadline.due_date}`);
   return (
-    <View className="flex-1">
-      <Text className="text-xs text-secondary">{label}</Text>
-      <Text className="mt-0.5 text-xl font-bold text-primary">{value}</Text>
-      {hint ? <Text className="text-[10px] text-faint">{hint}</Text> : null}
-    </View>
+    <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
+      {parts.join(' · ') || 'In progress'}
+    </Text>
   );
 }
 
-function Row({ row, onPress }: { row: SubCaseRow; onPress: () => void }) {
+function RecordRow({ row, last, onPress }: { row: SubCaseRow; last: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      className="mb-2 rounded-2xl border border-hairline bg-surface p-4 hover:border-hairline"
+      className={`min-h-[44px] flex-row items-center justify-between gap-3 p-4 active:bg-inset ${
+        last ? '' : 'border-b border-hairline'
+      }`}
     >
-      <View className="mb-1 flex-row items-center justify-between gap-2">
-        <Text className="flex-1 text-base font-bold text-primary" numberOfLines={1}>
+      <View className="flex-1">
+        <Text className="text-body font-medium text-primary" numberOfLines={1}>
           {row.label}
         </Text>
-        <Chip status={row.status} />
+        <Subtitle row={row} />
       </View>
-      {row.three_number ? (
-        <Text className="text-sm text-secondary">
-          You should owe <Text className="font-bold text-accent">{money(row.three_number.tyndale_computed)}</Text>
-          {'  ·  billed '}
-          {money(row.three_number.provider_billed)}
-        </Text>
-      ) : (
-        <Text className="text-sm text-faint">More documents needed to finish</Text>
-      )}
-      <View className="mt-1.5 flex-row flex-wrap items-center gap-x-3 gap-y-1">
-        {row.open_item_count > 0 ? (
-          <Text className="text-xs text-warning">
-            {row.open_item_count} open item{row.open_item_count === 1 ? '' : 's'}
-          </Text>
-        ) : null}
-        {row.recovered_so_far > 0 ? (
-          <Text className="text-xs text-accent">Recovered {money(row.recovered_so_far)} so far</Text>
-        ) : null}
-        {row.next_deadline?.due_date ? (
-          <Text className="text-xs text-danger">
-            {row.next_deadline.label} due {row.next_deadline.due_date}
-          </Text>
-        ) : null}
-      </View>
+      <Chip status={row.status} />
     </Pressable>
   );
 }
 
 export function RecordSection({ record }: { record: RecordPayload }) {
   const router = useRouter();
-  const a = record.aggregates;
+  const go = (c: SubCaseRow) =>
+    router.push(
+      (c.resume === 'summary' ? `/case/${c.case_file_id}` : `/audit/${c.case_file_id}/thread`) as never,
+    );
   return (
     <View>
-      <Text className="mb-3 mt-6 text-xs text-faint">
-        Your Tyndale Record
-      </Text>
-      <View className="mb-4 rounded-2xl bg-surface-raised p-5">
-        <View className="mb-4 flex-row gap-4">
-          <Stat label="Recovered so far" value={money(a.total_recovered)} hint="confirmed" />
-          <Stat label="Identified" value={money(a.total_identified)} hint="estimated" />
-        </View>
-        <View className="flex-row gap-4">
-          <Stat label="Billed reviewed" value={money(a.total_billed_reviewed)} />
-          <Stat
-            label="Open items"
-            value={String(a.open_items)}
-            hint={a.next_check_in_date ? `next check-in ${a.next_check_in_date}` : undefined}
-          />
-        </View>
-      </View>
-
+      <Text className="mb-2 mt-6 text-caption font-medium text-secondary">Your record</Text>
       {record.sub_cases.length === 0 ? (
-        <Text className="mb-2 text-sm text-faint">
-          No bills in your record yet — upload one to get started.
-        </Text>
+        <View className="rounded-card border border-hairline bg-surface p-4">
+          <Text className="text-body text-faint">
+            No bills in your record yet — upload one to get started.
+          </Text>
+        </View>
       ) : (
-        record.sub_cases.map((c) => (
-          <Row
-            key={c.case_file_id}
-            row={c}
-            onPress={() =>
-              router.push(
-                (c.resume === 'summary'
-                  ? `/case/${c.case_file_id}`
-                  : `/audit/${c.case_file_id}/thread`) as never,
-              )
-            }
-          />
-        ))
+        <View className="overflow-hidden rounded-card border border-hairline bg-surface">
+          {record.sub_cases.map((c, i) => (
+            <RecordRow
+              key={c.case_file_id}
+              row={c}
+              last={i === record.sub_cases.length - 1}
+              onPress={() => go(c)}
+            />
+          ))}
+        </View>
       )}
       {record.has_older ? (
-        <Text className="mt-1 text-sm text-faint">Full history →</Text>
+        <Text className="mt-2 text-caption text-faint">Older cases are kept in your full history.</Text>
       ) : null}
     </View>
   );

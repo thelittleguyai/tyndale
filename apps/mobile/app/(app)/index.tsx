@@ -534,8 +534,8 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
           accessibilityRole="button"
           className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-2.5 py-1.5 hover:bg-inset active:opacity-80"
         >
-          <View className="h-5 w-5 items-center justify-center rounded-full bg-warning/80">
-            <Text className="text-[10px] font-bold text-on-accent">
+          <View className="h-5 w-5 items-center justify-center rounded-full bg-accent-tint">
+            <Text className="text-[10px] font-bold text-accent">
               {firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
