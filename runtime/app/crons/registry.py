@@ -30,6 +30,12 @@ async def _outcome_followup_cron() -> dict:
     return {"followups_found": len(found)}
 
 
+async def _analytics_rollup_cron() -> dict:
+    from app.analytics.rollup import run_rollup
+
+    return await run_rollup()
+
+
 CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "cms_ncd_lcd_bulk": {"fn": run_cms_ncd_lcd_bulk_cron, "schedule": "weekly Sun 03:00 UTC"},
     "medicare_pfs": {"fn": run_medicare_pfs_cron, "schedule": "annual ~Jan 5"},
@@ -38,6 +44,7 @@ CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "outcome_followup": {"fn": _outcome_followup_cron, "schedule": "daily"},
     "nudge": {"fn": run_nudge_cron, "schedule": "daily 15:00 UTC"},
     "qdrant_snapshot": {"fn": run_qdrant_snapshot_cron, "schedule": "daily 02:00 UTC"},
+    "analytics_rollup": {"fn": _analytics_rollup_cron, "schedule": "nightly 04:00 UTC"},
     "noop": {"fn": _noop_cron, "schedule": "manual"},
 }
 
