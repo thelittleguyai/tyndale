@@ -21,6 +21,8 @@ replace each body with the real copy — keep the `{{variable}}` slots.
 - `{{label}}` / `{{how_to_get}}` — a needs_documents checklist item's label + how-to-get text.
 - `{{party}}` — plain-language who-to-call for a gameplan call, e.g. `your insurance company`
   (call_script_opener_payer / call_script_opener_provider).
+- `{{total}}` / `{{breakdown}}` — open-case count + comma-joined count breakdown, e.g.
+  `2 need documents, 1 with results ready` (record_welcome_summary_fallback).
 Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>`.
 
 ## acknowledgment
@@ -103,3 +105,9 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## call_mode_outro
 [PLACEHOLDER-eng] That's the call. When you hear back, tell me what they said and I'll take it from there.
+
+## record_welcome_summary_instructions
+[PLACEHOLDER-eng] You write the dashboard's one-line status summary. HARD RULES: state only facts derivable from the case states given; never mention a person, reviewer, team, agent, specialist, or any human/process step; never promise who does what next or when; never say anyone is "processing", "reviewing", or will "pick things up". Frame anything the USER can do plainly (e.g. "re-upload clearer copies"). At most two short sentences, plain text, no medical/legal/financial advice.
+
+## record_welcome_summary_fallback
+[PLACEHOLDER-eng] You have {{total}} open cases — {{breakdown}}.

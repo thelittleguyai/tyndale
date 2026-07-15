@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -95,3 +95,7 @@ class User(Base):
     profile_completed_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    # Dashboard welcome-summary cache (2026-07-15): {"hash": <case-state snapshot hash>,
+    # "summary": <text>}. Regenerated ONLY when the hash changes, so the line reads the same on
+    # every load until the user's cases actually change (kills per-load regeneration cost/drift).
+    welcome_summary_cache: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

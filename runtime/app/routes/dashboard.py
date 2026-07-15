@@ -9,6 +9,8 @@ greeting (Change Order 001 item 3) when there are open cases.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.greeting import compose_status_greeting
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
+from app.db.models.users import User
 from app.crons.outcome_followup import scan_for_outcome_followups
 from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
@@ -289,6 +292,36 @@ async def _amount_saved_ytd(s: AsyncSession, cases: list[CaseFile]) -> float:
 
 
 # --- Route -------------------------------------------------------------------
+def _welcome_state_hash(case_states: list[dict]) -> str:
+    """Stable hash of the case-state snapshot the welcome summary is composed from — status +
+    deadline per case, order-independent. The summary regenerates only when this changes."""
+    # Stringify every element so a None/date/str mix sorts without a TypeError.
+    snap = sorted(
+        (str(s.get("status")), str(s.get("next_deadline_date")), str(s.get("next_deadline_label")))
+        for s in case_states
+    )
+    return hashlib.sha256(json.dumps(snap).encode()).hexdigest()
+
+
+async def _cached_welcome_summary(
+    session: AsyncSession, user_id, case_states: list[dict]
+) -> str | None:
+    """Return the welcome summary, reusing the persisted one while the case-state hash is unchanged
+    and regenerating (+ re-storing) only when it changes — same words every load until state moves."""
+    state_hash = _welcome_state_hash(case_states)
+    urow = (
+        await session.execute(select(User).where(User.user_id == user_id))
+    ).scalar_one_or_none()
+    cache = (urow.welcome_summary_cache if urow else None) or {}
+    if cache.get("hash") == state_hash:
+        return cache.get("summary")
+    summary = await compose_status_greeting(case_states)
+    if urow is not None:
+        urow.welcome_summary_cache = {"hash": state_hash, "summary": summary}
+        await session.commit()
+    return summary
+
+
 @router.get("/dashboard", response_model=DashboardPayload)
 async def get_dashboard(
     user: CurrentUser = Depends(current_user),
@@ -313,7 +346,18 @@ async def get_dashboard(
     active_cases = await _active_cases_payload(session, cases)
     amount_saved = await _amount_saved_ytd(session, cases)
 
-    greeting = await compose_status_greeting([oc.model_dump(mode="json") for oc in open_cases])
+    # Welcome summary — composed from every case's state (not just open ones) so the count
+    # breakdown reflects results + needs-docs too; cached on a hash of that snapshot.
+    _dl = {ac.case_file_id: (ac.next_deadline_date, ac.next_deadline_label) for ac in active_cases}
+    case_states = [
+        {
+            "status": c.status,
+            "next_deadline_date": _dl.get(str(c.case_file_id), (None, None))[0],
+            "next_deadline_label": _dl.get(str(c.case_file_id), (None, None))[1],
+        }
+        for c in cases
+    ]
+    greeting = await _cached_welcome_summary(session, user.user_id, case_states)
 
     # Phase 2J — inline the outcome follow-up prompts so the dashboard gets
     # them in one round trip.
