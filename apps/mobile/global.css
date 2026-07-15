@@ -7,6 +7,78 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens: "Clear day" (light, default) / "Midnight ledger" (dark) ──
+   Single source of truth: apps/mobile/theme/tokens.ts. Semantic slot names are
+   identical in both modes; the mode (a `.dark` class toggled by NativeWind's
+   colorScheme) swaps the values. tailwind.config.js references these by name. */
+@layer base {
+  :root {
+    --c-bg-page: #f7f8f5;
+    --c-bg-surface: #ffffff;
+    --c-bg-surface-raised: #ffffff;
+    --c-bg-inset: #eceee8;
+    --c-text-primary: #1a2b27;
+    --c-text-secondary: #5f5e5a;
+    --c-text-faint: #888780;
+    --c-border-hairline: #e3e5e0;
+    --c-border-strong: #c9ccc5;
+    --c-accent: #0f6e56;
+    --c-accent-tint: #e1f5ee;
+    --c-on-accent: #ffffff;
+    --c-success: #2e9e6b;
+    --c-success-tint: #e4f4ec;
+    --c-success-on-tint: #12523a;
+    --c-warning: #ba7517;
+    --c-warning-tint: #faeeda;
+    --c-warning-on-tint: #7a4d0f;
+    --c-danger: #d2544b;
+    --c-danger-tint: #fbe4e1;
+    --c-danger-on-tint: #8f2f28;
+    --c-moment-bg: #04342c;
+    --c-moment-border: #16564a;
+    --c-moment-emphasis: #5dcaa5;
+    --c-moment-text: #e1f5ee;
+    --c-moment-text-faint: #9fe1cb;
+  }
+
+  .dark:root,
+  :root[data-theme='dark'],
+  .dark {
+    --c-bg-page: #0c1210;
+    --c-bg-surface: #141d19;
+    --c-bg-surface-raised: #1c2b25;
+    --c-bg-inset: #0e1512;
+    --c-text-primary: #f2f5f3;
+    --c-text-secondary: #8fa39b;
+    --c-text-faint: #5c6e67;
+    --c-border-hairline: #22312b;
+    --c-border-strong: #2e4238;
+    --c-accent: #5dcaa5;
+    --c-accent-tint: #123028;
+    --c-on-accent: #04342c;
+    --c-success: #4fbf8b;
+    --c-success-tint: #123026;
+    --c-success-on-tint: #a7e5c9;
+    --c-warning: #fac775;
+    --c-warning-tint: #3d2e12;
+    --c-warning-on-tint: #fac775;
+    --c-danger: #e5776c;
+    --c-danger-tint: #3a1a16;
+    --c-danger-on-tint: #f0a79f;
+    --c-moment-bg: #0f3a2d;
+    --c-moment-border: #1d9e75;
+    --c-moment-emphasis: #5dcaa5;
+    --c-moment-text: #dff5ec;
+    --c-moment-text-faint: #9fe1cb;
+  }
+
+  /* The web page canvas follows the active mode. */
+  html,
+  body {
+    background-color: var(--c-bg-page);
+  }
+}
+
 /* ── Web typography ─────────────────────────────────────────────────────────
    react-native-web doesn't inherit font-family into its generated div/span
    text nodes, so set it on the document and force inheritance below #root.

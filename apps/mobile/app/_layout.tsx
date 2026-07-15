@@ -9,6 +9,9 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 
+import { light, dark } from '../theme/tokens';
+import { useThemeController } from '../theme/useTheme';
+
 // Native default font. Web gets Inter via global.css (html/body + #root
 // inherit); native <Text> needs an explicit family, so default every Text to
 // the expo-loaded face. defaultProps isn't in RN's types — hence `as any` —
@@ -27,15 +30,20 @@ export default function RootLayout() {
   // the app; text falls back to the system font until Inter is ready.
   useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
 
+  // Apply the persisted theme mode ("Clear day" default; "Midnight ledger" when chosen).
+  const { resolved } = useThemeController();
+  const pageBg = resolved === 'dark' ? dark.bg.page : light.bg.page;
+
   return (
-    <View className="flex-1 bg-navy-deep">
+    <View className="flex-1 bg-page">
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#091621' },
+          contentStyle: { backgroundColor: pageBg },
         }}
       />
-      <StatusBar style="light" />
+      {/* Light mode wants dark status-bar glyphs; dark mode wants light. */}
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
     </View>
   );
 }
