@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Database,
   FolderSearch,
   LayoutDashboard,
@@ -36,6 +37,7 @@ const NAV = [
   { href: '/knowledge', label: 'Knowledge', icon: Database },
   { href: '/audit', label: 'Audit log', icon: ScrollText },
   { href: '/system', label: 'System', icon: Activity },
+  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/gaps', label: 'Knowledge gaps', icon: AlertTriangle },
 ];
 

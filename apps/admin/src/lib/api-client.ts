@@ -382,3 +382,32 @@ export const adminResolveGap = (gapId: string, resolvedBySource: string) =>
   post(`/v1/admin/knowledge-gaps/${encodeURIComponent(gapId)}/resolve`, {
     resolved_by_source: resolvedBySource,
   });
+
+// --- Internal analytics (P0) ------------------------------------------------
+export interface AdminMetric {
+  key: string;
+  definition: string; // Rule 1 — always present, rendered beside the value
+  kind: 'ratio' | 'count';
+  numerator: number;
+  denominator: number | null;
+  value: number | null;
+  backfilled: boolean;
+}
+export interface AdminAnalyticsPanel {
+  key: string;
+  title: string;
+  metrics: AdminMetric[];
+}
+export interface AdminStatusBoard {
+  flags: Record<string, boolean>;
+  crons: string[];
+  drop_counts: Record<string, number>;
+  not_yet_live_events: string[];
+}
+export interface AdminAnalytics {
+  window_days: number;
+  panels: AdminAnalyticsPanel[];
+  status: AdminStatusBoard;
+}
+export const adminGetAnalytics = (days = 30) =>
+  get<AdminAnalytics>(`/v1/admin/analytics?days=${days}`);

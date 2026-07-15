@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.routes.admin import (
+    analytics,
     appeals,
     audit,
     cases,
@@ -31,6 +32,7 @@ router.include_router(system.router)
 router.include_router(crons.router)
 router.include_router(knowledge_gaps.router)
 router.include_router(appeals.router)
+router.include_router(analytics.router)
 router.include_router(test_support.router)  # HP-2: dev-only synthetic test-token
 
 __all__ = ["router", "admin_user", "audit_admin_action"]
