@@ -130,6 +130,26 @@ async def test_record_rows_recovered_from_confirmed_only(client: AsyncClient, re
     assert rows[a]["resume"] == "summary"  # results-bearing → sub-case summary
 
 
+def test_row_provider_fallback_chain():
+    """The Record row title is the provider, never the status: extracted name → '<doc-type> visit'
+    → None (the client renders a neutral 'Bill review'). Never a status label."""
+    from app.routes.record import _row_provider
+
+    class _C:
+        def __init__(self, eobs=None, documents=None):
+            self.eobs = eobs or []
+            self.documents = documents or []
+
+    assert _row_provider(_C(eobs=[{"provider": "Maple Grove Family Medicine"}])) == "Maple Grove Family Medicine"
+    assert _row_provider(_C(documents=[{"provider_name": "Beloit Health System"}])) == "Beloit Health System"
+    assert _row_provider(_C(documents=[{"document_type": "itemized_bill"}])) == "Itemized bill visit"
+    assert _row_provider(_C(documents=[{"document_type": "unclassified"}])) is None  # neutral rung
+    assert _row_provider(_C()) is None
+    banned = {"Results ready", "Needs documents", "Verify your visit", "Auditing", "In progress"}
+    for c in (_C(eobs=[{"provider": "X"}]), _C(documents=[{"document_type": "eob"}]), _C()):
+        assert (_row_provider(c) or "Bill review") not in banned
+
+
 @pytest.mark.asyncio
 async def test_record_row_no_three_number_is_none(client: AsyncClient, record_on):
     a = await _fresh_case(client)

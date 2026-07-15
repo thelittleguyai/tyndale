@@ -126,6 +126,8 @@ async def get_record(
         rows.append(
             SubCaseRow(
                 case_file_id=cid,
+                provider=_row_provider(c),
+                service_date=_row_service_date(c),
                 status=c.status,
                 label=label,
                 resume=resume,
@@ -172,6 +174,31 @@ def _first(values, *keys) -> str | None:
                 if isinstance(got, str) and got.strip():
                     return got.strip()
     return None
+
+
+def _row_provider(case) -> str | None:
+    """The Record row TITLE — the provider, not the status (the status is the trailing chip).
+    Fallback chain: extracted provider name → the primary document's classified type as a
+    '<type> visit' → None (the client renders a neutral 'Bill review'). Older cases with no
+    extracted provider name land on the doc-type or neutral rung."""
+    name = _first(case.eobs, "provider", "provider_name") or _first(
+        case.documents, "provider", "provider_name"
+    )
+    if name:
+        return name
+    for d in case.documents or []:
+        if isinstance(d, dict):
+            dt = d.get("document_type")
+            if isinstance(dt, str) and dt and dt != "unclassified":
+                return f"{dt.replace('_', ' ').capitalize()} visit"
+    return None
+
+
+def _row_service_date(case) -> str | None:
+    """Date of service (from the EOB/extraction), NOT the upload date. None when not extracted."""
+    return _first(case.eobs, "date_of_service", "service_date") or _first(
+        case.documents, "date_of_service", "service_date"
+    )
 
 
 def _finding_brief(f: Finding) -> FindingBrief:

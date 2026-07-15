@@ -61,6 +61,7 @@ import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { logoSvg, type ActiveCase } from '@tyndale/shared';
 import { activeCaseRoute } from '../../lib/active-cases';
 import { RecordSection } from '../../components/record/RecordSection';
+import { CaseRemoveButton, isCaseRemovable } from '../../components/record/CaseRemoveButton';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
 import { useBreakpoint } from '../../components/ui/use-breakpoint';
@@ -165,7 +166,7 @@ export default function DashboardScreen() {
         />
 
         {data?.record_enabled ? (
-          record ? <RecordSection record={record} /> : null
+          record ? <RecordSection record={record} onChanged={load} /> : null
         ) : (data?.active_cases ?? []).length > 0 ? (
           <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
@@ -366,64 +367,6 @@ function statusVisual(status: string): { Icon: typeof FileText; color: string; b
   }
 }
 
-// A case is user-removable unless it carries a real result (in-flight or complete audit); the
-// server is authoritative (409) and also blocks any case that produced findings.
-const NON_REMOVABLE_STATUSES = new Set(['audit_running', 'audit_complete', 'resolved']);
-
-function confirmRemoveCase(label: string): Promise<boolean> {
-  const msg = `Remove “${label}”? This clears it from your dashboard.`;
-  if (Platform.OS === 'web') {
-    return Promise.resolve(typeof window !== 'undefined' ? window.confirm(msg) : true);
-  }
-  return new Promise((resolve) => {
-    Alert.alert('Remove case', msg, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
-    ]);
-  });
-}
-
-function CaseRemoveButton({
-  caseId,
-  label,
-  onDone,
-}: {
-  caseId: string;
-  label: string;
-  onDone: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const onPress = async (e?: any) => {
-    e?.stopPropagation?.(); // don't also open the case (web bubbling; native captures the child)
-    if (busy) return;
-    if (!(await confirmRemoveCase(label))) return;
-    setBusy(true);
-    try {
-      await removeCase(caseId);
-      onDone();
-    } catch {
-      setBusy(false);
-      const m = "We couldn't remove that case — it may have results.";
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.alert(m);
-      else Alert.alert('Could not remove', m);
-    }
-  };
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel={`Remove ${label}`}
-      className="ml-1 rounded-full p-1.5 hover:bg-inset"
-    >
-      {busy ? (
-        <ActivityIndicator size="small" color="#ffffff99" />
-      ) : (
-        <X size={16} color="#ffffff70" />
-      )}
-    </Pressable>
-  );
-}
 
 function ActiveCasesSection({
   cases,
@@ -464,9 +407,9 @@ function ActiveCasesSection({
                 </Text>
               </View>
               <Text className="text-sm text-faint">›</Text>
-              {NON_REMOVABLE_STATUSES.has(c.status) ? null : (
+              {isCaseRemovable(c.status) ? (
                 <CaseRemoveButton caseId={c.case_file_id} label={c.label} onDone={onChanged} />
-              )}
+              ) : null}
             </PressableScale>
           );
         })}

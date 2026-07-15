@@ -10,6 +10,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { RecordPayload, SubCaseRow } from '@tyndale/shared';
 
+import { CaseRemoveButton, isCaseRemovable } from './CaseRemoveButton';
+
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
@@ -70,7 +72,17 @@ function Subtitle({ row }: { row: SubCaseRow }) {
   );
 }
 
-function RecordRow({ row, last, onPress }: { row: SubCaseRow; last: boolean; onPress: () => void }) {
+function RecordRow({
+  row,
+  last,
+  onPress,
+  onRemoved,
+}: {
+  row: SubCaseRow;
+  last: boolean;
+  onPress: () => void;
+  onRemoved?: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -79,17 +91,29 @@ function RecordRow({ row, last, onPress }: { row: SubCaseRow; last: boolean; onP
       }`}
     >
       <View className="flex-1">
+        {/* Title = provider (fallback chain), never the status — the status is the trailing chip. */}
         <Text className="text-body font-medium text-primary" numberOfLines={1}>
-          {row.label}
+          {row.provider || 'Bill review'}
         </Text>
         <Subtitle row={row} />
       </View>
-      <Chip status={row.status} />
+      <View className="flex-row items-center gap-1">
+        <Chip status={row.status} />
+        {onRemoved && isCaseRemovable(row.status) ? (
+          <CaseRemoveButton caseId={row.case_file_id} label={row.provider || 'Bill review'} onDone={onRemoved} />
+        ) : null}
+      </View>
     </Pressable>
   );
 }
 
-export function RecordSection({ record }: { record: RecordPayload }) {
+export function RecordSection({
+  record,
+  onChanged,
+}: {
+  record: RecordPayload;
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const go = (c: SubCaseRow) =>
     router.push(
@@ -112,6 +136,7 @@ export function RecordSection({ record }: { record: RecordPayload }) {
               row={c}
               last={i === record.sub_cases.length - 1}
               onPress={() => go(c)}
+              onRemoved={onChanged}
             />
           ))}
         </View>

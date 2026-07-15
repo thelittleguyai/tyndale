@@ -285,6 +285,14 @@ def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: 
     tn = row.get("three_number")
     if tn is not None and not any(float(v) for v in tn.values()):
         fails.append("record: three_number is all-zeros — a no-number case must be None, not {0,0,0}")
+    # The row TITLE is provider/date, never the status (the status is the trailing chip).
+    title = (row.get("provider") or "Bill review").strip().lower()
+    _STATUS_TITLES = {
+        "results ready", "needs documents", "verify your visit", "auditing",
+        "couldn't read", "not a bill", "in progress", "resolved",
+    }
+    if title in _STATUS_TITLES:
+        fails.append(f"record: row title {title!r} is a status string — expected provider/date")
     return fails
 
 
