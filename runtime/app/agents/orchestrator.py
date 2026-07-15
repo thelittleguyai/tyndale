@@ -67,6 +67,7 @@ async def _set_status(
     """Set the case status and, atomically, its audit_incomplete_reason. The reason is always
     written (default None), so any non-incomplete transition (audit_running, audit_complete, a
     re-audit) clears a stale reason — only an audit_incomplete transition carries one."""
+    user_id = None
     async with AsyncSessionLocal() as s:
         cf = (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
@@ -74,6 +75,7 @@ async def _set_status(
         if cf is not None:
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
+            user_id = cf.user_id
             await s.commit()
     # Chat-first event bridge (DL-91) — render the transition into the case thread. Flag-gated +
     # error-swallowing inside; a no-op when ENABLE_CHAT_FIRST_AUDIT is off. Lazy import (the bridge
@@ -81,6 +83,35 @@ async def _set_status(
     from app.agents import thread_bridge
 
     await thread_bridge.bridge_case_state(case_file_id)
+    # Internal analytics (P0): the audit-lifecycle funnel is server-known — emit it from this one
+    # chokepoint. Best-effort + lazy-imported; terminal transitions are idempotent per case so a
+    # reconciliation re-run can't double-count.
+    if user_id is not None:
+        await _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id)
+
+
+async def _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id) -> None:
+    from app.analytics.emit import emit, emit_idempotent
+
+    if status == "audit_running":
+        await emit("audit_started", user_id=user_id, case_file_id=UUID(case_file_id))
+        return
+    terminal = None
+    if status == "audit_complete":
+        terminal = "audit_completed"
+    elif status == "audit_incomplete":
+        terminal = "audit_system_error" if incomplete_reason == "system_error" else "audit_needs_documents"
+    if terminal is not None:
+        await emit_idempotent(
+            terminal, dedupe_key=f"{terminal}:{case_file_id}", user_id=user_id,
+            case_file_id=UUID(case_file_id),
+        )
+    if terminal == "audit_needs_documents":
+        # Close-the-loop (flagship): the request is issued now; upload emits _satisfied on return.
+        await emit_idempotent(
+            "document_request_issued", dedupe_key=f"document_request_issued:{case_file_id}",
+            user_id=user_id, case_file_id=UUID(case_file_id),
+        )
 
 
 def _ms(t0: float) -> int:

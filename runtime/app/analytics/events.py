@@ -95,13 +95,15 @@ REGISTRY: dict[str, EventSpec] = {
     "mapper_fallback": EventSpec({"kind": enum_prop("full", "partial")}),
     "audit_started": EventSpec(),
     "stage_completed": EventSpec({"stage": enum_prop(*_STAGES), "duration_ms": num_prop()}),
-    "audit_completed": EventSpec({"disclosure_tier": num_prop()}),
+    "audit_completed": EventSpec(),  # disclosure-tier mix is derived at aggregation, not carried here
     "audit_needs_documents": EventSpec(),
     "audit_system_error": EventSpec(),
     "reveal_viewed": EventSpec(),
     # §2 Engagement -----------------------------------------------------------
-    "document_request_issued": EventSpec({"doc_type": enum_prop(*_DOC_TYPES)}),
-    "document_request_satisfied": EventSpec({"doc_type": enum_prop(*_DOC_TYPES)}),
+    # Close-the-loop (flagship): case-level + idempotent per case, so the rate is
+    # distinct-cases-satisfied ÷ distinct-cases-issued (per-doc-type grain is a P1 enhancement).
+    "document_request_issued": EventSpec(),
+    "document_request_satisfied": EventSpec(),
     "nudge_sent": EventSpec({"stage": enum_prop(*_NUDGE_STAGES)}),
     "nudge_responded": EventSpec({"stage": enum_prop(*_NUDGE_STAGES)}),
     "reaudit_delta": EventSpec({"material": bool_prop()}),  # $25/5% materiality (reused constants)

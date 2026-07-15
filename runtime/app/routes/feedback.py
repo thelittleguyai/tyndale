@@ -80,6 +80,31 @@ async def post_feedback(
         queued = True
 
     await session.commit()
+
+    # Internal analytics (P0). outcome_reported is IDEMPOTENT per case — a double-tapped outcome
+    # button can never double-report (the win-rate denominator counts distinct cases, and the
+    # aggregation reads the authoritative latest outcome for the numerator). Thumbs mirror into
+    # finding_feedback. Best-effort; never affects the ack.
+    from app.analytics.emit import emit, emit_idempotent
+
+    case_uuid = UUID(event.case_file_id)
+    if event.feedback_type == "outcome_report":
+        outcome = payload.get("outcome") or {}
+        resolved = outcome.get("resolved")
+        if resolved in ("yes", "partial", "no"):
+            amount = outcome.get("amount_saved")
+            amount = float(amount) if isinstance(amount, (int, float)) and not isinstance(amount, bool) else 0.0
+            await emit_idempotent(
+                "outcome_reported", dedupe_key=f"outcome_reported:{case_uuid}",
+                user_id=user.user_id, case_file_id=case_uuid,
+                properties={"resolved": resolved, "amount_saved": amount},
+            )
+    elif event.feedback_type == "thumbs":
+        thumbs = payload.get("thumbs")
+        if thumbs in ("up", "down"):
+            await emit("finding_feedback", user_id=user.user_id, case_file_id=case_uuid,
+                       properties={"thumbs": thumbs})
+
     return FeedbackAck(
         event_id=event.event_id,
         feedback_event_id=str(row.id),

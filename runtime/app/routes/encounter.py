@@ -95,6 +95,16 @@ async def post_confirmations(
     if not body.confirmations:
         raise HTTPException(status_code=400, detail="confirmations must be non-empty")
     accepted = await submit_confirmations(case_file_id, body.confirmations)
+    # Internal analytics (P0): one verification_answered per line item, carrying the answer + its
+    # position — this feeds the per-question "Not sure" rate (§2). Best-effort.
+    from uuid import UUID as _UUID
+
+    from app.analytics.emit import emit
+
+    cf_uuid = _UUID(case_file_id)
+    for i, conf in enumerate(body.confirmations):
+        await emit("verification_answered", user_id=user.user_id, case_file_id=cf_uuid,
+                   properties={"answer": conf.response, "question_position": i + 1})
     # Kick the finalize audit asynchronously; the UI polls /status.
     background.add_task(finalize_audit, case_file_id)
     return accepted

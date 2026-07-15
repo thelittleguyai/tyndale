@@ -255,10 +255,31 @@ async def upload(
     cfid = str(case.case_file_id)
     await session.commit()
 
+    # Internal analytics (P0): the upload funnel is server-known. Best-effort, own sessions.
+    from app.analytics.emit import emit
+    from app.analytics.events import coerce_enum
+
+    cf_uuid = UUID(cfid)
+    await emit("upload_started", user_id=user.user_id, case_file_id=cf_uuid,
+               properties={"file_count": len(incoming)})
+    await emit("documents_accepted", user_id=user.user_id, case_file_id=cf_uuid,
+               properties={"doc_count": len(uploaded)})
+    for d in uploaded:
+        dt = coerce_enum("extraction_succeeded", "doc_type", d.document_type or "unclassified")
+        await emit("extraction_succeeded", user_id=user.user_id, case_file_id=cf_uuid,
+                   properties={"doc_type": dt})
+
     if reaudit:
         # All missing documents provided → re-run the audit (finalize_audit sets audit_running,
         # then a terminal status). The results screen the user returns to polls status.
         log.info("upload.needs_documents_satisfied_reaudit", case_file_id=cfid)
+        # Close-the-loop (flagship metric): the case's needs_documents request is satisfied.
+        # Idempotent per case so it pairs 1:1 with document_request_issued.
+        from app.analytics.emit import emit_idempotent
+
+        await emit_idempotent("document_request_satisfied",
+                              dedupe_key=f"document_request_satisfied:{cfid}",
+                              user_id=user.user_id, case_file_id=cf_uuid)
         background.add_task(finalize_audit, cfid)
 
     log.info(

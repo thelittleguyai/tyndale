@@ -12,6 +12,7 @@ through the PHI email guard — nudge copy names DOCUMENT TYPES, never amounts o
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -190,6 +191,14 @@ async def run_nudge_cron(sender: NudgeSender | None = None) -> dict:
         if ok:
             await _mark_sent(item.case_file_id, item.stage)
             sent += 1
+            # Internal analytics (P0): nudge_sent, keyed to the funnel stage. Best-effort.
+            from app.analytics.emit import emit
+
+            await emit(
+                "nudge_sent", user_id=uuid.UUID(item.user_id),
+                case_file_id=uuid.UUID(item.case_file_id),
+                properties={"stage": "first" if item.stage == "+3d" else "second"},
+            )
         else:
             skipped += 1
     return {"due": len(items), "sent": sent, "skipped": skipped}
