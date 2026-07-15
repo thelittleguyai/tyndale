@@ -55,6 +55,37 @@ def test_accepts_well_formed_event_and_normalizes():
     assert out == {"answer": "not_sure", "question_position": 2.0}
 
 
+def test_every_wired_call_site_payload_is_valid():
+    """The exact payloads the server-side call sites emit must pass validation — a wrong name or
+    property would otherwise be silently dropped. Keep in lockstep with the emit call sites."""
+    for name, props in [
+        ("audit_started", {}),
+        ("audit_completed", {}),
+        ("audit_needs_documents", {}),
+        ("audit_system_error", {}),
+        ("document_request_issued", {}),
+        ("document_request_satisfied", {}),
+        ("outcome_reported", {"resolved": "yes", "amount_saved": 400.0}),
+        ("finding_feedback", {"thumbs": "down"}),
+        ("upload_started", {"file_count": 1}),
+        ("documents_accepted", {"doc_count": 1}),
+        ("extraction_succeeded", {"doc_type": "eob"}),
+        ("verification_answered", {"answer": "not_sure", "question_position": 1}),
+        ("nudge_sent", {"stage": "first"}),
+        ("consent_opt_in", {}),
+        ("consent_withdrawn", {}),
+        ("deletion_requested", {}),
+        ("deletion_completed", {"hours_to_complete": 0.0}),
+        ("crisis_fire_count", {}),
+        ("refusal_event", {"category": "other"}),
+        ("mapper_suggested", {}),
+        ("mapper_fallback", {"kind": "partial"}),
+        ("mapper_fallback", {"kind": "full"}),
+        ("stage_completed", {"stage": "audit", "duration_ms": 1234.0}),
+    ]:
+        validate_event(name, props)  # raises EventValidationError if a call site drifts
+
+
 def test_registry_is_phi_free_by_construction():
     # No property type is a free string: the only string-valued type is ENUM with a closed set.
     for name, spec in REGISTRY.items():

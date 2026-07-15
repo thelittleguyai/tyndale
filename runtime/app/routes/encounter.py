@@ -120,6 +120,15 @@ async def get_status(
     return AuditStatusResponse(case_file_id=case_file_id, status=cf.status)
 
 
+async def _emit_analytics(name: str, user_id, case_file_id: str, props: dict | None = None) -> None:
+    """Best-effort internal-analytics emit for the verify-text path (mapper + §6 counters)."""
+    from uuid import UUID
+
+    from app.analytics.emit import emit
+
+    await emit(name, user_id=user_id, case_file_id=UUID(case_file_id), properties=props)
+
+
 @router.post("/audit/{case_file_id}/verify-text", response_model=VerifyTextResult)
 async def verify_text(
     case_file_id: str,
@@ -150,6 +159,7 @@ async def verify_text(
 
         await thread_bridge.post_user_utterance(case_file_id, body.utterance)
         cid = await thread_bridge.post_system_line(case_file_id, _CRISIS_DECLINE, tone="error")
+        await _emit_analytics("crisis_fire_count", user.user_id, case_file_id)
         return VerifyTextResult(result="crisis", conversation_id=cid)
 
     # 2. Injection screen (UserPromptSubmit).
@@ -161,6 +171,7 @@ async def verify_text(
     )
     if ups.block:
         cid = await thread_bridge.post_user_utterance(case_file_id, body.utterance)
+        await _emit_analytics("refusal_event", user.user_id, case_file_id, {"category": "other"})
         return VerifyTextResult(result="blocked", conversation_id=cid)
     utterance = ups.scrubbed_message
 
@@ -192,8 +203,13 @@ async def verify_text(
              for m in result.mappings],
             summary,
         )
+        await _emit_analytics("mapper_suggested", user.user_id, case_file_id)
         return VerifyTextResult(result="mapped", method=result.method, conversation_id=cid)
     await thread_bridge.post_verification_nudge(case_file_id, partial=result.partial)
+    await _emit_analytics(
+        "mapper_fallback", user.user_id, case_file_id,
+        {"kind": "partial" if result.partial else "full"},
+    )
     return VerifyTextResult(
         result="partial_fallback" if result.partial else "fallback",
         method=result.method, conversation_id=cid,

@@ -124,6 +124,10 @@ async def patch_me(
             log.info("consent.opt_out_dequeue", user_id=str(u.user_id))
 
         await session.commit()
+        # Internal analytics (P0, §6 compliance counter). Best-effort.
+        from app.analytics.emit import emit
+
+        await emit("consent_opt_in" if new else "consent_withdrawn", user_id=u.user_id)
 
     u = await _load_user(session, user.user_id)
     return _profile(u, user.first_name)
@@ -180,6 +184,12 @@ async def request_account_deletion(
         )
         await session.commit()
         log.info("account.self_delete", user_id=str(row.user_id))
+        # Internal analytics (P0, §6). Self-serve deletion completes synchronously (0h). The
+        # user row (UUID only) is retained, so these PHI-free counters are safe to write.
+        from app.analytics.emit import emit
+
+        await emit("deletion_requested", user_id=row.user_id)
+        await emit("deletion_completed", user_id=row.user_id, properties={"hours_to_complete": 0.0})
 
     resp = JSONResponse({"ok": True, "status": "deleted"})
     _clear_session_cookie(resp)  # sign out; the jwt_version bump also invalidates the token

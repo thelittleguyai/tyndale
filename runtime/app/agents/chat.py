@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import uuid
 from typing import AsyncIterator
 
 import structlog
@@ -528,6 +529,23 @@ async def _decline_stream(text: str) -> AsyncIterator[dict]:
     }
 
 
+async def _emit_safe(name: str, user_id, case_id, props: dict | None = None) -> None:
+    """Best-effort internal-analytics emit from the chat path (P0). Coerces ids (a malformed one
+    just skips the event) and defers to emit's own error-swallowing — analytics must never break a
+    chat turn."""
+    try:
+        uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return
+    try:
+        cid = None if not case_id else (case_id if isinstance(case_id, uuid.UUID) else uuid.UUID(str(case_id)))
+    except (ValueError, TypeError):
+        cid = None
+    from app.analytics.emit import emit
+
+    await emit(name, user_id=uid, case_file_id=cid, properties=props)
+
+
 async def stream_chat_turn(
     *,
     mode: str,
@@ -551,6 +569,9 @@ async def stream_chat_turn(
         await crisis_classifier_async(CrisisClassifierInput(raw_message=user_message))
     ).crisis_detected:
         log.info("chat.crisis_decline", mode=mode)
+        # Internal analytics (P0, §6): count-only, no content. Best-effort; ids are coerced safely
+        # (a malformed id just skips the event — analytics must never break the chat path).
+        await _emit_safe("crisis_fire_count", user_id, case_id)
         async for ev in _decline_stream(_CRISIS_DECLINE):
             yield ev
         return
@@ -566,6 +587,7 @@ async def stream_chat_turn(
     )
     if ups.block:
         log.info("chat.prompt_blocked", mode=mode, signals=ups.injection_signals)
+        await _emit_safe("refusal_event", user_id, case_id, {"category": "other"})
         async for ev in _decline_stream(_BLOCKED_NOTICE):
             yield ev
         return

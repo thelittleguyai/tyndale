@@ -257,6 +257,15 @@ async def _finalize_result(
         case_file_id=case_file_id, duration_s=duration, terminal=terminal,
         reason=reason, regens=budget.regens_used, **stage_ms,
     )
+    # Internal analytics (P0, §5 ops): the audit flow-stage latency. Best-effort; one load for uid.
+    from app.analytics.emit import emit
+
+    _cf = await _load_case(case_file_id)
+    if _cf is not None:
+        await emit(
+            "stage_completed", user_id=_cf.user_id, case_file_id=UUID(case_file_id),
+            properties={"stage": "audit", "duration_ms": duration * 1000.0},
+        )
     return result
 
 
