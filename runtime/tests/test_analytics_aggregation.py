@@ -11,7 +11,7 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
 from app.analytics.definitions import DEFINITIONS, MetricDef
@@ -73,6 +73,10 @@ async def test_analytics_daily_rejects_blank_definition(client: AsyncClient):
 async def test_win_rate_and_pairing_on_a_fixture_day(client: AsyncClient):
     uid = await _a_user_id()
     async with AsyncSessionLocal() as s:
+        # Isolate the fixture day from any prior run on the persisted local DB (CI is fresh).
+        await s.execute(delete(AnalyticsEvent).where(AnalyticsEvent.occurred_at == _NOON))
+        await s.execute(delete(AnalyticsDaily).where(AnalyticsDaily.day == _DAY))
+        await s.commit()
         # 3 outcomes reported that day: 2 resolved (yes, partial), 1 no.
         await _seed(s, "outcome_reported", 2, uid, {"resolved": "yes", "amount_saved": 100.0})
         await _seed(s, "outcome_reported", 1, uid, {"resolved": "no", "amount_saved": 0.0})

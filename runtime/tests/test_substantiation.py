@@ -8,6 +8,7 @@ import datetime
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import delete
 
 from app.analytics.definitions import DEFINITIONS
 from app.analytics.substantiation import CLAIMS, Claim, evaluate_claim, gate, to_markdown
@@ -32,6 +33,12 @@ def test_win_rate_claim_carries_the_hard_qualifier():
 
 async def _seed(numerator: float, denominator: float) -> None:
     async with AsyncSessionLocal() as s:
+        # Idempotent across re-runs on the persisted local DB (CI is fresh): clear the fixture row.
+        await s.execute(
+            delete(AnalyticsDaily)
+            .where(AnalyticsDaily.metric_key == "close_the_loop_rate")
+            .where(AnalyticsDaily.day == _DAY)
+        )
         s.add(AnalyticsDaily(
             metric_key="close_the_loop_rate", day=_DAY, numerator=numerator,
             denominator=denominator, value=numerator / denominator,
