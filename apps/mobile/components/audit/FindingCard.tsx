@@ -105,7 +105,7 @@ export function FindingCard({
 
       {recLines && (recLines.main || recLines.rest.length > 0) ? (
         <View className="mb-3 rounded-xl bg-accent-tint p-3">
-          <Text className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">
+          <Text className="mb-1 text-[10px] font-semibold text-accent">
             What to do
           </Text>
           {recLines.main ? (

@@ -47,7 +47,7 @@ export default function CompleteStep() {
     >
       {summary?.captured?.length ? (
         <View className="rounded-2xl border border-hairline bg-surface p-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
+          <Text className="mb-2 text-xs font-semibold text-accent">
             Here's what I have
           </Text>
           {summary.captured.map((c, i) => (
@@ -61,7 +61,7 @@ export default function CompleteStep() {
 
       {summary?.missing_items?.length ? (
         <View className="mt-3 rounded-2xl border border-hairline bg-surface p-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-warning">
+          <Text className="mb-2 text-xs font-semibold text-warning">
             When you have these, they'll unlock more
           </Text>
           {summary.missing_items.map((m, i) => (

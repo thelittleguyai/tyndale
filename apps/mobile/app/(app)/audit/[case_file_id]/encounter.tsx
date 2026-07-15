@@ -118,7 +118,7 @@ export default function EncounterVerificationScreen() {
 
         {extract.documents?.length ? (
           <View className="mb-5 rounded-2xl border border-hairline bg-surface p-4">
-            <Text className="mb-2 text-xs uppercase tracking-widest text-faint">
+            <Text className="mb-2 text-xs text-faint">
               What we received
             </Text>
             {extract.documents.map((d, i) => {
@@ -169,7 +169,7 @@ export default function EncounterVerificationScreen() {
       </View>
 
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="text-xs uppercase tracking-widest text-faint">
+        <Text className="text-xs text-faint">
           {confirmedCount} of {lineItems.length} confirmed
         </Text>
         <View className="h-1.5 w-32 overflow-hidden rounded-full bg-inset">
@@ -245,7 +245,7 @@ export function LineItemCard({
       className={`mb-3 rounded-2xl border bg-surface p-4 ${suggested ? 'border-dashed border-accent' : 'border-hairline'}`}
     >
       {suggested ? (
-        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
+        <Text className="mb-2 text-xs font-semibold text-accent">
           Suggested — tap to confirm
         </Text>
       ) : null}
@@ -267,7 +267,7 @@ export function LineItemCard({
 
       {item.example_scenarios?.length ? (
         <View className="mt-3 rounded-xl bg-accent-tint p-3">
-          <Text className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
+          <Text className="mb-1.5 text-xs font-semibold text-accent">
             For this kind of visit, you'd typically have:
           </Text>
           {item.example_scenarios.map((s, i) => (

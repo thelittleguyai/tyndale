@@ -260,7 +260,7 @@ export default function SettingsScreen() {
         <Row label="Member ID" value={insurance?.member_id ?? '—'} />
         <Row label="Plan" value={insurance?.plan_name ?? '—'} />
         <Row label="Coverage type" value={coverageType ?? 'Not set'} />
-        <Text className="mb-2 mt-3 text-xs uppercase tracking-widest text-faint">Card photos</Text>
+        <Text className="mb-2 mt-3 text-xs text-faint">Card photos</Text>
         <View className="flex-row gap-3">
           <View className="flex-1">
             <CardThumb side="front" present={!!insurance?.has_front} />
@@ -392,7 +392,7 @@ export default function SettingsScreen() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mb-4 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
-      <Text className="mb-3 text-xs uppercase tracking-widest text-faint">{title}</Text>
+      <Text className="mb-3 text-xs text-faint">{title}</Text>
       {children}
     </View>
   );

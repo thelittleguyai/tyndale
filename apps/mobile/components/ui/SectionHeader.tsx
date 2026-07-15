@@ -1,6 +1,6 @@
 /**
  * SectionHeader — a sentence-case caption in secondary text (redesign §2). Replaces the app's
- * ALL-CAPS low-contrast micro-labels; never uppercase.
+ * ALL-CAPS low-contrast micro-labels; never.
  */
 import { Text } from 'react-native';
 

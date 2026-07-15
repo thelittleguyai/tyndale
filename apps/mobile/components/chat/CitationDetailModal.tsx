@@ -10,7 +10,7 @@ import type { ChatCitation } from '@tyndale/shared';
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <View className="mb-3">
-      <Text className="mb-0.5 text-[11px] uppercase tracking-wide text-faint">{label}</Text>
+      <Text className="mb-0.5 text-[11px] text-faint">{label}</Text>
       <Text className="text-sm text-primary">{value}</Text>
     </View>
   );

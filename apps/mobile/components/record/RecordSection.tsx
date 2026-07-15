@@ -37,7 +37,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
     <View className="flex-1">
       <Text className="text-xs text-secondary">{label}</Text>
       <Text className="mt-0.5 text-xl font-bold text-primary">{value}</Text>
-      {hint ? <Text className="text-[10px] uppercase tracking-wide text-faint">{hint}</Text> : null}
+      {hint ? <Text className="text-[10px] text-faint">{hint}</Text> : null}
     </View>
   );
 }
@@ -87,7 +87,7 @@ export function RecordSection({ record }: { record: RecordPayload }) {
   const a = record.aggregates;
   return (
     <View>
-      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
+      <Text className="mb-3 mt-6 text-xs text-faint">
         Your Tyndale Record
       </Text>
       <View className="mb-4 rounded-2xl bg-surface-raised p-5">

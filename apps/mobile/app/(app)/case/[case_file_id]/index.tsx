@@ -92,7 +92,7 @@ export default function CaseSummaryScreen() {
         {/* The three-number moment card, re-hosted — or the honest needs-documents state */}
         {tn ? (
           <View className="mb-5 rounded-2xl border border-hairline bg-surface p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">
+            <Text className="mb-3 text-xs text-faint">
               Your three numbers
             </Text>
             <Row label="What you were billed" value={money(tn.provider_billed)} dim />
@@ -121,7 +121,7 @@ export default function CaseSummaryScreen() {
         {/* Open items — needs-documents have/need checklist */}
         {summary.open_items.length ? (
           <View className="mb-5 rounded-2xl border border-accent bg-accent-tint p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-accent">
+            <Text className="mb-3 text-xs text-accent">
               {openNeeded === 0 ? 'All documents received' : 'To finish, we need'}
             </Text>
             {summary.open_items.map((d, i) => (
@@ -158,7 +158,7 @@ export default function CaseSummaryScreen() {
         {/* Findings */}
         {summary.findings.length ? (
           <View className="mb-5">
-            <Text className="mb-3 mt-2 text-xs uppercase tracking-wider text-faint">
+            <Text className="mb-3 mt-2 text-xs text-faint">
               What we found
             </Text>
             {summary.findings.map((f) => (
@@ -271,7 +271,7 @@ function Tally({
       <Text className={`mt-0.5 text-xl font-bold ${tone === 'sage' ? 'text-accent' : 'text-primary'}`}>
         {value}
       </Text>
-      <Text className="text-[10px] uppercase tracking-wide text-faint">{hint}</Text>
+      <Text className="text-[10px] text-faint">{hint}</Text>
     </View>
   );
 }

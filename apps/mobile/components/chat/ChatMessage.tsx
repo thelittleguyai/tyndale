@@ -30,7 +30,7 @@ function TierBlock({
   if (chunk.tier === 'C') {
     return (
       <View className="mt-2">
-        <Text className="mb-1 text-[10px] uppercase tracking-wide text-faint">Recommendation</Text>
+        <Text className="mb-1 text-[10px] text-faint">Recommendation</Text>
         <Text className="text-sm italic leading-6 text-secondary">{chunk.text}</Text>
       </View>
     );

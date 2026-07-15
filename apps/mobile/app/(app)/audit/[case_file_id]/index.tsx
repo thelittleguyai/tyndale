@@ -235,7 +235,7 @@ export default function AuditResultScreen() {
 
         <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
           {foundSavings ? (
-            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">
+            <Text className="mb-3 text-xs text-faint">
               How we got there
             </Text>
           ) : null}
@@ -257,7 +257,7 @@ export default function AuditResultScreen() {
 
         {result.summary ? (
           <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
-            <Text className="mb-2 text-xs uppercase tracking-wider text-faint">Summary</Text>
+            <Text className="mb-2 text-xs text-faint">Summary</Text>
             <Text className="text-base leading-6 text-primary">{result.summary}</Text>
             <View className="mt-4 flex-row items-center justify-between border-t border-hairline pt-3">
               <Text className="text-xs text-faint">Was this helpful?</Text>
@@ -273,7 +273,7 @@ export default function AuditResultScreen() {
 
         {hasFindings ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">
+            <Text className="mb-2 mt-2 text-xs text-faint">
               What we found
             </Text>
             <Text className="mb-3 text-sm leading-5 text-secondary">
@@ -330,7 +330,7 @@ function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
 
   return (
     <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
-      <Text className="mb-1 text-xs uppercase tracking-wider text-faint">
+      <Text className="mb-1 text-xs text-faint">
         Before we finish
       </Text>
       <Text className="mb-4 text-base leading-6 text-primary">{summary.question}</Text>
@@ -406,7 +406,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
 
         {docs.length ? (
           <View className="mb-6 rounded-2xl border border-accent bg-accent-tint p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-accent">
+            <Text className="mb-3 text-xs text-accent">
               {remaining === 0 ? 'All set — re-checking your audit' : 'To finish your audit, we need'}
             </Text>
             {docs.map((d, i) => (
@@ -442,7 +442,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
 
         {result.findings.length ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">
+            <Text className="mb-2 mt-2 text-xs text-faint">
               What we&rsquo;ve found so far
             </Text>
             <Text className="mb-3 text-sm leading-5 text-secondary">
@@ -487,7 +487,7 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
 
         {a ? (
           <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
-            <Text className="mb-3 text-xs uppercase tracking-wider text-faint">What we computed</Text>
+            <Text className="mb-3 text-xs text-faint">What we computed</Text>
             <ThreeNumberRow label="What you were billed" value={a.provider_billed} dim />
             <ThreeNumberRow label="What your insurer says you owe" value={a.eob_member_responsibility} />
             <ThreeNumberRow label="What you should owe" value={a.tyndale_computed} highlight last />
@@ -496,7 +496,7 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
 
         {result.findings.length ? (
           <>
-            <Text className="mb-2 mt-2 text-xs uppercase tracking-wider text-faint">What we found</Text>
+            <Text className="mb-2 mt-2 text-xs text-faint">What we found</Text>
             {result.findings.map((f) => (
               <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
             ))}

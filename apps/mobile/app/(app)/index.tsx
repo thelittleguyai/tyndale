@@ -175,7 +175,7 @@ export default function DashboardScreen() {
           <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
 
-        <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
+        <Text className="mb-3 mt-6 text-xs text-faint">
           Quick Actions
         </Text>
         <View className="flex-row flex-wrap gap-3">
@@ -440,7 +440,7 @@ function ActiveCasesSection({
   const router = useRouter();
   return (
     <View>
-      <Text className="mb-3 mt-6 text-xs uppercase tracking-widest text-faint">
+      <Text className="mb-3 mt-6 text-xs text-faint">
         Open Cases
       </Text>
       <View className="gap-3">

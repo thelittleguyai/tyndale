@@ -26,7 +26,7 @@ function CallBeats({ step }: { step: GameplanStep }) {
       <Beat label="Get it in writing" body={s.get_it_in_writing} />
       {s.if_they_push_back.length ? (
         <View>
-          <Text className="mb-1 text-xs uppercase tracking-wider text-warning">If they push back</Text>
+          <Text className="mb-1 text-xs text-warning">If they push back</Text>
           {s.if_they_push_back.map((line, i) => (
             <Text key={i} className="text-sm leading-6 text-secondary">
               {line}
@@ -41,7 +41,7 @@ function CallBeats({ step }: { step: GameplanStep }) {
 function Beat({ label, body, accent }: { label: string; body: string; accent?: boolean }) {
   return (
     <View>
-      <Text className="mb-1 text-xs uppercase tracking-wider text-faint">{label}</Text>
+      <Text className="mb-1 text-xs text-faint">{label}</Text>
       <Text className={`text-sm leading-6 ${accent ? 'font-semibold text-accent' : 'text-primary'}`}>
         {body}
       </Text>
@@ -92,7 +92,7 @@ export function Gameplan({
   if (steps.length === 0) return null;
   return (
     <View className="mb-6">
-      <Text className="mb-1 mt-2 text-xs uppercase tracking-wider text-faint">Your game plan</Text>
+      <Text className="mb-1 mt-2 text-xs text-faint">Your game plan</Text>
       <Text className="mb-3 text-sm leading-5 text-secondary">
         Work the list top to bottom — the biggest-dollar call is first. Tap any step for exactly
         what to say.
@@ -152,7 +152,7 @@ export function CallMode({
   return (
     <View className="absolute inset-0 z-50 bg-page" testID="call-mode">
       <View className="flex-row items-center justify-between px-5 pb-3 pt-14">
-        <Text className="text-xs uppercase tracking-widest text-faint">
+        <Text className="text-xs text-faint">
           {step ? `Call ${step.index} of ${steps.length}` : onOutro ? 'After the call' : 'Get ready'}
         </Text>
         <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="call-mode-close">

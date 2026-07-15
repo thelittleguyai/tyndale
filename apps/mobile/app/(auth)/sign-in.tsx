@@ -78,7 +78,7 @@ export default function SignInScreen() {
           <Text className="text-base font-semibold text-on-accent">Continue with Google</Text>
         </PressableScale>
 
-        <Text className="my-5 text-xs uppercase tracking-widest text-faint">
+        <Text className="my-5 text-xs text-faint">
           or sign in with email
         </Text>
 
