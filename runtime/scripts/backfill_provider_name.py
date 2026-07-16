@@ -13,12 +13,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import datetime
+import pathlib
+import sys
 
-from sqlalchemy import select
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))  # runtime/ on the path
 
-from app.db.base import AsyncSessionLocal
-from app.db.models.case_files import CaseFile
-from app.sources.extraction import _grep_date, grep_provider_name
+from sqlalchemy import select  # noqa: E402
+
+from app.db.base import AsyncSessionLocal  # noqa: E402
+from app.db.models.case_files import CaseFile  # noqa: E402
+from app.sources.extraction import _grep_date, grep_provider_name  # noqa: E402
 
 _DOS_ANCHORS = ("DATE OF SERVICE", "SERVICE DATE", "DOS")
 
