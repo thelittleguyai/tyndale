@@ -22,6 +22,9 @@ class SubCaseRow(BaseModel):
     service_date: str | None = None  # best-effort; null until a structured visit date is extracted
     provider: str | None = None
     status: str
+    # Single displayed-state (results | needs_documents | unreadable | not_a_bill | auditing |
+    # verifying | in_progress) — drives BOTH the chip and the second line so they always agree.
+    state: str = "in_progress"
     label: str
     resume: str  # 'summary' (results-bearing) | 'thread' (in-flight)
     three_number: ThreeNumberBrief | None = None  # null → the row shows needs-documents, not {0,0,0}

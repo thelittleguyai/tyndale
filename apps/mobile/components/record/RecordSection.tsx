@@ -27,20 +27,19 @@ function shortDate(iso: string | null): string | null {
   return month ? `${month} ${parseInt(m[3], 10)}` : null;
 }
 
-const STATUS_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
-  audit_complete: { label: 'Results ready', bg: 'bg-accent-tint', fg: 'text-accent' },
-  resolved: { label: 'Resolved', bg: 'bg-accent-tint', fg: 'text-accent' },
-  audit_running: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
-  encounter_verified: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
-  audit_incomplete: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
-  awaiting_eob_confirmation: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
-  extraction_failed: { label: "Couldn't read", bg: 'bg-danger-tint', fg: 'text-danger-on-tint' },
+// Chip + second line both key on row.state (one server-side source), so they always agree.
+const STATE_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
+  results: { label: 'Results ready', bg: 'bg-accent-tint', fg: 'text-accent' },
+  needs_documents: { label: 'Needs documents', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  unreadable: { label: "Couldn't read", bg: 'bg-danger-tint', fg: 'text-danger-on-tint' },
   not_a_bill: { label: 'Not a bill', bg: 'bg-danger-tint', fg: 'text-danger-on-tint' },
-  encounter_verification_pending: { label: 'Verify visit', bg: 'bg-inset', fg: 'text-secondary' },
+  auditing: { label: 'Auditing', bg: 'bg-warning-tint', fg: 'text-warning-on-tint' },
+  verifying: { label: 'Verify visit', bg: 'bg-inset', fg: 'text-secondary' },
+  in_progress: { label: 'In progress', bg: 'bg-inset', fg: 'text-secondary' },
 };
 
-function Chip({ status }: { status: string }) {
-  const c = STATUS_CHIP[status] ?? { label: status, bg: 'bg-inset', fg: 'text-secondary' };
+function Chip({ state }: { state: string }) {
+  const c = STATE_CHIP[state] ?? STATE_CHIP.in_progress;
   return (
     <View className={`self-start rounded-full px-2.5 py-1 ${c.bg}`}>
       <Text className={`text-caption font-medium ${c.fg}`}>{c.label}</Text>
@@ -48,9 +47,17 @@ function Chip({ status }: { status: string }) {
   );
 }
 
+const STATE_LINE: Record<string, string> = {
+  unreadable: "Couldn't read — re-upload a clearer copy",
+  not_a_bill: 'Not a medical bill',
+  auditing: 'Checking your charges',
+  verifying: 'Confirm what happened at your visit',
+  in_progress: 'In progress',
+};
+
 function Subtitle({ row }: { row: SubCaseRow }) {
   const date = shortDate(row.service_date);
-  if (row.three_number) {
+  if (row.state === 'results' && row.three_number) {
     return (
       <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
         {date ? `${date} visit · ` : ''}you should owe{' '}
@@ -59,15 +66,23 @@ function Subtitle({ row }: { row: SubCaseRow }) {
       </Text>
     );
   }
-  const parts: string[] = [];
-  if (date) parts.push(`${date} visit`);
-  if (row.open_item_count > 0) {
-    parts.push(`${row.open_item_count} document${row.open_item_count === 1 ? '' : 's'} needed`);
+  if (row.state === 'needs_documents') {
+    const parts: string[] = [];
+    if (date) parts.push(`${date} visit`);
+    if (row.open_item_count > 0) {
+      parts.push(`${row.open_item_count} document${row.open_item_count === 1 ? '' : 's'} needed`);
+    }
+    if (row.next_deadline?.due_date) parts.push(`${row.next_deadline.label} closes ${row.next_deadline.due_date}`);
+    return (
+      <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
+        {parts.join(' · ') || 'Documents needed'}
+      </Text>
+    );
   }
-  if (row.next_deadline?.due_date) parts.push(`${row.next_deadline.label} closes ${row.next_deadline.due_date}`);
+  const line = STATE_LINE[row.state] ?? 'In progress';
   return (
     <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
-      {parts.join(' · ') || 'In progress'}
+      {date ? `${date} visit · ${line}` : line}
     </Text>
   );
 }
@@ -98,7 +113,7 @@ function RecordRow({
         <Subtitle row={row} />
       </View>
       <View className="flex-row items-center gap-1">
-        <Chip status={row.status} />
+        <Chip state={row.state} />
         {onRemoved && isCaseRemovable(row.status) ? (
           <CaseRemoveButton caseId={row.case_file_id} label={row.provider || 'Bill review'} onDone={onRemoved} />
         ) : null}

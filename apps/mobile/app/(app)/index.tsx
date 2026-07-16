@@ -165,12 +165,6 @@ export default function DashboardScreen() {
           loading={loading && !data}
         />
 
-        {data?.record_enabled ? (
-          record ? <RecordSection record={record} onChanged={load} /> : null
-        ) : (data?.active_cases ?? []).length > 0 ? (
-          <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
-        ) : null}
-
         <Text className="mb-3 mt-6 text-xs text-faint">
           Quick Actions
         </Text>
@@ -204,11 +198,18 @@ export default function DashboardScreen() {
           />
         </View>
 
+        <ChatCTA onPress={openChat} />
+
+        {/* Your record — below Quick Actions + chat banner per the 2026-07-15 review. */}
+        {data?.record_enabled ? (
+          record ? <RecordSection record={record} onChanged={load} /> : null
+        ) : (data?.active_cases ?? []).length > 0 ? (
+          <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
+        ) : null}
+
         {(data?.outcome_prompts ?? []).length > 0 ? (
           <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
         ) : null}
-
-        <ChatCTA onPress={openChat} />
 
         {error ? (
           <Text className="mt-4 text-xs text-danger">Dashboard fetch error: {error}</Text>

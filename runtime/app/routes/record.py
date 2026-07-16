@@ -62,6 +62,27 @@ def _label_and_resume(status: str) -> tuple[str, str]:
     return label, ("summary" if status in _RESULTS_BEARING else "thread")
 
 
+# ONE source of truth for a row's displayed state: BOTH the chip and the second line derive from
+# it, so they can never disagree (a computed three-number line under a "Verify visit" chip was the
+# bug). The three-number line shows ONLY in the 'results' state.
+_STATE_BY_STATUS: dict[str, str] = {
+    "audit_complete": "results",
+    "resolved": "results",
+    "audit_incomplete": "needs_documents",
+    "awaiting_eob_confirmation": "needs_documents",
+    "extraction_failed": "unreadable",
+    "not_a_bill": "not_a_bill",
+    "audit_running": "auditing",
+    "encounter_verified": "auditing",
+    "encounter_verification_pending": "verifying",
+    "archived": "results",
+}
+
+
+def _row_state(status: str) -> str:
+    return _STATE_BY_STATUS.get(status, "in_progress")
+
+
 @router.get("/record", response_model=RecordPayload)
 async def get_record(
     window_months: int = Query(default=12, ge=1, le=60),
@@ -122,6 +143,7 @@ async def get_record(
         oic = open_item_count(fs)
         rec = recovered.get(cid, 0.0)
         label, resume = _label_and_resume(c.status)
+        state = _row_state(c.status)
         nci = next_check_in_date(c, fs)
         rows.append(
             SubCaseRow(
@@ -129,9 +151,12 @@ async def get_record(
                 provider=_row_provider(c),
                 service_date=_row_service_date(c),
                 status=c.status,
+                state=state,
                 label=label,
                 resume=resume,
-                three_number=ThreeNumberBrief(**tn) if tn else None,
+                # Gate the three-number line to the results state so it never appears under a
+                # non-results chip (the chip + line derive from the same _row_state).
+                three_number=ThreeNumberBrief(**tn) if (tn and state == "results") else None,
                 open_item_count=oic,
                 next_deadline=DeadlineInfo(**deadline_by_case[cid]) if cid in deadline_by_case else None,
                 recovered_so_far=rec,
@@ -176,11 +201,34 @@ def _first(values, *keys) -> str | None:
     return None
 
 
+# Proper-cased document-type labels for the fallback title — acronyms stay uppercase (EOB not
+# "Eob"), never a raw-enum capitalize(). Unknown types get a sentence-cased humanization.
+_DOC_TYPE_LABELS: dict[str, str] = {
+    "eob": "EOB",
+    "msn": "MSN",
+    "ma_eob": "MA EOB",
+    "gfe": "GFE",
+    "sbc": "SBC",
+    "itemized_bill": "Itemized bill",
+    "bill": "Bill",
+    "insurance_card": "Insurance card",
+    "denial_letter": "Denial letter",
+    "collections_notice": "Collections notice",
+    "mco_notice": "Medicaid notice",
+}
+
+
+def _doc_type_label(dt: str) -> str:
+    return _DOC_TYPE_LABELS.get(dt, dt.replace("_", " ").capitalize())
+
+
 def _row_provider(case) -> str | None:
     """The Record row TITLE — the provider, not the status (the status is the trailing chip).
-    Fallback chain: extracted provider name → the primary document's classified type as a
-    '<type> visit' → None (the client renders a neutral 'Bill review'). Older cases with no
-    extracted provider name land on the doc-type or neutral rung."""
+    Fallback chain: the TYPED provider_name (persisted at extraction) → any provider name in the
+    structured EOB/document artifacts → the primary document's classified type as a '<type> visit'
+    (properly cased) → None (the client renders a neutral 'Bill review')."""
+    if getattr(case, "provider_name", None):
+        return case.provider_name
     name = _first(case.eobs, "provider", "provider_name") or _first(
         case.documents, "provider", "provider_name"
     )
@@ -190,12 +238,16 @@ def _row_provider(case) -> str | None:
         if isinstance(d, dict):
             dt = d.get("document_type")
             if isinstance(dt, str) and dt and dt != "unclassified":
-                return f"{dt.replace('_', ' ').capitalize()} visit"
+                return f"{_doc_type_label(dt)} visit"
     return None
 
 
 def _row_service_date(case) -> str | None:
-    """Date of service (from the EOB/extraction), NOT the upload date. None when not extracted."""
+    """Date of service — the TYPED date_of_service if persisted, else the structured EOB/document
+    field. NOT the upload date. None when not extracted."""
+    typed = getattr(case, "date_of_service", None)
+    if typed is not None:
+        return typed.isoformat() if hasattr(typed, "isoformat") else str(typed)
     return _first(case.eobs, "date_of_service", "service_date") or _first(
         case.documents, "date_of_service", "service_date"
     )

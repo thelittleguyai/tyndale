@@ -150,6 +150,51 @@ def test_row_provider_fallback_chain():
         assert (_row_provider(c) or "Bill review") not in banned
 
 
+def test_doc_type_label_casing_no_raw_enum():
+    """Acronyms keep proper casing (EOB, not 'Eob'); no raw snake_case reaches a title."""
+    from app.routes.record import _doc_type_label, _row_provider
+
+    assert _doc_type_label("eob") == "EOB"
+    assert _doc_type_label("ma_eob") == "MA EOB"
+    assert _doc_type_label("gfe") == "GFE"
+    assert _doc_type_label("msn") == "MSN"
+    assert _row_provider(_C(documents=[{"document_type": "eob"}])) == "EOB visit"  # not "Eob visit"
+    for dt in ("eob", "ma_eob", "gfe", "msn", "itemized_bill", "collections_notice", "sbc"):
+        title = _row_provider(_C(documents=[{"document_type": dt}]))
+        assert title and "_" not in title  # never raw snake_case reaches a title
+
+
+class _C:
+    def __init__(self, eobs=None, documents=None):
+        self.eobs = eobs or []
+        self.documents = documents or []
+
+
+def test_row_state_is_a_pure_function_of_status():
+    from app.routes.record import _row_state
+
+    assert _row_state("audit_complete") == "results"
+    assert _row_state("resolved") == "results"
+    assert _row_state("audit_incomplete") == "needs_documents"
+    assert _row_state("encounter_verification_pending") == "verifying"
+    assert _row_state("audit_running") == "auditing"
+    assert _row_state("open") == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_three_number_line_only_in_results_state(client: AsyncClient, record_on):
+    """The bug: a computed three-number line under a 'Verify visit' chip. The three_number is now
+    gated to the results state, so the chip (state) and the line (three_number) always agree."""
+    a = await _fresh_case(client)
+    # A finding with all three numbers, but the case is still mid-flow (pre-results).
+    await _finding(a, provider_billed=1200, eob_member_responsibility=800, tyndale_computed=300, gap=500)
+    await _set(a, status="encounter_verification_pending")
+    r = await client.get("/v1/record")
+    row = next(x for x in r.json()["sub_cases"] if x["case_file_id"] == a)
+    assert row["state"] == "verifying"
+    assert row["three_number"] is None  # gated: no results line under a non-results chip
+
+
 @pytest.mark.asyncio
 async def test_record_row_no_three_number_is_none(client: AsyncClient, record_on):
     a = await _fresh_case(client)

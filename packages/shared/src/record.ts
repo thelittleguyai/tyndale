@@ -17,6 +17,15 @@ export interface SubCaseRow {
   service_date: string | null;
   provider: string | null;
   status: string;
+  /** Single displayed-state — drives BOTH the chip and the second line so they always agree. */
+  state:
+    | 'results'
+    | 'needs_documents'
+    | 'unreadable'
+    | 'not_a_bill'
+    | 'auditing'
+    | 'verifying'
+    | 'in_progress';
   label: string;
   resume: 'summary' | 'thread';
   three_number: ThreeNumberBrief | null; // null → the row shows needs-documents, not {0,0,0}
