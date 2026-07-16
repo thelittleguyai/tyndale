@@ -9,7 +9,17 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, Integer, Text, func, text
+from sqlalchemy import (
+    TIMESTAMP,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -132,3 +142,8 @@ class CaseFile(Base):
         TIMESTAMP(timezone=True), nullable=True
     )
     soft_deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Typed provider + date-of-service (2026-07-15) — extracted at parse time (DL-39: a typed
+    # field, not parsed-back-out-of finding prose) and read by the Record row. NULL when no
+    # structured source; the row falls back to a doc-type / neutral title.
+    provider_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_of_service: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)

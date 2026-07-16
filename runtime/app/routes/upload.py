@@ -18,6 +18,7 @@ middleware).
 from __future__ import annotations
 
 import base64
+import datetime
 import uuid
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,11 @@ from app.db.models.case_files import CaseFile
 from app.db.session import get_session
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
 from app.sources.document_classifier import classify_document
-from app.sources.extraction import run_document_ocr  # OCR engine (CO-12A: moved out of ocr_tools)
+from app.sources.extraction import (  # OCR engine (CO-12A: moved out of ocr_tools)
+    _grep_date,
+    grep_provider_name,
+    run_document_ocr,
+)
 
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
@@ -169,7 +174,8 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
     ocr = await run_document_ocr(
         {"content_base64": base64.b64encode(content).decode(), "filename": filename}
     )
-    document_type, confidence = _classify(ocr.get("ocr_text") or "", filename)
+    full_text = ocr.get("ocr_text") or ""
+    document_type, confidence = _classify(full_text, filename)
     document_id = str(uuid.uuid4())
     entry: dict[str, Any] = {
         "document_id": document_id,
@@ -177,6 +183,10 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         "uri": uri,
         "document_type": document_type,
         "classification_confidence": confidence,
+        # Typed extraction at parse time (DL-39) — the Record row title/date read these, never
+        # parsed-back-out-of prose. Conservative; None when no structured anchor is present.
+        "provider_name": grep_provider_name(full_text),
+        "date_of_service": _grep_date(full_text, ("DATE OF SERVICE", "SERVICE DATE", "DOS")),
         "byte_count": len(content),
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
         # Full OCR text length (admin visibility): 0 chars alongside extraction_status='error'
@@ -251,6 +261,24 @@ async def upload(
     else:
         case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation
     reaudit = reaudit and documents_all_satisfied(case)  # …all checklist items now satisfied
+
+    # Promote the typed provider / date-of-service onto the case (first structured hit wins; a
+    # re-upload never overwrites an already-known value). The Record row reads these typed fields.
+    if case.provider_name is None:
+        case.provider_name = next(
+            (d.get("provider_name") for d in documents if isinstance(d, dict) and d.get("provider_name")),
+            None,
+        )
+    if case.date_of_service is None:
+        _dos = next(
+            (d.get("date_of_service") for d in documents if isinstance(d, dict) and d.get("date_of_service")),
+            None,
+        )
+        if _dos:
+            try:
+                case.date_of_service = datetime.date.fromisoformat(str(_dos)[:10])
+            except ValueError:
+                pass
     await session.flush()
     cfid = str(case.case_file_id)
     await session.commit()

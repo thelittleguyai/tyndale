@@ -164,6 +164,35 @@ def _grep(text: str, prefixes: tuple[str, ...]) -> str | None:
     return None
 
 
+# Anchors that reliably precede the servicing provider / facility name on a bill or EOB.
+_PROVIDER_ANCHORS = (
+    "PROVIDER NAME", "RENDERING PROVIDER", "SERVICING PROVIDER", "PROVIDER/FACILITY",
+    "BILLED BY", "BILL FROM", "REMIT TO", "FACILITY", "PROVIDER",
+)
+
+
+def grep_provider_name(text: str) -> str | None:
+    """Best-effort TYPED provider name from OCR text — matched CASE-INSENSITIVELY on a known anchor
+    but returned in the ORIGINAL case ("Maple Grove Family Medicine"). Conservative: a line that
+    doesn't look like a name (too short/long, mostly digits/punctuation) returns None, so the failure
+    mode is a null (→ the fallback title), never a wrong name."""
+    if not text:
+        return None
+    upper = text.upper()
+    for a in _PROVIDER_ANCHORS:
+        idx = upper.find(a)
+        if idx < 0:
+            continue
+        line = text[idx + len(a) :].splitlines()[0] if idx + len(a) < len(text) else ""
+        line = line.lstrip(":-–—# \t").strip()
+        # Name sanity: has letters, reasonable length, not mostly digits/punctuation/dates.
+        if line and 3 <= len(line) <= 80 and re.search(r"[A-Za-z]{2,}", line) and not _DATE_RE.search(line):
+            letters = sum(c.isalpha() for c in line)
+            if letters >= max(3, len(line) // 2):
+                return line
+    return None
+
+
 def _first_dollar(text: str, anchors: tuple[str, ...]) -> float | None:
     upper = text.upper()
     for anchor in anchors:
