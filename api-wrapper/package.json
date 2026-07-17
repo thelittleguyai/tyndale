@@ -1,0 +1,22 @@
+{
+  "name": "tyndale-wrapper",
+  "version": "0.1.0",
+  "description": "Wrapper around 1upHealth to turn an OCR'd medical bill into a patient's coverage, claims, and EOB data.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')",
+    "inspect": "node --import tsx src/scripts/inspectRecord.ts",
+    "register-user": "node --env-file=.env --import tsx src/scripts/registerUser.ts",
+    "search-payers": "node --env-file=.env --import tsx src/scripts/searchPayers.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
