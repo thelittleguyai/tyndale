@@ -98,7 +98,7 @@ resource "azurerm_container_app" "runtime" {
   }
 
   template {
-    min_replicas = 1 # kept warm — avoids 20-30s cold-start latency on user requests
+    min_replicas = 0 # dev cost: scale to zero when idle (cold-start ~20-30s on first request)
     max_replicas = 2
 
     container {
@@ -128,6 +128,16 @@ resource "azurerm_container_app" "runtime" {
       env {
         name  = "USE_REAL_OCR"
         value = tostring(var.use_real_ocr)
+      }
+      # Chat-first flow + Record view (DL-91 / D5). Server-driven: the app follows
+      # chat_first / record_enabled in API responses — no app rebuild needed.
+      env {
+        name  = "ENABLE_CHAT_FIRST_AUDIT"
+        value = tostring(var.enable_chat_first_audit)
+      }
+      env {
+        name  = "ENABLE_RECORD_VIEW"
+        value = tostring(var.enable_record_view)
       }
       env {
         name = "QDRANT_URL"
@@ -499,8 +509,11 @@ resource "azurerm_container_app" "litellm" {
   tags                         = local.tags
 
   template {
-    # min 1 (see qdrant): cross-env static-IP routing doesn't activate scale-to-zero apps.
-    min_replicas = 1
+    # dev cost: scaled to ZERO — the runtime goes direct to Anthropic/Foundry
+    # (LITELLM_PROXY_URL is unset), so nothing routes here today. Restore min 1 when
+    # the Phase-4 proxy is wired in: cross-env static-IP routing doesn't activate a
+    # scale-to-zero app, so it needs a warm replica once the runtime actually calls it.
+    min_replicas = 0
     max_replicas = 1
 
     container {
@@ -658,9 +671,11 @@ resource "azurerm_container_app" "wrapper" {
   }
 
   template {
-    # min 1 (see qdrant/litellm): cross-env static-IP routing doesn't activate
-    # scale-to-zero apps. max 1: in-memory TokenStore must not be split.
-    min_replicas = 1
+    # dev cost: scaled to ZERO while coverage is gated OFF (enable_coverage_connection
+    # =false) — the runtime skips the wrapper adapters entirely, so nothing routes here.
+    # Restore min 1 BEFORE flipping coverage on: cross-env static-IP routing doesn't
+    # activate a scale-to-zero app, and max 1 stays (in-memory TokenStore must not split).
+    min_replicas = 0
     max_replicas = 1
 
     container {
@@ -779,7 +794,7 @@ resource "azurerm_container_app" "marketing" {
   }
 
   template {
-    min_replicas = 1 # kept warm — avoids cold-start latency on user requests
+    min_replicas = 0 # dev cost: scale to zero when idle (cold-start on first request)
     max_replicas = 3
 
     container {
@@ -1011,7 +1026,7 @@ resource "azurerm_container_app" "app" {
   tags                         = local.tags
 
   template {
-    min_replicas = 1 # kept warm — avoids cold-start latency on user requests
+    min_replicas = 0 # dev cost: scale to zero when idle (cold-start on first request)
     max_replicas = 3
 
     container {
@@ -1124,7 +1139,7 @@ resource "azurerm_container_app" "admin" {
   }
 
   template {
-    min_replicas = 1 # kept warm
+    min_replicas = 0 # dev cost: scale to zero when idle (cold-start on first request)
     max_replicas = 2
 
     container {

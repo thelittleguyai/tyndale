@@ -4,6 +4,7 @@ resource "azurerm_log_analytics_workspace" "main" {
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
+  daily_quota_gb      = 1 # dev: cap worst-case ingestion (runaway-cost circuit breaker; lower to 0.5 to tighten)
   tags                = local.tags
 }
 

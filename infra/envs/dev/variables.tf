@@ -56,6 +56,18 @@ variable "use_real_ocr" {
   description = "Runtime USE_REAL_OCR flag — when true, deployed OCR flips from the deterministic stub to real Azure Document Intelligence (the doc-intel endpoint/key are always wired into the runtime; this just activates them). Set true in terraform.tfvars to enable real OCR without a code change; leave false for stub-only dev."
 }
 
+variable "enable_chat_first_audit" {
+  type        = bool
+  default     = false
+  description = "Chat-first audit flow (DL-91 Phase A) — when true, upload lands in the case thread and the thread orchestrates the journey; classic screens when false. Server-driven: the app follows the chat_first signal in the upload response, no app rebuild needed."
+}
+
+variable "enable_record_view" {
+  type        = bool
+  default     = false
+  description = "Tyndale Record + sub-case views (D5 Phase C) — when true, the dashboard becomes the Record and sub-case summary views are reachable. Server-driven via record_enabled in the dashboard response."
+}
+
 variable "voyage_api_key" {
   type        = string
   sensitive   = true
