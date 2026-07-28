@@ -8,6 +8,8 @@
   },
   "scripts": {
     "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "node --env-file=.env --import tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test $(find src -name '*.test.ts')",
     "inspect": "node --import tsx src/scripts/inspectRecord.ts",

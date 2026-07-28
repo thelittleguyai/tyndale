@@ -89,6 +89,13 @@ resource "azurerm_container_app" "runtime" {
     key_vault_secret_id = azurerm_key_vault_secret.qdrant_api_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Coverage connection: the bearer the runtime sends to the wrapper service.
+  # Same KV secret the wrapper checks against.
+  secret {
+    name                = "wrapper-auth-token"
+    key_vault_secret_id = azurerm_key_vault_secret.wrapper_auth_token.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     min_replicas = 1 # kept warm — avoids 20-30s cold-start latency on user requests
@@ -133,6 +140,23 @@ resource "azurerm_container_app" "runtime" {
       env {
         name        = "QDRANT_API_KEY"
         secret_name = "qdrant-api-key"
+      }
+      # Coverage connection (DL-70) — gated OFF by default. When
+      # enable_coverage_connection is false the runtime's registry skips the
+      # wrapper adapters entirely, so the URL/token are inert until flipped on.
+      env {
+        name  = "ENABLE_COVERAGE_CONNECTION"
+        value = tostring(var.enable_coverage_connection)
+      }
+      env {
+        name = "COVERAGE_WRAPPER_URL"
+        # Internal wrapper ingress on :80 (allow_insecure_connections), same as
+        # the qdrant pattern — NOT the container's target_port (8088).
+        value = "http://${azurerm_container_app.wrapper.ingress[0].fqdn}:80"
+      }
+      env {
+        name        = "WRAPPER_AUTH_TOKEN"
+        secret_name = "wrapper-auth-token"
       }
       # Real Claude via DIRECT Anthropic. LITELLM_PROXY_URL is intentionally unset so
       # the runtime's _client() goes straight to the Anthropic API — the litellm proxy
@@ -582,6 +606,133 @@ resource "azurerm_container_app" "qdrant" {
       percentage      = 100
     }
   }
+}
+
+# ===========================================================================
+# 1upHealth wrapper Container App (coverage connection).
+# Co-located in the EXTERNAL env with the runtime (its only caller) — same
+# reasoning as litellm/qdrant: cross-env routing into the internal `main` CAE
+# returns the platform "Unavailable" page. Ingress stays internal
+# (external_enabled=false) so it's private within the VNet; the runtime reaches
+# it over plain http on :80. Reuses the runtime UAMI to pull KV secrets.
+#
+# SINGLE REPLICA (min=max=1) is load-bearing, not just cost: the only TokenStore
+# today is in-memory, so connected-payer tokens must not be split across
+# replicas. A durable (Postgres) TokenStore is required before scaling out or
+# flipping enable_coverage_connection on. Ships gated OFF as a fast-follow.
+resource "azurerm_container_app" "wrapper" {
+  name                         = "${local.name_prefix}-wrapper"
+  container_app_environment_id = azurerm_container_app_environment.external.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+  tags                         = local.tags
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.runtime.id]
+  }
+
+  # Shared bearer the runtime sends on every request.
+  secret {
+    name                = "wrapper-auth-token"
+    key_vault_secret_id = azurerm_key_vault_secret.wrapper_auth_token.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
+  # 1up creds — only present once supplied (same optional gating as the KV
+  # secrets). Absent -> the service boots and 503s on data routes.
+  dynamic "secret" {
+    for_each = var.oneup_client_id != "" ? [1] : []
+    content {
+      name                = "oneup-client-id"
+      key_vault_secret_id = azurerm_key_vault_secret.oneup_client_id[0].versionless_id
+      identity            = azurerm_user_assigned_identity.runtime.id
+    }
+  }
+  dynamic "secret" {
+    for_each = var.oneup_client_secret != "" ? [1] : []
+    content {
+      name                = "oneup-client-secret"
+      key_vault_secret_id = azurerm_key_vault_secret.oneup_client_secret[0].versionless_id
+      identity            = azurerm_user_assigned_identity.runtime.id
+    }
+  }
+
+  template {
+    # min 1 (see qdrant/litellm): cross-env static-IP routing doesn't activate
+    # scale-to-zero apps. max 1: in-memory TokenStore must not be split.
+    min_replicas = 1
+    max_replicas = 1
+
+    container {
+      name   = "wrapper"
+      image  = "mcr.microsoft.com/azuredocs/aci-helloworld" # placeholder; CI rolls this to ghcr.io/.../wrapper:<sha>
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "PORT"
+        value = "8088"
+      }
+      # Master gate — mirrors the runtime flag. When false the service 503s on
+      # data routes even if the bearer + creds are present.
+      env {
+        name  = "ENABLE_COVERAGE_CONNECTION"
+        value = tostring(var.enable_coverage_connection)
+      }
+      env {
+        name  = "ONEUP_ENVIRONMENT"
+        value = var.oneup_environment
+      }
+      env {
+        name        = "WRAPPER_AUTH_TOKEN"
+        secret_name = "wrapper-auth-token"
+      }
+      # 1up creds surfaced only when supplied (loadConfig() throws without them,
+      # which the server catches -> CONFIGURED=false -> 503, never a crash).
+      dynamic "env" {
+        for_each = var.oneup_client_id != "" ? [1] : []
+        content {
+          name        = "ONEUP_CLIENT_ID"
+          secret_name = "oneup-client-id"
+        }
+      }
+      dynamic "env" {
+        for_each = var.oneup_client_secret != "" ? [1] : []
+        content {
+          name        = "ONEUP_CLIENT_SECRET"
+          secret_name = "oneup-client-secret"
+        }
+      }
+      dynamic "env" {
+        for_each = var.oneup_redirect_uri != "" ? [1] : []
+        content {
+          name  = "ONEUP_REDIRECT_URI"
+          value = var.oneup_redirect_uri
+        }
+      }
+    }
+  }
+
+  ingress {
+    external_enabled           = false
+    target_port                = 8088
+    transport                  = "http"
+    allow_insecure_connections = true # internal-only (external_enabled=false); lets the runtime reach it over plain http on :80
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  # CI rolls the image on each push to main touching api-wrapper/**.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
+  depends_on = [
+    azurerm_role_assignment.runtime_kv_secrets_user
+  ]
 }
 
 # ============================================================================

@@ -274,3 +274,41 @@ variable "qdrant_storage_quota_gb" {
   default     = 20
   description = "Azure Files share size (GB) backing Qdrant's /qdrant/storage volume. The 50-state + billing-code corpora are small; 20 GB is generous headroom."
 }
+
+# --- Coverage connection: 1upHealth wrapper service -------------------------
+# The wrapper is an internal-only Container App (like qdrant/litellm) that fronts
+# the 1upHealth FHIR integration. The runtime reaches it over the VNet and
+# registers matching source adapters behind the DL-68 interfaces. Everything is
+# gated OFF by default (enable_coverage_connection=false): the service deploys,
+# serves /health, and returns 503 on data routes until the gate is flipped.
+variable "enable_coverage_connection" {
+  type        = bool
+  default     = false
+  description = "Master gate for the 1up wrapper (DL-70). When false (default), the runtime's ENABLE_COVERAGE_CONNECTION is false so it never calls the wrapper, and the wrapper itself 503s on data routes. Flip true ONLY after a durable TokenStore replaces the in-memory one AND the BAA is signed. Ships closed as a fast-follow behind uploads-first launch."
+}
+
+variable "oneup_environment" {
+  type        = string
+  default     = "sandbox"
+  description = "Which 1upHealth environment the wrapper targets: sandbox|production. Surfaced to the service as ONEUP_ENVIRONMENT."
+}
+
+variable "oneup_client_id" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "1upHealth app client ID for the wrapper. OPTIONAL: empty (default) skips the KV secret + the service's ONEUP_CLIENT_ID env (same optional pattern as sendgrid_api_key), so apply succeeds before 1up creds exist — the service boots and 503s on data routes. Set the real value in terraform.tfvars to configure it."
+}
+
+variable "oneup_client_secret" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "1upHealth app client secret for the wrapper. OPTIONAL: empty (default) skips the KV secret + env wiring (Key Vault rejects empty values), so apply succeeds without 1up creds. Set in terraform.tfvars alongside oneup_client_id."
+}
+
+variable "oneup_redirect_uri" {
+  type        = string
+  default     = ""
+  description = "Registered 1upHealth payer-OAuth redirect URI (Setup Call 4). OPTIONAL like the client id/secret; empty skips the env wiring. Must match a URI registered with 1up when set."
+}

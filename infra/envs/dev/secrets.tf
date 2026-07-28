@@ -218,3 +218,39 @@ resource "azurerm_key_vault_secret" "qdrant_api_key" {
   key_vault_id = azurerm_key_vault.main.id
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
+
+# --- Coverage connection: wrapper bearer + 1up credentials ------------------
+# Shared bearer between the runtime (sends it) and the wrapper (checks it) —
+# same trust shape as the qdrant api-key. Auto-generated; both apps read it via
+# the runtime UAMI (already Key Vault Secrets User).
+resource "random_password" "wrapper_auth_token" {
+  length  = 48
+  special = false
+}
+
+resource "azurerm_key_vault_secret" "wrapper_auth_token" {
+  name         = "WRAPPER-AUTH-TOKEN"
+  value        = random_password.wrapper_auth_token.result
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+# 1up client id/secret are OPTIONAL (count=0 when empty, like sendgrid): Key
+# Vault rejects empty values, and the wrapper boots + 503s without them. Supply
+# them in terraform.tfvars to configure the service. The redirect URI is a
+# plain env (see compute.tf), not a secret.
+resource "azurerm_key_vault_secret" "oneup_client_id" {
+  count        = var.oneup_client_id != "" ? 1 : 0
+  name         = "ONEUP-CLIENT-ID"
+  value        = var.oneup_client_id
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
+resource "azurerm_key_vault_secret" "oneup_client_secret" {
+  count        = var.oneup_client_secret != "" ? 1 : 0
+  name         = "ONEUP-CLIENT-SECRET"
+  value        = var.oneup_client_secret
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}

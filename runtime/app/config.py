@@ -167,6 +167,17 @@ class Settings(BaseSettings):
         key = (self.auth_secret or "").strip()
         return bool(key) and not key.startswith("<")
 
+    def coverage_connection_ready(self) -> bool:
+        """True only when the 1up wrapper seam is BOTH enabled and configured.
+        Gates registry wiring in app.sources.__init__ so a half-configured env
+        (flag on, URL/token missing) falls back to upload-only rather than
+        registering an adapter that would 503 on every call."""
+        return bool(
+            self.enable_coverage_connection
+            and (self.coverage_wrapper_url or "").strip()
+            and (self.wrapper_auth_token or "").strip()
+        )
+
     # --- Cookie naming (Phase 2K.2) ------------------------------------------
     @property
     def session_cookie_write_name(self) -> str:
@@ -209,6 +220,21 @@ class Settings(BaseSettings):
     embedding_model_error_detection: str = "voyage-3-large"
     embedding_model_laws: str = "voyage-context-3"
     embedding_model_payer_policies: str = "voyage-3-large"
+
+    # --- Coverage connection (1upHealth wrapper — DL-70, fast-follow) ---------
+    # The wrapper is a standalone internal Container App that fronts 1upHealth
+    # behind the four DL-68 source Protocols. This whole seam ships gated-OFF: the
+    # runtime only registers the wrapper adapters when enable_coverage_connection
+    # is true AND the URL/token are set. Kept off until (a) the wrapper's
+    # in-memory TokenStore is replaced with a persistent one and (b) the eligibility
+    # BAA is signed. When off, nothing calls the wrapper and the upload-only
+    # adapters are the sole source — identical behavior to before this landed.
+    enable_coverage_connection: bool = False  # env: ENABLE_COVERAGE_CONNECTION
+    coverage_wrapper_url: str | None = None  # e.g. http://tyndale-dev-wrapper:80
+    wrapper_auth_token: str | None = None  # bearer shared with the wrapper (KV secret)
+    # Ceiling on a single wrapper HTTP call. The wrapper fans out to 1up FHIR reads,
+    # so give it more headroom than a normal internal hop.
+    coverage_wrapper_timeout_seconds: float = 20.0
 
     # --- Feature flags (off by default; stubs run when off) ---
     use_real_claude: bool = False

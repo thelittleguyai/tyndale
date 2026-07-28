@@ -1,0 +1,129 @@
+name: Deploy Dev Wrapper
+
+# Builds the 1upHealth wrapper service image from api-wrapper/Dockerfile, pushes
+# it to GHCR, then rolls the dev Container App to the new SHA-tagged image.
+#
+# This is a FAST-FOLLOW service, gated OFF (enable_coverage_connection=false) and
+# deliberately kept OUT of launch-critical CI: it has its own typecheck+test gate
+# here and only triggers on api-wrapper/** changes, so it can never block a
+# launch deploy of the runtime/apps.
+#
+# Triggers:
+#   - push to main touching api-wrapper/** or this workflow
+#   - manual workflow_dispatch (always allowed on main)
+#
+# Auth:
+#   - GHCR push: built-in GITHUB_TOKEN with packages:write
+#   - Azure: OIDC federation via secrets.AZURE_CLIENT_ID / TENANT_ID / SUBSCRIPTION_ID
+#     (created by infra/setup-github-deploy.sh)
+#
+# Prereq: the tyndale-dev-wrapper Container App must exist (terraform apply of
+# infra/envs/dev). Until then this workflow's final step fails at `az containerapp
+# update` — build + push still succeed.
+#
+# Rollback: `az containerapp update --image ghcr.io/.../wrapper:<previous-sha>`
+# or via the Azure portal's revision list.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api-wrapper/**'
+      - '.github/workflows/deploy-wrapper.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-wrapper
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write  # GHCR push
+  id-token: write  # Azure OIDC
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/wrapper
+  CONTAINER_APP: tyndale-dev-wrapper
+  RESOURCE_GROUP: tyndale-dev-rg
+
+jobs:
+  # Self-contained gate. api-wrapper is a standalone package (not an npm
+  # workspace), so it isn't covered by the repo-wide typecheck; run its checks
+  # here before we build an image.
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-wrapper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: dev   # scopes secrets to the GitHub `dev` environment and makes
+                       # the OIDC subject claim repo:OWNER/REPO:environment:dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push wrapper image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api-wrapper
+          file: ./api-wrapper/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:dev-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --output none
+          echo "Updated $CONTAINER_APP -> $IMAGE:${{ github.sha }}"
+
+      - name: Show recent revisions
+        run: |
+          az containerapp revision list \
+            --name "$CONTAINER_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "sort_by([], &properties.createdTime)[-3:].{name:name, active:properties.active, replicas:properties.replicas, image:properties.template.containers[0].image, created:properties.createdTime}" \
+            -o table
