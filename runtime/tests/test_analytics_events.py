@@ -169,3 +169,71 @@ async def test_batch_drops_nonconforming_properties(client: AsyncClient):
     )
     assert r.status_code == 200
     assert r.json() == {"accepted": 0, "dropped": 1}
+
+
+# --- Ownership guard (July 20 audit): cross-tenant attribution impossible ----
+async def _authed_uid(client: AsyncClient) -> uuid.UUID:
+    """The uid the batch endpoint attributes rows to (dev auth stub)."""
+    await client.post(
+        "/v1/events", json={"events": [{"name": "call_step_viewed", "properties": {"step_index": 9}}]}
+    )
+    async with AsyncSessionLocal() as s:
+        return (
+            await s.execute(
+                select(AnalyticsEvent.user_id)
+                .where(AnalyticsEvent.event_name == "call_step_viewed")
+                .order_by(AnalyticsEvent.occurred_at.desc())
+                .limit(1)
+            )
+        ).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_batch_drops_events_claiming_a_case_the_user_does_not_own(client: AsyncClient):
+    from app.db.models.case_files import CaseFile
+
+    me = await _authed_uid(client)
+    async with AsyncSessionLocal() as s:
+        other = User(email=f"other-{uuid.uuid4().hex[:10]}@example.test")
+        s.add(other)
+        await s.flush()
+        theirs = CaseFile(user_id=other.user_id, status="audit_running")
+        mine = CaseFile(user_id=me, status="audit_running")
+        s.add_all([theirs, mine])
+        await s.commit()
+        their_case, my_case = theirs.case_file_id, mine.case_file_id
+
+    r = await client.post(
+        "/v1/events",
+        json={
+            "events": [
+                # someone else's case → dropped (never attributed cross-tenant)
+                {"name": "call_step_viewed", "properties": {"step_index": 1}, "case_file_id": str(their_case)},
+                # nonexistent case → dropped (ownership unverifiable; anti-enumeration: same 200)
+                {"name": "call_step_viewed", "properties": {"step_index": 2}, "case_file_id": str(uuid.uuid4())},
+                # my own case → accepted
+                {"name": "call_step_viewed", "properties": {"step_index": 3}, "case_file_id": str(my_case)},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"accepted": 1, "dropped": 2}
+
+    async with AsyncSessionLocal() as s:
+        cross = (
+            await s.execute(
+                select(func.count())
+                .select_from(AnalyticsEvent)
+                .where(AnalyticsEvent.case_file_id == their_case)
+            )
+        ).scalar_one()
+        owned = (
+            await s.execute(
+                select(func.count())
+                .select_from(AnalyticsEvent)
+                .where(AnalyticsEvent.case_file_id == my_case)
+                .where(AnalyticsEvent.user_id == me)
+            )
+        ).scalar_one()
+    assert cross == 0  # not one row ever landed on the other tenant's case
+    assert owned == 1

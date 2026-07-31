@@ -20,6 +20,7 @@ from app.analytics.emit import DROP_COUNTER
 from app.analytics.events import REGISTRY, EventValidationError, validate_event
 from app.auth import CurrentUser, current_user
 from app.db.models.analytics_events import AnalyticsEvent
+from app.db.models.case_files import CaseFile
 from app.db.session import get_session
 from app.schemas.events import EventBatch, EventBatchResult
 
@@ -59,6 +60,25 @@ async def post_events(
             headers={"Retry-After": "3600"},
         )
 
+    # Ownership guard (July 20 audit): the client may only attribute events to its OWN
+    # cases — an unverified case_file_id would let any authenticated user pollute another
+    # tenant's analytics. One query covers the batch's distinct claimed ids; a non-owned
+    # or nonexistent id drops that event (counter, never a batch 4xx — anti-enumeration,
+    # the DROP semantics of every other reject here; require_case_owner's 404 is for
+    # single-case routes).
+    claimed_ids = {ev.case_file_id for ev in body.events if ev.case_file_id is not None}
+    owned_ids: set = set()
+    if claimed_ids:
+        owned_ids = set(
+            (
+                await session.execute(
+                    select(CaseFile.case_file_id)
+                    .where(CaseFile.case_file_id.in_(claimed_ids))
+                    .where(CaseFile.user_id == user.user_id)
+                )
+            ).scalars()
+        )
+
     accepted = 0
     rows: list[AnalyticsEvent] = []
     for ev in body.events:
@@ -72,6 +92,9 @@ async def post_events(
             continue
         if spec.not_yet_live:
             DROP_COUNTER["not_yet_live"] += 1
+            continue
+        if ev.case_file_id is not None and ev.case_file_id not in owned_ids:
+            DROP_COUNTER["case_not_owned"] += 1
             continue
         try:
             props = validate_event(ev.name, ev.properties)
