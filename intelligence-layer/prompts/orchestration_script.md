@@ -190,3 +190,15 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## decline.guarantee_trio
 [PLACEHOLDER-eng] I won't put a number on your odds — anyone who does is guessing, and you'd be making decisions on it. What I can tell you honestly: {{base_rate}}. For your case specifically, the strength is {{basis}} — that's what the documents actually support. The useful move now is {{next_step}}.
+
+## handoff.pace
+[PLACEHOLDER-eng] Your coverage looks like PACE — the Program of All-Inclusive Care for the Elderly. PACE works differently from ordinary insurance: the program itself coordinates and pays for care, so billing questions go through your PACE center's enrollment or member-services team rather than a claims line. They're the fastest path on this one. I'm still here for the billing side — send me anything they give you and I'll keep working it with you.
+
+## handoff.generic_program
+[PLACEHOLDER-eng] Your coverage runs through {{program}}, which handles billing through the program rather than a standard claims process. Their member-services team is the right first call. I'm not going anywhere — send me whatever they tell you and I'll keep going from there.
+
+## access_request.intro
+[PLACEHOLDER-eng] You can ask what Tyndale holds about a person, ask for it to be deleted, or ask for a correction. Tell me who the request is about and how to reach you. To be straight with you about what happens next: this records the request and a person follows up — I can't look anything up or confirm anything about a record from here.
+
+## access_request.received
+[PLACEHOLDER-eng] Your request has been recorded and someone will follow up at the contact you gave. I'm not able to tell you anything about what may or may not be held — that comes with the follow-up, once the request has been verified.

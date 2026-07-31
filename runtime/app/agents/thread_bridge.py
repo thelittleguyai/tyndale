@@ -286,6 +286,32 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
                  "line_items": group},
             )
 
+    # External-program handoff (§A2 state 5 / script §12). Regime detection already routes
+    # PACE to a handoff seam; this is the user-facing beat. Warm, with the program's own
+    # contact path — and the case STAYS OPEN ("I'm still here for the billing side"), which is
+    # what keeps this X1-compliant rather than a hand-off-and-drop.
+    handoff = (case.regime_detection or {}).get("handoff")
+    if handoff:
+        key = "handoff.pace" if handoff == "pace" else "handoff.generic_program"
+        text = orchestration_step(key, program=handoff.upper() if handoff else "the program")
+        marker = f"handoff:{handoff}"
+        first_time = marker not in have  # emit once, not on every reconcile
+        await ensure(
+            marker,
+            "system_message",
+            {"text": text, "tone": "neutral", "handoff": {"program": handoff, "case_stays_open": True}},
+            text,
+        )
+        if first_time:
+            from app.analytics.emit import emit
+
+            await emit(
+                "program_handoff_shown",
+                user_id=case.user_id,
+                case_file_id=case.case_file_id,
+                properties={"program": handoff if handoff == "pace" else "other"},
+            )
+
     # audit started (confirmations submitted → encounter_verified onward)
     if status in _POST_ENCOUNTER or status == "audit_running":
         start = orchestration_step("audit_start")

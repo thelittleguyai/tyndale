@@ -71,11 +71,17 @@ _ASK_RE = re.compile(
 )
 
 # System-resumes language — a promise the loop closes, not an imperative to the user.
+# (The "still here / keep working / not going anywhere" family was added after the §12
+# program-handoff copy tripped this check: a warm handoff that promises Tyndale keeps working
+# the billing side IS a return path, and the original pattern list didn't cover it.)
 _RESUME_RE = re.compile(
-    r"(?i)\b(?:i|we|tyndale)(?:'ll| will)\s+(?:pick|resume|finish|continue|re-?run|complete)"
+    r"(?i)\b(?:i|we|tyndale)(?:'ll| will)\s+(?:pick|resume|finish|continue|re-?run|complete|keep)"
     r"|\bautomatically (?:finish|resume|re-?run|complete)"
     r"|\bonce (?:you|we have|it'?s)\b"
     r"|\bwhen(?:ever)? (?:you (?:upload|add|send)|it'?s handy)\b"
+    r"|\b(?:i'?m|we'?re) still here\b"
+    r"|\b(?:i'?m|we'?re) not going anywhere\b"
+    r"|\bkeep (?:working|going|watching)\b"
 )
 
 
@@ -124,6 +130,11 @@ def _has_return_path(message: dict, thread: list[dict]) -> bool:
         return True  # the checklist IS the upload affordance (rendered with add-document)
     if message.get("kind") == "verification_request":
         return True  # rendered with its own confirm/deny response affordance
+    # An explicit structured "the case remains open" marker (e.g. the §12 program handoff):
+    # the loop is declared open in DATA, not just asserted in prose.
+    for value in payload.values():
+        if isinstance(value, dict) and value.get("case_stays_open"):
+            return True
     for m in thread:
         if (m.get("role") or "system") != "user" and _RESUME_RE.search(_text_of(m)):
             return True

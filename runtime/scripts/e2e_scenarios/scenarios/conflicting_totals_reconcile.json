@@ -1,0 +1,40 @@
+{
+  "name": "conflicting_totals_reconcile",
+  "description": "Bill and EOB disagree materially on what the member owes (§A2 state 3). Asserts the reconcile LADDER: Tyndale explains + gives its own figure, and the last-resort 'call your provider' line does NOT render while an answer or a resolving ask remains.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-RECON-01",
+      "service_date": "2026-04-08",
+      "line_items": [
+        { "code": "99284", "description": "Emergency department visit", "charge": 1850.0 }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-RECON",
+      "service_date": "2026-04-08",
+      "line_items": [
+        {
+          "code": "99284",
+          "billed": 1850.0,
+          "allowed": 900.0,
+          "plan_paid": 700.0,
+          "member_resp": 200.0
+        }
+      ],
+      "member_responsibility": 200.0
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "no_fixture": true,
+    "assert_x1": true,
+    "reconcile_no_premature_last_resort": true
+  }
+}

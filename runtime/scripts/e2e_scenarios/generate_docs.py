@@ -39,13 +39,19 @@ def _money(n: float) -> str:
     return f"${n:,.2f}"
 
 
-def make_bill(path: Path, *, account: str, service_date: str, line_items: list[dict], **_: Any) -> None:
-    """Provider itemized statement. Anchors: STATEMENT / AMOUNT DUE / CPT."""
+def make_bill(
+    path: Path, *, account: str, service_date: str, line_items: list[dict],
+    patient: str | None = None, **_: Any,
+) -> None:
+    """Provider itemized statement. Anchors: STATEMENT / AMOUNT DUE / CPT.
+
+    ``patient`` overrides the suite identity — the attest-and-proceed scenario needs a bill
+    whose patient name deliberately MISMATCHES the account holder's profile."""
     total = round(sum(li["charge"] * li.get("units", 1) for li in line_items), 2)
     rows = [
         "ITEMIZED STATEMENT OF CHARGES",
         f"Provider: {PROVIDER}",
-        f"Patient: {PATIENT}    Account #: {account}",
+        f"Patient: {patient or PATIENT}    Account #: {account}",
         f"Date of Service: {service_date}",
         "",
         "CPT      Description                                Units   Charge",
@@ -179,6 +185,31 @@ def make_not_a_bill_txt(path: Path, **_: Any) -> None:
     )
 
 
+
+def make_insurance_card(path: Path, *, member_id: str = "SYN-123456789", **_: Any) -> None:
+    """An insurance CARD image/scan — a real document that carries no auditable charges.
+    Anchors match the classifier's card fields (wrongdoc.card branch)."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica", 11)
+    _lines(
+        c,
+        [
+            PAYER,
+            "MEMBER IDENTIFICATION CARD",
+            "",
+            f"Member: {PATIENT}",
+            f"Member ID: {member_id}",
+            "Group Number: SYN-GRP-0042",
+            "RxBIN: 610000    RxPCN: SYNTH    RxGRP: SYNRX",
+            "",
+            "Copay: Office $30   Specialist $60   ER $350",
+            "Customer Service: 1-800-000-0000",
+        ],
+    )
+    c.showPage()
+    c.save()
+
+
 _MAKERS = {
     "bill": make_bill,
     "eob": make_eob,
@@ -187,6 +218,7 @@ _MAKERS = {
     "garbage": make_garbage,
     "blank_pages": make_blank_pages,
     "not_a_bill_txt": make_not_a_bill_txt,
+    "insurance_card": make_insurance_card,
 }
 
 

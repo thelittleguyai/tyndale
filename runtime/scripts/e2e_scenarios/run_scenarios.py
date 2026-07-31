@@ -27,6 +27,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import sys
 import tempfile
 import time
@@ -223,6 +224,81 @@ def _x1_checks(messages: list[dict] | None, terminal: str) -> list[str]:
     return [] if verdict.passed else [f"x1: {r}" for r in verdict.reasons]
 
 
+def _attest_checks(client: httpx.Client, base_url: str, case_id: str, messages: list[dict] | None) -> list[str]:
+    """§A2 state 1: a name-mismatch case must GATE — an attest_request entry in the thread, and
+    encounter verification refused (409) until the relationship is attested."""
+    fails: list[str] = []
+    kinds = [m.get("kind") for m in (messages or [])]
+    if "attest_request" not in kinds:
+        fails.append("attest: no attest_request entry in the thread for a name-mismatch case")
+    r = client.post(
+        f"{base_url}/v1/audit/{case_id}/confirmations",
+        json={"confirmations": [{"line_item_id": "probe", "response": "yes"}]},
+        timeout=30,
+    )
+    if r.status_code != 409:
+        fails.append(f"attest: confirmations returned {r.status_code}, expected 409 while unattested")
+    return fails
+
+
+def _wrongdoc_checks(messages: list[dict] | None, expected_branch: str) -> list[str]:
+    """§A2 state 2: the terminal entry carries the TYPED branch + a next-step affordance."""
+    for m in messages or []:
+        payload = m.get("payload") or {}
+        if payload.get("wrongdoc_branch"):
+            fails = []
+            if payload["wrongdoc_branch"] != expected_branch:
+                fails.append(f"wrongdoc: branch={payload['wrongdoc_branch']}, expected {expected_branch}")
+            if not payload.get("next_action"):
+                fails.append("wrongdoc: branch carries no next_action (dead end)")
+            return fails
+    return [f"wrongdoc: no typed branch on the terminal entry (expected {expected_branch})"]
+
+
+def _reconcile_checks(messages: list[dict] | None) -> list[str]:
+    """§A2 state 3: if a reconcile state rendered, its ladder must be well-formed — and the
+    last-resort line must NOT be present while an answer or a resolving ask remains."""
+    entry = next((m for m in (messages or []) if (m.get("payload") or {}).get("reconcile")), None)
+    if entry is None:
+        return []  # no material conflict in this run — nothing to assert (not a failure)
+    rec = (entry.get("payload") or {})["reconcile"]
+    fails: list[str] = []
+    rungs = rec.get("rungs") or []
+    if not rungs or rungs[0] != "explain":
+        fails.append(f"reconcile: ladder must start at explain, got {rungs}")
+    if "last_resort" in rungs and "ask_one_input" in rungs:
+        fails.append("reconcile: last_resort rendered alongside an unanswered ask (flag-and-send-off)")
+    if not rec.get("figures"):
+        fails.append("reconcile: no named figures — the conflict must name both sources")
+    return fails
+
+
+def _decline_checks(client: httpx.Client, base_url: str, case_id: str, specs: list[dict]) -> list[str]:
+    """§A2 state 4: each utterance declines without dead-ending; the guarantee reply carries no
+    probability/promise language ([C] doctrine)."""
+    forbidden = re.compile(
+        r"\b(?:\d{1,3}\s?%|percent chance|probability|odds are|likely to win|you will win|"
+        r"guarantee[ds]?|i promise|good chance|strong chance|almost certain)\b",
+        re.IGNORECASE,
+    )
+    fails: list[str] = []
+    for spec in specs or []:
+        r = client.post(
+            f"{base_url}/v1/messages",
+            json={"case_file_id": case_id, "content": spec["utterance"], "mode": "per_case"},
+            timeout=120,
+        )
+        if r.status_code != 200:
+            fails.append(f"decline[{spec['kind']}]: POST /v1/messages -> {r.status_code}")
+            continue
+        body = r.text
+        if len(body.strip()) < 40:
+            fails.append(f"decline[{spec['kind']}]: response too short to be a real reframe")
+        if spec["kind"] == "guarantee" and (hit := forbidden.search(body)):
+            fails.append(f"decline[guarantee]: prediction language leaked: {hit.group(0)!r}")
+    return fails
+
+
 def _free_text_verify_checks(client: httpx.Client, base_url: str, case_id: str, spec: dict) -> list[str]:
     """D4b: a free-text verification reply maps to a PRE-SELECTABLE suggestion and commits NOTHING
     (the tap does). POST the utterance, then assert a suggestion in the thread + that the case is
@@ -385,6 +461,15 @@ def run_scenario(
         timings["extract_s"] = round(time.monotonic() - t, 1)
 
         terminal = extract.get("status", "")
+
+        # §A2 state 1: an attest-gated case terminates HERE by design — the flow must not
+        # proceed to encounter/audit while the attestation is outstanding, so asserting the
+        # gate IS the scenario.
+        if exp.get("attest_required"):
+            fails = _attest_checks(client, base_url, case_id, _fetch_thread(client, base_url, case_id))
+            return {"name": name, "case_id": case_id, "terminal": f"attest_gated:{terminal}",
+                    "timings": timings, "pass": not fails, "fails": fails}
+
         # D4b free-text variant: map an utterance to a suggestion (commits nothing) BEFORE the tap.
         pre_fails: list[str] = []
         if chat_first and scenario.get("chat_first_verify") and terminal == "encounter_verification_pending":
@@ -406,6 +491,12 @@ def run_scenario(
             fails = fails + _chat_first_checks(thread, terminal, no_placeholders)
             if exp.get("assert_x1"):
                 fails = fails + _x1_checks(thread, terminal)
+            if exp.get("wrongdoc_branch"):
+                fails = fails + _wrongdoc_checks(thread, exp["wrongdoc_branch"])
+            if exp.get("reconcile_no_premature_last_resort"):
+                fails = fails + _reconcile_checks(thread)
+        if scenario.get("chat_declines") and case_id:
+            fails = fails + _decline_checks(client, base_url, case_id, scenario["chat_declines"])
         if record and case_id:
             fails = fails + _record_checks(client, base_url, case_id, terminal)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,

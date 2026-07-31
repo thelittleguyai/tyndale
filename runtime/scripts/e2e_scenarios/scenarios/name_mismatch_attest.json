@@ -1,0 +1,23 @@
+{
+  "name": "name_mismatch_attest",
+  "description": "Bill whose patient name is NOT the account holder (§A2 state 1) — the case must gate on attestation before encounter verification, and never audit while it's outstanding.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-ATTEST-01",
+      "service_date": "2026-05-12",
+      "patient": "MARGARET R. OTHERPERSON",
+      "line_items": [
+        { "code": "99213", "description": "Office visit, established patient", "charge": 240.0 }
+      ]
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "attest_required": true,
+    "no_fixture": true
+  }
+}

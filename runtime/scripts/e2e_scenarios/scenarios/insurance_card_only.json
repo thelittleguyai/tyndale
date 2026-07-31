@@ -1,0 +1,20 @@
+{
+  "name": "insurance_card_only",
+  "description": "Insurance card alone (§A2 state 2) — a REAL document with no auditable charges. Must route to the typed wrongdoc.card redirect with the card-upload next step, never the generic 'not a medical bill' dead end.",
+  "documents": [
+    {
+      "type": "insurance_card",
+      "filename": "card.pdf",
+      "member_id": "SYN-777123456"
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "not_a_bill",
+    "wrongdoc_branch": "card",
+    "no_fixture": true,
+    "assert_x1": true
+  }
+}

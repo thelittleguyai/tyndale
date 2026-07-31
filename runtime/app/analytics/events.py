@@ -128,6 +128,15 @@ REGISTRY: dict[str, EventSpec] = {
     "wrong_document_redirect": EventSpec({"branch": enum_prop("card", "sbc", "clinical", "unknown")}),
     # §A2 state 4 declines — which decline fired (count-only, never the utterance).
     "decline_state_shown": EventSpec({"kind": enum_prop("fabrication", "guarantee")}),
+    # §A2 state 5 — external-program handoff + the access/deletion request intake stub.
+    "program_handoff_shown": EventSpec({"program": enum_prop("pace", "other")}),
+    # Registered now (name + schema frozen), emitted nowhere yet: the intake is deliberately
+    # UNAUTHENTICATED and analytics_events.user_id is NOT NULL, so an anonymous row has nowhere
+    # to land. The encrypted access_request audit event is the record until analytics grows an
+    # anonymous path — at which point this flips live with no schema churn.
+    "access_request_received": EventSpec(
+        {"request_type": enum_prop("access", "deletion", "correction")}, not_yet_live=True
+    ),
     "refusal_event": EventSpec({"category": enum_prop(*_REFUSAL_CATEGORIES)}),
     "consent_opt_in": EventSpec(),
     "consent_withdrawn": EventSpec(),

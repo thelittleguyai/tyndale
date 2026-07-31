@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import datetime
 
-from app.sources.extraction import grep_provider_name
+import pytest
+
+from app.sources.extraction import grep_patient_name, grep_provider_name
 from scripts.backfill_provider_name import derive_provider_and_dos
 
 
@@ -50,3 +52,26 @@ def test_derive_falls_back_to_eob_then_null():
     # nothing structured → (None, None); the Record row uses its fallback title, correctly.
     assert derive_provider_and_dos(_Case()) == (None, None)
     assert derive_provider_and_dos(_Case(documents=[{"ocr_text_preview": "just some text, no provider"}])) == (None, None)
+
+
+# --- second-field truncation (found by the §A2 attest harness scenario) ------
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Documents routinely put a SECOND field on the anchor's line. Without truncation the
+        # account number lands in the attest audit payload as the "patient name as extracted".
+        ("Patient: MARGARET R. OTHERPERSON    Account #: E2E-01", "MARGARET R. OTHERPERSON"),
+        ("Patient: JANE DOE Account #: 99213", "JANE DOE"),  # single-space variant
+        ("Member Name: ROBERT L SMITH DOB: 01/02/1955", "ROBERT L SMITH"),
+        ("Patient: Maria de la Cruz MRN: 4471", "Maria de la Cruz"),  # lowercase particles kept
+        ("PATIENT NAME: Amy Fluegel", "Amy Fluegel"),  # nothing to truncate
+    ],
+)
+def test_patient_name_stops_at_a_second_field(text, expected):
+    assert grep_patient_name(text) == expected
+
+
+def test_provider_name_gets_the_same_truncation():
+    assert grep_provider_name("Provider: SYNTHETIC VALLEY MEDICAL CENTER NPI: 123") == (
+        "SYNTHETIC VALLEY MEDICAL CENTER"
+    )

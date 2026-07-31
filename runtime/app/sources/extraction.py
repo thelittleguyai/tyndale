@@ -180,6 +180,15 @@ _PATIENT_ANCHORS = (
 )
 
 
+# A SECOND field sharing the anchor's line ("Patient: JANE DOE Account #: 123"). An explicit
+# label list, not a greedy pattern — a greedy one eats name words ("JANE DOE Account" -> "JANE").
+_SECOND_FIELD_RE = re.compile(
+    r"\s+(?:ACCOUNT|ACCT|DOB|DATE OF BIRTH|MEMBER|MEMBER ID|ID|MRN|NPI|CLAIM|GROUP|POLICY|"
+    r"SUBSCRIBER|PLAN|TAX ID|PHONE|DATE)\b\s*#?\s*:",
+    re.IGNORECASE,
+)
+
+
 def _grep_anchored_name(text: str, anchors: tuple[str, ...]) -> str | None:
     """Best-effort TYPED name from OCR text — matched CASE-INSENSITIVELY on a known anchor but
     returned in the ORIGINAL case ("Maple Grove Family Medicine"). Conservative: a line that
@@ -194,6 +203,11 @@ def _grep_anchored_name(text: str, anchors: tuple[str, ...]) -> str | None:
             continue
         line = text[idx + len(a) :].splitlines()[0] if idx + len(a) < len(text) else ""
         line = line.lstrip(":-–—# \t").strip()
+        # Documents commonly put a SECOND field on the same line ("Patient: JANE DOE
+        # Account #: 12345", "Provider: CLINIC   NPI: 999"). Keep only the first column —
+        # a real name never contains a run of 2+ spaces, a tab, or a trailing "<Label>:".
+        line = re.split(r"\s{2,}|\t", line)[0].strip()
+        line = _SECOND_FIELD_RE.split(line)[0].strip()
         # Name sanity: has letters, reasonable length, not mostly digits/punctuation/dates.
         if line and 3 <= len(line) <= 80 and re.search(r"[A-Za-z]{2,}", line) and not _DATE_RE.search(line):
             letters = sum(c.isalpha() for c in line)

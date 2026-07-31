@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Comma-separated scenario names to run (blank = all 12)'
+        description: 'Comma-separated scenario names to run (blank = all 19)'
         required: false
         default: ''
 
