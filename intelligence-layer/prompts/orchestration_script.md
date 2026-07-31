@@ -15,6 +15,17 @@ Each `## <key>` below maps to one thread string. Values here are engineering **p
 staging/production boot while any active value still carries that prefix (D1). Brock's authors
 replace each body with the real copy — keep the `{{variable}}` slots.
 
+## Voice-tier tags (parsed by the loader — govern rendering, never shown to users)
+Each value body MAY lead with `[A]`, `[B]`, or `[C]` (untagged = `[A]`):
+- `[A]` fact copy — renders plainly.
+- `[B]` legal/coverage claim — the renderer REQUIRES a citation payload; without one it
+  renders the graceful-degradation variant instead (`<key>_degraded` if authored, else
+  `generic_degraded`) and counts a doctrine_violation. Author a `_degraded` sibling for
+  every `[B]` key.
+- `[C]` strategy — never predicts an outcome; the loader REFUSES to boot a `[C]` value
+  carrying a `{{win_probability}}`-style slot. Tags are stripped before rendering and
+  before the placeholder guard (`[B] [PLACEHOLDER-eng] …` still fails staging).
+
 ## Variables (interpolated by the renderer)
 - `{{doc_types}}` — comma-joined classified document types received (acknowledgment).
 - `{{delta_dollars}}` — billed-minus-computed savings, formatted e.g. `1,240.00` (three_number_reveal).
@@ -111,3 +122,6 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## record_welcome_summary_fallback
 [PLACEHOLDER-eng] You have {{total}} open cases — {{breakdown}}.
+
+## generic_degraded
+[PLACEHOLDER-eng] I can't show you the exact rule text behind this yet — I've flagged it and I'll follow up with the citation.

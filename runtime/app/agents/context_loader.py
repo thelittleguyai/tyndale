@@ -25,8 +25,10 @@ from __future__ import annotations
 
 import os
 import re
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
+from typing import NamedTuple
 
 import structlog
 
@@ -42,6 +44,36 @@ _FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 _SCRIPT_KEY_RE = re.compile(
     r"^##\s+([a-z][a-z0-9_]*)\s*$\n+(.+?)(?=\n##\s|\Z)", re.DOTALL | re.MULTILINE
 )
+
+# --- Voice-tier tags (security-week item 5; Brock's script format) -----------
+# A value body may LEAD with a voice-tier tag — `[A]` fact / `[B]` legal-coverage
+# claim / `[C]` strategy — which GOVERNS rendering and is never shown to users:
+#   * the tag is stripped before any render (and before the placeholder guard);
+#   * [B] strings require a citation payload at render time — without one the
+#     graceful-degradation variant renders instead (never an uncited legal claim);
+#   * [C] strings must not carry outcome-prediction slots (asserted at load).
+# Untagged values default to tier A (plain fact copy), which is every current
+# placeholder — Brock's tagged file drops in with no loader change.
+_TIER_TAG_RE = re.compile(r"\A\[([ABC])\]\s*")
+# Outcome-prediction slots are forbidden EVERYWHERE by doctrine, and load-asserted
+# for [C] strategy strings specifically ("[C] never predicts an outcome").
+_FORBIDDEN_PREDICTION_SLOT_RE = re.compile(
+    r"\{\{\s*(?:win_probability|success_probability|success_rate|likelihood|odds_of|chance_of)"
+    r"[a-z_]*\s*\}\}",
+    re.IGNORECASE,
+)
+
+# In-process doctrine-violation counter (mirrors analytics' DROP_COUNTER pattern):
+# `b_without_citation:<key>` increments each time a [B] string would have rendered
+# uncited and the degradation variant rendered instead.
+DOCTRINE_VIOLATIONS: Counter[str] = Counter()
+
+
+class ScriptEntry(NamedTuple):
+    """One orchestration-script registry entry: the render text (tag stripped) + its tier."""
+
+    text: str
+    tier: str  # "A" | "B" | "C"
 
 
 def _intelligence_layer_root() -> Path:
@@ -62,30 +94,100 @@ def _read(rel: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def load_orchestration_script() -> dict[str, str]:
-    """Parse ``prompts/orchestration_script.md`` → ``{key: string}`` (D1, Brock 2026-07-10).
+def load_orchestration_registry() -> dict[str, ScriptEntry]:
+    """Parse ``prompts/orchestration_script.md`` → ``{key: ScriptEntry(text, tier)}``.
 
     Each ``## <snake_case_key>`` heading delimits one system-authored thread string; the YAML
     frontmatter, the ``# title``, and the ``## Variables (…)`` meta section are ignored. A
-    missing file → ``{}`` so the renderer degrades to explicit ``<MISSING-script: key>`` markers
-    rather than crashing. Loaded verbatim — engineering never copy-edits these values."""
+    leading ``[A]/[B]/[C]`` voice-tier tag is parsed OFF the value (default tier A) — tags
+    govern rendering and are never part of the render text. Loaded verbatim otherwise —
+    engineering never copy-edits these values.
+
+    Load-time doctrine assert: a [C] strategy string carrying an outcome-prediction slot
+    (``{{win_probability}}``-style) raises — that copy must never boot, in any environment.
+    The full key→tier inventory is logged once for the eval judge."""
     text = _read("prompts/orchestration_script.md")
     if text.startswith("<MISSING:"):
         return {}
     text = _FRONTMATTER_RE.sub("", text, count=1)
-    return {m.group(1): m.group(2).strip() for m in _SCRIPT_KEY_RE.finditer(text)}
+    registry: dict[str, ScriptEntry] = {}
+    for m in _SCRIPT_KEY_RE.finditer(text):
+        key, body = m.group(1), m.group(2).strip()
+        tag = _TIER_TAG_RE.match(body)
+        tier = tag.group(1) if tag else "A"
+        body = _TIER_TAG_RE.sub("", body, count=1).strip()
+        if tier == "C" and (hit := _FORBIDDEN_PREDICTION_SLOT_RE.search(body)):
+            raise ValueError(
+                f"orchestration_script key '{key}' is [C] strategy copy but carries the "
+                f"outcome-prediction slot {hit.group(0)!r} — [C] never predicts an outcome "
+                "(voice-tier doctrine); fix the authored script"
+            )
+        registry[key] = ScriptEntry(text=body, tier=tier)
+    log.info(
+        "orchestration_script.key_inventory",  # for the judge: the full key→tier map
+        keys={k: e.tier for k, e in registry.items()},
+        counts=dict(Counter(e.tier for e in registry.values())),
+    )
+    return registry
 
 
-def orchestration_step(key: str, /, **variables: object) -> str:
-    """The thread string for ``key`` with ``{{var}}`` slots interpolated. Returns an explicit
-    ``<MISSING-script: key>`` marker (never a silent empty string) when the key is absent, so a
-    missing key is visible in the thread and catchable in tests. Unknown slots are left as-is."""
-    value = load_orchestration_script().get(key)
-    if value is None:
-        return f"<MISSING-script: {key}>"
+def load_orchestration_script() -> dict[str, str]:
+    """Back-compat view of the registry: ``{key: render_text}`` with tier tags stripped —
+    exactly what the placeholder guard and existing callers expect (a tagged
+    ``[B] [PLACEHOLDER-eng] …`` value still startswith-matches the placeholder prefix)."""
+    return {k: e.text for k, e in load_orchestration_registry().items()}
+
+
+def _clear_script_caches() -> None:
+    load_orchestration_registry.cache_clear()
+
+
+# Tests clear via load_orchestration_script.cache_clear() (the pre-registry seam) — keep it
+# working by pointing it at the real (registry) cache.
+load_orchestration_script.cache_clear = _clear_script_caches  # type: ignore[attr-defined]
+
+
+def orchestration_tier(key: str) -> str | None:
+    """The voice tier ("A"|"B"|"C") for a script key, or None when the key is absent."""
+    entry = load_orchestration_registry().get(key)
+    return entry.tier if entry else None
+
+
+def _interpolate(text: str, variables: dict[str, object]) -> str:
     for name, val in variables.items():
-        value = value.replace(f"{{{{{name}}}}}", str(val))
-    return value
+        text = text.replace(f"{{{{{name}}}}}", str(val))
+    return text
+
+
+def orchestration_step(key: str, /, citation: dict | None = None, **variables: object) -> str:
+    """The thread string for ``key`` with ``{{var}}`` slots interpolated.
+
+    Voice-tier enforcement (item 5): a [B] legal/coverage string REQUIRES a ``citation``
+    payload — rendered without one, the graceful-degradation variant renders instead
+    (``<key>_degraded`` if authored, else ``generic_degraded``, else a neutral engineering
+    line that makes no legal claim) and the ``doctrine_violation`` counter increments.
+    Never an uncited legal claim; never a crash; tags never reach the output.
+
+    Returns an explicit ``<MISSING-script: key>`` marker (never a silent empty string) when
+    the key is absent, so a missing key is visible in the thread and catchable in tests.
+    Unknown slots are left as-is."""
+    registry = load_orchestration_registry()
+    entry = registry.get(key)
+    if entry is None:
+        return f"<MISSING-script: {key}>"
+    if entry.tier == "B" and not citation:
+        DOCTRINE_VIOLATIONS[f"b_without_citation:{key}"] += 1
+        log.warning("doctrine_violation", kind="b_without_citation", key=key)
+        fallback = registry.get(f"{key}_degraded") or registry.get("generic_degraded")
+        if fallback is not None:
+            return _interpolate(fallback.text, variables)
+        # Last-resort neutral line (no legal claim). Seeded as `generic_degraded` in the
+        # placeholder script so this literal should never fire with an authored file.
+        return (
+            "I can't show you the exact rule text behind this yet — I've flagged it and "
+            "will follow up with the citation."
+        )
+    return _interpolate(entry.text, variables)
 
 
 @lru_cache(maxsize=1)
