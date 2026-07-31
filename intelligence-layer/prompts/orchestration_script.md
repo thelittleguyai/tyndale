@@ -32,6 +32,8 @@ Each value body MAY lead with `[A]`, `[B]`, or `[C]` (untagged = `[A]`):
 - `{{label}}` / `{{how_to_get}}` — a needs_documents checklist item's label + how-to-get text.
 - `{{party}}` — plain-language who-to-call for a gameplan call, e.g. `your insurance company`
   (call_script_opener_payer / call_script_opener_provider).
+- `{{filenames}}` — the uploaded file name(s), quoted and comma-joined (wrongdoc.*).
+- `{{patient_name}}` — the patient name AS EXTRACTED from the documents (attest.intro).
 - `{{total}}` / `{{breakdown}}` — open-case count + comma-joined count breakdown, e.g.
   `2 need documents, 1 with results ready` (record_welcome_summary_fallback).
 Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>`.
@@ -158,3 +160,15 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## attest.edge_substance
 [PLACEHOLDER-eng] Heads up: care from a substance-use program carries extra federal privacy protection, so what a provider or plan will discuss — even with family — can be narrower than usual.
+
+## wrongdoc.card
+[PLACEHOLDER-eng] That's your insurance card — useful, and I've kept it. On its own though there's nothing to check: a card shows your coverage, not what you were charged. Send me the bill or the EOB for the visit and I'll take it from there.
+
+## wrongdoc.sbc
+[PLACEHOLDER-eng] That's your plan summary — genuinely useful, and I've attached it to your coverage. It tells me your deductible, coinsurance and out-of-pocket max, which is exactly what I need to work out what you SHOULD owe. Now send me a bill or an EOB and I can check one against the other.
+
+## wrongdoc.clinical
+[PLACEHOLDER-eng] {{filenames}} looks like a medical record rather than a bill. I'm not able to audit clinical notes — what I can check is what you were charged: an itemized bill, an Explanation of Benefits, or a statement from the provider.
+
+## wrongdoc.unknown
+[PLACEHOLDER-eng] I couldn't tell what {{filenames}} is, so I don't want to guess at it. If you have an itemized bill, an Explanation of Benefits, or a statement from the provider, send that over and I'll check it properly.

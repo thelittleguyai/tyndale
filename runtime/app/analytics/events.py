@@ -124,6 +124,8 @@ REGISTRY: dict[str, EventSpec] = {
     "attestation_required": EventSpec(),
     "attestation_recorded": EventSpec({"relationship": enum_prop(*_RELATIONSHIPS)}),
     "attestation_declined": EventSpec(),
+    # Wrong-document redirect (§A2 state 2) — which branch the upload was routed to.
+    "wrong_document_redirect": EventSpec({"branch": enum_prop("card", "sbc", "clinical", "unknown")}),
     "refusal_event": EventSpec({"category": enum_prop(*_REFUSAL_CATEGORIES)}),
     "consent_opt_in": EventSpec(),
     "consent_withdrawn": EventSpec(),

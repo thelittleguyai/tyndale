@@ -23,7 +23,9 @@ from sqlalchemy import select
 
 from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
+from app.agents.context_loader import orchestration_step
 from app.agents.llm_health import claude_path_label, record_audit_run, record_system_alert
+from app.agents.wrongdoc import classify_wrong_document
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
@@ -716,8 +718,19 @@ EXTRACTION_FAILED_MESSAGE = (
 # Distinct from extraction_failed: the document(s) READ fine, they just aren't a medical bill or
 # insurance document — so there's nothing to audit. Name the file(s) so the user knows exactly
 # which upload was the problem, and point them at what Tyndale can actually help with.
-def not_a_bill_message(filenames: list[str]) -> str:
+def not_a_bill_message(filenames: list[str], documents=None) -> str:
+    """The wrong-document redirect message (§A2 state 2). When the classifier placed the
+    upload (insurance card / SBC / GFE / clinical record), the TYPED branch copy renders —
+    each with its own honest next step. Falls back to the generic line for a genuinely
+    unplaceable upload, or when the branch key isn't authored yet."""
     named = ", ".join(f"“{n}”" for n in filenames) if filenames else "what you uploaded"
+    branch = classify_wrong_document(documents) if documents else None
+    if branch is not None:
+        # {{filenames}} keeps the honesty property the generic line had: an unplaceable upload
+        # is named back to the user, so they know exactly which file didn't land.
+        text = orchestration_step(branch.key, filenames=named)
+        if not text.startswith("<MISSING-script:"):
+            return text
     return (
         f"This doesn't look like a medical bill or insurance document: {named}. "
         "Upload a bill, an Explanation of Benefits (EOB), an insurance card, or a plan "
@@ -835,8 +848,23 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
             if readable and not readable_recognized:
                 await _set_status(case_file_id, "not_a_bill")
                 return _degrade(
-                    "not_a_bill", not_a_bill_message([d.filename for d in readable]),
+                    "not_a_bill",
+                    not_a_bill_message([d.filename for d in readable], readable),
                     "orchestrator.extract.readable_but_not_a_bill",
+                )
+
+            # (b2) WRONG-DOCUMENT REDIRECT (§A2 state 2): every readable document is a real
+            # medical/insurance document that simply carries no auditable charges — an
+            # insurance card, a plan summary/SBC, a GFE, a clinical record. "We couldn't read
+            # line items" is the wrong framing for those; each gets its typed redirect + next
+            # step instead. (A doc that COULD yield line items falls through to (c) below.)
+            wrong = classify_wrong_document(readable_recognized)
+            if wrong is not None:
+                await _set_status(case_file_id, "not_a_bill")
+                return _degrade(
+                    "not_a_bill",
+                    not_a_bill_message([d.filename for d in readable], readable_recognized),
+                    "orchestrator.extract.wrong_document_redirect",
                 )
 
             # (c) We recognized a medical document (bill/EOB, or a collections notice / denial /

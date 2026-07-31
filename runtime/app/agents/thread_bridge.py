@@ -296,11 +296,25 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         from app.agents.orchestrator import EXTRACTION_FAILED_MESSAGE, not_a_bill_message
 
         if status == "not_a_bill":
-            names = [d.get("filename", "your file") for d in (case.documents or []) if isinstance(d, dict)]
-            text = not_a_bill_message(names)
+            docs = [d for d in (case.documents or []) if isinstance(d, dict)]
+            names = [d.get("filename", "your file") for d in docs]
+            text = not_a_bill_message(names, docs)
+            # §A2 state 2: carry the typed branch + its next step so the thread offers a real
+            # affordance (card-upload flow / attach-to-coverage / add a bill), never a dead end.
+            from app.agents.wrongdoc import classify_wrong_document
+
+            wrong = classify_wrong_document(docs)
+            extra = (
+                {"wrongdoc_branch": wrong.branch, "next_action": wrong.next_action}
+                if wrong
+                else {}
+            )
         else:
             text = EXTRACTION_FAILED_MESSAGE
-        await ensure(f"terminal:{status}", "system_message", {"text": text, "tone": "error"}, text)
+            extra = {}
+        await ensure(
+            f"terminal:{status}", "system_message", {"text": text, "tone": "error", **extra}, text
+        )
     elif status == "audit_complete":
         await _ensure_three_number_moment(session, conv, case, ensure)
         done = orchestration_step("completion")
