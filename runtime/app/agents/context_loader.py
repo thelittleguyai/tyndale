@@ -39,10 +39,12 @@ log = structlog.get_logger(__name__)
 PLACEHOLDER_PREFIX = "[PLACEHOLDER-eng]"
 
 _FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
-# One `## <snake_case_key>` heading (on its own line) → its string body, up to the next `## `.
-# Meta headings like `## Variables (…)` (not a bare identifier) are ignored.
+# One `## <key>` heading (on its own line) → its string body, up to the next `## `.
+# Keys are snake_case with optional dot namespacing (`attest.intro`, `wrongdoc.card`) —
+# Brock's §3/§5/§10/§12 keys are dot-namespaced, so the charset admits dots. Meta headings
+# like `## Variables (…)` (not a bare identifier) are ignored.
 _SCRIPT_KEY_RE = re.compile(
-    r"^##\s+([a-z][a-z0-9_]*)\s*$\n+(.+?)(?=\n##\s|\Z)", re.DOTALL | re.MULTILINE
+    r"^##\s+([a-z][a-z0-9_.]*)\s*$\n+(.+?)(?=\n##\s|\Z)", re.DOTALL | re.MULTILINE
 )
 
 # --- Voice-tier tags (security-week item 5; Brock's script format) -----------

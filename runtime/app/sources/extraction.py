@@ -171,15 +171,24 @@ _PROVIDER_ANCHORS = (
 )
 
 
-def grep_provider_name(text: str) -> str | None:
-    """Best-effort TYPED provider name from OCR text — matched CASE-INSENSITIVELY on a known anchor
-    but returned in the ORIGINAL case ("Maple Grove Family Medicine"). Conservative: a line that
-    doesn't look like a name (too short/long, mostly digits/punctuation) returns None, so the failure
-    mode is a null (→ the fallback title), never a wrong name."""
+# Patient/member anchors (attest-and-proceed §3): who the document is ABOUT, extracted TYPED at
+# parse time (DL-39) so the name-mismatch trigger never regexes finding prose. Order matters —
+# specific anchors before the bare "PATIENT".
+_PATIENT_ANCHORS = (
+    "PATIENT NAME", "MEMBER NAME", "BENEFICIARY NAME", "SUBSCRIBER NAME",
+    "PATIENT:", "MEMBER:", "PATIENT",
+)
+
+
+def _grep_anchored_name(text: str, anchors: tuple[str, ...]) -> str | None:
+    """Best-effort TYPED name from OCR text — matched CASE-INSENSITIVELY on a known anchor but
+    returned in the ORIGINAL case ("Maple Grove Family Medicine"). Conservative: a line that
+    doesn't look like a name (too short/long, mostly digits/punctuation) returns None, so the
+    failure mode is a null (→ caller's fallback), never a wrong name."""
     if not text:
         return None
     upper = text.upper()
-    for a in _PROVIDER_ANCHORS:
+    for a in anchors:
         idx = upper.find(a)
         if idx < 0:
             continue
@@ -191,6 +200,17 @@ def grep_provider_name(text: str) -> str | None:
             if letters >= max(3, len(line) // 2):
                 return line
     return None
+
+
+def grep_provider_name(text: str) -> str | None:
+    """Typed provider name from OCR text (record-row title). See _grep_anchored_name."""
+    return _grep_anchored_name(text, _PROVIDER_ANCHORS)
+
+
+def grep_patient_name(text: str) -> str | None:
+    """Typed patient/member name from OCR text (attest-and-proceed trigger). Fails to None —
+    a missing patient name never fabricates a mismatch. See _grep_anchored_name."""
+    return _grep_anchored_name(text, _PATIENT_ANCHORS)
 
 
 def _first_dollar(text: str, anchors: tuple[str, ...]) -> float | None:

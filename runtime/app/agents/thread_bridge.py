@@ -59,7 +59,7 @@ _DONE_AT = {"extraction": _POST_TRANSLATE, "translate": _POST_TRANSLATE,
             "encounter": _POST_ENCOUNTER, "audit": _AUDIT_DONE}
 _EXTRACTION_FAILED = {"extraction_failed", "not_a_bill"}
 _TERMINAL = {"audit_complete", "audit_incomplete", "extraction_failed", "not_a_bill",
-             "resolved", "archived"}
+             "resolved", "archived", "attest_declined"}
 
 
 def enabled() -> bool:
@@ -240,8 +240,40 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         ack = orchestration_step("acknowledgment", doc_types=_doc_types_text(list(case.documents)))
         await ensure("ack", "system_message", {"text": ack, "tone": "neutral"}, ack)
 
-    # verification cards — once line items exist, ≤3 per group (D3)
-    line_items = list(case.line_items) if case.line_items else []
+    # Attest-and-proceed (§A2 state 1) — evaluated on EVERY reconcile, which is the backfill
+    # guard: an existing case with a name mismatch and no attestation gets the prompt on next
+    # open, never silently grandfathered. The attest entry renders BEFORE encounter
+    # verification, and the verification cards hold until attested.
+    from app.agents.attest import RELATIONSHIPS, evaluate_attest_state
+    from app.db.models.users import User
+
+    attest_user = (
+        await session.execute(select(User).where(User.user_id == case.user_id))
+    ).scalar_one_or_none()
+    attest_needed = evaluate_attest_state(case, attest_user) if attest_user else False
+    if attest_needed:
+        intro = orchestration_step("attest.intro", patient_name=case.patient_name or "this patient")
+        await ensure(
+            "attest",
+            "attest_request",
+            {
+                "intro": intro,
+                "patient_name": case.patient_name,
+                "menu": [
+                    {"key": k, "label": orchestration_step(f"attest.menu_{k}")}
+                    for k in RELATIONSHIPS
+                ],
+                "decline_key": "not_authorized",
+            },
+            intro,
+        )
+    if status == "attest_declined":
+        text = orchestration_step("attest.decline_ack")
+        await ensure("terminal:attest_declined", "system_message", {"text": text, "tone": "neutral"}, text)
+        return  # closed gracefully — nothing downstream renders
+
+    # verification cards — once line items exist, ≤3 per group (D3); held behind attest
+    line_items = [] if attest_needed else (list(case.line_items) if case.line_items else [])
     if line_items:
         intro = orchestration_step("verification_intro")
         nudge = orchestration_step("verification_nudge")

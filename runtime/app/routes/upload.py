@@ -29,15 +29,18 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.attest import evaluate_attest_state
 from app.agents.orchestrator import documents_all_satisfied, finalize_audit
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
+from app.db.models.users import User
 from app.db.session import get_session
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
 from app.sources.document_classifier import classify_document
 from app.sources.extraction import (  # OCR engine (CO-12A: moved out of ocr_tools)
     _grep_date,
+    grep_patient_name,
     grep_provider_name,
     run_document_ocr,
 )
@@ -186,6 +189,7 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         # Typed extraction at parse time (DL-39) — the Record row title/date read these, never
         # parsed-back-out-of prose. Conservative; None when no structured anchor is present.
         "provider_name": grep_provider_name(full_text),
+        "patient_name": grep_patient_name(full_text),
         "date_of_service": _grep_date(full_text, ("DATE OF SERVICE", "SERVICE DATE", "DOS")),
         "byte_count": len(content),
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
@@ -279,6 +283,24 @@ async def upload(
                 case.date_of_service = datetime.date.fromisoformat(str(_dos)[:10])
             except ValueError:
                 pass
+    if case.patient_name is None:
+        case.patient_name = next(
+            (d.get("patient_name") for d in documents if isinstance(d, dict) and d.get("patient_name")),
+            None,
+        )
+    # Attest-and-proceed trigger (§A2 state 1): extracted patient ≠ profile name flips the
+    # case to attest_status='required' BEFORE encounter verification can proceed.
+    _attest_user = (
+        await session.execute(select(User).where(User.user_id == case.user_id))
+    ).scalar_one_or_none()
+    if _attest_user is not None:
+        _was = case.attest_status
+        if evaluate_attest_state(case, _attest_user) and _was != "required":
+            from app.analytics.emit import emit as _emit
+
+            await _emit(
+                "attestation_required", user_id=case.user_id, case_file_id=case.case_file_id
+            )
     await session.flush()
     cfid = str(case.case_file_id)
     await session.commit()

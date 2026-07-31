@@ -91,7 +91,13 @@ async def post_confirmations(
     # when on, requires an active subscription or the one free analysis (DL-16).
     _billing: None = Depends(require_active_subscription_or_free_slot),
 ) -> ConfirmationsAccepted:
-    await require_case_owner(case_file_id, user, session)
+    case = await require_case_owner(case_file_id, user, session)
+    # Attest-and-proceed gate (§A2 state 1): encounter verification cannot proceed while an
+    # attestation is outstanding — the relationship must be on the record first.
+    if case.attest_status == "required":
+        raise HTTPException(status_code=409, detail="attestation required before verification")
+    if case.attest_status == "declined":
+        raise HTTPException(status_code=409, detail="case was closed by an authorization decline")
     if not body.confirmations:
         raise HTTPException(status_code=400, detail="confirmations must be non-empty")
     accepted = await submit_confirmations(case_file_id, body.confirmations)

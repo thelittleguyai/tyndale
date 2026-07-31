@@ -67,7 +67,7 @@ def _init_db() -> None:
                     "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_status CHECK (status IN "
                     "('open','in_progress','encounter_verification_pending','encounter_verified',"
                     "'awaiting_eob_confirmation','audit_running','audit_complete','audit_incomplete',"
-                    "'extraction_failed','not_a_bill','resolved','archived'))"
+                    "'extraction_failed','not_a_bill','resolved','archived','attest_declined'))"
                 )
             )
             # New nullable columns added after the table first existed on a dev's persisted DB.
@@ -125,7 +125,41 @@ def _init_db() -> None:
                 text(
                     "ALTER TABLE messages ADD CONSTRAINT ck_messages_kind CHECK (kind IN "
                     "('message','status_card_update','system_message','moment_card',"
-                    "'verification_request','verification_suggestion'))"
+                    "'verification_request','verification_suggestion','attest_request'))"
+                )
+            )
+            # Attest-and-proceed spine (§A2 state 1, migration 0036).
+            await conn.execute(
+                text("ALTER TABLE case_files ADD COLUMN IF NOT EXISTS patient_name text")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS attest_status text "
+                    "NOT NULL DEFAULT 'not_required'"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files DROP CONSTRAINT IF EXISTS ck_case_files_attest_status"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD CONSTRAINT ck_case_files_attest_status CHECK "
+                    "(attest_status IN ('not_required','required','attested','declined'))"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS "
+                    "ck_audit_events_event_type"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE audit_events ADD CONSTRAINT ck_audit_events_event_type CHECK "
+                    "(event_type IN ('tool_invocation','subagent_call','model_call','user_action',"
+                    "'system_action','hook_invocation','phi_block','attestation','access_request'))"
                 )
             )
             # plan_types v2 (Brock 2026-07-06): reconcile coverage_regime 7→14 on a persisted DB +

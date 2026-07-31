@@ -22,7 +22,8 @@ class AuditEvent(Base):
     __table_args__ = (
         CheckConstraint(
             "event_type IN ('tool_invocation', 'subagent_call', 'model_call', "
-            "'user_action', 'system_action', 'hook_invocation', 'phi_block')",
+            "'user_action', 'system_action', 'hook_invocation', 'phi_block', "
+            "'attestation', 'access_request')",
             name="ck_audit_events_event_type",
         ),
         CheckConstraint(

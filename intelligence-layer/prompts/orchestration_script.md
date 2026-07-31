@@ -125,3 +125,36 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## generic_degraded
 [PLACEHOLDER-eng] I can't show you the exact rule text behind this yet — I've flagged it and I'll follow up with the citation.
+
+## attest.intro
+[PLACEHOLDER-eng] Before I go further — the name on these documents ({{patient_name}}) isn't the name on your account. So I can keep good records, tell me who this person is to you.
+
+## attest.menu_self
+[PLACEHOLDER-eng] This is me — the name is just different on the paperwork
+
+## attest.menu_spouse_partner
+[PLACEHOLDER-eng] My spouse or partner
+
+## attest.menu_my_child
+[PLACEHOLDER-eng] My child
+
+## attest.menu_parent_relative
+[PLACEHOLDER-eng] A parent or relative I help with their care
+
+## attest.menu_other_authorized
+[PLACEHOLDER-eng] Someone else I'm authorized to act for
+
+## attest.confirm
+[PLACEHOLDER-eng] Thank you — I've noted that. Let's keep going with the review.
+
+## attest.decline_ack
+[PLACEHOLDER-eng] Understood — I've closed this one out and I won't review these documents. If that changes, or if the bill turns out to be yours after all, you can start again any time.
+
+## attest.edge_teen
+[PLACEHOLDER-eng] One thing worth knowing: for a teenager, some care is private to them by law even from a parent, so parts of a bill may be limited in what they show.
+
+## attest.edge_deceased
+[PLACEHOLDER-eng] I'm sorry for your loss. Bills for someone who has died are usually handled through their estate, and the rules about who can act are different — that's worth knowing before you call anyone.
+
+## attest.edge_substance
+[PLACEHOLDER-eng] Heads up: care from a substance-use program carries extra federal privacy protection, so what a provider or plan will discuss — even with family — can be narrower than usual.

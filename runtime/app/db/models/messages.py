@@ -45,7 +45,7 @@ class Message(Base):
         ),
         CheckConstraint(
             "kind IN ('message', 'status_card_update', 'system_message', 'moment_card', "
-            "'verification_request', 'verification_suggestion')",
+            "'verification_request', 'verification_suggestion', 'attest_request')",
             name="ck_messages_kind",
         ),
         Index(

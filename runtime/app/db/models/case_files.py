@@ -37,8 +37,12 @@ class CaseFile(Base):
             "status IN ('open', 'in_progress', 'encounter_verification_pending', "
             "'encounter_verified', 'awaiting_eob_confirmation', 'audit_running', "
             "'audit_complete', 'audit_incomplete', 'extraction_failed', 'not_a_bill', "
-            "'resolved', 'archived')",
+            "'resolved', 'archived', 'attest_declined')",
             name="ck_case_files_status",
+        ),
+        CheckConstraint(
+            "attest_status IN ('not_required', 'required', 'attested', 'declined')",
+            name="ck_case_files_attest_status",
         ),
         CheckConstraint(
             "intake_status IN ('not_started', 'in_progress', 'complete')",
@@ -147,3 +151,10 @@ class CaseFile(Base):
     # structured source; the row falls back to a doc-type / neutral title.
     provider_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_of_service: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # Attest-and-proceed spine (§A2 state 1, migration 0036). patient_name is the TYPED
+    # extracted patient/member name (DL-39); attest_status gates encounter verification when
+    # it doesn't fuzzy-match the account holder's profile name.
+    patient_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attest_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'not_required'")
+    )

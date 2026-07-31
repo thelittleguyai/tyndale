@@ -69,6 +69,8 @@ _VERIFY_ANSWERS = ("yes", "no", "not_sure")
 _NUDGE_STAGES = ("first", "second")
 _OUTCOME_RESOLVED = ("yes", "partial", "no")
 _REFUSAL_CATEGORIES = ("crisis", "medical_advice", "legal_advice", "financial_advice", "out_of_scope", "other")
+# §A2 state 1 attest relationships — mirrors app.agents.attest.RELATIONSHIPS (enum, never a name).
+_RELATIONSHIPS = ("self", "spouse_partner", "my_child", "parent_relative", "other_authorized")
 # UTM capture is sanitized to closed allow-lists (Rule 2): a raw campaign string would be free
 # text, so only source + medium are captured, each coerced to the nearest known token or "other".
 _ATTRIB_SOURCES = ("google", "bing", "facebook", "instagram", "tiktok", "reddit", "youtube",
@@ -117,6 +119,11 @@ REGISTRY: dict[str, EventSpec] = {
     "finding_feedback": EventSpec({"thumbs": enum_prop("up", "down")}),
     # §6 Compliance counters (COUNT-ONLY, no content) -------------------------
     "crisis_fire_count": EventSpec(),
+    # Attest-and-proceed (§A2 state 1). The relationship ENUM only — the patient name lives in
+    # the encrypted audit envelope, never here (Rule 2: PHI-free by construction).
+    "attestation_required": EventSpec(),
+    "attestation_recorded": EventSpec({"relationship": enum_prop(*_RELATIONSHIPS)}),
+    "attestation_declined": EventSpec(),
     "refusal_event": EventSpec({"category": enum_prop(*_REFUSAL_CATEGORIES)}),
     "consent_opt_in": EventSpec(),
     "consent_withdrawn": EventSpec(),
