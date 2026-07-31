@@ -146,6 +146,36 @@ resource "azurerm_container_app" "runtime" {
         name  = "ENABLE_RECORD_VIEW"
         value = tostring(var.enable_record_view)
       }
+      # Launch-path flags (audit item 4): every config flag has env wiring so a
+      # cutover is a tfvars flip, never a code change. All default false.
+      env {
+        name  = "USE_REAL_PRESIDIO"
+        value = tostring(var.use_real_presidio)
+      }
+      env {
+        name  = "ENABLE_NSA_CHECKS"
+        value = tostring(var.enable_nsa_checks)
+      }
+      env {
+        name  = "ENABLE_CPT_DISPLAY"
+        value = tostring(var.enable_cpt_display)
+      }
+      env {
+        name  = "ENABLE_APPEALS_CASEMGMT"
+        value = tostring(var.enable_appeals_casemgmt)
+      }
+      env {
+        name  = "ENABLE_NUDGE_EMAILS"
+        value = tostring(var.enable_nudge_emails)
+      }
+      env {
+        name  = "ENABLE_FIRST_CASE_UNLOCK"
+        value = tostring(var.enable_first_case_unlock)
+      }
+      env {
+        name  = "ENABLE_BILLING"
+        value = tostring(var.enable_billing)
+      }
       env {
         name = "QDRANT_URL"
         # Container Apps HTTP ingress serves on :80/:443 and routes by Host header —

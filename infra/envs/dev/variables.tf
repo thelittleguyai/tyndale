@@ -74,6 +74,52 @@ variable "enable_record_view" {
   description = "Tyndale Record + sub-case views (D5 Phase C) — when true, the dashboard becomes the Record and sub-case summary views are reachable. Server-driven via record_enabled in the dashboard response."
 }
 
+# --- Launch-path flags (July 20 audit item 4: no more orphaned config flags) --
+# Every runtime feature flag has a variable + env wiring, so each cutover is a
+# terraform.tfvars flip — never a code change. ALL default false.
+
+variable "use_real_presidio" {
+  type        = bool
+  default     = false
+  description = "Presidio PHI scrubbing (security spine, Phase 4). The launch-path cutover flag: flip to true in terraform.tfvars when the security contact's Presidio service is stood up. False keeps the pass-through dev scrubber."
+}
+
+variable "enable_nsa_checks" {
+  type        = bool
+  default     = false
+  description = "No Surprises Act checks in the audit pipeline (launch-relevant; content-gated on the NSA rules corpus)."
+}
+
+variable "enable_cpt_display" {
+  type        = bool
+  default     = false
+  description = "CPT descriptor display in user-facing surfaces (AMA licensing gate — flip only once the license is in place)."
+}
+
+variable "enable_appeals_casemgmt" {
+  type        = bool
+  default     = false
+  description = "Appeals case-management surfaces (deadline tracking UI + appeal flows)."
+}
+
+variable "enable_nudge_emails" {
+  type        = bool
+  default     = false
+  description = "Outbound +3d/+14d nudge emails from the nudge cron. False = the cron scans and logs but sends nothing (in-app resurfacing only)."
+}
+
+variable "enable_first_case_unlock" {
+  type        = bool
+  default     = false
+  description = "First-case unlock moment in the dashboard journey (ENABLE_FIRST_CASE_UNLOCK)."
+}
+
+variable "enable_billing" {
+  type        = bool
+  default     = false
+  description = "Billing scaffold (DL-16, dark). Entirely inert while false. Stripe secrets are NOT wired here — that lands with the pricing-rework session; this flag only unhides the scaffold."
+}
+
 variable "voyage_api_key" {
   type        = string
   sensitive   = true
