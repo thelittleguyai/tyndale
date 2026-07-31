@@ -172,3 +172,12 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## wrongdoc.unknown
 [PLACEHOLDER-eng] I couldn't tell what {{filenames}} is, so I don't want to guess at it. If you have an itemized bill, an Explanation of Benefits, or a statement from the provider, send that over and I'll check it properly.
+
+## reconcile.explain
+[PLACEHOLDER-eng] Two numbers here don't agree — {{figures}}. That's usually a {{category}} difference. Working from your own documents, I make it {{computed}}, and I'd call that {{confidence}} for now. I'll keep treating my own figure as the answer until something changes it.
+
+## reconcile.ask_one_input
+[PLACEHOLDER-eng] One thing would settle this for good: {{input}}. Add it and I'll redo the comparison automatically — you don't need to chase anyone yet.
+
+## reconcile.last_resort
+[PLACEHOLDER-eng] I've taken this as far as the paperwork allows, and there's no single document left that would settle it. This is the point where a call is worth it: ask them to walk through how they arrived at their figure, and tell me what they say.

@@ -317,6 +317,7 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         )
     elif status == "audit_complete":
         await _ensure_three_number_moment(session, conv, case, ensure)
+        await _ensure_reconcile_state(session, conv, case, ensure)
         done = orchestration_step("completion")
         await ensure("completion", "system_message", {"text": done, "tone": "neutral"}, done)
     elif status == "audit_incomplete":
@@ -331,6 +332,61 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     if status in ("audit_complete", "audit_incomplete") and get_settings().enable_record_view:
         keep = orchestration_step("record_post_audit_keep_doing")
         await ensure("record_keep_doing", "system_message", {"text": keep, "tone": "neutral"}, keep)
+
+
+async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
+    """Reconcile-first (§A2 state 3): surface a material accumulator conflict as a USER-FACING
+    state. The ladder comes from agents.reconcile.plan_reconcile — a state machine, so the
+    provider/plan rung cannot render while Tyndale still has an answer or a resolving question.
+    """
+    from app.agents.reconcile import plan_reconcile
+    from app.db.models.findings import Finding
+
+    finding = (
+        await session.execute(
+            select(Finding)
+            .where(Finding.case_file_id == case.case_file_id)
+            .where(Finding.category == "accumulator_discrepancy")
+            .where(Finding.status == "open")
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if finding is None:
+        return
+
+    plan = plan_reconcile(
+        finding.facts or {},
+        completeness_confirmed=bool((case.coverage or {}).get("eob_set_complete")),
+    )
+    explain = orchestration_step(
+        "reconcile.explain",
+        figures="; ".join(f"{f['label']}: {f['value']}" for f in plan.figures),
+        category=plan.category.replace("_", " "),
+        computed=plan.computed_value if plan.computed_value is not None else "—",
+        confidence=plan.confidence,
+    )
+    await ensure(
+        "reconcile",
+        "system_message",
+        {
+            "text": explain,
+            "tone": "neutral",
+            "reconcile": {
+                "category": plan.category,
+                "figures": plan.figures,
+                "computed_value": plan.computed_value,
+                "confidence": plan.confidence,
+                "rungs": plan.rungs,
+            },
+        },
+        explain,
+    )
+    if plan.ask_input:
+        ask = orchestration_step("reconcile.ask_one_input", input=plan.ask_input)
+        await ensure("reconcile_ask", "system_message", {"text": ask, "tone": "neutral"}, ask)
+    if plan.last_resort:
+        last = orchestration_step("reconcile.last_resort")
+        await ensure("reconcile_last", "system_message", {"text": last, "tone": "neutral"}, last)
 
 
 async def _ensure_three_number_moment(session, conv, case, ensure) -> None:

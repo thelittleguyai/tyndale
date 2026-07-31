@@ -26,6 +26,7 @@ from app.sources.base import (
     CoverageResult,
     CoverageSource,
 )
+from app.agents.reconcile import classify_difference
 from app.sources.case_data import as_float, load_case_eobs_coverage
 from app.sources.materiality import AUDIT_FLAG, is_material
 from app.sources.registry import SourceRegistry
@@ -99,7 +100,16 @@ def cross_validate(
         "category": "accumulator_discrepancy",
         "subagent_source": "math_person",
         "voice_tier": "A",
-        "facts": {"readings": readings, "deltas": deltas, "as_of": as_of.isoformat()},
+        # difference_category (§A2 state 3): WHY the figures differ — gross_vs_net /
+        # billed_vs_allowed / timing / unexplained — so the user-facing reconcile state can
+        # explain the disagreement instead of only reporting it. Classified from the readings
+        # themselves; never guessed into a specific cause (falls back to 'unexplained').
+        "facts": {
+            "readings": readings,
+            "deltas": deltas,
+            "as_of": as_of.isoformat(),
+            "difference_category": classify_difference(readings, deltas),
+        },
         "recommendation": {
             "action": (
                 "Reconcile the accumulator: request a corrected EOB / member-portal "
