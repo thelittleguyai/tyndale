@@ -1,0 +1,149 @@
+"""X1 close-the-loop doctrine contract (Brock D-A, July 25) — the CI teeth.
+
+Loads the self-contained checker from intelligence-layer/evals/doctrine (by file path, the
+same way the e2e harness does) and proves:
+  * Brock's canonical worked failure — the DELIBERATE X1-VIOLATION FIXTURE — is caught with
+    named reasons;
+  * the real needs_documents thread shape (thread_bridge's checklist payload) passes;
+  * X1(c) against the REAL cadence machinery's own functions (nudge_cron._chase_documents /
+    _due_stage — the pieces scan_for_nudges composes), not a reimplementation;
+  * the X2/X3/X5 stubs exist with frozen signatures and refuse to silently pass.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import sys
+
+import pytest
+
+_DOCTRINE = pathlib.Path(__file__).resolve().parents[2] / "intelligence-layer" / "evals" / "doctrine"
+
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(name, _DOCTRINE / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod  # dataclasses resolve annotations via sys.modules — register first
+    spec.loader.exec_module(mod)
+    return mod
+
+
+x1 = _load("x1_close_the_loop")
+
+
+def _msg(content: str, *, role: str = "system", kind: str = "system_message", payload: dict | None = None) -> dict:
+    return {"role": role, "kind": kind, "content": content, "payload": payload or {"text": content}}
+
+
+# --- the deliberate X1-violation fixture (Brock's worked example) ------------
+def test_brock_canonical_failure_is_caught_with_named_reasons():
+    """"To finish this check I need your EOB. Please upload it to continue." — an imperative
+    ask with no affordance, no resume promise, a closed case, and no nudge: all three legs
+    fail, each with a NAMED reason."""
+    thread = [_msg("To finish this check I need your EOB. Please upload it to continue.")]
+    verdict = x1.check_x1(thread, case_status="resolved", nudge_state={"eligible": False})
+    assert not verdict.passed
+    assert verdict.information_requests == 1
+    reasons = " | ".join(verdict.reasons)
+    assert "no_return_path" in reasons
+    assert "case_not_open" in reasons
+    assert "no_nudge_scheduled" in reasons
+
+
+def test_healthy_needs_documents_thread_passes():
+    """The real thread_bridge shape: the needs_documents entry carries the checklist payload
+    (the structured upload affordance), the case stays audit_incomplete (open), the cadence
+    machinery is eligible → X1 holds."""
+    checklist = {
+        "intro": "To finish your review, Tyndale still needs a couple of documents.",
+        "items": [
+            {"key": "eob", "label": "Explanation of Benefits (EOB)", "how_to_get": "…", "have": False},
+            {"key": "bill", "label": "Itemized bill", "how_to_get": "…", "have": True},
+        ],
+    }
+    thread = [
+        _msg("Got your documents — starting the review."),
+        _msg(
+            "To finish your review, Tyndale still needs a couple of documents.",
+            payload={"text": "…", "needs_documents": checklist, "marker": "needs_documents"},
+        ),
+    ]
+    verdict = x1.check_x1(thread, case_status="audit_incomplete", nudge_state={"eligible": True})
+    assert verdict.passed, verdict.summary()
+    assert verdict.information_requests == 1
+
+
+def test_resume_language_alone_is_a_return_path():
+    """Nudge-style copy — "add it whenever it's handy and Tyndale will finish the review
+    automatically" — closes the loop even without a structured affordance payload."""
+    thread = [
+        _msg("We still need your EOB to lock in the numbers."),
+        _msg("You can add it whenever it's handy, and Tyndale will finish the review automatically."),
+    ]
+    verdict = x1.check_x1(thread, case_status="audit_incomplete", nudge_state={"eligible": True})
+    assert verdict.passed, verdict.summary()
+
+
+def test_verification_request_kind_has_builtin_return_path():
+    thread = [_msg("Did this visit include a blood draw?", kind="verification_request", payload={})]
+    verdict = x1.check_x1(thread, case_status="encounter_verification_pending", nudge_state={"eligible": True})
+    assert verdict.passed, verdict.summary()
+
+
+def test_user_messages_and_plain_updates_are_never_information_requests():
+    thread = [
+        _msg("please upload my EOB for me?", role="user", kind="message"),  # user asks US — not X1
+        _msg("Your audit is complete — here are the three numbers."),
+    ]
+    verdict = x1.check_x1(thread, case_status="audit_complete", nudge_state=None)
+    assert verdict.passed
+    assert verdict.information_requests == 0
+    assert any("vacuous" in n for n in verdict.notes)
+
+
+def test_http_harness_mode_notes_unverified_nudge_never_silent():
+    thread = [_msg("We need your itemized bill.", payload={"needs_documents": {"items": [{"key": "bill"}]}})]
+    verdict = x1.check_x1(thread, case_status="audit_incomplete", nudge_state=None)
+    assert verdict.passed
+    assert any("nudge_unverified" in n for n in verdict.notes)
+
+
+# --- X1(c) against the REAL cadence machinery --------------------------------
+def test_nudge_cadence_real_machinery_eligibility():
+    """Drive (c) with the cron's own functions (what scan_for_nudges composes per case): a
+    coverage-poor case has SBC-chase documents, and the +3d/+14d ladder fires exactly once
+    per stage. nudge_state derives from the real pieces — no reimplementation."""
+    from app.crons.nudge_cron import _chase_documents, _due_stage
+
+    chase = _chase_documents(None)  # no coverage → deductible/oop/coinsurance all missing
+    assert chase, "a coverage-poor case must have load-bearing chase documents"
+    assert _due_stage(16, [], 3, 14) == "+14d"
+    assert _due_stage(4, [], 3, 14) == "+3d"
+    assert _due_stage(4, ["+3d"], 3, 14) is None  # sent → not due again
+    assert _due_stage(40, ["+14d"], 3, 14) is None  # ladder exhausted → in-app resurfacing only
+
+    eligible = bool(chase) and _due_stage(4, [], 3, 14) is not None
+    thread = [_msg("We still need your SBC.", payload={"needs_documents": {"items": [{"key": "sbc"}]}})]
+    verdict = x1.check_x1(thread, case_status="audit_incomplete", nudge_state={"eligible": eligible})
+    assert verdict.passed, verdict.summary()
+
+    starved = x1.check_x1(thread, case_status="audit_incomplete", nudge_state={"eligible": False})
+    assert not starved.passed
+    assert any("no_nudge_scheduled" in r for r in starved.reasons)
+
+
+# --- X2/X3/X5: frozen signatures, no silent passes ---------------------------
+@pytest.mark.parametrize(
+    ("module", "func", "verdict_cls"),
+    [
+        ("x2_finding_action", "check_x2", "X2Verdict"),
+        ("x3_missing_input_qualifier", "check_x3", "X3Verdict"),
+        ("x5_error_finding_shape", "check_x5", "X5Verdict"),
+    ],
+)
+def test_stub_checkers_exist_and_refuse_to_silently_pass(module: str, func: str, verdict_cls: str):
+    mod = _load(module)
+    assert hasattr(mod, verdict_cls), f"{module} must export {verdict_cls} (frozen contract shape)"
+    with pytest.raises(NotImplementedError):
+        getattr(mod, func)([])

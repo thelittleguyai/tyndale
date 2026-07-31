@@ -15,6 +15,7 @@
   "expect": {
     "terminal": "audit_incomplete",
     "incomplete_reason": "needs_documents",
-    "no_fixture": true
+    "no_fixture": true,
+    "assert_x1": true
   }
 }

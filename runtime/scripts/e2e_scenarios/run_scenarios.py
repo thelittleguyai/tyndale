@@ -23,9 +23,11 @@ Each run costs real Claude tokens against dev (~1 audit per scenario). Not sched
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import pathlib
+import sys
 import tempfile
 import time
 
@@ -189,6 +191,36 @@ def _chat_first_checks(messages: list[dict] | None, terminal: str, no_placeholde
     if no_placeholders and "[PLACEHOLDER-eng]" in json.dumps(messages):
         fails.append("chat-first: [PLACEHOLDER-eng] copy leaked into the thread (staging)")
     return fails
+
+
+# X1 doctrine checker (Brock D-A) — loaded by file path: intelligence-layer is not a package,
+# and the doctrine modules are deliberately self-contained (stdlib-only) for exactly this.
+_X1_PATH = (
+    HERE.parents[2] / "intelligence-layer" / "evals" / "doctrine" / "x1_close_the_loop.py"
+)
+_x1_module = None
+
+
+def _load_x1():
+    global _x1_module
+    if _x1_module is None:
+        spec = importlib.util.spec_from_file_location("x1_close_the_loop", _X1_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["x1_close_the_loop"] = mod  # dataclasses need the module registered pre-exec
+        spec.loader.exec_module(mod)
+        _x1_module = mod
+    return _x1_module
+
+
+def _x1_checks(messages: list[dict] | None, terminal: str) -> list[str]:
+    """Brock D-A: needs_documents-producing scenarios assert the X1 close-the-loop contract
+    over the case thread. nudge_state=None here — the HTTP harness can't see the DB-side
+    cadence machinery, so X1(c) is asserted in-process (tests/test_x1_contract.py) and the
+    checker records it as a note, never a silent pass."""
+    if messages is None:
+        return ["x1: no case thread to check (X1 assertions need the chat-first thread)"]
+    verdict = _load_x1().check_x1(messages, terminal, nudge_state=None)
+    return [] if verdict.passed else [f"x1: {r}" for r in verdict.reasons]
 
 
 def _free_text_verify_checks(client: httpx.Client, base_url: str, case_id: str, spec: dict) -> list[str]:
@@ -370,9 +402,10 @@ def run_scenario(
 
         fails = pre_fails + _check(scenario, terminal, extract, audit)
         if chat_first and case_id:
-            fails = fails + _chat_first_checks(
-                _fetch_thread(client, base_url, case_id), terminal, no_placeholders
-            )
+            thread = _fetch_thread(client, base_url, case_id)
+            fails = fails + _chat_first_checks(thread, terminal, no_placeholders)
+            if exp.get("assert_x1"):
+                fails = fails + _x1_checks(thread, terminal)
         if record and case_id:
             fails = fails + _record_checks(client, base_url, case_id, terminal)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,

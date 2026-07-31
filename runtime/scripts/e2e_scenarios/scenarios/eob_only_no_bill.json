@@ -24,6 +24,7 @@
   },
   "expect": {
     "terminal": "audit_complete",
-    "no_fixture": true
+    "no_fixture": true,
+    "assert_x1": true
   }
 }
