@@ -96,6 +96,13 @@ resource "azurerm_container_app" "runtime" {
     key_vault_secret_id = azurerm_key_vault_secret.wrapper_auth_token.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Audit-log AES-256-GCM key (security-week item 1). Without it audit payloads
+  # persist clear-text (key_version 0) — audit_crypto.py warns at startup.
+  secret {
+    name                = "audit-log-enc-key"
+    key_vault_secret_id = azurerm_key_vault_secret.audit_log_enc_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     min_replicas = 0 # dev cost: scale to zero when idle (cold-start ~20-30s on first request)
@@ -285,6 +292,14 @@ resource "azurerm_container_app" "runtime" {
       env {
         name        = "E2E_TEST_TOKEN_SECRET"
         secret_name = "e2e-test-token-secret"
+      }
+      env {
+        name        = "AUDIT_LOG_ENC_KEY"
+        secret_name = "audit-log-enc-key"
+      }
+      env {
+        name  = "AUDIT_LOG_KEY_VERSION"
+        value = tostring(var.audit_log_key_version)
       }
       env {
         name        = "GOOGLE_CLIENT_SECRET"

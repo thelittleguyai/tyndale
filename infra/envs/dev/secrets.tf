@@ -219,6 +219,33 @@ resource "azurerm_key_vault_secret" "qdrant_api_key" {
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
 
+# --- Audit-log encryption key (security-week item 1 — AES-256-GCM at rest) --
+# The runtime's audit_crypto.py expects AUDIT_LOG_ENC_KEY = base64 of exactly 32
+# RAW bytes (AES-256), so this must be random_bytes (raw bytes → .base64), NOT
+# random_password (whose printable characters would base64-decode to the wrong
+# length). Terraform owns it (no external counterpart), same shape as auth_secret.
+#
+# ROTATION PROCEDURE (documented per the July 20 audit):
+#   1. Force a new key:            terraform apply -replace=random_bytes.audit_log_enc_key
+#   2. Bump the version stamp:     audit_log_key_version = <n+1> in terraform.tfvars
+#   Historical rows are NOT re-encrypted — each row's key_version records which key
+#   wrote it (0 = legacy clear-text), and new writes stamp the new version. CAVEAT
+#   (confirmed against audit_crypto.py): the reader currently loads a SINGLE key, so
+#   after a rotation, rows written under the OLD key raise AuditCryptoError on read
+#   until a key-ring reader (security contact's Phase-4 scope) or a one-time
+#   re-encrypt job lands. Rotate only with that in place — or accept unreadable
+#   pre-rotation payloads (their SHA-256 integrity hashes remain verifiable).
+resource "random_bytes" "audit_log_enc_key" {
+  length = 32
+}
+
+resource "azurerm_key_vault_secret" "audit_log_enc_key" {
+  name         = "AUDIT-LOG-ENC-KEY"
+  value        = random_bytes.audit_log_enc_key.base64
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
+}
+
 # --- Coverage connection: wrapper bearer + 1up credentials ------------------
 # Shared bearer between the runtime (sends it) and the wrapper (checks it) —
 # same trust shape as the qdrant api-key. Auto-generated; both apps read it via

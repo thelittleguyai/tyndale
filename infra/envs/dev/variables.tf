@@ -56,6 +56,12 @@ variable "use_real_ocr" {
   description = "Runtime USE_REAL_OCR flag — when true, deployed OCR flips from the deterministic stub to real Azure Document Intelligence (the doc-intel endpoint/key are always wired into the runtime; this just activates them). Set true in terraform.tfvars to enable real OCR without a code change; leave false for stub-only dev."
 }
 
+variable "audit_log_key_version" {
+  type        = number
+  default     = 1
+  description = "Version stamp written on audit rows encrypted under the CURRENT audit_log_enc_key (0 is reserved for legacy clear-text rows). Bump together with `terraform apply -replace=random_bytes.audit_log_enc_key` when rotating — see the rotation-procedure comment in secrets.tf before doing so."
+}
+
 variable "enable_chat_first_audit" {
   type        = bool
   default     = false

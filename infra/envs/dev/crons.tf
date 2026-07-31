@@ -69,6 +69,14 @@ resource "azurerm_container_app_job" "cron" {
     key_vault_secret_id = azurerm_key_vault_secret.qdrant_api_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Crons write system_action audit rows through the shared envelope
+  # (app/crons/_cron_util.audit_cron_run) — without the key here, cron-written
+  # audit payloads would persist clear-text even after the runtime is keyed.
+  secret {
+    name                = "audit-log-enc-key"
+    key_vault_secret_id = azurerm_key_vault_secret.audit_log_enc_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     container {
@@ -103,6 +111,14 @@ resource "azurerm_container_app_job" "cron" {
       env {
         name        = "QDRANT_API_KEY"
         secret_name = "qdrant-api-key"
+      }
+      env {
+        name        = "AUDIT_LOG_ENC_KEY"
+        secret_name = "audit-log-enc-key"
+      }
+      env {
+        name  = "AUDIT_LOG_KEY_VERSION"
+        value = tostring(var.audit_log_key_version)
       }
     }
   }
