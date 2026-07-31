@@ -47,6 +47,12 @@ from app.hooks.contracts import (
     StopInput,
     UserPromptSubmitInput,
 )
+from app.agents.declines import (
+    FABRICATION,
+    classify_decline,
+    fabrication_response,
+    guarantee_response,
+)
 from app.hooks.crisis_classifier import crisis_classifier_async
 from app.hooks.pre_tool_use import pre_tool_use_hook
 from app.hooks.stop import _CITATION_RE, stop_hook
@@ -512,6 +518,33 @@ async def _real_stream(
     }
 
 
+async def _open_findings(case_id) -> list:
+    """The case's open findings, for a decline's truthful reframe. Best-effort: no case (or a
+    read failure) just means the decline renders without the case-specific pivot."""
+    if not case_id:
+        return []
+    try:
+        cid = case_id if isinstance(case_id, uuid.UUID) else uuid.UUID(str(case_id))
+        from sqlalchemy import select
+
+        from app.db.base import AsyncSessionLocal
+        from app.db.models.findings import Finding
+
+        async with AsyncSessionLocal() as s:
+            return list(
+                (
+                    await s.execute(
+                        select(Finding)
+                        .where(Finding.case_file_id == cid)
+                        .where(Finding.status == "open")
+                    )
+                ).scalars()
+            )
+    except Exception as exc:  # noqa: BLE001 — never break the chat path on a reframe lookup
+        log.warning("chat.decline_findings_failed", error=str(exc))
+        return []
+
+
 async def _decline_stream(text: str) -> AsyncIterator[dict]:
     """Emit a terminal decline as a minimal token + complete stream so the route
     persists it as the assistant message (no tools, no Lead Planner)."""
@@ -592,6 +625,25 @@ async def stream_chat_turn(
             yield ev
         return
     user_message = ups.scrubbed_message  # use the scrubbed text downstream
+
+    # The two §10 declines (§A2 state 4) — AFTER crisis + injection (their precedence is
+    # untouched), BEFORE dispatch. Neither dead-ends: fabrication reframes to the strongest
+    # REAL finding, guarantee answers with the honest trio. Detection fails open to None, so a
+    # missed signal is just a normal turn — never a false refusal.
+    decline_intent = await classify_decline(user_message)
+    if decline_intent:
+        findings = await _open_findings(case_id)
+        text = (
+            fabrication_response(findings)
+            if decline_intent == FABRICATION
+            else guarantee_response(findings)
+        )
+        log.info("chat.decline", mode=mode, intent=decline_intent)
+        await _emit_safe("refusal_event", user_id, case_id, {"category": "out_of_scope"})
+        await _emit_safe("decline_state_shown", user_id, case_id, {"kind": decline_intent})
+        async for ev in _decline_stream(text):
+            yield ev
+        return
 
     if not real_claude_enabled():
         async for ev in _fixture_stream(

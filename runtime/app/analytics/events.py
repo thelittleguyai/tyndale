@@ -126,6 +126,8 @@ REGISTRY: dict[str, EventSpec] = {
     "attestation_declined": EventSpec(),
     # Wrong-document redirect (§A2 state 2) — which branch the upload was routed to.
     "wrong_document_redirect": EventSpec({"branch": enum_prop("card", "sbc", "clinical", "unknown")}),
+    # §A2 state 4 declines — which decline fired (count-only, never the utterance).
+    "decline_state_shown": EventSpec({"kind": enum_prop("fabrication", "guarantee")}),
     "refusal_event": EventSpec({"category": enum_prop(*_REFUSAL_CATEGORIES)}),
     "consent_opt_in": EventSpec(),
     "consent_withdrawn": EventSpec(),

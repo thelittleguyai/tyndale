@@ -181,3 +181,12 @@ Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>
 
 ## reconcile.last_resort
 [PLACEHOLDER-eng] I've taken this as far as the paperwork allows, and there's no single document left that would settle it. This is the point where a call is worth it: ask them to walk through how they arrived at their figure, and tell me what they say.
+
+## decline.fabrication
+[PLACEHOLDER-eng] I can't write that — not because of a rule, but because it would sink you. The moment one claim doesn't hold up, everything else you say gets treated as suspect, and you lose the part that was true.
+
+## decline.fabrication_reframe
+[PLACEHOLDER-eng] Here's the thing: you don't need it. What you actually have is stronger — {{finding}}, worth about ${{amount}}. That's checkable, it's on their own paperwork, and it's the argument I'd put in front of them.
+
+## decline.guarantee_trio
+[PLACEHOLDER-eng] I won't put a number on your odds — anyone who does is guessing, and you'd be making decisions on it. What I can tell you honestly: {{base_rate}}. For your case specifically, the strength is {{basis}} — that's what the documents actually support. The useful move now is {{next_step}}.
