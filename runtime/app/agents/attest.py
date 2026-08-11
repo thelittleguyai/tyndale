@@ -28,9 +28,19 @@ from app.db.models.case_files import CaseFile
 from app.db.models.users import User
 from app.sources.extraction import grep_patient_name
 
-# The five §3 relationship menu options, in render order. Keys are the API/analytics enum;
-# each maps 1:1 onto a registry copy key (attest.menu_<key>).
-RELATIONSHIPS = ("self", "spouse_partner", "my_child", "parent_relative", "other_authorized")
+# Brock's §3.1 relationship menu — SEVEN options, in his render order. Each maps 1:1 onto a
+# registry copy key (attest.menu_<key>). Note there is deliberately no "self" option (a name
+# mismatch means the bill isn't the account holder's) and no "none of the above, but let me
+# in" escape (conformance checklist F1) — refusing is the decline path, not a menu entry.
+RELATIONSHIPS = (
+    "spouse_partner",
+    "parent_guardian",
+    "adult_child_caregiver",
+    "healthcare_poa",
+    "court_guardian",
+    "executor",
+    "other",
+)
 
 _NAME_NOISE_RE = re.compile(r"[^a-z ]+")
 

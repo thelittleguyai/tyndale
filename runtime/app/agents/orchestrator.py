@@ -718,6 +718,28 @@ EXTRACTION_FAILED_MESSAGE = (
 # Distinct from extraction_failed: the document(s) READ fine, they just aren't a medical bill or
 # insurance document — so there's nothing to audit. Name the file(s) so the user knows exactly
 # which upload was the problem, and point them at what Tyndale can actually help with.
+_FRIENDLY_DOC_TYPE = {
+    "insurance_card": "an insurance card", "sbc": "a plan summary",
+    "gfe": "a good-faith estimate", "clinical_record": "a medical record",
+    "clinical_note": "a clinical note", "medical_record": "a medical record",
+    "unclassified": "something I couldn't place",
+}
+
+
+def _detected_doc_type(documents) -> str | None:
+    """Plain-language name for {detected_doc_type} (§5.3). None when nothing was classified —
+    which degrades rather than guessing at what the upload was."""
+    for d in documents or []:
+        t = d.get("document_type") if isinstance(d, dict) else getattr(d, "document_type", None)
+        if t and t != "unclassified":
+            return _FRIENDLY_DOC_TYPE.get(t, t.replace("_", " "))
+    for d in documents or []:
+        t = d.get("document_type") if isinstance(d, dict) else getattr(d, "document_type", None)
+        if t:
+            return _FRIENDLY_DOC_TYPE.get(t)
+    return None
+
+
 def not_a_bill_message(filenames: list[str], documents=None) -> str:
     """The wrong-document redirect message (§A2 state 2). When the classifier placed the
     upload (insurance card / SBC / GFE / clinical record), the TYPED branch copy renders —
@@ -726,9 +748,10 @@ def not_a_bill_message(filenames: list[str], documents=None) -> str:
     named = ", ".join(f"“{n}”" for n in filenames) if filenames else "what you uploaded"
     branch = classify_wrong_document(documents) if documents else None
     if branch is not None:
-        # {{filenames}} keeps the honesty property the generic line had: an unplaceable upload
-        # is named back to the user, so they know exactly which file didn't land.
-        text = orchestration_step(branch.key, filenames=named)
+        # Brock's §5.3 names the DETECTED DOCUMENT TYPE ({detected_doc_type}), not the filename.
+        # (The prior engineering copy named the file; his authored version is the authority —
+        # flagged in the pull-in summary so he can restore file-naming if he wants it.)
+        text = orchestration_step(branch.key, detected_doc_type=_detected_doc_type(documents))
         if not text.startswith("<MISSING-script:"):
             return text
     return (

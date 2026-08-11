@@ -135,8 +135,8 @@ def fabrication_response(findings: list | None = None) -> str:
     amount = _dollar_of(best)
     reframe = orchestration_step(
         "decline.fabrication_reframe",
-        finding=humanize_category(getattr(best, "category", "") or ""),
-        amount=f"{amount:,.2f}" if amount else "the amount in question",
+        finding=humanize_category(getattr(best, "category", "") or "") or None,
+        amount=f"{amount:,.2f}" if amount else None,
     )
     return f"{text}\n\n{reframe}"
 
@@ -147,13 +147,14 @@ def guarantee_response(findings: list | None = None, *, base_rate: dict | None =
     from app.sources.gameplan import humanize_category
 
     best = _strongest_finding(findings or [])
+    # His §10.2 variables. base_rate/base_rate_source are None until the corpus carries a cited
+    # rate — which degrades (§5) rather than inventing a statistic, exactly per the doctrine.
     return orchestration_step(
         "decline.guarantee_trio",
-        base_rate=(base_rate or {}).get("text") or "I don't have a cited rate for a case like this",
-        basis=(
-            humanize_category(getattr(best, "category", "") or "")
-            if best is not None
-            else "what your documents actually show"
+        base_rate=(base_rate or {}).get("rate"),
+        base_rate_source=(base_rate or {}).get("source"),
+        strength_of_basis=(
+            humanize_category(getattr(best, "category", "") or "") if best is not None else None
         ),
         next_step="the next step in your gameplan",
     )

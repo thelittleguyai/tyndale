@@ -48,12 +48,11 @@ def test_handoff_keys_exist(key):
     assert key in load_orchestration_registry()
 
 
-def test_pace_handoff_promises_tyndale_stays_on_the_billing_side():
-    """§12's requirement, and what keeps the handoff X1-compliant: the case stays open."""
-    text = orchestration_step("handoff.pace")
-    lowered = text.lower()
-    assert "pace" in lowered
-    assert "still here" in lowered or "not going anywhere" in lowered
+def test_pace_handoff_promises_tyndale_keeps_the_case_open():
+    """§12.1's requirement, and what keeps the handoff X1-compliant: the case stays open."""
+    text = orchestration_step("handoff.pace", program_name="PACE", program_source="42 CFR 460")
+    assert "PACE" in text
+    assert "keep your case open" in text.lower()
 
 
 def test_handoff_thread_entry_satisfies_x1():
@@ -72,9 +71,18 @@ def test_handoff_thread_entry_satisfies_x1():
     assert verdict.passed, verdict.summary()
 
 
-def test_generic_program_interpolates_the_program():
-    out = orchestration_step("handoff.generic_program", program="PACE")
-    assert "{{program}}" not in out and "PACE" in out
+def test_generic_program_interpolates_his_variables():
+    out = orchestration_step(
+        "handoff.generic_program", program_name="PACE", program_source="42 CFR 460"
+    )
+    assert "PACE" in out and "42 CFR 460" in out and "{" not in out
+
+
+def test_handoff_without_a_program_source_degrades_rather_than_claiming_one():
+    """His §12.1 is [A]/[B] and cites the program. With no citation available the string
+    degrades — never a sourceless program claim."""
+    out = orchestration_step("handoff.generic_program", program_name="PACE", program_source=None)
+    assert "{" not in out and out
 
 
 def test_handoff_analytics_is_an_enum_not_a_program_name():

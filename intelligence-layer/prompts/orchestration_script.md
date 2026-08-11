@@ -4,201 +4,418 @@ description: |
   Versioned registry of every system-authored string the chat-first audit thread renders
   (Brock 2026-07-10, DL-91). The runtime renders these values VERBATIM — engineering never
   copy-edits them. Authoring is Brock's side; engineering owns only the loader + this key
-  registry + the placeholder guard.
-version: 0.1.0
+  registry + the source mapping.
+version: 1.0.0
+source: docs/build-kit/33_orchestration_script.md (v1, 2026-07-16)
 ---
 
-# Orchestration script — chat-first audit thread (Phase A)
+# Orchestration script — chat-first audit thread
 
-Each `## <key>` below maps to one thread string. Values here are engineering **placeholders**
-(prefixed `[PLACEHOLDER-eng]`) so dev renders something; `assert_production_safety` FAILS a
-staging/production boot while any active value still carries that prefix (D1). Brock's authors
-replace each body with the real copy — keep the `{{variable}}` slots.
+**Every value below is Brock's authored copy, verbatim, from
+`docs/build-kit/33_orchestration_script.md`.** Each key carries a `<!-- §N.N -->` marker
+naming the section it came from, so a future version of his file drops in mechanically.
+Copy changes arrive as a NEW VERSION OF HIS FILE — never as an edit here (his §0 rule 1,
+now enforced by `tests/test_script_drift.py`, which fails CI naming the offending key).
 
-## Voice-tier tags (parsed by the loader — govern rendering, never shown to users)
-Each value body MAY lead with `[A]`, `[B]`, or `[C]` (untagged = `[A]`):
-- `[A]` fact copy — renders plainly.
-- `[B]` legal/coverage claim — the renderer REQUIRES a citation payload; without one it
-  renders the graceful-degradation variant instead (`<key>_degraded` if authored, else
-  `generic_degraded`) and counts a doctrine_violation. Author a `_degraded` sibling for
-  every `[B]` key.
-- `[C]` strategy — never predicts an outcome; the loader REFUSES to boot a `[C]` value
-  carrying a `{{win_probability}}`-style slot. Tags are stripped before rendering and
-  before the placeholder guard (`[B] [PLACEHOLDER-eng] …` still fails staging).
+## Rendering rules (his §0, enforced in code)
 
-## Variables (interpolated by the renderer)
-- `{{doc_types}}` — comma-joined classified document types received (acknowledgment).
-- `{{delta_dollars}}` — billed-minus-computed savings, formatted e.g. `1,240.00` (three_number_reveal).
-- `{{label}}` / `{{how_to_get}}` — a needs_documents checklist item's label + how-to-get text.
-- `{{party}}` — plain-language who-to-call for a gameplan call, e.g. `your insurance company`
-  (call_script_opener_payer / call_script_opener_provider).
-- `{{filenames}}` — the uploaded file name(s), quoted and comma-joined (wrongdoc.*).
-- `{{patient_name}}` — the patient name AS EXTRACTED from the documents (attest.intro).
-- `{{total}}` / `{{breakdown}}` — open-case count + comma-joined count breakdown, e.g.
-  `2 need documents, 1 with results ready` (record_welcome_summary_fallback).
-Unknown `{{slots}}` are left as-is; a missing key renders `<MISSING-script: key>`.
+1. **Verbatim.** No paraphrase, no shortening, no "snappier" edits.
+2. **Variables** are the ONLY runtime substitution and use `{single_braces}` (his
+   convention; the legacy `{{double}}` form still parses). A variable with no value renders
+   the **§5 degradation variant** — never a guess, never an empty string, never a raw
+   `{token}` (`app.agents.context_loader.orchestration_step`).
+3. **Voice tiers** `[A]`/`[B]`/`[C]` lead the value, govern rendering, and are never shown:
+   - `[A]` fact — renders plainly.
+   - `[B]` legal/coverage claim — renders ONLY with its citation chip; without one the
+     graceful-degradation variant renders instead and a `doctrine_violation` is counted.
+   - `[C]` strategy — never predicts an outcome; the loader refuses to boot a `[C]` value
+     carrying a prediction variable.
 
-## acknowledgment
-[PLACEHOLDER-eng] Got your documents — I can see a {{doc_types}}. Let me take a look.
+## Variable dictionary (his §0)
 
-## stage_label_extraction
-[PLACEHOLDER-eng] Reading your documents
+`{first_name}` user's first name (fallback: "there") · `{patient_name}` name on the bill ·
+`{payer}` insurer · `{provider}` billing provider/facility · `{doc_list}` human list of
+received docs · `{billed}` amount billed · `{eob_owed}` what the insurer says you owe ·
+`{tyndale_owed}` what Tyndale computes you should owe · `{gap}` the difference worth
+pursuing · `{n_findings}` count of findings · `{finding_title}` / `{finding_amount}` /
+`{finding_source}` per finding · `{service_date}` · `{visit_desc}` plain-language visit
+description · `{line_desc}` plain-language line-item · `{deadline_date}` response deadline ·
+`{doc_needed}` the specific missing document.
 
-## stage_label_translate
-[PLACEHOLDER-eng] Sorting out what you were charged for
+Additional variables his strings use, not in the §0 dictionary (flagged for him):
+`{itemized_request_script}` (§5.2) · `{detected_doc_type}` (§5.3) ·
+`{reconciliation_explanation}` (§5.4) · `{have_doc}` / `{how_to_get_it_hint}` (§8.2) ·
+`{base_rate}` / `{base_rate_source}` / `{strength_of_basis}` / `{next_step}` (§10.2) ·
+`{program_name}` / `{program_source}` (§12.1).
 
-## stage_label_encounter
-[PLACEHOLDER-eng] Confirming what happened
-
-## stage_label_audit
-[PLACEHOLDER-eng] Checking every charge against the rules
-
-## verification_intro
-[PLACEHOLDER-eng] Quick check — does each of these match what actually happened at your visit? Tap the answer for each.
-
-## verification_nudge
-[PLACEHOLDER-eng] Tap one of the buttons on a card above to answer — that's all I need here.
-
-## audit_start
-[PLACEHOLDER-eng] Thanks. I'm running the full audit now — I'll compute what you should owe and check it against the bill and your insurer.
-
-## long_wait
-[PLACEHOLDER-eng] Still working — a careful audit can take a couple of minutes. I'll have your numbers shortly.
-
-## cap_collision
-[PLACEHOLDER-eng] I need a short breather before I can keep going on this — give me a few minutes and I'll pick right back up where I left off.
-
-## needs_documents_intro
-[PLACEHOLDER-eng] Here's what I found so far. To finish and lock in your numbers, I need a couple more documents:
-
-## needs_documents_item
-[PLACEHOLDER-eng] {{label}} — {{how_to_get}}
-
-## reaudit_announce
-[PLACEHOLDER-eng] Got it — that's everything I needed. Re-running your audit now.
-
-## three_number_reveal
-[PLACEHOLDER-eng] Here are your three numbers. You may not owe about ${{delta_dollars}} of what you were billed.
-
-## system_error
-[PLACEHOLDER-eng] Something went wrong on our end while finishing this audit — our team has been notified and will take a look. You don't need to do anything.
-
-## completion
-[PLACEHOLDER-eng] Your audit is complete. Everything I found is below — tap any finding for the details and what to do next.
-
-## verification_map_confirm
-[PLACEHOLDER-eng] I've marked {{summary}} — tap to confirm, or fix any I got wrong.
-
-## verification_map_fallback
-[PLACEHOLDER-eng] I couldn't tell which charge you meant — tap the answer on each card above and I'll take it from there.
-
-## verification_map_partial_fallback
-[PLACEHOLDER-eng] I caught part of that but want to be sure I don't guess — please tap the answer on each card above.
+## §1 · Upload + opening
 
 ## record_first_upload_frame
-[PLACEHOLDER-eng] This is the start of your file. I'll remember your plan and watch what happens next — every bill you send becomes part of your record.
+<!-- §1.1 -->
+[A] "This is the start of your file. I'll read what you upload, remember your plan, and keep watching what happens next — so you're not doing this alone."
 
-## record_post_audit_keep_doing
-[PLACEHOLDER-eng] Here's what I keep doing for you from here: watching your deadlines, re-checking the moment you add a document, and adding this to your growing record so nothing slips.
+## upload_trust_microcopy
+<!-- §1.2 (new key) -->
+[A] "Encrypted. Never sold. Used only for your audit."
 
-## call_script_opener_payer
-[PLACEHOLDER-eng] When you reach {{party}}, give your name and member ID and say you're calling about a billing error you'd like corrected.
+## upload_just_the_bill
+<!-- §1.3 (new key) -->
+[A] "Just have the bill? That works — I'll tell you what each extra document unlocks."
 
-## call_script_opener_provider
-[PLACEHOLDER-eng] When you reach {{party}}, give your name and account number and say you're calling about a charge you'd like corrected.
+## acknowledgment
+<!-- §1.4 -->
+[A] "Got your documents — {doc_list} from {payer}. Reading them now…"
 
-## call_script_get_it_in_writing
-[PLACEHOLDER-eng] Before you hang up, ask them to email or mail you written confirmation of what they agreed to, plus a reference number for the call.
+## acknowledgment_single_doc
+<!-- §1.4 single-doc variant (new key) -->
+[A] "Got it — your bill from {provider}. Reading it now…"
 
-## call_script_if_they_push_back
-[PLACEHOLDER-eng] If they push back, stay calm and ask them to point you to the specific policy or code that justifies the charge — and if they can't, ask for a supervisor or how to start an appeal.
+## §2 · The status card
 
-## call_mode_intro
-[PLACEHOLDER-eng] One call at a time. I'll walk you through exactly what to say — tap Next when you're ready for each step.
+## stage_label_extraction
+<!-- §2.1 bar 1 -->
+[A] Reading your bill
 
-## call_mode_outro
-[PLACEHOLDER-eng] That's the call. When you hear back, tell me what they said and I'll take it from there.
+## stage_label_translate
+<!-- §2.1 bar 2 -->
+[A] Checking each charge
 
-## record_welcome_summary_instructions
-[PLACEHOLDER-eng] You write the dashboard's one-line status summary. HARD RULES: state only facts derivable from the case states given; never mention a person, reviewer, team, agent, specialist, or any human/process step; never promise who does what next or when; never say anyone is "processing", "reviewing", or will "pick things up". Frame anything the USER can do plainly (e.g. "re-upload clearer copies"). At most two short sentences, plain text, no medical/legal/financial advice.
+## stage_label_encounter
+<!-- §2.1 bar 3 -->
+[A] Comparing your insurer's math
 
-## record_welcome_summary_fallback
-[PLACEHOLDER-eng] You have {{total}} open cases — {{breakdown}}.
+## stage_label_audit
+<!-- §2.1 bar 4 -->
+[A] Writing your summary
 
-## generic_degraded
-[PLACEHOLDER-eng] I can't show you the exact rule text behind this yet — I've flagged it and I'll follow up with the citation.
+## status_leave_and_return
+<!-- §2.2 (new key) -->
+[A] "This takes a few minutes — you can leave; I'll email you the moment it's ready."
+
+## long_wait
+<!-- §2.3 -->
+[A] "Still working — this one's taking a little longer than usual. Nothing's wrong; I'd rather be right than fast. I'll email you the moment it's done."
+
+## §3 · Attest-and-proceed
 
 ## attest.intro
-[PLACEHOLDER-eng] Before I go further — the name on these documents ({{patient_name}}) isn't the name on your account. So I can keep good records, tell me who this person is to you.
-
-## attest.menu_self
-[PLACEHOLDER-eng] This is me — the name is just different on the paperwork
-
-## attest.menu_spouse_partner
-[PLACEHOLDER-eng] My spouse or partner
-
-## attest.menu_my_child
-[PLACEHOLDER-eng] My child
-
-## attest.menu_parent_relative
-[PLACEHOLDER-eng] A parent or relative I help with their care
-
-## attest.menu_other_authorized
-[PLACEHOLDER-eng] Someone else I'm authorized to act for
+<!-- §3.1 -->
+[A] "This bill is for **{patient_name}**, and your account is registered to **{first_name}**. Quick check before I dig in — what's your relationship to {patient_name}?"
 
 ## attest.confirm
-[PLACEHOLDER-eng] Thank you — I've noted that. Let's keep going with the review.
+<!-- §3.1 confirm line -->
+[A] "By continuing, I confirm I'm authorized to manage medical bills for {patient_name}. I understand Tyndale relies on this and keeps a permanent, timestamped record of it."
+
+## attest.menu_spouse_partner
+<!-- §3.1 option 1 -->
+[A] Spouse/partner
+
+## attest.menu_parent_guardian
+<!-- §3.1 option 2 (new key) -->
+[A] Parent/legal guardian
+
+## attest.menu_adult_child_caregiver
+<!-- §3.1 option 3 (new key) -->
+[A] Adult child or family caregiver
+
+## attest.menu_healthcare_poa
+<!-- §3.1 option 4 (new key) -->
+[A] Agent under a healthcare power of attorney
+
+## attest.menu_court_guardian
+<!-- §3.1 option 5 (new key) -->
+[A] Court-appointed guardian/conservator
+
+## attest.menu_executor
+<!-- §3.1 option 6 (new key) -->
+[A] Executor/administrator of {patient_name}'s estate
+
+## attest.menu_other
+<!-- §3.1 option 7 (new key) -->
+[A] Other
 
 ## attest.decline_ack
-[PLACEHOLDER-eng] Understood — I've closed this one out and I won't review these documents. If that changes, or if the bill turns out to be yours after all, you can start again any time.
+<!-- §3.2 -->
+[A] "No problem — I can only work on a bill when someone authorized to manage it asks me to. If {patient_name} wants to look at this, they can upload it from their own account and I'll take it from there."
 
 ## attest.edge_teen
-[PLACEHOLDER-eng] One thing worth knowing: for a teenager, some care is private to them by law even from a parent, so parts of a bill may be limited in what they show.
+<!-- §3.3 -->
+[A] "One thing worth knowing: for some care, the law can give a teen sole say over their own records — even from a parent. If that applies here, {patient_name} may need to be the one to bring this to me. Want to continue, or have them take it from here?"
 
 ## attest.edge_deceased
-[PLACEHOLDER-eng] I'm sorry for your loss. Bills for someone who has died are usually handled through their estate, and the rules about who can act are different — that's worth knowing before you call anyone.
+<!-- §3.4 -->
+[A] "I'm sorry for your loss. I can help you sort this out. Heads-up for later: if we end up contacting the provider or insurer, they'll usually ask for estate paperwork before they'll make changes — I'll tell you exactly what, when we get there."
 
-## attest.edge_substance
-[PLACEHOLDER-eng] Heads up: care from a substance-use program carries extra federal privacy protection, so what a provider or plan will discuss — even with family — can be narrower than usual.
+## §4 · Verification
 
-## wrongdoc.card
-[PLACEHOLDER-eng] That's your insurance card — useful, and I've kept it. On its own though there's nothing to check: a card shows your coverage, not what you were charged. Send me the bill or the EOB for the visit and I'll take it from there.
+## verification_intro
+<!-- §4.1 -->
+[A] "Before I audit, let's confirm what happened at your visit — {a few / three} quick ones:"
 
-## wrongdoc.sbc
-[PLACEHOLDER-eng] That's your plan summary — genuinely useful, and I've attached it to your coverage. It tells me your deductible, coinsurance and out-of-pocket max, which is exactly what I need to work out what you SHOULD owe. Now send me a bill or an EOB and I can check one against the other.
+## verification_card_line
+<!-- §4.2 (new key) -->
+[A] "{visit_desc}"
 
-## wrongdoc.clinical
-[PLACEHOLDER-eng] {{filenames}} looks like a medical record rather than a bill. I'm not able to audit clinical notes — what I can check is what you were charged: an itemized bill, an Explanation of Benefits, or a statement from the provider.
+## verification_map_confirm
+<!-- §4.3 -->
+[A] "Sounds like the {line_desc} — I've marked '{their_answer}.' Tap confirm and I'll factor it in."
+
+## verification_map_fallback
+<!-- §4.3 low-confidence fallback -->
+[A] "I want to mark the right one. Which of these did you mean?"
+
+## verification_not_sure
+<!-- §4.4 (new key) -->
+[A] "That's fine — 'not sure' is an honest answer. I'll audit around it and tell you if it's something worth pinning down later."
+
+## §5 · Data-quality states (graceful degradation)
+
+## dataquality_partial_illegible
+<!-- §5.1 (new key) -->
+[A] "I read most of this, but {line_desc} is too blurry for me to trust — and I won't guess at a number on your bill. A clearer photo of just that part fixes it. Everything else, I've got — here's what I can already tell you:"
+
+## dataquality_summary_not_itemized
+<!-- §5.2 (new key) -->
+[A] "This looks like a summary statement. The **itemized** bill is where errors actually hide — every code and charge, line by line. Here's how to ask for it: '{itemized_request_script}.' Bring it back and I'll pick up right where we left off."
 
 ## wrongdoc.unknown
-[PLACEHOLDER-eng] I couldn't tell what {{filenames}} is, so I don't want to guess at it. If you have an itemized bill, an Explanation of Benefits, or a statement from the provider, send that over and I'll check it properly.
+<!-- §5.3 — his ONE typed-redirect string; see the mapping note for the card/sbc/clinical branches -->
+[A] "That looks like {detected_doc_type}, not a bill or EOB — so there's nothing for me to audit on it yet. To check a bill, I need your **itemized medical bill** or your **Explanation of Benefits (EOB)**. Here's what each one looks like so you know what to grab:"
+
+## wrongdoc.card
+<!-- §5.3 — BORROWED: his script authors one wrong-document string, our router has four branches. Renders §5.3 with {detected_doc_type}. Brock: author per-branch copy if you want them distinct. -->
+[A] "That looks like {detected_doc_type}, not a bill or EOB — so there's nothing for me to audit on it yet. To check a bill, I need your **itemized medical bill** or your **Explanation of Benefits (EOB)**. Here's what each one looks like so you know what to grab:"
+
+## wrongdoc.sbc
+<!-- §5.3 — BORROWED (see wrongdoc.card note) -->
+[A] "That looks like {detected_doc_type}, not a bill or EOB — so there's nothing for me to audit on it yet. To check a bill, I need your **itemized medical bill** or your **Explanation of Benefits (EOB)**. Here's what each one looks like so you know what to grab:"
+
+## wrongdoc.clinical
+<!-- §5.3 — BORROWED (see wrongdoc.card note) -->
+[A] "That looks like {detected_doc_type}, not a bill or EOB — so there's nothing for me to audit on it yet. To check a bill, I need your **itemized medical bill** or your **Explanation of Benefits (EOB)**. Here's what each one looks like so you know what to grab:"
 
 ## reconcile.explain
-[PLACEHOLDER-eng] Two numbers here don't agree — {{figures}}. That's usually a {{category}} difference. Working from your own documents, I make it {{computed}}, and I'd call that {{confidence}} for now. I'll keep treating my own figure as the answer until something changes it.
+<!-- §5.4 rung 0 -->
+[A] "These two numbers look like they disagree — your bill says {billed} and your EOB says {eob_owed} — but they're actually measuring different things. {reconciliation_explanation}. So it's not an error; here's the real math."
 
 ## reconcile.ask_one_input
-[PLACEHOLDER-eng] One thing would settle this for good: {{input}}. Add it and I'll redo the comparison automatically — you don't need to chase anyone yet.
+<!-- §5.4 rung 1 -->
+[A] "I can square these two numbers with one more piece: {doc_needed}. Grab that and I'll finish the reconciliation — you won't have to call anyone."
 
 ## reconcile.last_resort
-[PLACEHOLDER-eng] I've taken this as far as the paperwork allows, and there's no single document left that would settle it. This is the point where a call is worth it: ask them to walk through how they arrived at their figure, and tell me what they say.
+<!-- §5.4 rung 2 -->
+[C] "I've tried every way to make these numbers line up and they still don't — and that gap is worth **{gap}** to you. That's your strongest question. Here's exactly what to ask {provider} and {payer} to explain it."
+
+## §6 · The reveal
+
+## three_number_reveal
+<!-- §6.1 -->
+[A] Billed: **{billed}**
+{payer} says you owe: **{eob_owed}**
+**What you should actually owe: {tyndale_owed}**
+
+## findings_header
+<!-- §6.2 (new key) -->
+[A] "I found {n_findings} problems. Nothing held back — here they are in full:"
+
+## finding_card_source
+<!-- §6.3 source line (new key) -->
+[A] "source: {finding_source}"
+
+## completion
+<!-- §6.4 -->
+[A] "That's the complete audit — every charge checked against your plan and real prices. Nothing's teased or hidden."
+
+## §7 · The unlock
+
+## unlock.card
+<!-- §7.1 (new key) -->
+[A] "**{gap} of this shouldn't be yours to pay.** Unlock your resolution plan — who to call, exactly what to say, and every deadline — **$4.99, one time.**"
+
+## unlock.value_list
+<!-- §7.1 value list (new key) -->
+[A] ✓ Every call script, written for you · ✓ Every deadline tracked · ✓ Your case stays open until it's resolved
+
+## unlock.reassurance
+<!-- §7.1 reassurance (new key) -->
+[A] "One payment. No timers. Your audit stays free."
+
+## unlock.subscription
+<!-- §7.2 (new key) -->
+[A] "Fixing bills often? Core is $14.99/mo — unlimited audits and every case followed through."
+
+## §8 · Needs-something state
+
+## needs_documents_intro
+<!-- §8.1 -->
+[A] "Here's what I found so far. To lock in the numbers I need {a couple of things / one more thing}:"
+
+## needs_documents_item
+<!-- §8.2 -->
+[A] ☑ {have_doc} · ☐ **{doc_needed}** ("{how_to_get_it_hint}")
+
+## needs_documents_close
+<!-- §8.3 (new key) -->
+[A] "Add them here whenever they arrive — I'll pick up right where we left off. I'm keeping this case open for you."
+
+## §9 · Resolution plan + call mode
+
+## gameplan.intro
+<!-- §9.1 (new key) -->
+[C] "Here's your plan — biggest wins first. I'll be right here for each one."
+
+## gameplan.action_card
+<!-- §9.2 (new key) -->
+[A] "① Call {payer} — targets {finding_amount} · ② Call {provider}'s billing office — targets {finding_amount} · ③ If either pushes back — the escalation."
+
+## gameplan.escalation_framing
+<!-- §9.3 (new key) -->
+[C] "Start friendly and simple — most of these get fixed with one call. We only escalate if they push back, and I'll tell you exactly when and how."
+
+## call_mode.how_did_it_go
+<!-- §9.4 (new key) -->
+[A] "They're fixing it 🎉" · "They pushed back" · "I left a message"
+
+## call_mode.pushback
+<!-- §9.5 (new key) -->
+[C] "That's okay — expected, even. A 'no' on the first call doesn't mean you're wrong; the finding still holds. Here's the next move."
+
+## §10 · Terminal & guardrail states
 
 ## decline.fabrication
-[PLACEHOLDER-eng] I can't write that — not because of a rule, but because it would sink you. The moment one claim doesn't hold up, everything else you say gets treated as suspect, and you lose the part that was true.
-
-## decline.fabrication_reframe
-[PLACEHOLDER-eng] Here's the thing: you don't need it. What you actually have is stronger — {{finding}}, worth about ${{amount}}. That's checkable, it's on their own paperwork, and it's the argument I'd put in front of them.
+<!-- §10.1 -->
+[A] "I can't say something happened if it didn't, or make a problem look bigger than it is — that would only weaken your case if anyone checks. But here's what *is* actually off about this bill, and it's a real, honest case you can make:"
 
 ## decline.guarantee_trio
-[PLACEHOLDER-eng] I won't put a number on your odds — anyone who does is guessing, and you'd be making decisions on it. What I can tell you honestly: {{base_rate}}. For your case specifically, the strength is {{basis}} — that's what the documents actually support. The useful move now is {{next_step}}.
+<!-- §10.2 -->
+[C] "I won't promise you'll win — nobody honest can, and I won't guess with your money. What I can tell you: cases like this succeed **{base_rate}** of the time ({base_rate_source}), yours rests on **{strength_of_basis}**, and the best next step is **{next_step}**."
 
-## handoff.pace
-[PLACEHOLDER-eng] Your coverage looks like PACE — the Program of All-Inclusive Care for the Elderly. PACE works differently from ordinary insurance: the program itself coordinates and pays for care, so billing questions go through your PACE center's enrollment or member-services team rather than a claims line. They're the fastest path on this one. I'm still here for the billing side — send me anything they give you and I'll keep working it with you.
+## cap_collision
+<!-- §10.3 -->
+[A] "Give me a few minutes to focus on your audit — I'm at capacity for a moment. I'll email you the second it's ready; nothing you've done is lost."
+
+## system_error
+<!-- §10.4 -->
+[A] "Something on my end hiccuped — that's on me, not you, and nothing you uploaded is lost. Give it another moment, or I'll email you the moment I've got it working again."
+
+## crisis_care_first
+<!-- §10.5 (new key) — NOT WIRED: conflicts with CLAUDE.md's crisis doctrine (clean refusal, no
+     resource routing). Registered so Brock's copy is on file; the crisis path still renders the
+     DL-04 clean decline until he and the doctrine are reconciled. See the summary. -->
+[A] "It sounds like you're carrying a lot right now, and that matters more than any bill. If you want, I'm here to keep working through this with you — and if you'd like to talk to someone, I can share a few resources."
+
+## §11 · Continuous journey
+
+## record_post_audit_keep_doing
+<!-- §11.1 -->
+[A] "Even after today, I'm still on this: I'll watch your deadlines, re-check the numbers if a corrected bill or EOB shows up, and keep your Record up to date. You won't have to remember any of it — that's my job."
+
+## record_identity
+<!-- §11.2 (new key) -->
+[A] "This is your Tyndale Record — every bill I've checked for you, what I recovered, and what I'm still watching."
+
+## deadline_watch_nudge
+<!-- §11.3 (new key) -->
+[A] "Heads-up: {payer} has until **{deadline_date}** to respond on your case. I'm watching it — if they go quiet, I'll tell you the next move."
+
+## reaudit_announce
+<!-- §11.4 -->
+[A] "A new {doc_needed} came in — I re-ran the numbers so everything's current. Here's what changed:"
+
+## nudge.plus_3d
+<!-- §11.5 +3d (new key) -->
+[A] "Just checking in — still here whenever you're ready to make that first call. No rush."
+
+## nudge.plus_14d
+<!-- §11.5 +14d (new key) -->
+[A] "Your case is still open and I'm still watching {deadline_date}. Want me to walk you through the first call?"
+
+## §12 · External-program handoff
 
 ## handoff.generic_program
-[PLACEHOLDER-eng] Your coverage runs through {{program}}, which handles billing through the program rather than a standard claims process. Their member-services team is the right first call. I'm not going anywhere — send me whatever they tell you and I'll keep going from there.
+<!-- §12.1 -->
+[A] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
+
+## handoff.pace
+<!-- §12.1 — BORROWED: his script authors one program-handoff string; PACE is the named instance
+     ({program_name} = PACE). Brock: author PACE-specific copy if you want it distinct. -->
+[A] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
+
+## §E · Engineering-owned keys (NOT Brock's voice)
+
+These are rendering mechanism, not product voice: an LLM instruction and the `[B]`-without-
+citation fallback. They are engineering-authored by design and are excluded from the
+drift guard (nothing in his file to compare against).
+
+## generic_degraded
+<!-- ENG — the [B]-without-citation fallback required by his §0 rule 3 -->
+[A] I can't show you the exact rule text behind this yet — I've flagged it and I'll follow up with the citation.
+
+## record_welcome_summary_instructions
+<!-- ENG — an LLM system prompt, never rendered to a user -->
+[A] You write the dashboard's one-line status summary. HARD RULES: state only facts derivable from the case states given; never mention a person, reviewer, team, agent, specialist, or any human/process step; never promise who does what next or when; never say anyone is "processing", "reviewing", or will "pick things up". Frame anything the USER can do plainly (e.g. "re-upload clearer copies"). At most two short sentences, plain text, no medical/legal/financial advice.
+
+## record_welcome_summary_fallback
+<!-- ENG — deterministic fallback when the summary LLM is unavailable -->
+[A] You have {total} open cases — {breakdown}.
 
 ## access_request.intro
-[PLACEHOLDER-eng] You can ask what Tyndale holds about a person, ask for it to be deleted, or ask for a correction. Tell me who the request is about and how to reach you. To be straight with you about what happens next: this records the request and a person follows up — I can't look anything up or confirm anything about a record from here.
+<!-- ENG — statutory access/deletion intake (§A2 state 5 stub); no counterpart in his script -->
+[A] You can ask what Tyndale holds about a person, ask for it to be deleted, or ask for a correction. Tell me who the request is about and how to reach you. To be straight with you about what happens next: this records the request and a person follows up — I can't look anything up or confirm anything about a record from here.
 
 ## access_request.received
-[PLACEHOLDER-eng] Your request has been recorded and someone will follow up at the contact you gave. I'm not able to tell you anything about what may or may not be held — that comes with the follow-up, once the request has been verified.
+<!-- ENG — statutory access/deletion receipt; no counterpart in his script -->
+[A] Your request has been recorded and someone will follow up at the contact you gave. I'm not able to tell you anything about what may or may not be held — that comes with the follow-up, once the request has been verified.
+
+## §U · UNMAPPED — rendered today, no counterpart in Brock's v1
+
+Each key below is rendered by a live code path but has NO authored string in
+`33_orchestration_script.md` v1. Per the pull-in rule, **no copy was invented**: each keeps
+the engineering text it already shipped with, and every one is listed in the session summary
+for Brock to author or to confirm the beat should be dropped. They are excluded from the
+drift guard (nothing to compare against).
+
+## audit_start
+<!-- UNMAPPED — no §2/§4 counterpart (his status card carries stage state instead) -->
+[A] Thanks. I'm running the full audit now — I'll compute what you should owe and check it against the bill and your insurer.
+
+## verification_nudge
+<!-- UNMAPPED — no §4 counterpart -->
+[A] Tap one of the buttons on a card above to answer — that's all I need here.
+
+## verification_map_partial_fallback
+<!-- UNMAPPED — his §4.3 authors ONE low-confidence fallback; we render a second, partial one -->
+[A] I caught part of that but want to be sure I don't guess — please tap the answer on each card above.
+
+## attest.edge_substance
+<!-- UNMAPPED — his §3 authors teen + deceased only. NOTE: checklist F2 lists "SUD-program" as an
+     expected edge prompt, so his checklist and his script disagree; flagged for him. -->
+[A] Heads up: care from a substance-use program carries extra federal privacy protection, so what a provider or plan will discuss — even with family — can be narrower than usual.
+
+## decline.fabrication_reframe
+<!-- UNMAPPED — his §10.1 ends on a colon that INVITES the finding; this renders that continuation -->
+[A] Here's the thing: you don't need it. What you actually have is stronger — {finding}, worth about ${amount}. That's checkable, it's on their own paperwork, and it's the argument I'd put in front of them.
+
+## call_script_opener_payer
+<!-- UNMAPPED — his §9 authors the plan/framing, not the four per-call script steps -->
+[A] When you reach {party}, give your name and member ID and say you're calling about a billing error you'd like corrected.
+
+## call_script_opener_provider
+<!-- UNMAPPED — see call_script_opener_payer -->
+[A] When you reach {party}, give your name and account number and say you're calling about a charge you'd like corrected.
+
+## call_script_get_it_in_writing
+<!-- UNMAPPED — see call_script_opener_payer -->
+[A] Before you hang up, ask them to email or mail you written confirmation of what they agreed to, plus a reference number for the call.
+
+## call_script_if_they_push_back
+<!-- UNMAPPED — his §9.5 authors the pushback ROUTE (call_mode.pushback); this is the in-call line -->
+[A] If they push back, stay calm and ask them to point you to the specific policy or code that justifies the charge — and if they can't, ask for a supervisor or how to start an appeal.
+
+## call_mode_intro
+<!-- UNMAPPED — no §9 counterpart -->
+[A] One call at a time. I'll walk you through exactly what to say — tap Next when you're ready for each step.
+
+## call_mode_outro
+<!-- UNMAPPED — no §9 counterpart -->
+[A] That's the call. When you hear back, tell me what they said and I'll take it from there.

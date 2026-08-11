@@ -52,25 +52,29 @@ def test_empty_input_is_not_a_branch():
     assert classify_wrong_document(None) is None
 
 
-def test_every_branch_has_authored_copy_and_names_the_file():
-    """Every branch key exists in the registry, and the two branches that reference a file
-    interpolate it — the honesty property the generic line had (never a nameless dead end)."""
+def test_every_branch_has_authored_copy_and_names_the_detected_type():
+    """Every branch key exists, and his §5.3 names the DETECTED DOCUMENT TYPE. (His authored
+    version dropped the filename the prior engineering copy carried — flagged for him in the
+    pull-in summary; his file is the authority.)"""
     reg = load_orchestration_registry()
     for branch in ("card", "sbc", "clinical", "unknown"):
         assert f"wrongdoc.{branch}" in reg
+        assert reg[f"wrongdoc.{branch}"].source.startswith("§5.3")
 
-    msg = not_a_bill_message(["groceries.pdf"], _docs("unclassified"))
-    assert "groceries.pdf" in msg
-    assert "{{filenames}}" not in msg  # slot interpolated, never leaked raw
+    msg = not_a_bill_message(["card.pdf"], _docs("insurance_card"))
+    assert "an insurance card" in msg  # {detected_doc_type} interpolated
+    assert "{" not in msg  # no raw slot ever leaks
 
 
-def test_typed_branch_copy_replaces_the_generic_line():
+def test_branch_copy_is_brocks_authored_redirect():
+    """His v1 authors ONE wrong-document string (§5.3) that TYPES ITSELF via
+    {detected_doc_type}; our four branches all render it with their own detected type. Brock:
+    author per-branch copy if you want them distinct (flagged in the summary)."""
     card = not_a_bill_message(["card.pdf"], _docs("insurance_card"))
-    assert card == load_orchestration_script()["wrongdoc.card"]
-    assert "doesn't look like a medical bill" not in card  # the old one-size-fits-all copy
-
     sbc = not_a_bill_message(["plan.pdf"], _docs("sbc"))
-    assert sbc != card  # each branch is genuinely distinct copy
+    assert "an insurance card" in card and "a plan summary" in sbc
+    assert card != sbc  # distinct because the detected type differs
+    assert "doesn't look like a medical bill" not in card  # the old engineering line is gone
 
 
 def test_generic_fallback_survives_when_no_documents_are_passed():

@@ -108,17 +108,29 @@ def test_guarantee_response_contains_no_probability_or_promise_language():
         assert out and "{{" not in out
 
 
-def test_guarantee_trio_is_all_three_legs():
-    """base rate + strength-of-basis for THIS case + a concrete next step."""
+def test_guarantee_trio_is_all_three_legs_when_a_cited_base_rate_exists():
+    """His §10.2 asserts a CITED base rate. Given one, all three legs render."""
     from app.sources.gameplan import humanize_category
 
-    out = guarantee_response([_F("cost_sharing_miscalculation", {"gap": 940.0})])
-    assert "rate" in out.lower()  # (a) the base-rate leg — honest when the corpus has none
+    out = guarantee_response(
+        [_F("cost_sharing_miscalculation", {"gap": 940.0})],
+        base_rate={"rate": "about half", "source": "CMS appeals data 2024"},
+    )
+    assert "about half" in out  # (a) the cited rate
+    assert "CMS appeals data 2024" in out  # …with its source, never a bare statistic
     assert humanize_category("cost_sharing_miscalculation") in out  # (b) THIS case's basis
     assert "next" in out.lower()  # (c) a concrete next step
+    assert "{" not in out
 
-    generic = guarantee_response([])  # no findings → still all three legs, none fabricated
-    assert "rate" in generic.lower() and "next" in generic.lower()
+
+def test_guarantee_without_a_cited_base_rate_degrades_rather_than_inventing_one():
+    """The launch reality: the corpus carries no cited rate yet, so §10.2's {base_rate} has no
+    value — and the doctrine says degrade, never fabricate a success statistic. Flagged for
+    Brock: §10.2 needs a no-base-rate variant (see the pull-in summary)."""
+    out = guarantee_response([_F("cost_sharing_miscalculation", {"gap": 940.0})])
+    assert out and "{" not in out  # never an empty string, never a raw token
+    assert not re.search(r"\d{1,3}\s?%|half the time|most of the time", out), "invented a rate"
+    assert _FORBIDDEN.search(out) is None  # and still no prediction language
 
 
 def test_authored_copy_would_also_be_contract_checked():

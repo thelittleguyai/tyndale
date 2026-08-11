@@ -168,7 +168,7 @@ async def test_attestation_persists_through_the_encrypted_envelope(client: Async
     """The compliance point: relationship + timestamp + user + case + patient-name-AS-EXTRACTED,
     written through build_audit_event (so it inherits AES-GCM whenever a key is configured)."""
     case_id, uid = await _case_needing_attest(client)
-    r = await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "my_child"})
+    r = await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "adult_child_caregiver"})
     assert r.status_code == 200
 
     rows = await _attestation_rows(case_id)
@@ -180,7 +180,7 @@ async def test_attestation_persists_through_the_encrypted_envelope(client: Async
 
     body = json.loads(payload)
     assert body["action"] == "attested"
-    assert body["relationship"] == "my_child"
+    assert body["relationship"] == "adult_child_caregiver"
     assert body["patient_name_as_extracted"] == "Robert Fluegel"
     assert body["attested_at"]
 
@@ -208,7 +208,7 @@ async def test_decline_closes_the_case_gracefully_and_is_also_logged(client: Asy
             for r_ in rows] == ["declined"]
 
     # No audit runs after a decline, and the flow can't be resumed by attesting later.
-    late = await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "self"})
+    late = await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "other"})
     assert late.status_code == 409
 
 
@@ -231,7 +231,7 @@ async def test_attest_route_enforces_case_ownership(client: AsyncClient):
         await s.commit()
         their_id = str(theirs.case_file_id)
 
-    r = await client.post(f"/v1/case/{their_id}/attest", json={"relationship": "self"})
+    r = await client.post(f"/v1/case/{their_id}/attest", json={"relationship": "other"})
     assert r.status_code == 404  # anti-enumeration, same as every case route
 
 
@@ -247,7 +247,7 @@ async def test_analytics_stay_phi_free(client: AsyncClient):
     assert set(REGISTRY["attestation_recorded"].props["relationship"].values) == set(RELATIONSHIPS)
 
     case_id, _ = await _case_needing_attest(client)
-    await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "parent_relative"})
+    await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "executor"})
     async with AsyncSessionLocal() as s:
         rows = list(
             (

@@ -69,8 +69,12 @@ _VERIFY_ANSWERS = ("yes", "no", "not_sure")
 _NUDGE_STAGES = ("first", "second")
 _OUTCOME_RESOLVED = ("yes", "partial", "no")
 _REFUSAL_CATEGORIES = ("crisis", "medical_advice", "legal_advice", "financial_advice", "out_of_scope", "other")
-# §A2 state 1 attest relationships — mirrors app.agents.attest.RELATIONSHIPS (enum, never a name).
-_RELATIONSHIPS = ("self", "spouse_partner", "my_child", "parent_relative", "other_authorized")
+# §A2 state 1 attest relationships — mirrors app.agents.attest.RELATIONSHIPS (enum, never a
+# name). Brock's §3.1 seven-option menu.
+_RELATIONSHIPS = (
+    "spouse_partner", "parent_guardian", "adult_child_caregiver", "healthcare_poa",
+    "court_guardian", "executor", "other",
+)
 # UTM capture is sanitized to closed allow-lists (Rule 2): a raw campaign string would be free
 # text, so only source + medium are captured, each coerced to the nearest known token or "other".
 _ATTRIB_SOURCES = ("google", "bing", "facebook", "instagram", "tiktok", "reddit", "youtube",

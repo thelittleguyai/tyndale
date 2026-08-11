@@ -126,7 +126,13 @@ async def test_readable_but_not_a_bill_degrades_to_not_a_bill(client: AsyncClien
     result = await orchestrator.extract_line_items(case_id)
     assert result.status == "not_a_bill"
     assert result.line_items == []
-    assert "groceries.pdf" in (result.extraction_message or "")  # names the file
+    # Brock's authored §5.3 names the DETECTED DOCUMENT TYPE rather than the filename the
+    # prior engineering copy used. The honesty property that matters survives: the user is
+    # told specifically what Tyndale saw and what to send instead — never a bare refusal.
+    msg = result.extraction_message or ""
+    assert "couldn't place" in msg  # {detected_doc_type} for an unclassifiable upload
+    assert "itemized medical bill" in msg and "Explanation of Benefits" in msg
+    assert "{" not in msg  # no raw slot leaked
     assert _FIXTURE_MARKER not in result.model_dump_json()  # no fabrication
     async with AsyncSessionLocal() as s:
         cf = (

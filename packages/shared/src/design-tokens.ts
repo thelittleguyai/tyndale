@@ -20,6 +20,18 @@ export const colors = {
   sage: { DEFAULT: '#3DAA7E', deep: '#2E8862', soft: '#E5F2EB', tint: '#F2F8F4' },
   amber: { DEFAULT: '#E08A3C', deep: '#C26F26', soft: '#FBEBD8' },
   rose: { DEFAULT: '#C75252', soft: '#F7E0E0' },
+  /**
+   * Citation / source chips — conformance checklist A6 (#2C6E8F).
+   *
+   * A dedicated SEMANTIC slot, not a reuse of an accent: `[B]` voice-tier strings may only
+   * render WITH their citation chip (orchestration script §0 rule 3), so "the colour a
+   * citation is" is now a rendering requirement rather than decoration. Brock's exact hex,
+   * adopted now because the `[B]` renderer needs it; the rest of the checklist §A palette
+   * reconciliation is in docs/design/palette_reconciliation.md, pending his call.
+   *
+   * Contrast: 5.62:1 white-on-chip, 5.26:1 chip-on-cream — both AA at body size.
+   */
+  citation: { DEFAULT: '#2C6E8F', soft: '#E4EEF4', deep: '#22566F' },
   // Borders + neutrals
   border: { DEFAULT: '#E4DFD5', soft: '#EFEAE0', card: '#ECE6D9', dark: '#1F3340' },
   // Text on dark backgrounds

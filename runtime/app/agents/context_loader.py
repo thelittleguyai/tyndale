@@ -71,11 +71,30 @@ _FORBIDDEN_PREDICTION_SLOT_RE = re.compile(
 DOCTRINE_VIOLATIONS: Counter[str] = Counter()
 
 
+# A leading `<!-- §N.N -->` marker names the section of Brock's authored file this key came
+# from (or UNMAPPED / ENG). Consumed as metadata, never rendered — and it precedes the tier
+# tag, so it must be stripped first.
+_SOURCE_MARKER_RE = re.compile(r"\A<!--\s*(.*?)\s*-->\s*", re.DOTALL)
+
+# An AUTHOR ALTERNATION — Brock writes `{a few / three}` where the wording depends on a count
+# (§4.1, §8.1). Stored verbatim (the drift guard compares against his file); resolved at render
+# time. `alt=1` picks the second branch, otherwise the first.
+_ALTERNATION_RE = re.compile(r"\{([^{}/]+?)\s*/\s*([^{}]+?)\}")
+
+# An unfilled `{token}` after interpolation. His §0 rule 2: a missing value renders the §5
+# degradation variant — never a guess, never an empty string, never a raw token.
+_UNFILLED_SLOT_RE = re.compile(r"\{[a-z][a-z0-9_]*\}", re.IGNORECASE)
+# The §5.1 "I won't guess at a number" string is the degradation variant for a missing value.
+DEGRADATION_KEY = "dataquality_partial_illegible"
+
+
 class ScriptEntry(NamedTuple):
-    """One orchestration-script registry entry: the render text (tag stripped) + its tier."""
+    """One orchestration-script registry entry: the render text (markers stripped), its voice
+    tier, and the section of Brock's authored file it maps to."""
 
     text: str
     tier: str  # "A" | "B" | "C"
+    source: str = ""  # e.g. "§3.1", "UNMAPPED — ...", "ENG — ..."
 
 
 def _intelligence_layer_root() -> Path:
@@ -115,6 +134,9 @@ def load_orchestration_registry() -> dict[str, ScriptEntry]:
     registry: dict[str, ScriptEntry] = {}
     for m in _SCRIPT_KEY_RE.finditer(text):
         key, body = m.group(1), m.group(2).strip()
+        marker = _SOURCE_MARKER_RE.match(body)
+        source = marker.group(1) if marker else ""
+        body = _SOURCE_MARKER_RE.sub("", body, count=1).strip()
         tag = _TIER_TAG_RE.match(body)
         tier = tag.group(1) if tag else "A"
         body = _TIER_TAG_RE.sub("", body, count=1).strip()
@@ -124,7 +146,7 @@ def load_orchestration_registry() -> dict[str, ScriptEntry]:
                 f"outcome-prediction slot {hit.group(0)!r} — [C] never predicts an outcome "
                 "(voice-tier doctrine); fix the authored script"
             )
-        registry[key] = ScriptEntry(text=body, tier=tier)
+        registry[key] = ScriptEntry(text=body, tier=tier, source=source)
     log.info(
         "orchestration_script.key_inventory",  # for the judge: the full key→tier map
         keys={k: e.tier for k, e in registry.items()},
@@ -155,13 +177,25 @@ def orchestration_tier(key: str) -> str | None:
     return entry.tier if entry else None
 
 
+def _resolve_alternations(text: str, alt: int = 0) -> str:
+    """Pick a branch of every `{this / that}` author alternation (never shown raw)."""
+    return _ALTERNATION_RE.sub(lambda m: m.group(2 if alt else 1).strip(), text)
+
+
 def _interpolate(text: str, variables: dict[str, object]) -> str:
+    """Substitute `{var}` (Brock's convention) and `{{var}}` (legacy). A value of None is
+    treated as ABSENT — it leaves the slot unfilled so the caller degrades rather than
+    rendering "None" into the user's copy."""
     for name, val in variables.items():
-        text = text.replace(f"{{{{{name}}}}}", str(val))
+        if val is None:
+            continue
+        text = text.replace(f"{{{{{name}}}}}", str(val)).replace(f"{{{name}}}", str(val))
     return text
 
 
-def orchestration_step(key: str, /, citation: dict | None = None, **variables: object) -> str:
+def orchestration_step(
+    key: str, /, citation: dict | None = None, alt: int = 0, **variables: object
+) -> str:
     """The thread string for ``key`` with ``{{var}}`` slots interpolated.
 
     Voice-tier enforcement (item 5): a [B] legal/coverage string REQUIRES a ``citation``
@@ -182,14 +216,33 @@ def orchestration_step(key: str, /, citation: dict | None = None, **variables: o
         log.warning("doctrine_violation", kind="b_without_citation", key=key)
         fallback = registry.get(f"{key}_degraded") or registry.get("generic_degraded")
         if fallback is not None:
-            return _interpolate(fallback.text, variables)
+            return _interpolate(_resolve_alternations(fallback.text, alt), variables)
         # Last-resort neutral line (no legal claim). Seeded as `generic_degraded` in the
         # placeholder script so this literal should never fire with an authored file.
         return (
             "I can't show you the exact rule text behind this yet — I've flagged it and "
             "will follow up with the citation."
         )
-    return _interpolate(entry.text, variables)
+
+    rendered = _interpolate(_resolve_alternations(entry.text, alt), variables)
+    # His §0 rule 2: a variable with no value renders the §5 DEGRADATION VARIANT — never a
+    # guess, never an empty string, and never a raw `{token}` leaked to the user. Applies to
+    # every key EXCEPT the degradation string itself (which would recurse) and the engineering
+    # -owned LLM instruction (its braces are prompt syntax, not user-facing slots).
+    if key not in (DEGRADATION_KEY, "record_welcome_summary_instructions"):
+        unfilled = _UNFILLED_SLOT_RE.findall(rendered)
+        if unfilled:
+            DOCTRINE_VIOLATIONS[f"missing_variable:{key}"] += 1
+            log.warning("doctrine_violation", kind="missing_variable", key=key, slots=unfilled)
+            degraded = registry.get(DEGRADATION_KEY)
+            if degraded is not None:
+                # The degradation string carries slots of its own; interpolate what we have and
+                # scrub any that remain, so the fallback can never leak a token either.
+                return _UNFILLED_SLOT_RE.sub(
+                    "that part", _interpolate(_resolve_alternations(degraded.text, alt), variables)
+                )
+            return "I don't have everything I need to state that accurately yet."
+    return rendered
 
 
 @lru_cache(maxsize=1)

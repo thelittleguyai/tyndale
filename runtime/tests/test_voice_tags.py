@@ -108,15 +108,19 @@ def test_placeholder_guard_still_sees_placeholder_behind_a_tag(script):
     assert load_orchestration_script()["k"].startswith(PLACEHOLDER_PREFIX)
 
 
-def test_repo_script_loads_untagged_as_tier_a():
-    """The real placeholder file (no tags yet) parses exactly as before — every key tier A,
-    every value placeholder-prefixed, so nothing about today's rendering changes."""
+def test_repo_script_parses_with_brocks_tiers_and_source_markers():
+    """The authored file (v1 content drop): every key carries a valid tier and a source marker
+    naming the section of 33_orchestration_script.md it came from."""
     load_orchestration_script.cache_clear()
     try:
         reg = load_orchestration_registry()
         assert reg, "repo orchestration script must parse"
-        assert all(e.tier == "A" for e in reg.values())
-        assert "generic_degraded" in reg  # the seeded [B]-fallback convention key
+        assert all(e.tier in ("A", "B", "C") for e in reg.values())
+        assert {e.tier for e in reg.values()} != {"A"}, "Brock's [C] strategy tags must survive"
+        assert all(e.source for e in reg.values()), "every key needs a §/UNMAPPED/ENG marker"
+        assert "generic_degraded" in reg  # the [B]-without-citation fallback
+        # Markers never leak into rendered copy.
+        assert not any("<!--" in e.text for e in reg.values())
     finally:
         load_orchestration_script.cache_clear()
 

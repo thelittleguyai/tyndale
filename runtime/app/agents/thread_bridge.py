@@ -93,6 +93,28 @@ def status_card_payload(status: str) -> dict:
     return {"stages": stages, "terminal": terminal}
 
 
+def _payer_of(case) -> str | None:
+    """The insurer name for {payer} (§1.4) from TYPED coverage/EOB fields — None when unknown,
+    which degrades rather than naming an insurer we didn't extract."""
+    cov = getattr(case, "coverage", None) or {}
+    for key in ("payer", "payer_name", "insurer", "plan_name"):
+        v = cov.get(key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    for e in (getattr(case, "eobs", None) or []):
+        if isinstance(e, dict):
+            v = e.get("payer") or (e.get("eob") or {}).get("payer")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+    return None
+
+
+def _program_source(handoff: str | None) -> str | None:
+    """The citation for {program_source} (§12.1). None until the program corpus carries one —
+    his string is [A]/[B] and must never render a sourceless program claim."""
+    return None
+
+
 def _doc_types_text(documents: list | None) -> str:
     """Human-joined distinct classified document types for the acknowledgment ({{doc_types}})."""
     friendly = {
@@ -237,7 +259,11 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
 
     # acknowledgment (derivable from the uploaded documents)
     if case.documents:
-        ack = orchestration_step("acknowledgment", doc_types=_doc_types_text(list(case.documents)))
+        ack = orchestration_step(
+            "acknowledgment",
+            doc_list=_doc_types_text(list(case.documents)),
+            payer=_payer_of(case),
+        )
         await ensure("ack", "system_message", {"text": ack, "tone": "neutral"}, ack)
 
     # Attest-and-proceed (§A2 state 1) — evaluated on EVERY reconcile, which is the backfill
@@ -252,7 +278,11 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     ).scalar_one_or_none()
     attest_needed = evaluate_attest_state(case, attest_user) if attest_user else False
     if attest_needed:
-        intro = orchestration_step("attest.intro", patient_name=case.patient_name or "this patient")
+        intro = orchestration_step(
+            "attest.intro",
+            patient_name=case.patient_name,
+            first_name=(getattr(attest_user, "first_name", None) or "there"),
+        )
         await ensure(
             "attest",
             "attest_request",
@@ -293,7 +323,11 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     handoff = (case.regime_detection or {}).get("handoff")
     if handoff:
         key = "handoff.pace" if handoff == "pace" else "handoff.generic_program"
-        text = orchestration_step(key, program=handoff.upper() if handoff else "the program")
+        text = orchestration_step(
+            key,
+            program_name=(handoff.upper() if handoff else None),
+            program_source=_program_source(handoff),
+        )
         marker = f"handoff:{handoff}"
         first_time = marker not in have  # emit once, not on every reconcile
         await ensure(
@@ -360,6 +394,23 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await ensure("record_keep_doing", "system_message", {"text": keep, "tone": "neutral"}, keep)
 
 
+# Plain-language rendering of the engine's difference_category for his
+# {reconciliation_explanation} slot (§5.4 rung 0).
+_RECONCILIATION_EXPLANATION = {
+    "gross_vs_net": "one is the gross charge and the other is the net after your plan paid",
+    "billed_vs_allowed": "one applies the billed amount and the other the allowed amount",
+    "timing": "one of them is an older snapshot taken before this claim finished processing",
+}
+
+
+def _gap_text(plan) -> str | None:
+    """The dollar spread for his {gap} — None when it can't be computed, which degrades."""
+    vals = [f["value"] for f in plan.figures if isinstance(f.get("value"), (int, float))]
+    if len(vals) < 2:
+        return None
+    return f"${max(vals) - min(vals):,.2f}"
+
+
 async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
     """Reconcile-first (§A2 state 3): surface a material accumulator conflict as a USER-FACING
     state. The ladder comes from agents.reconcile.plan_reconcile — a state machine, so the
@@ -384,12 +435,16 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
         finding.facts or {},
         completeness_confirmed=bool((case.coverage or {}).get("eob_set_complete")),
     )
+    _by_source = {f["source"]: f["value"] for f in plan.figures}
     explain = orchestration_step(
         "reconcile.explain",
-        figures="; ".join(f"{f['label']}: {f['value']}" for f in plan.figures),
-        category=plan.category.replace("_", " "),
-        computed=plan.computed_value if plan.computed_value is not None else "—",
-        confidence=plan.confidence,
+        billed=_by_source.get("computed"),
+        eob_owed=_by_source.get("eob_stated") or _by_source.get("coverage_stated"),
+        # The engine's classified difference category IS his {reconciliation_explanation};
+        # 'unexplained' passes None so the string degrades rather than asserting a cause.
+        reconciliation_explanation=(
+            _RECONCILIATION_EXPLANATION.get(plan.category) if plan.category != "unexplained" else None
+        ),
     )
     await ensure(
         "reconcile",
@@ -408,10 +463,15 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
         explain,
     )
     if plan.ask_input:
-        ask = orchestration_step("reconcile.ask_one_input", input=plan.ask_input)
+        ask = orchestration_step("reconcile.ask_one_input", doc_needed=plan.ask_input)
         await ensure("reconcile_ask", "system_message", {"text": ask, "tone": "neutral"}, ask)
     if plan.last_resort:
-        last = orchestration_step("reconcile.last_resort")
+        last = orchestration_step(
+            "reconcile.last_resort",
+            gap=_gap_text(plan),
+            provider=case.provider_name,
+            payer=_payer_of(case),
+        )
         await ensure("reconcile_last", "system_message", {"text": last, "tone": "neutral"}, last)
 
 
@@ -439,7 +499,7 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
         {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
         for d in _documents_needed(case)
     ]
-    intro = orchestration_step("needs_documents_intro")
+    intro = orchestration_step("needs_documents_intro")  # §8.1 (no variables)
     await ensure(
         "needs_documents", "system_message",
         {"text": intro, "tone": "neutral", "needs_documents": {"intro": intro, "items": items}},
@@ -510,11 +570,20 @@ async def post_user_utterance(case_file_id: str, text: str) -> str | None:
     return await _post(case_file_id, role="user", kind="message", content=text)
 
 
+def _intended_answer(mappings: list[dict]) -> str | None:
+    """The single answer the user intended across the mapped cards ({their_answer}, §4.3), or
+    None when they disagree — None degrades rather than asserting one of them."""
+    answers = {str(m.get("answer")) for m in (mappings or []) if m.get("answer")}
+    return answers.pop() if len(answers) == 1 else None
+
+
 async def post_verification_suggestion(
     case_file_id: str, mappings: list[dict], summary: str
 ) -> str | None:
     """A pre-selectable suggestion (mapped cards + one confirm prompt). NOT a confirmation."""
-    text = orchestration_step("verification_map_confirm", summary=summary)
+    text = orchestration_step(
+        "verification_map_confirm", line_desc=summary, their_answer=_intended_answer(mappings)
+    )
     return await _post(
         case_file_id, role="system", kind="verification_suggestion",
         payload={"text": text, "summary": summary, "mappings": mappings}, content=text,
