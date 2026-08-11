@@ -1,0 +1,90 @@
+"""Authored-but-unsurfaced strings, now wired (conformance C3/C4/D3/D8).
+
+The load-bearing one is D3: §2.2 promises "I'll email you the moment it's ready". We only make
+that promise if we can keep it — see test_leave_and_return_is_withheld_until_email_is_wired.
+"""
+
+from __future__ import annotations
+
+import pytest
+from httpx import AsyncClient
+
+from app.agents.context_loader import load_orchestration_registry, orchestration_step
+
+
+@pytest.mark.asyncio
+async def test_upload_surface_serves_brocks_authored_strings(client: AsyncClient):
+    """C3 + C4: the upload screen's copy comes from the REGISTRY, not the app bundle."""
+    r = await client.get("/v1/copy/upload")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["trust_microcopy"] == orchestration_step("upload_trust_microcopy")  # C4 §1.2
+    assert body["just_the_bill"] == orchestration_step("upload_just_the_bill")  # C3 §1.3
+    assert body["record_frame"] == orchestration_step("record_first_upload_frame")  # §1.1
+    # Verbatim — not paraphrased into the response.
+    assert "Encrypted. Never sold. Used only for your audit." in body["trust_microcopy"]
+    assert "Just have the bill?" in body["just_the_bill"]
+
+
+@pytest.mark.asyncio
+async def test_leave_and_return_is_withheld_until_email_is_wired(client: AsyncClient):
+    """D3 — the honesty gate.
+
+    §2.2 says "you can leave; I'll email you the moment it's ready." Today
+    `enable_nudge_emails` is false AND there is no audit-ready email at all (the only outbound
+    mail is the document-chase nudge), so rendering it would promise something the product does
+    not do. The endpoint withholds it instead — a missing line is honest, a false promise is
+    not. It appears automatically once the flag is on."""
+    from app.config import get_settings
+
+    assert get_settings().enable_nudge_emails is False, "test premise: email is not wired yet"
+    r = await client.get("/v1/copy/status")
+    assert r.status_code == 200
+    assert r.json()["leave_and_return"] is None  # withheld, not rendered
+    # …but the string itself IS authored and in the registry, ready to render.
+    assert "status_leave_and_return" in load_orchestration_registry()
+
+
+@pytest.mark.asyncio
+async def test_leave_and_return_renders_once_email_is_wired(client: AsyncClient, monkeypatch):
+    """The other half of the gate: flip the flag and the promise is kept, so it renders."""
+    from app.config import get_settings
+    from app.routes import copy as copy_route
+
+    monkeypatch.setattr(copy_route, "_leave_and_return_is_honest", lambda: True)
+    r = await client.get("/v1/copy/status")
+    assert r.json()["leave_and_return"] == orchestration_step("status_leave_and_return")
+    assert "I'll email you the moment it's ready" in r.json()["leave_and_return"]
+    get_settings()  # (no state mutated)
+
+
+@pytest.mark.asyncio
+async def test_unknown_surface_is_404_not_an_arbitrary_key_reader(client: AsyncClient):
+    """Named, closed surfaces — never a general "read any registry key" endpoint."""
+    assert (await client.get("/v1/copy/decline")).status_code == 404
+    assert (await client.get("/v1/copy/attest.intro")).status_code == 404
+
+
+def test_not_sure_acknowledgment_string_exists_and_is_brocks():
+    """D8 §4.4 — the copy that makes "not sure" visibly honoured."""
+    text = orchestration_step("verification_not_sure")
+    assert "not sure" in text.lower()
+    assert "honest answer" in text
+    assert not text.startswith("<MISSING-script:")
+
+
+@pytest.mark.asyncio
+async def test_not_sure_answer_posts_the_acknowledgment_to_the_thread(monkeypatch):
+    """D8 — the audit proceeds AROUND an unsure item and the thread says so. Asserted at the
+    bridge seam (the route's own path kicks a real audit)."""
+    from app.agents import thread_bridge
+
+    posted: list[str] = []
+
+    async def _fake_post(case_file_id, *, role, kind, payload=None, content=None):
+        posted.append(content or "")
+        return "conv"
+
+    monkeypatch.setattr(thread_bridge, "_post", _fake_post)
+    await thread_bridge.post_not_sure_acknowledgment("00000000-0000-0000-0000-000000000001")
+    assert posted and posted[0] == orchestration_step("verification_not_sure")

@@ -590,6 +590,19 @@ async def post_verification_suggestion(
     )
 
 
+async def post_not_sure_acknowledgment(case_file_id: str) -> str | None:
+    """§4.4 (D8) — "not sure" is an honest answer and must be SEEN to be honoured.
+
+    The engine already audits around an unsure line item; this is the missing user-facing half:
+    the thread says so plainly instead of leaving the user to wonder whether they broke
+    something. Idempotent like every bridge entry (one per case)."""
+    text = orchestration_step("verification_not_sure")
+    return await _post(
+        case_file_id, role="system", kind="system_message",
+        payload={"text": text, "tone": "neutral", "marker": "not_sure_ack"}, content=text,
+    )
+
+
 async def post_verification_nudge(case_file_id: str, *, partial: bool) -> str | None:
     """The script-voiced 'please tap' fallback (D4a copy) when the utterance can't be mapped."""
     key = "verification_map_partial_fallback" if partial else "verification_map_fallback"

@@ -28,6 +28,7 @@ from app.routes import (
     billing,
     cases,
     conversations,
+    copy,
     coverage,
     dashboard,
     encounter,
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     app.include_router(encounter.router, prefix="/v1")
     app.include_router(attest.router, prefix="/v1")
     app.include_router(access_request.router, prefix="/v1")  # public (unauthenticated) intake
+    app.include_router(copy.router, prefix="/v1")
     app.include_router(user.router, prefix="/v1")
     app.include_router(profile.router, prefix="/v1")
     app.include_router(insurance.router, prefix="/v1")

@@ -101,6 +101,13 @@ async def post_confirmations(
     if not body.confirmations:
         raise HTTPException(status_code=400, detail="confirmations must be non-empty")
     accepted = await submit_confirmations(case_file_id, body.confirmations)
+    # D8 / §4.4: a "not sure" answer is honest, never penalised — say so in the thread so the
+    # user can see the audit is proceeding around it rather than blocked on it. Lazy import,
+    # like every other bridge call site (the bridge is hooked FROM the orchestrator).
+    from app.agents import thread_bridge as _bridge
+
+    if any(c.response == "not_sure" for c in body.confirmations) and _bridge.enabled():
+        await _bridge.post_not_sure_acknowledgment(case_file_id)
     # Internal analytics (P0): one verification_answered per line item, carrying the answer + its
     # position — this feeds the per-question "Not sure" rate (§2). Best-effort.
     from uuid import UUID as _UUID

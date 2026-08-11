@@ -919,3 +919,14 @@ export async function fetchCardImageObjectUrl(
     return null;
   }
 }
+
+
+/** Authored copy for a screen with no case thread yet (upload). Registry-sourced so the app
+ *  never hardcodes product voice; a field is null when the string is deliberately withheld. */
+export type SurfaceCopy = Record<string, string | null>;
+
+export async function getSurfaceCopy(surface: 'upload' | 'status'): Promise<SurfaceCopy> {
+  const res = await cfetch(`${BASE_URL}/v1/copy/${surface}`);
+  if (!res.ok) return {};
+  return (await res.json()) as SurfaceCopy;
+}

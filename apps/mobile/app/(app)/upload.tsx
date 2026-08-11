@@ -14,12 +14,12 @@
  * conflict (DL-44), so native shows a "use the web" message for now.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FileText, Plus, X } from 'lucide-react-native';
+import { FileText, Lock, Plus, X } from 'lucide-react-native';
 
-import { extractLineItems, uploadDocuments } from '../../lib/api-client';
+import { extractLineItems, getSurfaceCopy, uploadDocuments, type SurfaceCopy } from '../../lib/api-client';
 import {
   ACCEPTED_UPLOAD_HINT,
   UPLOAD_ACCEPT_ATTR,
@@ -47,6 +47,12 @@ export default function UploadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const inputRef = useRef<any>(null);
+  // Authored upload-surface copy (script §1.2 / §1.3) — fetched, never hardcoded, so the
+  // registry stays the single source and the drift guard keeps covering it.
+  const [copy, setCopy] = useState<SurfaceCopy>({});
+  useEffect(() => {
+    getSurfaceCopy('upload').then(setCopy).catch(() => setCopy({}));
+  }, []);
 
   const pickFiles = () => inputRef.current?.click?.();
 
@@ -172,6 +178,19 @@ export default function UploadScreen() {
               </PressableScale>
             </View>
           )}
+
+          {/* C4 · script §1.2 — trust microcopy, lock icon, directly under the control. */}
+          {copy.trust_microcopy ? (
+            <View className="mt-3 flex-row items-center gap-1.5">
+              <Lock size={13} color="var(--c-text-faint)" />
+              <Text className="text-xs text-faint">{copy.trust_microcopy}</Text>
+            </View>
+          ) : null}
+
+          {/* C3 · script §1.3 — "just the bill is enough", so a partial upload never feels wrong. */}
+          {copy.just_the_bill ? (
+            <Text className="mt-2 text-xs leading-5 text-secondary">{copy.just_the_bill}</Text>
+          ) : null}
         </>
       ) : (
         <View className="rounded-2xl border border-hairline bg-surface p-6">
