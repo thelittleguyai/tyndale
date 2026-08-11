@@ -66,6 +66,8 @@ import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
 import { useBreakpoint } from '../../components/ui/use-breakpoint';
 import { MetricCard } from '../../components/ui';
+import type { SemanticColors } from '../../theme/tokens';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const formatUSD = (n: number) =>
   '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -353,18 +355,21 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
 // ─── Open cases (status-aware, full lifecycle) ───────────────────────────────
 // Maps a case status to its card icon/color so a glance tells the user where each case stands:
 // results ready (sage), running/starting (amber), needs attention (rose), otherwise neutral.
-function statusVisual(status: string): { Icon: typeof FileText; color: string; bg: string } {
+function statusVisual(
+  status: string,
+  tc: SemanticColors,
+): { Icon: typeof FileText; color: string; bg: string } {
   switch (status) {
     case 'audit_complete':
-      return { Icon: CheckCircle2, color: '#3DAA7E', bg: 'bg-accent-tint' };
+      return { Icon: CheckCircle2, color: tc.success.base, bg: 'bg-accent-tint' };
     case 'audit_running':
     case 'encounter_verified':
-      return { Icon: Clock, color: '#E08A3C', bg: 'bg-warning-tint' };
+      return { Icon: Clock, color: tc.warning.base, bg: 'bg-warning-tint' };
     case 'extraction_failed':
     case 'audit_incomplete':
-      return { Icon: AlertCircle, color: '#C75252', bg: 'bg-danger-tint' };
+      return { Icon: AlertCircle, color: tc.danger.base, bg: 'bg-danger-tint' };
     default:
-      return { Icon: FileText, color: '#ffffff', bg: 'bg-inset' };
+      return { Icon: FileText, color: tc.text.primary, bg: 'bg-inset' };
   }
 }
 
@@ -377,6 +382,7 @@ function ActiveCasesSection({
   onChanged: () => void;
 }) {
   const router = useRouter();
+  const tc = useThemeColors();
   return (
     <View>
       <Text className="mb-3 mt-6 text-xs text-faint">
@@ -384,7 +390,7 @@ function ActiveCasesSection({
       </Text>
       <View className="gap-3">
         {cases.map((c) => {
-          const { Icon, color, bg } = statusVisual(c.status);
+          const { Icon, color, bg } = statusVisual(c.status, tc);
           return (
             <PressableScale
               key={c.case_file_id}

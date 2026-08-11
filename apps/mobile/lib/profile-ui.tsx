@@ -8,6 +8,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 
 import { uploadInsuranceCard, type CardUploadResult } from './api-client';
+import { useThemeColors } from '../theme/useThemeColors';
 
 export const ALLOWED_CARD_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
 export const MAX_CARD_BYTES = 10 * 1024 * 1024;
@@ -114,6 +115,7 @@ export function CardUpload({
   onResult?: (r: CardUploadResult) => void;
   onUploadingChange?: (uploading: boolean) => void;
 }) {
+  const c = useThemeColors();
   const inputRef = useRef<any>(null);
   const [state, setState] = useState<CardState>(initialDone ? 'done' : 'idle');
   const [msg, setMsg] = useState<string | null>(null);
@@ -192,7 +194,7 @@ export function CardUpload({
         className={`min-h-[44px] items-center justify-center rounded-2xl border-2 border-dashed ${border} bg-navy-soft p-5`}
       >
         {state === 'uploading' ? (
-          <ActivityIndicator color="#3DAA7E" />
+          <ActivityIndicator color={c.accent} />
         ) : (
           <Text className="text-sm font-semibold text-white">
             {state === 'done' ? `✓ ${label} added` : `Add the ${side} of your card`}

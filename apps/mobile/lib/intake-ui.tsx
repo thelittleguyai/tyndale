@@ -23,6 +23,7 @@ import { INTAKE_STEPS, type IntakeStateResponse, type IntakeStep } from '@tyndal
 import { getIntakeState, uploadDocuments, type UploadedDoc } from './api-client';
 import { ACCEPTED_UPLOAD_HINT, UPLOAD_ACCEPT_ATTR, partitionUploads } from './upload-validation';
 import { setIntakeDeferred } from './intake-deferred';
+import { useThemeColors } from '../theme/useThemeColors';
 
 // Cached across step navigations so each screen shares one case file.
 let _caseId: string | null = null;
@@ -164,6 +165,7 @@ export function UploadField({
   label: string;
   onUploaded: (docs: UploadedDoc[]) => void;
 }) {
+  const c = useThemeColors();
   const inputRef = useRef<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +220,7 @@ export function UploadField({
         className="items-center rounded-2xl border-2 border-dashed border-white/20 bg-navy-soft p-7"
       >
         {busy ? (
-          <ActivityIndicator color="#3DAA7E" />
+          <ActivityIndicator color={c.accent} />
         ) : (
           <Text className="text-base font-semibold text-white">{label}</Text>
         )}
@@ -337,9 +339,10 @@ export function WizardShell({
 }
 
 export function WizardLoading() {
+  const c = useThemeColors();
   return (
     <View className="flex-1 items-center justify-center bg-navy-deep">
-      <ActivityIndicator color="#fff" />
+      <ActivityIndicator color={c.text.primary} />
     </View>
   );
 }

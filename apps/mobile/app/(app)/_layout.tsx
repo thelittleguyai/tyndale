@@ -16,6 +16,7 @@ import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
 import { isIntakeDeferred } from '../../lib/intake-deferred';
 import { isCaseWorkRoute, shouldRedirectToWizard } from '../../lib/intake-gate';
+import { themeColors } from '../../theme/useThemeColors';
 
 type IntakeGate = { status: string; step: string | null; hasCases: boolean };
 
@@ -99,7 +100,7 @@ export default function AppLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#091621' },
+        contentStyle: { backgroundColor: themeColors('dark').bg.page },
       }}
     />
   );

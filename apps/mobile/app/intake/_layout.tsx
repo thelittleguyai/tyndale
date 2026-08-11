@@ -9,6 +9,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
 import { useCurrentUser } from '../../lib/auth';
+import { themeColors } from '../../theme/useThemeColors';
 
 export default function IntakeLayout() {
   const { user, loading } = useCurrentUser();
@@ -22,7 +23,7 @@ export default function IntakeLayout() {
   if (!user) return <Redirect href="/sign-in" />;
   return (
     <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#091621' } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themeColors('dark').bg.page } }}
     />
   );
 }

@@ -33,6 +33,7 @@ import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { Card, ThemeToggle } from '../../components/ui';
 import { CardUpload, formatPhone, isoToMdy, validateDob } from '../../lib/profile-ui';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const CONSENT_FULL_TEXT = [
   'Help make Tyndale better. With your permission, we’ll use your bills, your feedback, and the outcomes of your cases — with all your personal information removed — to improve how Tyndale catches errors and helps people. This is optional, it never affects the service you receive, and you can turn it off anytime in Settings.',
@@ -63,6 +64,7 @@ const REGIME_LABELS: Record<string, string> = {
 };
 
 export default function SettingsScreen() {
+  const c = useThemeColors();
   const router = useRouter();
   const signOut = useSignOut();
   const [signingOut, setSigningOut] = useState(false);
@@ -286,8 +288,8 @@ export default function SettingsScreen() {
             value={!!profile?.improvement_consent}
             onValueChange={onToggleConsent}
             disabled={busy || !profile}
-            trackColor={{ false: 'rgba(255,255,255,0.15)', true: '#3DAA7E' }}
-            thumbColor="#fff"
+            trackColor={{ false: c.border.strong, true: c.accent }}
+            thumbColor={c.bg.surface}
           />
         </View>
         <Pressable

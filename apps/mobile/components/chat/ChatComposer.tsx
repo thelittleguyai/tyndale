@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import { PressableScale } from '../ui/PressableScale';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const MIN_INPUT_H = 24; // ~one line at lineHeight 22
 const MAX_INPUT_H = 140; // ~6 lines, then the input scrolls internally
@@ -38,6 +39,7 @@ export function ChatComposer({
   streaming: boolean;
   disabled?: boolean;
 }) {
+  const c = useThemeColors();
   const [text, setText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_H);
   const [focused, setFocused] = useState(false);
@@ -99,7 +101,7 @@ export function ChatComposer({
             accessibilityLabel="Stop generating"
             className="h-11 w-11 items-center justify-center rounded-full bg-danger hover:opacity-90"
           >
-            <Square size={15} color="var(--c-text-primary)" fill="#fff" />
+            <Square size={15} color={c.text.primary} fill={c.text.primary} />
           </PressableScale>
         ) : (
           <PressableScale
@@ -109,7 +111,7 @@ export function ChatComposer({
             accessibilityLabel="Send message"
             className={`h-11 w-11 items-center justify-center rounded-full ${canSend ? 'bg-accent hover:bg-accent' : 'bg-inset'}`}
           >
-            <Send size={17} color={canSend ? '#0A1E1C' : 'rgba(255,255,255,0.4)'} />
+            <Send size={17} color={canSend ? c.onAccent : c.text.faint} />
           </PressableScale>
         )}
       </View>

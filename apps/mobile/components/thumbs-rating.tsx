@@ -21,6 +21,7 @@ import {
   submitFeedback,
 } from '../lib/api-client';
 import { ThumbsDownModal } from './thumbs-down-modal';
+import { useThemeColors } from '../theme/useThemeColors';
 
 export function ThumbsRating({
   target,
@@ -33,6 +34,7 @@ export function ThumbsRating({
   existingRating?: ThumbsValue | null;
   size?: number;
 }) {
+  const c = useThemeColors();
   const [rating, setRating] = useState<ThumbsValue | null>(existingRating);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -89,7 +91,7 @@ export function ThumbsRating({
             : 'rounded-md bg-inset p-1.5'
         }
       >
-        <ThumbsUp size={size} color={rating === 'up' ? '#3DAA7E' : 'rgba(255,255,255,0.5)'} />
+        <ThumbsUp size={size} color={rating === 'up' ? c.success.base : c.text.faint} />
       </Pressable>
       <Pressable
         onPress={onDown}
@@ -101,7 +103,7 @@ export function ThumbsRating({
             : 'rounded-md bg-inset p-1.5'
         }
       >
-        <ThumbsDown size={size} color={rating === 'down' ? '#C75252' : 'rgba(255,255,255,0.5)'} />
+        <ThumbsDown size={size} color={rating === 'down' ? c.danger.base : c.text.faint} />
       </Pressable>
 
       <ThumbsDownModal

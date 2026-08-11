@@ -13,32 +13,36 @@
    colorScheme) swaps the values. tailwind.config.js references these by name. */
 @layer base {
   :root {
-    --c-bg-page: #f7f8f5;
+    --c-bg-page: #faf7f0;
     --c-bg-surface: #ffffff;
     --c-bg-surface-raised: #ffffff;
-    --c-bg-inset: #eceee8;
+    --c-bg-inset: #efece4;
     --c-text-primary: #1a2b27;
     --c-text-secondary: #5f5e5a;
-    --c-text-faint: #888780;
-    --c-border-hairline: #e3e5e0;
-    --c-border-strong: #c9ccc5;
-    --c-accent: #0f6e56;
-    --c-accent-tint: #e1f5ee;
+    --c-text-faint: #726f69;
+    --c-border-hairline: #dcd9d3;
+    --c-border-strong: #c2bfb8;
+    --c-accent: #3e5c57;
+    --c-accent-tint: #ecefee;
     --c-on-accent: #ffffff;
-    --c-success: #2e9e6b;
-    --c-success-tint: #e4f4ec;
-    --c-success-on-tint: #12523a;
-    --c-warning: #ba7517;
+    --c-money: #2e7d5b;
+    --c-citation: #2c6e8f;
+    --c-citation-tint: #e1ebef;
+    --c-citation-on-tint: #225670;
+    --c-success: #2e7d5b;
+    --c-success-tint: #e2ede8;
+    --c-success-on-tint: #1c4e39;
+    --c-warning: #9a5f12;
     --c-warning-tint: #faeeda;
     --c-warning-on-tint: #7a4d0f;
-    --c-danger: #d2544b;
+    --c-danger: #c1443b;
     --c-danger-tint: #fbe4e1;
     --c-danger-on-tint: #8f2f28;
-    --c-moment-bg: #04342c;
-    --c-moment-border: #16564a;
-    --c-moment-emphasis: #5dcaa5;
-    --c-moment-text: #e1f5ee;
-    --c-moment-text-faint: #9fe1cb;
+    --c-moment-bg: #12332e;
+    --c-moment-border: #2a4f49;
+    --c-moment-emphasis: #7fc9b4;
+    --c-moment-text: #e8f0ee;
+    --c-moment-text-faint: #a9cfc5;
   }
 
   .dark:root,
@@ -50,12 +54,16 @@
     --c-bg-inset: #0e1512;
     --c-text-primary: #f2f5f3;
     --c-text-secondary: #8fa39b;
-    --c-text-faint: #5c6e67;
+    --c-text-faint: #748981;
     --c-border-hairline: #22312b;
     --c-border-strong: #2e4238;
     --c-accent: #5dcaa5;
     --c-accent-tint: #123028;
     --c-on-accent: #04342c;
+    --c-money: #4fbf8b;
+    --c-citation: #7fb6d3;
+    --c-citation-tint: #12303d;
+    --c-citation-on-tint: #bfddeb;
     --c-success: #4fbf8b;
     --c-success-tint: #123026;
     --c-success-on-tint: #a7e5c9;

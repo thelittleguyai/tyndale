@@ -12,13 +12,14 @@ const config: Config = {
     extend: {
       colors: {
         ink: { DEFAULT: '#0F2A28', deep: '#0A1E1C', soft: '#152F2D' },
-        navy: { DEFAULT: '#0E1F2B', deep: '#091621', soft: '#15242E' },
-        cream: { DEFAULT: '#F5F1EA', soft: '#FAF7F2' },
+        navy: { DEFAULT: '#1D2A38', deep: '#17212C', soft: '#2A3946' },
+        cream: { DEFAULT: '#FAF7F0', soft: '#FDFBF8' },
         surface: '#FFFFFF',
-        teal: { DEFAULT: '#1F4E4A', deep: '#173D3A', soft: '#E0EAE8', tint: '#F0F5F4' },
-        sage: { DEFAULT: '#3DAA7E', deep: '#2E8862', soft: '#E5F2EB', tint: '#F2F8F4' },
+        teal: { DEFAULT: '#3E5C57', deep: '#304844', soft: '#E4E8E7', tint: '#F3F5F5' },
+        sage: { DEFAULT: '#2E7D5B', deep: '#246247', soft: '#E2EDE8', tint: '#F2F7F5' },
         amber: { DEFAULT: '#E08A3C', deep: '#C26F26', soft: '#FBEBD8' },
         rose: { DEFAULT: '#C75252', soft: '#F7E0E0' },
+        citation: { DEFAULT: '#2C6E8F', soft: '#E1EBEF', deep: '#225670', tint: '#F2F6F8' },
         line: { DEFAULT: '#E4DFD5', soft: '#EFEAE0', card: '#ECE6D9', dark: '#1F3340' },
       },
       fontFamily: {
