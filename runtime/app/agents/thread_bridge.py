@@ -302,6 +302,32 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await ensure("terminal:attest_declined", "system_message", {"text": text, "tone": "neutral"}, text)
         return  # closed gracefully — nothing downstream renders
 
+    # F3 §5.1 — a PARTIAL read: run what's readable, name the unreadable part, ask for the one
+    # fix. Never a guessed number (data_quality.never_approximate documents that rule).
+    from app.sources.data_quality import looks_like_summary_bill, partial_read
+
+    docs = [d for d in (case.documents or []) if isinstance(d, dict)]
+    partial = partial_read(docs)
+    if partial:
+        text = orchestration_step("dataquality_partial_illegible", line_desc=partial["unreadable_label"])
+        await ensure(
+            "dataquality:partial", "system_message",
+            {"text": text, "tone": "neutral",
+             "data_quality": {"kind": "partial_read", **partial}},
+            text,
+        )
+
+    # F4 §5.2 — a summary statement rather than an itemised bill: coach the request instead of
+    # auditing a total. {itemized_request_script} has no authored value yet, so the string
+    # degrades rather than inventing a script (flagged for Brock).
+    if any(looks_like_summary_bill(d) for d in docs):
+        text = orchestration_step("dataquality_summary_not_itemized")
+        await ensure(
+            "dataquality:summary_bill", "system_message",
+            {"text": text, "tone": "neutral", "data_quality": {"kind": "summary_bill"}},
+            text,
+        )
+
     # verification cards — once line items exist, ≤3 per group (D3); held behind attest
     line_items = [] if attest_needed else (list(case.line_items) if case.line_items else [])
     if line_items:

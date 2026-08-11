@@ -299,6 +299,22 @@ def _decline_checks(client: httpx.Client, base_url: str, case_id: str, specs: li
     return fails
 
 
+def _data_quality_checks(messages: list[dict] | None, expected_kind: str) -> list[str]:
+    """F3/F4: the §5.1 / §5.2 state must actually render, carrying its detection kind — and a
+    partial read must never print a guessed number."""
+    for m in messages or []:
+        dq = (m.get("payload") or {}).get("data_quality")
+        if dq and dq.get("kind") == expected_kind:
+            fails = []
+            if expected_kind == "partial_read":
+                if not dq.get("unreadable_label"):
+                    fails.append("data-quality: partial read didn't name the unreadable part")
+                if not dq.get("readable"):
+                    fails.append("data-quality: partial read reported nothing readable")
+            return fails
+    return [f"data-quality: no {expected_kind} entry in the thread"]
+
+
 def _free_text_verify_checks(client: httpx.Client, base_url: str, case_id: str, spec: dict) -> list[str]:
     """D4b: a free-text verification reply maps to a PRE-SELECTABLE suggestion and commits NOTHING
     (the tap does). POST the utterance, then assert a suggestion in the thread + that the case is
@@ -495,6 +511,8 @@ def run_scenario(
                 fails = fails + _wrongdoc_checks(thread, exp["wrongdoc_branch"])
             if exp.get("reconcile_no_premature_last_resort"):
                 fails = fails + _reconcile_checks(thread)
+            if exp.get("data_quality_kind"):
+                fails = fails + _data_quality_checks(thread, exp["data_quality_kind"])
         if scenario.get("chat_declines") and case_id:
             fails = fails + _decline_checks(client, base_url, case_id, scenario["chat_declines"])
         if record and case_id:

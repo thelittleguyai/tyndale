@@ -1,0 +1,20 @@
+{
+  "name": "summary_bill_only",
+  "description": "A summary statement rather than an itemized bill (the Beloit shape) — F4/§5.2. Must coach the user to request the itemized bill instead of auditing a bare total.",
+  "documents": [
+    {
+      "type": "summary_bill",
+      "filename": "statement.pdf",
+      "account": "E2E-SUMMARY-01",
+      "service_date": "2026-05-20",
+      "total_charges": 2347.18,
+      "amount_due": 612.4
+    }
+  ],
+  "encounter": { "default": "yes" },
+  "expect": {
+    "no_fixture": true,
+    "data_quality_kind": "summary_bill",
+    "assert_x1": true
+  }
+}

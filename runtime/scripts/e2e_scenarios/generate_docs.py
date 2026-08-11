@@ -210,6 +210,32 @@ def make_insurance_card(path: Path, *, member_id: str = "SYN-123456789", **_: An
     c.save()
 
 
+
+def make_summary_bill(
+    path: Path, *, account: str, service_date: str, total_charges: float,
+    amount_due: float, **_: Any,
+) -> None:
+    """A SUMMARY statement: charges and a total, deliberately with NO CPT/line-item detail —
+    the shape §5.2 coaches the user out of (errors hide in the itemized version)."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica", 11)
+    _lines(c, [
+        "STATEMENT SUMMARY",
+        f"Provider: {PROVIDER}",
+        f"Patient: {PATIENT}",
+        f"Account #: {account}    Date of Service: {service_date}",
+        "",
+        "BALANCE FORWARD                                   0.00",
+        f"TOTAL CHARGES                                {_money(total_charges)}",
+        f"AMOUNT DUE                                   {_money(amount_due)}",
+        "",
+        "Please pay this amount by the due date shown above.",
+        "This is a summary of your account. Call billing with questions.",
+    ])
+    c.showPage()
+    c.save()
+
+
 _MAKERS = {
     "bill": make_bill,
     "eob": make_eob,
@@ -219,6 +245,7 @@ _MAKERS = {
     "blank_pages": make_blank_pages,
     "not_a_bill_txt": make_not_a_bill_txt,
     "insurance_card": make_insurance_card,
+    "summary_bill": make_summary_bill,
 }
 
 

@@ -1,0 +1,22 @@
+{
+  "name": "partially_legible_upload",
+  "description": "Two uploads, one readable and one that fails OCR — F3/§5.1. Must run what IS readable, name the unreadable file specifically, and never print a guessed number.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-PARTIAL-01",
+      "service_date": "2026-05-20",
+      "line_items": [
+        { "code": "99213", "description": "Office visit, established patient", "charge": 240.0 }
+      ]
+    },
+    { "type": "blank_pages", "filename": "eob_scan.pdf", "pages": 2 }
+  ],
+  "encounter": { "default": "yes" },
+  "expect": {
+    "no_fixture": true,
+    "data_quality_kind": "partial_read",
+    "assert_x1": true
+  }
+}
