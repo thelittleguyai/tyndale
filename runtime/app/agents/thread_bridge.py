@@ -483,12 +483,23 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     if a is None:
         return
     delta = round(a.eob_member_responsibility - a.tyndale_computed, 2)
-    headline = orchestration_step("three_number_reveal", delta_dollars=f"{max(delta, 0):,.2f}")
+    headline = orchestration_step(
+        "three_number_reveal",
+        billed=f"${a.provider_billed:,.2f}",
+        payer=_payer_of(case),
+        eob_owed=f"${a.eob_member_responsibility:,.2f}",
+        tyndale_owed=f"${a.tyndale_computed:,.2f}",
+    )
+    # E3 — the gap framing. None on a clean bill (gap 0) or a negative gap; the moment then
+    # renders the three numbers with no callout rather than "$0.00 less".
+    from app.agents.grounding import gap_callout
+
     await ensure(
         "moment:three_number", "moment_card",
         {"variant": "three_number", "provider_billed": a.provider_billed,
          "eob_member_responsibility": a.eob_member_responsibility,
-         "tyndale_computed": a.tyndale_computed, "delta": delta, "headline": headline},
+         "tyndale_computed": a.tyndale_computed, "delta": delta, "headline": headline,
+         "gap_callout": gap_callout(a.eob_member_responsibility, a.tyndale_computed)},
     )
 
 

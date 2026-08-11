@@ -419,3 +419,15 @@ drift guard (nothing to compare against).
 ## call_mode_outro
 <!-- UNMAPPED — no §9 counterpart -->
 [A] That's the call. When you hear back, tell me what they said and I'll take it from there.
+
+## reveal.gap_callout
+<!-- CHECKLIST-E3 — conformance checklist §E item E3 gives this exact framing; his script §6
+     has no gap-callout string (§7.1's "{gap} of this shouldn't be yours to pay" is the UNLOCK).
+     Sourced to the checklist, not invented. Suppressed entirely when the gap is zero — there is
+     no zero-gap variant, and "$0.00 less" would be worse than silence. -->
+[A] **{gap}** less than your insurer's number
+
+## finding_no_source
+<!-- ENG — the honest no-source state for a finding whose source can't be resolved. Grounding
+     doctrine: a claim renders WITH its source or says plainly that it can't yet. -->
+[A] I can't point to a source for this one yet — I've flagged it rather than state it as fact.

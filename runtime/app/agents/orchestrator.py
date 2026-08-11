@@ -25,6 +25,7 @@ from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
 from app.agents.context_loader import orchestration_step
 from app.agents.llm_health import claude_path_label, record_audit_run, record_system_alert
+from app.agents.grounding import finding_source_line, gap_callout
 from app.agents.wrongdoc import classify_wrong_document
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
@@ -605,16 +606,18 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         # audit fetch (the live bug: a citation missing src_id/marker raised ValidationError here).
         citations = _project_citations(raw_citations)
         findings.append(
-            FindingOut(
-                finding_id=str(f.finding_id),
-                finding_type=f.finding_type,
-                category=f.category,
-                subagent_source=f.subagent_source or "unknown",
-                voice_tier=f.voice_tier or "B",
-                facts=facts,
-                legal_claim=f.legal_claim,
-                recommendation=f.recommendation,
-                citations=citations,
+            _with_source_line(
+                FindingOut(
+                    finding_id=str(f.finding_id),
+                    finding_type=f.finding_type,
+                    category=f.category,
+                    subagent_source=f.subagent_source or "unknown",
+                    voice_tier=f.voice_tier or "B",
+                    facts=facts,
+                    legal_claim=f.legal_claim,
+                    recommendation=f.recommendation,
+                    citations=citations,
+                )
             )
         )
         # The three-number audit lives in the first finding's facts that has
@@ -738,6 +741,13 @@ def _detected_doc_type(documents) -> str | None:
         if t:
             return _FRIENDLY_DOC_TYPE.get(t)
     return None
+
+
+def _with_source_line(f: FindingOut) -> FindingOut:
+    """E4/H3 — stamp the grounding line onto every finding the API returns, so a client cannot
+    render a claim without either its source or the explicit no-source state."""
+    f.source_line, f.has_source = finding_source_line(f)
+    return f
 
 
 def not_a_bill_message(filenames: list[str], documents=None) -> str:

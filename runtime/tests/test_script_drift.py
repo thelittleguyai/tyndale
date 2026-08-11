@@ -75,7 +75,10 @@ def test_mapping_covers_the_registry_and_names_real_sections():
     unclassified = [k for k, e in reg.items() if not e.source]
     assert not unclassified, f"keys with no source marker: {unclassified}"
     for key, entry in reg.items():
-        assert entry.source.startswith(("§", "UNMAPPED", "ENG")), f"{key}: {entry.source!r}"
+        # Four provenance classes: §N.N = his orchestration script (drift-compared above) ·
+        # CHECKLIST-* = his conformance checklist (a different authored doc, so not in the
+        # script file) · UNMAPPED = rendered but unauthored · ENG = mechanism, not voice.
+        assert entry.source.startswith(("§", "CHECKLIST", "UNMAPPED", "ENG")), f"{key}: {entry.source!r}"
 
 
 def test_authored_file_is_pinned_by_hash():

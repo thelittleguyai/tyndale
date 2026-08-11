@@ -140,6 +140,12 @@ def load_orchestration_registry() -> dict[str, ScriptEntry]:
         tag = _TIER_TAG_RE.match(body)
         tier = tag.group(1) if tag else "A"
         body = _TIER_TAG_RE.sub("", body, count=1).strip()
+        # Brock quotes spoken copy in his source file ("> \"Got your documents — …\""). Those
+        # are markdown presentation, not part of the string — without this the user would read
+        # literal quote marks around every message. Strip ONE enclosing pair only, and only
+        # when the value is wholly wrapped (an internal quote is his and stays).
+        if len(body) > 1 and body[0] == '"' and body[-1] == '"' and body.count('"') == 2:
+            body = body[1:-1].strip()
         if tier == "C" and (hit := _FORBIDDEN_PREDICTION_SLOT_RE.search(body)):
             raise ValueError(
                 f"orchestration_script key '{key}' is [C] strategy copy but carries the "
