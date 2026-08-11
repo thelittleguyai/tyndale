@@ -25,7 +25,7 @@ from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
 from app.agents.context_loader import orchestration_step
 from app.agents.llm_health import claude_path_label, record_audit_run, record_system_alert
-from app.agents.grounding import finding_source_line, gap_callout
+from app.agents.grounding import finding_source_line
 from app.agents.wrongdoc import classify_wrong_document
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal

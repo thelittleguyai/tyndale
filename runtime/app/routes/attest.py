@@ -12,7 +12,6 @@ analytics event carries only the relationship enum (PHI-free by construction, Ru
 from __future__ import annotations
 
 import datetime
-from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException

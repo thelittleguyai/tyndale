@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.agents.context_loader import load_orchestration_registry, load_orchestration_script
+from app.agents.context_loader import load_orchestration_registry
 from app.agents.orchestrator import not_a_bill_message
 from app.agents.wrongdoc import classify_wrong_document
 from app.analytics.events import REGISTRY, PropType

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.agents import context_loader
 from app.agents.context_loader import (
     DOCTRINE_VIOLATIONS,
     PLACEHOLDER_PREFIX,
