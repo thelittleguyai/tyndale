@@ -2,7 +2,12 @@
 
 **Method:** codebase audit (file evidence), not a live browser walk — Phil does the live walk.
 Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owning workstream.
-**Date:** 2026-08-11 · **Total:** 24 PASS · 21 FAIL · 22 N-A-YET
+**Date:** 2026-08-11 · first pass 24 PASS / 21 FAIL / 22 N-A-YET →
+**after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET**
+
+Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
+awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
+made blind — each says which.
 
 Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstream ·
 **[unowned]** = no prompt covers it; needs a decision.
@@ -13,15 +18,15 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 
 | # | Verdict | Evidence |
 |---|---|---|
-| A1 brand teal `#3E5C57` | **FAIL** [queued] | ships `#1F4E4A` (`design-tokens.ts:19`). Pending Brock — `palette_reconciliation.md` |
-| A2 nav navy `#1D2A38` | **FAIL** [queued] | ships `#0E1F2B` (`design-tokens.ts:14`). Same doc |
+| A1 brand teal `#3E5C57` | **PASS** (2026-08-11) | adopted; `brand.teal` in design-tokens.ts, mirrors updated |
+| A2 nav navy `#1D2A38` | **PASS** (2026-08-11) | adopted; `brand.navy` |
 | A3 hero navy→teal gradient | **PASS** | `from-navy via-teal-deep to-teal` in the marketing hero |
-| A4 money green `#2E7D5B` | **FAIL** [queued] | ships `sage #3DAA7E` — **and it fails AA at 2.90:1**. Adopting Brock's fixes it |
+| A4 money green `#2E7D5B` | **PASS** (2026-08-11) | adopted — **the 2.90:1 AA failure is fixed** (now 5.00:1) |
 | A5 deductible/OOP amber | **PASS** | `amber.DEFAULT #E08A3C` + `amber.deep` used for deductible figures |
 | A6 citation blue `#2C6E8F` | **PASS** (as of this session) | `colors.citation` added — required by `[B]` chip rendering |
-| A7 cream bg `#FAF7F0` | **FAIL** [queued] | ships `#F5F1EA`. Same doc |
-| A8 body ≥16px, lh 1.5 | **PASS** | mobile type scale base 16 / lh 1.5; marketing `text-base` = 1rem/1.5rem |
-| A9 contrast ≥4.5:1 | **FAIL** [unowned] | `sage #3DAA7E` money figures at **2.90:1**; `text.faint` at AA-large only (RD-4 note) |
+| A7 cream bg `#FAF7F0` | **PASS** (2026-08-11) | adopted; `brand.cream` |
+| A8 body ≥16px, lh 1.5 | **FAIL** [unowned] | **CORRECTION** — the earlier PASS read the MARKETING scale. Mobile body is **14px** (`type.body`). One-line change, deliberately not made blind: it reflows every screen and this session could run neither the mobile suite nor the app |
+| A9 contrast ≥4.5:1 | **PASS** (2026-08-11) | 25 pairs asserted ≥4.5:1 in BOTH modes (`test_design_token_guards.py`). Fixed en route: light text.faint 3.37→4.68, warning 3.48→4.88, danger 3.84→4.72, dark text.faint 3.50→5.08 |
 | A10 tap targets ≥44px | **PASS** | `min-h-[44px]` on Button/ListRow/Disclosure |
 | A11 reading level / underlines | **PASS** | no decorative underlines; copy now Brock-authored |
 | A12 one column | **PASS** | single-column throughout mobile; marketing stacks at all breakpoints |
@@ -48,8 +53,8 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | C1 camera-first | **FAIL** [queued — prompt names it] | `upload.tsx` is a file picker; no "Snap a photo" primary |
 | C2 checklist chips | **PASS** | Bill (required) / EOB / Insurance card chips present |
-| C3 just-the-bill line | **FAIL** [unowned] | key `upload_just_the_bill` now EXISTS (§1.3) but no surface renders it |
-| C4 trust microcopy | **FAIL** [unowned] | key `upload_trust_microcopy` now EXISTS (§1.2) but no surface renders it |
+| C3 just-the-bill line | **PASS** (2026-08-11) | rendered under the upload control via `GET /v1/copy/upload` |
+| C4 trust microcopy | **PASS** (2026-08-11) | lock icon + §1.2, same endpoint |
 | C5 edge-detection capture | **N-A-YET** | camera capture not built (same workstream as C1) |
 | C6 "start of your file" framing | **PASS** | `record_first_upload_frame` (§1.1) rendered by the bridge |
 
@@ -59,12 +64,12 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | D1 one status card in place | **PASS** | `_upsert_status_card` — exactly one, updated (`thread_bridge.py`) |
 | D2 four bars, real completion | **PASS** | `_STAGE_ORDER` + `_DONE_AT`; no percentages anywhere. **Labels now Brock's** (§2.1) |
-| D3 leave-and-return line | **FAIL** [unowned] | key `status_leave_and_return` now EXISTS (§2.2) but the card doesn't render it |
+| D3 leave-and-return line | **DEFERRED — deliberate** (2026-08-11) | wired + gated. WITHHELD while `enable_nudge_emails=false` and no audit-ready email exists: §2.2 promises an email we don't send. Renders automatically once it's true. Follow-up: wire the audit-ready email |
 | D4 message discipline | **PASS** | bridge posts on state transitions only; status lives in the card |
 | D5 ≤3 verification cards | **PASS** | `VERIFICATION_GROUP_SIZE = 3` |
 | D6 Yes/No/Not sure | **PASS** | three buttons in `ThreadVerification.tsx` |
 | D7 pre-select + one confirm | **PASS** | `verification_suggestion` kind; the tap commits; low-confidence → fallback |
-| D8 "not sure" honored | **FAIL** [unowned] | engine honors it, but §4.4's copy (`verification_not_sure`) isn't rendered |
+| D8 "not sure" honored | **PASS** (2026-08-11) | answering "Not sure" posts the §4.4 acknowledgment into the thread |
 | D9 cap collision Tyndale-voiced | **PASS** | `cap_collision` (§10.3) |
 | D10 warn-and-continue | **PASS** | degradation paths return honest states, never hard-block |
 
@@ -74,8 +79,8 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | E1 reveal is a MOMENT | **PASS** | `moment_card` kind, full-width (`MomentCards.tsx`) |
 | E2 three numbers stacked | **PASS** | `three_number_reveal` now Brock's three-line §6.1 block |
-| E3 gap callout framing | **FAIL** [unowned] | no "$572.20 less than your insurer's number" framing |
-| E4 finding cards + source line | **PARTIAL → FAIL** | title/amount/severity present in `FindingCard.tsx`; **source line not rendered** though `finding_card_source` (§6.3) now exists |
+| E3 gap callout framing | **PASS** (2026-08-11) | on the reveal moment; suppressed at zero/negative gap (no "$0.00 less") |
+| E4 finding cards + source line | **PASS** (2026-08-11) | `FindingOut.source_line`/`has_source` stamped on every finding — a card renders its source or the explicit no-source state, never bare |
 | E5 complete-and-free | **PASS** | findings complete pre-paywall; `completion` (§6.4) |
 | E6 unlock card | **N-A-YET** [billing dark] | `unlock.card` key exists; no surface (enable_billing=false) |
 | E7 unlock value list | **N-A-YET** [billing dark] | `unlock.value_list` + `unlock.reassurance` exist, unrendered |
@@ -87,8 +92,8 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | F1 attest 7-option menu | **PASS** (this session) | `RELATIONSHIPS` now Brock's 7; no "self", no escape hatch; decline path built |
 | F2 attest edge prompts | **PARTIAL → FAIL** [unowned] | teen + deceased authored & wired; **SUD prompt is in the checklist but NOT in his script §3** — needs his call |
-| F3 illegible/partial | **FAIL** [unowned] | `dataquality_partial_illegible` (§5.1) exists and is the degradation target, but no extraction path detects "partially illegible" and renders it |
-| F4 summary-vs-itemized | **FAIL** [unowned] | `dataquality_summary_not_itemized` (§5.2) exists; classifier doesn't distinguish summary vs itemized |
+| F3 illegible/partial | **PASS** (2026-08-11) | `data_quality.partial_read()` fires on the mixed case only, names the unreadable file, and discards partial figures (`never_approximate`) |
+| F4 summary-vs-itemized | **PASS** (2026-08-11) | `looks_like_summary_bill()` needs evidence on both sides; harness scenario `summary_bill_only` |
 | F5 wrong document typed | **PASS** | 4-branch router + §5.3 copy naming `{detected_doc_type}` |
 | F6 reconcile-first ladder | **PASS** | state machine; last-resort gated (`reconcile.py`) |
 | F7 fabrication decline | **PASS** | §10.1 + truthful reframe |
@@ -112,10 +117,10 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | H1 Record → sub-case hierarchy | **PASS** | `GET /v1/record` + `/case/{id}/summary`; terminology in CLAUDE.md |
 | H2 Record rows | **PASS** | provider + date + state chip (`RecordSection.tsx`) |
-| H3 sub-case summary | **PARTIAL → FAIL** [unowned] | three numbers + status + "continue the conversation" present; **findings lack citations** (same gap as E4) |
-| H4 case-page dark banner | **FAIL** [unowned] | no deadline clock / recovered-so-far / next-check-in banner |
+| H3 sub-case summary | **PASS** (2026-08-11) | findings now carry their source line (same mechanism as E4) |
+| H4 case-page dark banner | **PASS** (2026-08-11) | dark moment-surface banner: deadline clock, recovered-so-far, open items **+ what each unlocks**, next check-in |
 | H5 gameplan | **PASS** | `Gameplan.tsx`, biggest-wins-first ordering |
-| H6 call mode | **PARTIAL → FAIL** [unowned] | step-through + "How did it go?" 3 routes present; **no tap-to-dial, no pinned claim#/dollar strip, not full-screen XL** |
+| H6 call mode | **PARTIAL** (2026-08-11) | full-screen + XL type + step-through + pinned dollar strip + the three "How did it go?" routes now wired. **Tap-to-dial seam is live but no number exists to dial** — neither the payer nor the provider phone is extracted or stored, and a claim number isn't a typed field either, so the pinned strip carries the dollar only. Needs a data-model addition, flagged rather than faked |
 | H7 pushback route | **PASS** | `call_mode.pushback` (§9.5) — steadfast framing |
 | H8 continuous journey | **PASS** | §11.1 beat + `record_identity` (§11.2) authored |
 | H9 needs-something checklist | **PASS** | ☑/☐ card + how-to-get + inline add-document + §8.3 close |

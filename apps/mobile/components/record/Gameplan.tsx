@@ -6,7 +6,7 @@
  * and the agents' claims/actions), never hard-coded.
  */
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { ChevronDown, ChevronUp, Phone, X } from 'lucide-react-native';
 
 import type { GameplanStep } from '../../lib/api-client';
@@ -14,6 +14,16 @@ import type { GameplanStep } from '../../lib/api-client';
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
+
+/** H6 — the three outcome routes after a call. `pushed_back` is not a failure state: H7 says a
+ *  verified finding stands, so it routes to the steadfast next move rather than closing. */
+const CALL_OUTCOMES = [
+  { key: 'fixing_it', label: "They're fixing it 🎉" },
+  { key: 'pushed_back', label: 'They pushed back' },
+  { key: 'left_message', label: 'I left a message' },
+] as const;
+
+export type CallOutcome = (typeof CALL_OUTCOMES)[number]['key'];
 
 /** The four call beats, in order. Shared by the expanded step and call mode. */
 function CallBeats({ step }: { step: GameplanStep }) {
@@ -132,11 +142,14 @@ export function CallMode({
   intro,
   outro,
   onClose,
+  onOutcome,
 }: {
   steps: GameplanStep[];
   intro: string;
   outro: string;
   onClose: () => void;
+  /** Fired when the user picks one of the three routes; the caller records the outcome. */
+  onOutcome?: (findingId: string, outcome: CallOutcome) => void;
 }) {
   // page 0 = intro (if any); 1..N = each call; N+1 = outro. With no intro we start at the first call.
   const hasIntro = intro.trim().length > 0;
@@ -149,6 +162,14 @@ export function CallMode({
   const onIntro = page === 0;
   const onOutro = page > steps.length;
 
+  // H6 tap-to-dial. The seam is live; the NUMBER is not in the data model yet (neither the
+  // payer nor the provider phone is extracted or stored), so the control only appears once a
+  // number exists rather than rendering a button that dials nothing.
+  const phone = (step as { phone?: string } | null)?.phone ?? null;
+  const dial = () => {
+    if (phone) Linking.openURL(`tel:${phone.replace(/[^0-9+]/g, '')}`);
+  };
+
   return (
     <View className="absolute inset-0 z-50 bg-page" testID="call-mode">
       <View className="flex-row items-center justify-between px-5 pb-3 pt-14">
@@ -159,6 +180,19 @@ export function CallMode({
           <X size={22} color="var(--c-text-secondary)" />
         </Pressable>
       </View>
+
+      {/* H6 — PINNED strip: what this call is worth stays on screen while the user scrolls the
+          script, so the number they're calling about is never more than a glance away. A claim
+          number would live here too; the case model carries no typed claim_number yet (flagged
+          in the conformance sweep), so the strip shows what we actually have. */}
+      {step ? (
+        <View className="mx-5 mb-3 flex-row items-center justify-between rounded-control bg-inset px-4 py-2.5">
+          <Text className="text-caption text-secondary">{step.party_label}</Text>
+          {step.dollar_impact ? (
+            <Text className="text-body font-medium text-money">{money(step.dollar_impact)}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 24 }}>
         <View className="w-full max-w-2xl self-center">
@@ -173,7 +207,36 @@ export function CallMode({
                 Call {step.party_label}
                 {step.dollar_impact ? ` · up to ${money(step.dollar_impact)}` : ''}
               </Text>
+              {/* H6 tap-to-dial — only when a number exists (see the `phone` note above). */}
+              {phone ? (
+                <Pressable
+                  onPress={dial}
+                  className="mb-5 min-h-[44px] flex-row items-center justify-center gap-2 rounded-control bg-accent px-4 py-3"
+                  testID="call-mode-dial"
+                >
+                  <Phone size={17} color="var(--c-on-accent)" />
+                  <Text className="text-body font-medium text-on-accent">Call {step.party_label}</Text>
+                </Pressable>
+              ) : null}
               <CallBeats step={step} />
+
+              {/* H6 — "How did it go?" three routes. H7: the pushback route is STEADFAST — a
+                  verified finding doesn't soften because the payer said no. */}
+              <View className="mt-7 border-t border-hairline pt-5">
+                <Text className="mb-3 text-body font-medium text-primary">How did it go?</Text>
+                <View className="gap-2">
+                  {CALL_OUTCOMES.map((o) => (
+                    <Pressable
+                      key={o.key}
+                      onPress={() => onOutcome?.(step.finding_id, o.key)}
+                      className="min-h-[44px] items-center justify-center rounded-control border border-hairline bg-surface px-4 py-3"
+                      testID={`call-outcome-${o.key}`}
+                    >
+                      <Text className="text-body text-primary">{o.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
             </>
           ) : null}
         </View>

@@ -206,25 +206,58 @@ export default function CaseSummaryScreen() {
   );
 }
 
-const BANNER_TONE: Record<string, string> = {
-  audit_complete: 'border-accent bg-accent-tint',
-  resolved: 'border-accent bg-accent-tint',
-  audit_incomplete: 'border-warning bg-warning-tint',
-  awaiting_eob_confirmation: 'border-warning bg-warning-tint',
-  extraction_failed: 'border-danger bg-danger-tint',
-  not_a_bill: 'border-danger bg-danger-tint',
-};
-
+/**
+ * H4 — the sub-case DARK status banner: the four things a user opens this page to check, in one
+ * glance, on the moment-card surface so it reads as the page's anchor rather than another card.
+ *   · the response-deadline clock   · recovered so far (CONFIRMED only)
+ *   · open items + what each unlocks · the next check-in
+ * Every value is real or the row is omitted — no placeholder dates, no "0 items" filler.
+ */
 function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
   const b = summary.status_banner;
-  const tone = BANNER_TONE[b.status] ?? 'border-hairline bg-surface';
   const dl = b.response_deadline;
+  const openNeeded = summary.open_items.filter((d) => !d.have);
   return (
-    <View className={`mb-3 rounded-2xl border p-4 ${tone}`}>
-      <Text className="text-base font-bold text-primary">{b.label}</Text>
+    <View className="mb-4 rounded-moment border border-moment-border bg-moment p-5">
+      <Text className="text-body font-medium text-moment-text">{b.label}</Text>
+
       {dl?.due_date ? (
-        <Text className="mt-1 text-sm text-secondary">
-          {dl.label} — respond by <Text className="font-semibold text-primary">{dl.due_date}</Text>
+        <View className="mt-3 flex-row items-center gap-2">
+          <CalendarClock size={15} color="var(--c-moment-emphasis)" />
+          <Text className="text-caption text-moment-text-faint">
+            {dl.label} — respond by{' '}
+            <Text className="font-medium text-moment-text">{dl.due_date}</Text>
+          </Text>
+        </View>
+      ) : null}
+
+      {summary.recovered_so_far > 0 ? (
+        <Text className="mt-2 text-caption text-moment-text-faint">
+          Recovered so far{' '}
+          <Text className="font-medium text-moment-emphasis">{money(summary.recovered_so_far)}</Text>
+        </Text>
+      ) : null}
+
+      {/* Open items + WHAT EACH UNLOCKS — the reason to go get them, not just a list. */}
+      {openNeeded.length ? (
+        <View className="mt-3 border-t border-moment-border pt-3">
+          <Text className="mb-1.5 text-micro text-moment-text-faint">
+            {openNeeded.length === 1 ? 'One thing still open' : `${openNeeded.length} things still open`}
+          </Text>
+          {openNeeded.map((d) => (
+            <Text key={d.key} className="text-caption leading-5 text-moment-text">
+              · {d.label}
+              {d.how_to_get ? (
+                <Text className="text-moment-text-faint"> — {d.how_to_get}</Text>
+              ) : null}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      {summary.next_check_in_date ? (
+        <Text className="mt-3 text-micro text-moment-text-faint">
+          Next check-in {summary.next_check_in_date}
         </Text>
       ) : null}
     </View>
