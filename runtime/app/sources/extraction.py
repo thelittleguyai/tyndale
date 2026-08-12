@@ -227,6 +227,128 @@ def grep_patient_name(text: str) -> str | None:
     return _grep_anchored_name(text, _PATIENT_ANCHORS)
 
 
+# --- Typed case identifiers (delta B4 / conformance H6-L7) --------------------------------
+# The claim number and account number the user must read aloud on the call. Extracted TYPED at
+# parse time (DL-39), same discipline as provider_name: the call script cites a stored field,
+# never a number regexed back out of finding prose at render time.
+#
+# Which lives where: a CLAIM number is assigned by the payer and prints on the EOB/remittance;
+# an ACCOUNT (or statement/guarantor) number is assigned by the provider and prints on the
+# bill. A case with three EOBs has three claim numbers — hence per-document extraction, with
+# the case-level column carrying the primary (see `case_files.claim_number`).
+_CLAIM_ANCHORS = (
+    "CLAIM NUMBER", "CLAIM NO.", "CLAIM NO", "CLAIM #", "CLAIM ID", "CLAIM REFERENCE",
+    "DOCUMENT CONTROL NUMBER", "DCN", "CLAIM:",
+)
+_ACCOUNT_ANCHORS = (
+    "ACCOUNT NUMBER", "ACCOUNT NO.", "ACCOUNT NO", "ACCOUNT #", "ACCT NUMBER", "ACCT NO.",
+    "ACCT NO", "ACCT #", "PATIENT ACCOUNT", "GUARANTOR ACCOUNT", "STATEMENT NUMBER",
+    "ACCOUNT:", "ACCT:", "RE: ACCOUNT",  # collections notices lead with the account this way
+)
+
+# An identifier token: alphanumeric with optional separators, 4–30 chars ("1821709",
+# "TST20260514", "24-A88301-01"). The charset excludes "$", "," and "." so a money amount can
+# never match as one token, and a date is rejected explicitly below.
+_IDENTIFIER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-/]{3,29}")
+
+# A US phone anywhere in a line, with the optional long-distance 1. Both leading groups start
+# 2-9 (no real area/exchange code starts 0 or 1), which keeps ID digit-runs from reading as
+# phone numbers.
+_PHONE_RE = re.compile(r"(?:\b1[-.\s])?\(?\b[2-9]\d{2}\)?[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b")
+
+# Anchors that mark a number as the document's CONTACT number — the one printed for the reader
+# to call. A phone is extracted ONLY after one of these: never inferred from a bare digit run,
+# and never looked up externally. Whether it belongs to the provider or the payer is decided by
+# the DOCUMENT TYPE at the call site (a bill's contact number is the provider's, an EOB's is
+# the payer's) — never guessed from the wording.
+_CONTACT_ANCHORS = (
+    "QUESTIONS ABOUT YOUR BILL", "QUESTIONS ABOUT THIS BILL", "BILLING QUESTIONS",
+    "BILLING OFFICE", "PATIENT ACCOUNTS", "PATIENT FINANCIAL SERVICES", "CUSTOMER SERVICE",
+    "MEMBER SERVICES", "CUSTOMER SERVICE:", "QUESTIONS ABOUT THIS CLAIM", "QUESTIONS?",
+    "CONTACT US", "CALL US AT", "CALL US", "PLEASE CALL", "TELEPHONE", "PHONE", "TEL",
+)
+
+
+def _looks_like_identifier(token: str) -> bool:
+    """A claim/account number: has a digit, has no date/phone shape, isn't a label word."""
+    if not (4 <= len(token) <= 30) or not any(c.isdigit() for c in token):
+        return False
+    if _DATE_RE.search(token) or _PHONE_RE.search(token):
+        return False
+    # A bare 10/11-digit run is far more likely a phone than an account number; a real
+    # identifier of that length almost always carries a letter or a separator.
+    digits = re.sub(r"\D", "", token)
+    return not (len(digits) == len(token) and len(digits) in (10, 11))
+
+
+def _grep_identifier(text: str, anchors: tuple[str, ...]) -> str | None:
+    """Typed identifier following a known anchor, or None.
+
+    Looks at the anchor's own line first (``Account #: 1821709``), then the line below it
+    (label-above-value layouts). Anything failing `_looks_like_identifier` yields None — the
+    failure mode is a null the caller degrades on, never a wrong number read aloud on a call.
+    """
+    if not text:
+        return None
+    upper = text.upper()
+    for a in anchors:
+        idx = upper.find(a)
+        if idx < 0:
+            continue
+        rest = text[idx + len(a) :]
+        lines = rest.splitlines()
+        for candidate_line in (lines[0] if lines else "", lines[1] if len(lines) > 1 else ""):
+            stripped = candidate_line.lstrip(":-–—# \t")
+            # Spans occupied by a phone number, so a formatted one can't be read as an
+            # identifier a piece at a time — "(608) 364-5011" must not yield "364-5011".
+            phone_spans = [m.span() for m in _PHONE_RE.finditer(stripped)]
+            for m in _IDENTIFIER_RE.finditer(stripped):
+                if any(m.start() < end and start < m.end() for start, end in phone_spans):
+                    continue
+                token = m.group(0).strip("-/")
+                if _looks_like_identifier(token):
+                    return token
+            # Only fall through to the next line when THIS one held no digits at all; a line
+            # with a number we rejected (a date, a phone) means the anchor's value is not an
+            # identifier, and the line below belongs to a different field.
+            if any(c.isdigit() for c in stripped):
+                break
+    return None
+
+
+def grep_claim_number(text: str) -> str | None:
+    """Typed payer-assigned claim number from an EOB. None when no anchored value. DL-39."""
+    return _grep_identifier(text, _CLAIM_ANCHORS)
+
+
+def grep_account_number(text: str) -> str | None:
+    """Typed provider-assigned account/statement number from a bill. None when absent. DL-39."""
+    return _grep_identifier(text, _ACCOUNT_ANCHORS)
+
+
+def grep_contact_phone(text: str) -> str | None:
+    """The contact number PRINTED ON this document, as printed, or None.
+
+    Requires a contact anchor — a phone-shaped digit run on its own is not evidence that it is
+    the number to call. Nothing is ever looked up externally: if the document doesn't print a
+    number, the user doesn't get a dial button.
+    """
+    if not text:
+        return None
+    upper = text.upper()
+    for a in _CONTACT_ANCHORS:
+        idx = upper.find(a)
+        if idx < 0:
+            continue
+        # Same line, else the line below (labels commonly sit above their number).
+        lines = text[idx + len(a) :].splitlines()
+        window = "\n".join(lines[:2])
+        m = _PHONE_RE.search(window)
+        if m:
+            return m.group(0).strip()
+    return None
+
+
 def _first_dollar(text: str, anchors: tuple[str, ...]) -> float | None:
     upper = text.upper()
     for anchor in anchors:

@@ -36,6 +36,13 @@ export interface GameplanStep {
   party_label: string;
   dollar_impact: number | null; // ESTIMATE for this item
   script: CallScript;
+  // What this call needs on hand (B4), chosen by WHO is being called: a payer call quotes the
+  // claim number, a provider call the account number. `reference_kind` is a typed
+  // discriminator, not a label — the client owns the words. Null when the uploaded documents
+  // didn't carry it, and the strip/dial button then don't render.
+  reference_kind: 'claim' | 'account' | null;
+  reference_number: string | null;
+  phone: string | null; // as printed on that party's document — never guessed or looked up
 }
 
 export interface CaseSummaryPayload {
@@ -43,6 +50,9 @@ export interface CaseSummaryPayload {
   status_banner: StatusBanner;
   provider: string | null;
   service_date: string | null;
+  // The case's primary typed call identifiers (B4); per-step values live on GameplanStep.
+  claim_number: string | null;
+  account_number: string | null;
   three_number: ThreeNumberBrief | null; // null → needs-documents, never {0,0,0}
   identified_estimate: number; // audit ESTIMATE — labeled separately, never "recovered"
   recovered_so_far: number; // CONFIRMED outcome data only

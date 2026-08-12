@@ -379,7 +379,7 @@ export default function HomePage() {
  * Round-2 landing bands, ported from docs/design/prototype-round2.
  * Copy is VERBATIM from the prototype (no paraphrase); containers are restyled
  * to our Tailwind 3 config + the consolidated shared tokens. `sage` is the
- * money/savings ramp (#2E7D5B, checklist A4) and `citation` is A6 — we do not
+ * money/savings ramp (checklist A4) and `citation` is A6 — we do not
  * introduce the prototype's second token vocabulary.
  * ──────────────────────────────────────────────────────────────────────────── */
 

@@ -25,6 +25,13 @@ const CALL_OUTCOMES = [
 
 export type CallOutcome = (typeof CALL_OUTCOMES)[number]['key'];
 
+/** B4 — the words for each typed reference kind. The server sends the discriminator and the
+ *  number; the label lives here with the rest of the UI copy. */
+const REFERENCE_LABEL: Record<'claim' | 'account', string> = {
+  claim: 'Claim #',
+  account: 'Account #',
+};
+
 /** The four call beats, in order. Shared by the expanded step and call mode. */
 function CallBeats({ step }: { step: GameplanStep }) {
   const s = step.script;
@@ -162,10 +169,10 @@ export function CallMode({
   const onIntro = page === 0;
   const onOutro = page > steps.length;
 
-  // H6 tap-to-dial. The seam is live; the NUMBER is not in the data model yet (neither the
-  // payer nor the provider phone is extracted or stored), so the control only appears once a
-  // number exists rather than rendering a button that dials nothing.
-  const phone = (step as { phone?: string } | null)?.phone ?? null;
+  // H6 tap-to-dial (B4). `phone` is the typed number printed on that party's own document —
+  // extracted at parse time, never guessed or looked up. Null when the documents didn't carry
+  // one, and the control simply doesn't render rather than dialing nothing.
+  const phone = step?.phone ?? null;
   const dial = () => {
     if (phone) Linking.openURL(`tel:${phone.replace(/[^0-9+]/g, '')}`);
   };
@@ -181,15 +188,22 @@ export function CallMode({
         </Pressable>
       </View>
 
-      {/* H6 — PINNED strip: what this call is worth stays on screen while the user scrolls the
-          script, so the number they're calling about is never more than a glance away. A claim
-          number would live here too; the case model carries no typed claim_number yet (flagged
-          in the conformance sweep), so the strip shows what we actually have. */}
+      {/* H6/L7 — PINNED strip: who you're calling, what to quote, and what the call is worth,
+          all on screen while the script scrolls. The reference is the TYPED identifier for
+          THIS party (B4) — a claim number for the payer, an account number for the provider —
+          and the second row is omitted entirely when the documents didn't carry one. */}
       {step ? (
-        <View className="mx-5 mb-3 flex-row items-center justify-between rounded-control bg-inset px-4 py-2.5">
-          <Text className="text-caption text-secondary">{step.party_label}</Text>
-          {step.dollar_impact ? (
-            <Text className="text-body font-medium text-money">{money(step.dollar_impact)}</Text>
+        <View className="mx-5 mb-3 rounded-control bg-inset px-4 py-2.5">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-caption text-secondary">{step.party_label}</Text>
+            {step.dollar_impact ? (
+              <Text className="text-body font-medium text-money">{money(step.dollar_impact)}</Text>
+            ) : null}
+          </View>
+          {step.reference_number ? (
+            <Text className="mt-0.5 text-caption text-faint" testID="call-mode-reference">
+              {REFERENCE_LABEL[step.reference_kind ?? 'claim']} {step.reference_number}
+            </Text>
           ) : null}
         </View>
       ) : null}

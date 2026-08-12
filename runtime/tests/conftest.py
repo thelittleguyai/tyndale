@@ -128,6 +128,11 @@ def _init_db() -> None:
                     "'verification_request','verification_suggestion','attest_request'))"
                 )
             )
+            # Typed call identifiers (delta B4, migration 0037).
+            for _col in ("claim_number", "account_number", "provider_phone", "payer_phone"):
+                await conn.execute(
+                    text(f"ALTER TABLE case_files ADD COLUMN IF NOT EXISTS {_col} text")
+                )
             # Attest-and-proceed spine (§A2 state 1, migration 0036).
             await conn.execute(
                 text("ALTER TABLE case_files ADD COLUMN IF NOT EXISTS patient_name text")

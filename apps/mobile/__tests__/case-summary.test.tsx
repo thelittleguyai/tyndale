@@ -30,6 +30,9 @@ function step(over: Partial<GameplanStep> = {}): GameplanStep {
       get_it_in_writing: 'Ask for written confirmation.',
       if_they_push_back: ['Ask for the specific policy.'],
     },
+    reference_kind: null,
+    reference_number: null,
+    phone: null,
     ...over,
   };
 }
@@ -40,6 +43,8 @@ function summary(over: Partial<CaseSummaryPayload> = {}): CaseSummaryPayload {
     status_banner: { status: 'audit_complete', label: 'Results ready', response_deadline: null },
     provider: null,
     service_date: null,
+    claim_number: null,
+    account_number: null,
     three_number: { provider_billed: 1200, eob_member_responsibility: 1200, tyndale_computed: 560 },
     identified_estimate: 640,
     recovered_so_far: 0,
@@ -99,6 +104,54 @@ describe('CallMode step-through', () => {
     );
     fireEvent.press(getByTestId('call-mode-close'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // L7/B4 — the pinned strip. It renders from the step's TYPED fields only, so a number can
+  // never reach a phone call without having been extracted from a document first.
+  it('pins the typed reference for the party being called', () => {
+    const { getByText } = render(
+      <CallMode
+        steps={[step({ reference_kind: 'claim', reference_number: 'TST20260514' })]}
+        intro=""
+        outro=""
+        onClose={jest.fn()}
+      />,
+    );
+    expect(getByText(/Claim #\s*TST20260514/)).toBeTruthy();
+  });
+
+  it('labels a provider call with the account number instead', () => {
+    const { getByText } = render(
+      <CallMode
+        steps={[
+          step({
+            party: 'provider',
+            party_label: "the provider's billing office",
+            reference_kind: 'account',
+            reference_number: '1821709',
+          }),
+        ]}
+        intro=""
+        outro=""
+        onClose={jest.fn()}
+      />,
+    );
+    expect(getByText(/Account #\s*1821709/)).toBeTruthy();
+  });
+
+  it('omits the reference row and the dial button when the documents carried neither', () => {
+    const { queryByTestId } = render(
+      <CallMode steps={[step()]} intro="" outro="" onClose={jest.fn()} />,
+    );
+    expect(queryByTestId('call-mode-reference')).toBeNull();
+    expect(queryByTestId('call-mode-dial')).toBeNull();
+  });
+
+  it('shows tap-to-dial once a typed phone exists', () => {
+    const { getByTestId } = render(
+      <CallMode steps={[step({ phone: '1-800-555-0142' })]} intro="" outro="" onClose={jest.fn()} />,
+    );
+    expect(getByTestId('call-mode-dial')).toBeTruthy();
   });
 });
 

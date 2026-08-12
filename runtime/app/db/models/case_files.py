@@ -155,6 +155,22 @@ class CaseFile(Base):
     # extracted patient/member name (DL-39); attest_status gates encounter verification when
     # it doesn't fuzzy-match the account holder's profile name.
     patient_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Call identifiers (delta B4 / conformance H6-L7, migration 0037) — what the user reads
+    # aloud and dials. Extracted TYPED at parse time (DL-39), never regexed out of prose.
+    #
+    # SHAPE: the per-document entries in `documents` are the truth — a case with three EOBs
+    # carries three claim numbers, one per document. These four columns are the case's PRIMARY
+    # identifiers, promoted from the document whose TYPE owns each field (claim from an
+    # EOB-like doc, account from a bill-like doc) on a first-hit-wins basis, so the common
+    # one-bill-one-EOB case resolves without a lookup and a multi-document case still keeps
+    # every value addressable at the document level.
+    #
+    # Phones are the contact numbers PRINTED on those documents — never guessed, never looked
+    # up externally. NULL means the document didn't print one, and the dial control is hidden.
+    claim_number: Mapped[str | None] = mapped_column(Text, nullable=True)
+    account_number: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider_phone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payer_phone: Mapped[str | None] = mapped_column(Text, nullable=True)
     attest_status: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'not_required'")
     )

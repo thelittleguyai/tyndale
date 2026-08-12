@@ -37,9 +37,13 @@ from app.db.models.case_files import CaseFile
 from app.db.models.users import User
 from app.db.session import get_session
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
+from app.sources.call_identifiers import derive_call_identifiers
 from app.sources.document_classifier import classify_document
 from app.sources.extraction import (  # OCR engine (CO-12A: moved out of ocr_tools)
     _grep_date,
+    grep_account_number,
+    grep_claim_number,
+    grep_contact_phone,
     grep_patient_name,
     grep_provider_name,
     run_document_ocr,
@@ -191,6 +195,12 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         "provider_name": grep_provider_name(full_text),
         "patient_name": grep_patient_name(full_text),
         "date_of_service": _grep_date(full_text, ("DATE OF SERVICE", "SERVICE DATE", "DOS")),
+        # Call identifiers (B4). Extracted per DOCUMENT because that's where they're true — a
+        # case with three EOBs has three claim numbers. `contact_phone` is stored party-neutral
+        # here; whose number it is follows from this entry's document_type at promotion time.
+        "claim_number": grep_claim_number(full_text),
+        "account_number": grep_account_number(full_text),
+        "contact_phone": grep_contact_phone(full_text),
         "byte_count": len(content),
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
         # Full OCR text length (admin visibility): 0 chars alongside extraction_status='error'
@@ -288,6 +298,14 @@ async def upload(
             (d.get("patient_name") for d in documents if isinstance(d, dict) and d.get("patient_name")),
             None,
         )
+    # Promote the typed call identifiers (B4), each from the document type that ASSIGNS it —
+    # claim + payer phone from a payer-issued document, account + provider phone from a
+    # provider-issued one. Same first-hit-wins rule as above: a re-upload never overwrites a
+    # known value, and a field with no structured source stays NULL.
+    _ids = derive_call_identifiers(documents)
+    for _field, _value in _ids._asdict().items():
+        if _value and getattr(case, _field) is None:
+            setattr(case, _field, _value)
     # Attest-and-proceed trigger (§A2 state 1): extracted patient ≠ profile name flips the
     # case to attest_status='required' BEFORE encounter verification can proceed.
     _attest_user = (

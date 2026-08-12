@@ -420,6 +420,56 @@ def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: 
     return fails
 
 
+# Which generated document types actually PRINT each identifier (see generate_docs.py). An MSN
+# is payer-issued but carries no claim number, so it isn't listed — the harness asserts what the
+# fixtures contain, not what the type could theoretically hold.
+_PROVIDER_DOC_TYPES = frozenset({"bill", "summary_bill", "collections"})
+_PAYER_DOC_TYPES = frozenset({"eob"})
+
+
+def _call_identifier_checks(
+    client: httpx.Client, base_url: str, case_id: str, scenario: dict
+) -> list[str]:
+    """B4 / L7 — the pinned strip renders from TYPED data only.
+
+    The generated documents print an account number on the bill and a claim number on the EOB,
+    so a scenario carrying both must surface both on the sub-case, and each gameplan step must
+    quote the identifier belonging to the party IT calls. The negative half matters as much:
+    a scenario with no bill must not produce an account number from somewhere else.
+    """
+    want_account = any(d.get("type") in _PROVIDER_DOC_TYPES for d in scenario.get("documents", []))
+    want_claim = any(d.get("type") in _PAYER_DOC_TYPES for d in scenario.get("documents", []))
+    r = client.get(f"{base_url}/v1/case/{case_id}/summary", timeout=30)
+    if r.status_code != 200:
+        return [f"call-ids: GET /v1/case/{case_id}/summary -> {r.status_code}"]
+    summary = r.json()
+    fails: list[str] = []
+    if want_account and not summary.get("account_number"):
+        fails.append("call-ids: bill uploaded but no typed account_number on the sub-case")
+    if want_claim and not summary.get("claim_number"):
+        fails.append("call-ids: EOB uploaded but no typed claim_number on the sub-case")
+    if not want_account and summary.get("account_number"):
+        fails.append(
+            f"call-ids: account_number={summary['account_number']!r} with no provider document — "
+            "an identifier appeared from a source that doesn't assign it"
+        )
+
+    _EXPECTED_KIND = {"payer": "claim", "provider": "account"}
+    for step in summary.get("gameplan", []):
+        kind, number = step.get("reference_kind"), step.get("reference_number")
+        if kind is not None and kind != _EXPECTED_KIND.get(step.get("party")):
+            fails.append(
+                f"call-ids: step {step.get('index')} calls the {step.get('party')} but quotes a "
+                f"{kind} number — the wrong reference wastes the call"
+            )
+        if (kind is None) != (number is None):
+            fails.append(f"call-ids: step {step.get('index')} has kind={kind!r} number={number!r}")
+        # Never a raw slot, never a blank where a number should be.
+        if number is not None and (not str(number).strip() or "{" in str(number)):
+            fails.append(f"call-ids: step {step.get('index')} reference {number!r} is not a number")
+    return fails
+
+
 def _record_aggregate_checks(client: httpx.Client, base_url: str) -> dict:
     """Suite-level Record sanity after many uploads (DL-91 §5): the multi-upload user has ≥2 rows,
     and the honest aggregates hold — total_recovered is $0 (no outcomes confirmed anywhere) and no
@@ -517,6 +567,7 @@ def run_scenario(
             fails = fails + _decline_checks(client, base_url, case_id, scenario["chat_declines"])
         if record and case_id:
             fails = fails + _record_checks(client, base_url, case_id, terminal)
+            fails = fails + _call_identifier_checks(client, base_url, case_id, scenario)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
                 "pass": not fails, "fails": fails}
     except Exception as e:  # noqa: BLE001 — one scenario's failure never aborts the suite

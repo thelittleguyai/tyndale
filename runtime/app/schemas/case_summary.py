@@ -49,6 +49,13 @@ class GameplanStep(BaseModel):
     party_label: str  # plain-language ("your insurance company")
     dollar_impact: float | None = None  # ESTIMATE for this item
     script: CallScript
+    # What this call needs on hand (B4), chosen by WHO is being called: a payer call quotes the
+    # claim number, a provider call the account number. `reference_kind` is a typed
+    # discriminator ('claim' | 'account'), not a label — the client owns the words. All three
+    # are null when the documents didn't carry them; the strip and dial button then don't render.
+    reference_kind: str | None = None
+    reference_number: str | None = None
+    phone: str | None = None  # as printed on that party's document — never guessed or looked up
 
 
 class CaseSummaryPayload(BaseModel):
@@ -56,6 +63,10 @@ class CaseSummaryPayload(BaseModel):
     status_banner: StatusBanner
     provider: str | None = None  # best-effort; null until a structured provider is extracted
     service_date: str | None = None
+    # The case's primary typed call identifiers (B4). Per-step values live on GameplanStep;
+    # these are the case-level primaries the banner/strip can show outside a specific call.
+    claim_number: str | None = None
+    account_number: str | None = None
     # The three-number moment card (re-hosted from Phase A). None → the view shows needs-documents,
     # never {0,0,0} (the CO-15 rule extends here).
     three_number: ThreeNumberBrief | None = None

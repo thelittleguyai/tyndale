@@ -34,6 +34,7 @@ from app.schemas.record import (
     SubCaseRow,
     ThreeNumberBrief,
 )
+from app.sources.call_identifiers import of_case
 from app.sources.gameplan import build_gameplan, humanize_category
 from app.sources.record import (
     confirmed_recovered_by_case,
@@ -299,6 +300,9 @@ async def get_case_summary(
 
     tn = three_number_from_findings(findings)
     open_items = _documents_needed(case) if case.status in _NEEDS_DOCS_STATES else []
+    # Typed call identifiers (B4) off the case's own columns — populated at parse time by newer
+    # uploads and by the one-shot backfill for older cases. Null fields simply don't render.
+    call_ids = of_case(case)
 
     return CaseSummaryPayload(
         case_file_id=str(case.case_file_id),
@@ -319,7 +323,9 @@ async def get_case_summary(
         next_check_in_date=(
             d.isoformat() if (d := next_check_in_date(case, findings)) else None
         ),
-        gameplan=build_gameplan(findings),
+        claim_number=call_ids.claim_number,
+        account_number=call_ids.account_number,
+        gameplan=build_gameplan(findings, call_ids),
         call_mode_intro=orchestration_step("call_mode_intro"),
         call_mode_outro=orchestration_step("call_mode_outro"),
     )

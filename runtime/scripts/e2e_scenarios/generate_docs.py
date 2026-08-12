@@ -22,6 +22,10 @@ from reportlab.pdfgen import canvas
 PATIENT = "JORDAN Q. TESTPATIENT"
 PROVIDER = "SYNTHETIC VALLEY MEDICAL CENTER"
 PAYER = "SYNTHETIC MUTUAL HEALTH PLAN"
+# Contact numbers, so the harness can exercise the B4 typed-phone path end to end. Both are in
+# the 555-0100..555-0199 range reserved for fiction — these must never reach a real phone.
+PROVIDER_PHONE = "(608) 555-0143"
+PAYER_PHONE = "1-800-555-0177"
 
 
 def _lines(c: canvas.Canvas, rows: list[str], *, x: float = inch, top: float = 10 * inch) -> None:
@@ -67,6 +71,7 @@ def make_bill(
         f"TOTAL AMOUNT DUE: {_money(total)}",
         "",
         "This is a bill. Please remit payment or contact billing with questions.",
+        f"Questions about your bill? Call {PROVIDER_PHONE}",
     ]
     c = canvas.Canvas(str(path), pagesize=letter)
     _lines(c, rows)
@@ -107,6 +112,7 @@ def make_eob(
     rows += [
         "-------------------------------------------------------------------",
         f"TOTAL MEMBER RESPONSIBILITY: {_money(member_responsibility)}",
+        f"Member Services: {PAYER_PHONE}",
     ]
     c = canvas.Canvas(str(path), pagesize=letter)
     _lines(c, rows)

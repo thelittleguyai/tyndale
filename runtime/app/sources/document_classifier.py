@@ -42,6 +42,18 @@ BENEFITS_DOC_MARKERS: tuple[str, ...] = (
     "(EOC)",
 )
 
+# Which side of the audit issued a document. Used to route typed call identifiers (B4): a
+# CLAIM number and the contact phone on a payer-issued document belong to the payer; an
+# ACCOUNT number and the phone on a provider-issued document belong to the provider. An
+# unlisted type (insurance_card, plan_summary, unclassified) belongs to neither, so nothing is
+# promoted from it — the fields stay NULL rather than being attributed to a guess.
+PAYER_ISSUED_TYPES: frozenset[str] = frozenset(
+    {"eob", "msn", "ma_eob", "mco_notice", "tricare_eob", "denial_letter"}
+)
+PROVIDER_ISSUED_TYPES: frozenset[str] = frozenset(
+    {"bill", "gfe", "va_statement", "collections_notice"}
+)
+
 # Document types (existing + Sprint E wave 1–3). Unknown is "unclassified".
 NEW_DOCUMENT_TYPES: tuple[str, ...] = (
     "msn",

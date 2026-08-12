@@ -18,6 +18,7 @@ from __future__ import annotations
 from app.agents.context_loader import orchestration_step
 from app.db.models.findings import Finding
 from app.schemas.case_summary import CallScript, GameplanStep
+from app.sources.call_identifiers import CallIdentifiers, for_party, script_variables
 
 # finding_type -> (party token, plain-language who-to-call). encounter_mismatch is a provider
 # billing error (charged for something that didn't happen), so it routes to the provider too.
@@ -71,17 +72,27 @@ def _problem_of(f: Finding) -> str:
     return humanize_category(f.category)
 
 
-def build_gameplan(findings: list[Finding]) -> list[GameplanStep]:
+def build_gameplan(
+    findings: list[Finding], identifiers: CallIdentifiers | None = None
+) -> list[GameplanStep]:
     """Actionable findings (those with a recommended action), ordered biggest-dollar-first, each
     rendered as a per-call script. Findings without an action are omitted (they stay in the
-    findings list); ties and missing dollars sort last but keep a stable order."""
+    findings list); ties and missing dollars sort last but keep a stable order.
+
+    `identifiers` are the case's typed call identifiers (B4). Each step carries the one its
+    party actually needs, and the same values are passed to the script as `{claim_number}` /
+    `{account_number}` slots — PRESENT VALUES ONLY, so an authored string using a slot we can't
+    fill degrades (§0 rule 2) rather than rendering a blank where a number should be."""
     actionable = [f for f in findings if _action_of(f) is not None]
     actionable.sort(key=lambda f: (_dollar_of(f) or 0.0), reverse=True)
+    ids = identifiers or CallIdentifiers()
 
     steps: list[GameplanStep] = []
     for i, f in enumerate(actionable, start=1):
         party, party_label = _PARTY.get(f.finding_type, ("provider", "the provider's billing office"))
         opener_key = "call_script_opener_payer" if party == "payer" else "call_script_opener_provider"
+        ref = for_party(ids, party)
+        variables = script_variables(ids)
         steps.append(
             GameplanStep(
                 index=i,
@@ -90,12 +101,17 @@ def build_gameplan(findings: list[Finding]) -> list[GameplanStep]:
                 party=party,
                 party_label=party_label,
                 dollar_impact=_dollar_of(f),
+                reference_kind=ref.reference_kind if ref.reference_number else None,
+                reference_number=ref.reference_number,
+                phone=ref.phone,
                 script=CallScript(
-                    when_they_pick_up=orchestration_step(opener_key, party=party_label),
+                    when_they_pick_up=orchestration_step(opener_key, party=party_label, **variables),
                     the_problem=_problem_of(f),
                     the_ask=_action_of(f) or "",
-                    get_it_in_writing=orchestration_step("call_script_get_it_in_writing"),
-                    if_they_push_back=[orchestration_step("call_script_if_they_push_back")],
+                    get_it_in_writing=orchestration_step("call_script_get_it_in_writing", **variables),
+                    if_they_push_back=[
+                        orchestration_step("call_script_if_they_push_back", **variables)
+                    ],
                 ),
             )
         )
