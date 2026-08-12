@@ -1,14 +1,57 @@
+import Image from 'next/image';
 import {
   BookOpen,
+  Check,
   EyeOff,
   FileText,
   Lock,
   Phone,
   Scale,
+  ShieldCheck,
   SlidersHorizontal,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { Logo, Wordmark } from '@/components/logo';
+
+/* Landing content ported verbatim from docs/design/prototype-round2/lib/tyndale-data.ts.
+   Illustrative example data — clearly framed as an example wherever it renders. */
+const COMPARISON: { generic: string; tyndale: string }[] = [
+  {
+    generic: "Takes the insurer's numbers at face value",
+    tyndale: "Independently recomputes, then audits your insurer's own math",
+  },
+  {
+    generic: 'Guesses a "usual" price from memory',
+    tyndale: 'Checks against real published prices',
+  },
+  {
+    generic: 'Two different answers if you ask twice',
+    tyndale: 'Deterministic math, and shows its work',
+  },
+  {
+    generic: 'Can invent a citation',
+    tyndale: 'Cites the actual statute or plan clause so you can verify',
+  },
+];
+
+const GROUNDING_CHIPS = [
+  'CPT / NCCI code rules',
+  "Your plan's benefits",
+  'Your EOBs',
+  'Your deductible & out-of-pocket max',
+  'Published hospital & insurer prices',
+  'Federal & state law',
+  "Your insurer's own policies",
+];
+
+/** The "remembers your case" proof rows — an ILLUSTRATIVE case, not a real member. */
+const REMEMBERED_CASE_ROWS: { k: string; v: string }[] = [
+  { k: 'Your plan', v: 'UnitedHealthcare Choice Plus' },
+  { k: 'Deductible met this year', v: '$1,750.00' },
+  { k: 'Open case', v: 'St. Anne — appeal due Jul 24' },
+  { k: 'Resolved before', v: '2 bills, $890.00 saved' },
+];
 
 type Feature = { icon: LucideIcon; title: string; body: string };
 
@@ -113,7 +156,18 @@ export default function HomePage() {
   return (
     <>
       {/* ── Top: navy→teal gradient spanning header + hero ── */}
-      <div className="bg-gradient-to-b from-navy via-teal-deep to-teal">
+      <div className="relative isolate overflow-hidden bg-gradient-to-b from-navy via-teal-deep to-teal">
+        {/* Atmospheric hero photograph (prototype round 2), held behind a navy scrim so the
+            A3 navy→teal gradient still reads and every hero string keeps AA contrast. */}
+        <Image
+          src="/hero-calm.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="-z-10 object-cover opacity-40"
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-navy/95 via-navy/75 to-navy/45" />
         <header>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 text-white">
             <div className="flex items-center gap-2.5">
@@ -147,9 +201,9 @@ export default function HomePage() {
               <div className="mt-9 flex flex-wrap items-center gap-5">
                 <a
                   href="/signin"
-                  className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-[15px] font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-deep"
+                  className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-deep"
                 >
-                  Check my bill
+                  Check my bill &mdash; free
                 </a>
                 <a
                   href="#how-it-works"
@@ -168,6 +222,12 @@ export default function HomePage() {
       </div>
 
       <main>
+        {/* ── B5 · Not a chatbot with opinions ── */}
+        <ComparisonBand />
+
+        {/* ── B6 · The grounding proof cards ── */}
+        <GroundingBand />
+
         {/* ── How it works (cream) ── */}
         <section id="how-it-works" className="bg-cream">
           <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
@@ -263,9 +323,9 @@ export default function HomePage() {
             <div className="mt-14">
               <a
                 href="/signin"
-                className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-[15px] font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
+                className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-navy"
               >
-                Check my bill
+                Check my bill &mdash; free
               </a>
             </div>
 
@@ -275,6 +335,15 @@ export default function HomePage() {
             </p>
           </div>
         </section>
+
+        {/* ── B4 · Recovered for members ── */}
+        <SavingsBand />
+
+        {/* ── Clean-bill reassurance (prototype copy; not a checklist item) ── */}
+        <CleanBillBand />
+
+        {/* ── B7/B8 · Our Story — the small band, not a cofounder block ── */}
+        <OurStoryBand />
       </main>
 
       {/* ── Footer ── */}
@@ -303,5 +372,180 @@ export default function HomePage() {
         </div>
       </footer>
     </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Round-2 landing bands, ported from docs/design/prototype-round2.
+ * Copy is VERBATIM from the prototype (no paraphrase); containers are restyled
+ * to our Tailwind 3 config + the consolidated shared tokens. `sage` is the
+ * money/savings ramp (#2E7D5B, checklist A4) and `citation` is A6 — we do not
+ * introduce the prototype's second token vocabulary.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** B5 · "Not a chatbot with opinions" — same question, two very different answers. */
+function ComparisonBand() {
+  return (
+    <section className="bg-cream-soft">
+      <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+          Not a chatbot with opinions.
+        </h2>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/70">
+          Ask the same question about the same bill. One guesses. One reads your documents,
+          remembers your case, and cites the law it stands on.
+        </p>
+
+        <div className="mt-10 overflow-hidden rounded-lg ring-1 ring-line">
+          <div className="grid grid-cols-1 sm:grid-cols-2">
+            <div className="border-b border-line bg-surface px-5 py-3.5 sm:border-b-0 sm:border-r">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
+                A general chatbot
+              </p>
+            </div>
+            <div className="bg-teal-tint px-5 py-3.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal">
+                Tyndale
+              </p>
+            </div>
+          </div>
+          {COMPARISON.map((row) => (
+            <div key={row.tyndale} className="grid grid-cols-1 border-t border-line sm:grid-cols-2">
+              <div className="flex gap-2.5 border-b border-line bg-surface px-5 py-4 sm:border-b-0 sm:border-r">
+                <X size={17} className="mt-0.5 shrink-0 text-ink/35" aria-hidden="true" />
+                <p className="text-base leading-6 text-ink/60">{row.generic}</p>
+              </div>
+              <div className="flex gap-2.5 bg-surface px-5 py-4">
+                <Check size={17} className="mt-0.5 shrink-0 text-sage" aria-hidden="true" />
+                <p className="text-base leading-6 text-ink">{row.tyndale}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** B6 · The two-card grounding band — every claim traces to a source. */
+function GroundingBand() {
+  return (
+    <section className="bg-cream">
+      <div className="mx-auto grid max-w-6xl gap-5 px-6 py-20 sm:py-24 lg:grid-cols-2">
+        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-tint text-teal">
+            <ShieldCheck size={20} aria-hidden="true" />
+          </span>
+          <h3 className="mt-5 text-xl font-bold tracking-tight text-ink">
+            Built on the real rulebook
+          </h3>
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {GROUNDING_CHIPS.map((chip) => (
+              <li
+                key={chip}
+                className="rounded-full bg-cream px-3 py-1.5 text-[13px] font-medium text-ink/75"
+              >
+                {chip}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-5 text-base leading-relaxed text-ink/65">
+            Not a generalist guessing — a specialist that reads the answer from the source.
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-tint text-teal">
+            <FileText size={20} aria-hidden="true" />
+          </span>
+          <h3 className="mt-5 text-xl font-bold tracking-tight text-ink">Remembers your case</h3>
+          <dl className="mt-4 overflow-hidden rounded-md ring-1 ring-line">
+            {REMEMBERED_CASE_ROWS.map((r) => (
+              <div
+                key={r.k}
+                className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 last:border-0"
+              >
+                <dt className="text-[13px] text-ink/60">{r.k}</dt>
+                <dd className="text-right text-[13px] font-semibold text-ink">{r.v}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-5 text-base leading-relaxed text-ink/65">
+            Your plan, your history, your deadlines — kept in one file, so you never start over.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** B4 · Total recovered for members. */
+function SavingsBand() {
+  return (
+    <section className="bg-cream-soft">
+      <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-24">
+        <p className="text-base font-semibold uppercase tracking-[0.14em] text-sage-deep">
+          Recovered for members
+        </p>
+        <p className="mt-3 text-5xl font-bold tracking-tight text-sage-deep sm:text-6xl">
+          $504,100
+        </p>
+        <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink/65">
+          Money that was never theirs to pay, back where it belongs.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** Clean-bill reassurance — prototype copy the checklist doesn't cover (prototype wins). */
+function CleanBillBand() {
+  return (
+    <section className="relative isolate overflow-hidden bg-navy">
+      <Image
+        src="/relief-call.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        className="-z-10 object-cover object-right"
+      />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-navy via-navy/92 to-navy/45" />
+      <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+        <div className="max-w-lg">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Bill checks out? You still have moves.
+          </h2>
+          <p className="mt-5 text-lg leading-relaxed text-white/80">
+            Even a correct bill can be negotiated — cash prices, charity care, payment plans.
+            Tyndale finds the path either way, and never sends you in without a script.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** B7/B8 · Our Story — a SMALL band across the page (a large cofounder block was rejected). */
+function OurStoryBand() {
+  return (
+    <section className="bg-cream">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-5 px-6 py-14 sm:flex-row sm:gap-7">
+        <Image
+          src="/founders.jpg"
+          alt="Tyndale&rsquo;s two cofounders"
+          width={96}
+          height={96}
+          className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-line sm:h-24 sm:w-24"
+        />
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal">Our story</p>
+          <p className="mt-2 max-w-2xl text-base leading-relaxed text-ink/70">
+            We started Tyndale after watching people we love overpay bills that were simply
+            wrong. Insurers automate denials; hospital billing works for the hospital. We&rsquo;re
+            the only party in the room with no reason to lie to you.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
