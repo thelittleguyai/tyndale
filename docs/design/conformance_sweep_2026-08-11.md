@@ -3,7 +3,8 @@
 **Method:** codebase audit (file evidence), not a live browser walk — Phil does the live walk.
 Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owning workstream.
 **Date:** 2026-08-11 · first pass 24 PASS / 21 FAIL / 22 N-A-YET →
-**after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET**
+**after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
+**after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET**
 
 Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
 awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
@@ -31,18 +32,18 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | A11 reading level / underlines | **PASS** | no decorative underlines; copy now Brock-authored |
 | A12 one column | **PASS** | single-column throughout mobile; marketing stacks at all breakpoints |
 
-## B · Landing page — **marketing site untouched by the redesign**
+## B · Landing page — round-2 port shipped 2026-08-12 (was: untouched by the redesign)
 
 | # | Verdict | Evidence |
 |---|---|---|
 | B1 headline | **PASS** | exact string in `web-marketing/src/app/page.tsx` |
 | B2 three-number card | **PASS** | `$2,347.18` / `$1,184.60` / `$612.40` all present, matching the app |
-| B3 CTA "Check my bill" | **PASS** | present |
-| B4 `$504,100` savings band | **FAIL** [unowned] | figure absent from source |
+| B3 CTA "Check my bill" | **PASS** (2026-08-12) | now the prototype's evolved "Check my bill — free" — delta flagged for Brock |
+| B4 `$504,100` savings band | **PASS** (2026-08-12) | savings band shipped; verified live on dev. **Substantiation still owed** — a public number for a pre-launch product (Brock ask #1) |
 | B5 "Not a chatbot" band | **PASS** | present |
-| B6 grounding two-card band | **FAIL** [unowned] | no two-card grounding treatment in `page.tsx` |
-| B7 "Our Story" small band | **FAIL** [unowned] | no "Our Story" band at all |
-| B8 founders' story verbatim | **FAIL** [unowned] | absent (blocked on B7) |
+| B6 grounding two-card band | **PASS** (2026-08-12) | two proof cards (real rulebook / remembers your case), copy verbatim from the round-2 prototype |
+| B7 "Our Story" small band | **PASS** (2026-08-12) | a single flex strip with the founders' portrait — deliberately not a cofounder block |
+| B8 founders' story verbatim | **PASS** (2026-08-12) | prototype copy verbatim, ending "…no reason to lie to you." |
 | B9 footer disclaimer | **PASS** | exact string present |
 | B10 no fake urgency | **PASS** | no countdown/scarcity anywhere in source |
 | B11 no "80% of bills" claim | **PASS** | not in source (a `.next/` build artifact matched "80%" — that's a Tailwind class, not copy) |
