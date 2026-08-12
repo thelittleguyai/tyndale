@@ -131,6 +131,18 @@ export function FindingCard({
         </Text>
       ) : null}
 
+      {/* E4/H3 — THE GROUNDING LINE. Always one of two states, never nothing: a citation chip
+          in the citation blue when a real source resolved, or the honest no-source admission.
+          This is the visible half of the grounding doctrine — a claim the user can't trace is
+          a claim we shouldn't be making look identical to one they can. */}
+      {finding.has_source ? (
+        <View className="mb-2 self-start rounded-chip bg-citation-tint px-2.5 py-1">
+          <Text className="text-micro text-citation-on-tint">{finding.source_line}</Text>
+        </View>
+      ) : (
+        <Text className="mb-2 text-micro italic leading-4 text-faint">{finding.source_line}</Text>
+      )}
+
       {factEntries.length > 0 ? (
         <View className="mt-1">
           <Pressable

@@ -1,0 +1,296 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-money: var(--money);
+  --color-money-soft: var(--money-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-citation: var(--citation);
+  --color-citation-soft: var(--citation-soft);
+
+  /* Aliases used across newer surfaces (record, call mode, summary) */
+  --color-ink: var(--navy);
+  --color-cream: var(--navy-foreground);
+  --color-line: var(--border);
+  --color-line-strong: var(--line-strong);
+  --color-gold: var(--amber-soft);
+  --color-gold-ink: var(--amber);
+  --color-alert: var(--destructive);
+
+  --color-severity-high: var(--severity-high);
+  --color-severity-high-bg: var(--severity-high-bg);
+  --color-severity-med: var(--severity-med);
+  --color-severity-med-bg: var(--severity-med-bg);
+  --color-severity-neutral: var(--severity-neutral);
+  --color-severity-neutral-bg: var(--severity-neutral-bg);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+
+  /* Soft, layered depth for the calm/immersive aesthetic */
+  --shadow-soft: 0 1px 2px rgba(29, 42, 56, 0.04), 0 8px 24px -12px rgba(29, 42, 56, 0.14);
+  --shadow-float: 0 2px 6px rgba(29, 42, 56, 0.05), 0 24px 60px -24px rgba(29, 42, 56, 0.30);
+  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset, 0 20px 50px -20px rgba(29, 42, 56, 0.35);
+}
+
+:root {
+  color-scheme: light;
+  --background: #faf7f0;
+  --foreground: #1d2a38;
+  --card: #ffffff;
+  --card-foreground: #1d2a38;
+  --popover: #ffffff;
+  --popover-foreground: #1d2a38;
+  --primary: #3e5c57;
+  --primary-foreground: #faf7f0;
+  --secondary: #ece5d7;
+  --secondary-foreground: #1d2a38;
+  --muted: #f1ebde;
+  --muted-foreground: #566360;
+  --accent: #e7f0ec;
+  --accent-foreground: #1d2a38;
+  --destructive: #b23a3a;
+  --border: #e4dccb;
+  --line-strong: #cdc0a5;
+  --input: #e4dccb;
+  --ring: #3e5c57;
+
+  --navy: #1d2a38;
+  --navy-foreground: #faf7f0;
+  --money: #2e7d5b;
+  --money-soft: #e2f0e8;
+  --amber: #97671a;
+  --amber-soft: #f6ecd6;
+  --citation: #2c6e8f;
+  --citation-soft: #e2edf2;
+
+  --severity-high: #b23a3a;
+  --severity-high-bg: #f7e6e2;
+  --severity-med: #97671a;
+  --severity-med-bg: #f6ecd6;
+  --severity-neutral: #566360;
+  --severity-neutral-bg: #ebe5d8;
+
+  --radius: 0.9rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Gentle entrance used for reveal / unlock moments and new chat items */
+@keyframes tyndale-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: tyndale-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes tyndale-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  60% {
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-pop {
+  animation: tyndale-pop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes tyndale-bar {
+  from {
+    width: 0%;
+  }
+}
+
+.animate-bar {
+  animation: tyndale-bar 1.4s ease-out both;
+}
+
+/* ── Calm / immersive design language ──────────────────────────────────── */
+
+/* Light frosted-glass surface — floats over imagery or ambient bands */
+.glass {
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Glass tile — the default app-surface card. Translucent enough that the
+   page's ambient color wash reads through it. */
+.glass-tile {
+  background: color-mix(in srgb, var(--card) 52%, transparent);
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Dark frosted-glass surface — for navy/immersive backgrounds */
+.glass-dark {
+  background: color-mix(in srgb, var(--navy) 46%, transparent);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(250, 247, 240, 0.16);
+  box-shadow: var(--shadow-float);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+.shadow-float {
+  box-shadow: var(--shadow-float);
+}
+
+/* Slow, weightless drift for floating glass cards */
+@keyframes tyndale-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-float {
+  animation: tyndale-float 7s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: tyndale-float 10s ease-in-out infinite;
+}
+
+/* Gentle Ken Burns drift for full-bleed hero photography */
+@keyframes tyndale-kenburns {
+  from {
+    transform: scale(1.05) translate(0, 0);
+  }
+  to {
+    transform: scale(1.14) translate(-1.5%, -1.5%);
+  }
+}
+.animate-kenburns {
+  animation: tyndale-kenburns 24s ease-out both alternate infinite;
+}
+
+/* Soft blurred color aura behind cards (photographic, not a hard blob) */
+.aura {
+  filter: blur(64px);
+  opacity: 0.5;
+}
+
+/* Ramp-style document funnel: each doc rises in at its slot, holds, then
+   travels along (--fx, --fy) into the Tyndale intake node, shrinking away. */
+@keyframes tyndale-funnel {
+  0% {
+    transform: translate(0, 12px) scale(0.94);
+    opacity: 0;
+  }
+  12% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(0.15);
+    opacity: 0;
+  }
+}
+.animate-funnel {
+  animation: tyndale-funnel 4.6s cubic-bezier(0.5, 0, 0.4, 1) both;
+}
+
+/* Intake node breathes as documents arrive */
+@keyframes tyndale-intake {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.25), var(--shadow-float);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(15, 118, 110, 0), var(--shadow-float);
+  }
+}
+.animate-intake {
+  animation: tyndale-intake 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-kenburns,
+  .animate-rise,
+  .animate-pop,
+  .animate-funnel,
+  .animate-intake {
+    animation: none !important;
+  }
+}

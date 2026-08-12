@@ -84,6 +84,14 @@ export interface FindingOut {
   legal_claim?: Record<string, unknown> | null;
   recommendation?: Record<string, unknown> | null;
   citations: Citation[];
+  /**
+   * Grounding line (conformance E4/H3). ALWAYS populated by the server: either the resolved
+   * "source: …" line or the explicit no-source state — never empty. `has_source` says which,
+   * so the UI can style a real source as a citation chip and an unsourced claim as the honest
+   * admission it is. A card must render one of the two; never a bare claim.
+   */
+  source_line: string;
+  has_source: boolean;
 }
 
 /** Deterministic disclosure tier (DL-85): 0 grounded · 1 note · 2 disclose · 3 chase. */

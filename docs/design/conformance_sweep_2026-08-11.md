@@ -80,7 +80,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | E1 reveal is a MOMENT | **PASS** | `moment_card` kind, full-width (`MomentCards.tsx`) |
 | E2 three numbers stacked | **PASS** | `three_number_reveal` now Brock's three-line §6.1 block |
 | E3 gap callout framing | **PASS** (2026-08-11) | on the reveal moment; suppressed at zero/negative gap (no "$0.00 less") |
-| E4 finding cards + source line | **PASS** (2026-08-11) | `FindingOut.source_line`/`has_source` stamped on every finding — a card renders its source or the explicit no-source state, never bare |
+| E4 finding cards + source line | **PASS** (2026-08-12) | Server stamps `FindingOut.source_line`/`has_source`; `FindingCard` RENDERS it — citation chip in citation blue when grounded, the honest no-source line when not. (Marked PASS on 08-11 in error: the server half shipped, the card never displayed it. Jest test now holds the invariant.) |
 | E5 complete-and-free | **PASS** | findings complete pre-paywall; `completion` (§6.4) |
 | E6 unlock card | **N-A-YET** [billing dark] | `unlock.card` key exists; no surface (enable_billing=false) |
 | E7 unlock value list | **N-A-YET** [billing dark] | `unlock.value_list` + `unlock.reassurance` exist, unrendered |
@@ -117,7 +117,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | H1 Record → sub-case hierarchy | **PASS** | `GET /v1/record` + `/case/{id}/summary`; terminology in CLAUDE.md |
 | H2 Record rows | **PASS** | provider + date + state chip (`RecordSection.tsx`) |
-| H3 sub-case summary | **PASS** (2026-08-11) | findings now carry their source line (same mechanism as E4) |
+| H3 sub-case summary | **PASS** (2026-08-12) | findings render their source line (same mechanism as E4; corrected with it) |
 | H4 case-page dark banner | **PASS** (2026-08-11) | dark moment-surface banner: deadline clock, recovered-so-far, open items **+ what each unlocks**, next check-in |
 | H5 gameplan | **PASS** | `Gameplan.tsx`, biggest-wins-first ordering |
 | H6 call mode | **PARTIAL** (2026-08-11) | full-screen + XL type + step-through + pinned dollar strip + the three "How did it go?" routes now wired. **Tap-to-dial seam is live but no number exists to dial** — neither the payer nor the provider phone is extracted or stored, and a claim number isn't a typed field either, so the pinned strip carries the dollar only. Needs a data-model addition, flagged rather than faked |

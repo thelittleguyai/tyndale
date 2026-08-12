@@ -218,7 +218,7 @@ function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
   const dl = b.response_deadline;
   const openNeeded = summary.open_items.filter((d) => !d.have);
   return (
-    <View className="mb-4 rounded-moment border border-moment-border bg-moment p-5">
+    <View className="mb-4 rounded-moment border border-moment-border bg-moment-bg p-5">
       <Text className="text-body font-medium text-moment-text">{b.label}</Text>
 
       {dl?.due_date ? (

@@ -24,6 +24,16 @@ module.exports = {
         strong: 'var(--c-border-strong)', // border-strong
         accent: { DEFAULT: 'var(--c-accent)', tint: 'var(--c-accent-tint)' },
         'on-accent': 'var(--c-on-accent)',
+        // Money / savings figures — checklist A4. Kept distinct from `accent` on purpose:
+        // a dollar the user recovers should not read as "a button".
+        money: 'var(--c-money)',
+        // Citation / source chips — checklist A6. A rendering requirement, not decoration:
+        // `[B]` strings and grounded findings render WITH their source in this colour.
+        citation: {
+          DEFAULT: 'var(--c-citation)',
+          tint: 'var(--c-citation-tint)',
+          'on-tint': 'var(--c-citation-on-tint)',
+        },
         success: {
           DEFAULT: 'var(--c-success)', tint: 'var(--c-success-tint)', 'on-tint': 'var(--c-success-on-tint)',
         },
@@ -73,6 +83,7 @@ module.exports = {
         control: '8px',
         card: '12px',
         moment: '16px',
+        chip: '999px', // the comment above always claimed this; it was never actually defined
       },
       // Token shadows from @tyndale/shared design-tokens (shadows.card / shadows.elev).
       boxShadow: {
