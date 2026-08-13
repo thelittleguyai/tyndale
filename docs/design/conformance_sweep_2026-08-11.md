@@ -52,11 +52,11 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 
 | # | Verdict | Evidence |
 |---|---|---|
-| C1 camera-first | **FAIL** [queued — prompt names it] | `upload.tsx` is a file picker; no "Snap a photo" primary |
+| C1 camera-first | **PASS (web) / N-A-YET (native)** (2026-08-12) | "Take a photo of your bill" leads the upload screen; picker beside it. Web only — `expo-camera` is uninstallable while DL-44's worklets ERESOLVE stands, so native still shows the use-the-web message. No camera → no affordance (no nagging) |
 | C2 checklist chips | **PASS** | Bill (required) / EOB / Insurance card chips present |
 | C3 just-the-bill line | **PASS** (2026-08-11) | rendered under the upload control via `GET /v1/copy/upload` |
 | C4 trust microcopy | **PASS** (2026-08-11) | lock icon + §1.2, same endpoint |
-| C5 edge-detection capture | **N-A-YET** | camera capture not built (same workstream as C1) |
+| C5 edge-detection capture | **PARTIAL** (2026-08-12) | Capture + review + retake + multi-page shipped. **Edge detection deliberately NOT built** — the guide frame is a static target; an animated tracker would be decoration posing as a capability. The readability badge is dropped for the same reason (delta B2) |
 | C6 "start of your file" framing | **PASS** | `record_first_upload_frame` (§1.1) rendered by the bridge |
 
 ## D · Chat-first mechanics

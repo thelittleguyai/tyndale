@@ -396,6 +396,35 @@ drift guard (nothing to compare against).
 <!-- UNMAPPED — his §10.1 ends on a colon that INVITES the finding; this renders that continuation -->
 [A] Here's the thing: you don't need it. What you actually have is stronger — {finding}, worth about ${amount}. That's checkable, it's on their own paperwork, and it's the argument I'd put in front of them.
 
+## capture.prompt_bill
+<!-- UNMAPPED — camera capture (N1 / checklist C1+C5) has no counterpart in his v1, so these five
+     ship as engineering text like the other UNMAPPED keys and are listed for him. NOT seeded
+     [PLACEHOLDER-eng]: that prefix is the staging/prod boot BLOCK, and holding a deploy over the
+     word "Retake" is not what it's for. His round-2 prototype says "Point your camera at the
+     bill" + "I'll frame the edges for you and check it's readable" — the second half is NOT
+     authorable as written: we detect no document edges and make no readability claim (the B2
+     honesty rule), so it would promise two capabilities that don't exist. -->
+[A] Point your camera at the bill — get all four corners in the frame.
+
+## capture.prompt_card
+<!-- UNMAPPED — the same surface on the insurance-card flow. His prototype: "Snap the front of
+     your card" / "Lay it flat — I'll read the member ID and group number." -->
+[A] Lay the card flat and fill the frame with it.
+
+## capture.looks_good
+<!-- UNMAPPED — the CONFIRM button on the review state. Deliberately the USER's judgement, not
+     ours: the prototype's green "Looks readable" badge is a claim we can't check, so the user
+     accepts the photo rather than being told it's fine. -->
+[A] Use this photo
+
+## capture.retake
+<!-- UNMAPPED — the retake button on the review state (checklist C5). -->
+[A] Retake
+
+## capture.add_page
+<!-- UNMAPPED — the shutter label once page 1 is kept; multi-page bills are the common case. -->
+[A] Take the next page
+
 ## call_script_opener_payer
 <!-- UNMAPPED — his §9 authors the plan/framing, not the four per-call script steps -->
 [A] When you reach {party}, give your name and member ID and say you're calling about a billing error you'd like corrected.

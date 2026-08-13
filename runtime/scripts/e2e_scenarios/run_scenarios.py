@@ -423,7 +423,7 @@ def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: 
 # Which generated document types actually PRINT each identifier (see generate_docs.py). An MSN
 # is payer-issued but carries no claim number, so it isn't listed — the harness asserts what the
 # fixtures contain, not what the type could theoretically hold.
-_PROVIDER_DOC_TYPES = frozenset({"bill", "summary_bill", "collections"})
+_PROVIDER_DOC_TYPES = frozenset({"bill", "bill_photo", "summary_bill", "collections"})
 _PAYER_DOC_TYPES = frozenset({"eob"})
 
 

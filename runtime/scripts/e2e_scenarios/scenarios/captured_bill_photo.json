@@ -1,0 +1,43 @@
+{
+  "name": "captured_bill_photo",
+  "description": "A PHOTOGRAPHED bill (JPEG, as camera capture emits) plus its EOB. N1/C1: a captured photo must reach extraction on exactly the same path as a picked PDF — same magic-byte gate, same classifier, same audit — so camera-first intake never becomes a weaker second door.",
+  "documents": [
+    {
+      "type": "bill_photo",
+      "filename": "bill-page-01.jpg",
+      "account": "E2E-CAM-4471",
+      "service_date": "2026-04-08",
+      "line_items": [
+        {
+          "code": "70553",
+          "description": "MRI brain w/ and w/o contrast",
+          "charge": 2400,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CAM-CLM-88",
+      "service_date": "2026-04-08",
+      "line_items": [
+        {
+          "code": "70553",
+          "billed": 2400,
+          "allowed": 900,
+          "plan_paid": 720,
+          "member_resp": 180
+        }
+      ],
+      "member_responsibility": 180
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": "audit_complete",
+    "no_fixture": true
+  }
+}

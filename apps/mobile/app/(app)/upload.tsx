@@ -12,19 +12,27 @@
  * with the iOS/Android app (Phase 3) — adding expo-document-picker now would
  * require an npm install that ERESOLVEs on the react-native-worklets peer
  * conflict (DL-44), so native shows a "use the web" message for now.
+ *
+ * Camera-first (N1 · checklist C1): "Take photo" leads, the picker sits beside it, and a
+ * capture becomes ordinary queue entries — so a photographed bill and a picked PDF travel the
+ * same path from here on. When the device has no camera to offer (`isCaptureSupported()` false,
+ * or the permission prompt is declined) the picker stands alone and we don't ask again.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FileText, Lock, Plus, X } from 'lucide-react-native';
+import { Camera as CameraIcon, FileText, Lock, Plus, X } from 'lucide-react-native';
 
 import { extractLineItems, getSurfaceCopy, uploadDocuments, type SurfaceCopy } from '../../lib/api-client';
 import {
   ACCEPTED_UPLOAD_HINT,
+  MAX_UPLOAD_FILE_BYTES,
   UPLOAD_ACCEPT_ATTR,
   partitionUploads,
 } from '../../lib/upload-validation';
+import { withinUploadBounds } from '../../lib/capture';
+import { CameraCapture, isCaptureSupported } from '../../components/upload/CameraCapture';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { Button, ListRow } from '../../components/ui';
@@ -46,7 +54,11 @@ export default function UploadScreen() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
   const inputRef = useRef<any>(null);
+  // Probed once, at mount: a build with no camera never renders the affordance at all, which is
+  // the C1 "gracefully, no nagging" rule — the user isn't offered something that can't happen.
+  const [cameraOffered] = useState(() => isCaptureSupported());
   // Authored upload-surface copy (script §1.2 / §1.3) — fetched, never hardcoded, so the
   // registry stays the single source and the drift guard keeps covering it.
   const [copy, setCopy] = useState<SurfaceCopy>({});
@@ -78,6 +90,28 @@ export default function UploadScreen() {
   };
 
   const remove = (id: string) => setQueue((q) => q.filter((x) => x.id !== id));
+
+  /** Captured pages join the same queue as picked files — one path downstream (C1/C5). */
+  const onCaptured = (files: File[]) => {
+    setCapturing(false);
+    if (files.length === 0) return;
+    const tooBig = files.filter((f) => !withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
+    const usable = files.filter((f) => withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
+    setQueue((q) => [
+      ...q,
+      ...usable.map((f) => ({
+        id: `${f.name}-${f.size}-${Math.random().toString(36).slice(2, 8)}`,
+        file: f,
+        name: f.name,
+        size: f.size,
+      })),
+    ]);
+    setError(
+      tooBig.length
+        ? `Skipped ${tooBig.length} page${tooBig.length === 1 ? '' : 's'} — still too large after compression. Try again in better light, or upload a file instead.`
+        : null,
+    );
+  };
 
   const submitAll = async () => {
     if (queue.length === 0 || uploading) return;
@@ -137,14 +171,31 @@ export default function UploadScreen() {
             style={{ display: 'none' }}
           />
           {queue.length === 0 ? (
-            <PressableScale
-              onPress={pickFiles}
-              className="items-center rounded-2xl border-2 border-dashed border-hairline bg-surface p-8 shadow-card hover:border-accent"
-            >
-              <Plus size={24} color="var(--c-accent)" />
-              <Text className="mt-2 text-base font-semibold text-primary">Add documents</Text>
-              <Text className="mt-1 text-xs text-faint">PDF or image — pick one or several</Text>
-            </PressableScale>
+            <View className="gap-3">
+              {/* C1 — camera leads. The picker keeps equal billing rather than being demoted:
+                  a bill already on the phone as a PDF is just as valid a start as a photo. */}
+              {cameraOffered ? (
+                <PressableScale
+                  onPress={() => setCapturing(true)}
+                  accessibilityRole="button"
+                  className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-4"
+                  testID="upload-take-photo"
+                >
+                  <CameraIcon size={20} color="var(--c-on-accent)" />
+                  <Text className="text-base font-bold text-on-accent">Take a photo of your bill</Text>
+                </PressableScale>
+              ) : null}
+              <PressableScale
+                onPress={pickFiles}
+                className="items-center rounded-2xl border-2 border-dashed border-hairline bg-surface p-8 shadow-card hover:border-accent"
+              >
+                <Plus size={24} color="var(--c-accent)" />
+                <Text className="mt-2 text-base font-semibold text-primary">
+                  {cameraOffered ? 'Or upload a document' : 'Add documents'}
+                </Text>
+                <Text className="mt-1 text-xs text-faint">PDF or image — pick one or several</Text>
+              </PressableScale>
+            </View>
           ) : (
             <View className="gap-2">
               {queue.map((q) => (
@@ -169,13 +220,25 @@ export default function UploadScreen() {
                   }
                 />
               ))}
-              <PressableScale
-                onPress={pickFiles}
-                className="mt-1 flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
-              >
-                <Plus size={16} color="var(--c-accent)" />
-                <Text className="text-body font-medium text-accent">Add another</Text>
-              </PressableScale>
+              <View className="mt-1 flex-row flex-wrap gap-2">
+                {cameraOffered ? (
+                  <PressableScale
+                    onPress={() => setCapturing(true)}
+                    className="min-h-[44px] flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
+                    testID="upload-take-another-photo"
+                  >
+                    <CameraIcon size={16} color="var(--c-accent)" />
+                    <Text className="text-body font-medium text-accent">Take a photo</Text>
+                  </PressableScale>
+                ) : null}
+                <PressableScale
+                  onPress={pickFiles}
+                  className="min-h-[44px] flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
+                >
+                  <Plus size={16} color="var(--c-accent)" />
+                  <Text className="text-body font-medium text-accent">Add another</Text>
+                </PressableScale>
+              </View>
             </View>
           )}
 
@@ -223,6 +286,15 @@ export default function UploadScreen() {
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial
         advice.
       </Text>
+
+      {capturing ? (
+        <CameraCapture
+          label="bill"
+          copy={copy}
+          onDone={onCaptured}
+          onClose={() => setCapturing(false)}
+        />
+      ) : null}
     </Screen>
   );
 }

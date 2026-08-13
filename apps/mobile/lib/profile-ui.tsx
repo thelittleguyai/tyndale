@@ -8,6 +8,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 
 import { uploadInsuranceCard, type CardUploadResult } from './api-client';
+import { CameraCapture, isCaptureSupported } from '../components/upload/CameraCapture';
 import { useThemeColors } from '../theme/useThemeColors';
 
 export const ALLOWED_CARD_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
@@ -119,6 +120,8 @@ export function CardUpload({
   const inputRef = useRef<any>(null);
   const [state, setState] = useState<CardState>(initialDone ? 'done' : 'idle');
   const [msg, setMsg] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const [cameraOffered] = useState(() => isCaptureSupported());
 
   if (Platform.OS !== 'web') {
     return (
@@ -131,9 +134,8 @@ export function CardUpload({
     );
   }
 
-  const onPicked = async (e: any) => {
-    const file: File | undefined = e?.target?.files?.[0];
-    if (!file) return;
+  /** The one upload path for a card image, whether it was picked or photographed (N1 item 5). */
+  const uploadFile = async (file: File) => {
     if (!ALLOWED_CARD_MIME.includes(file.type)) {
       setState('error');
       setMsg('Please pick a JPG, PNG, or HEIC image.');
@@ -169,6 +171,11 @@ export function CardUpload({
     }
   };
 
+  const onPicked = (e: any) => {
+    const file: File | undefined = e?.target?.files?.[0];
+    if (file) void uploadFile(file);
+  };
+
   const border =
     state === 'done'
       ? 'border-sage/50'
@@ -189,6 +196,20 @@ export function CardUpload({
         onChange={onPicked}
         style={{ display: 'none' }}
       />
+      {/* N1 item 5 — the card reuses the SAME capture component as the bill, single-page. A card
+          is one side per capture, so keeping the photo IS the confirmation; there's no page loop. */}
+      {cameraOffered ? (
+        <Pressable
+          onPress={() => setCapturing(true)}
+          accessibilityRole="button"
+          className="mb-2 min-h-[44px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4"
+          testID={`card-capture-${side}`}
+        >
+          <Text className="text-sm font-semibold text-on-accent">
+            Take a photo of the {side}
+          </Text>
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={() => inputRef.current?.click?.()}
         className={`min-h-[44px] items-center justify-center rounded-2xl border-2 border-dashed ${border} bg-navy-soft p-5`}
@@ -197,10 +218,25 @@ export function CardUpload({
           <ActivityIndicator color={c.accent} />
         ) : (
           <Text className="text-sm font-semibold text-white">
-            {state === 'done' ? `✓ ${label} added` : `Add the ${side} of your card`}
+            {state === 'done'
+              ? `✓ ${label} added`
+              : cameraOffered
+                ? `Or pick a file for the ${side}`
+                : `Add the ${side} of your card`}
           </Text>
         )}
       </Pressable>
+      {capturing ? (
+        <CameraCapture
+          label="card"
+          allowMultiPage={false}
+          onDone={(files) => {
+            setCapturing(false);
+            if (files[0]) void uploadFile(files[0]);
+          }}
+          onClose={() => setCapturing(false)}
+        />
+      ) : null}
       {msg ? (
         <Text
           className={`mt-2 text-xs ${

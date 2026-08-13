@@ -242,8 +242,50 @@ def make_summary_bill(
     c.save()
 
 
+def make_bill_photo(
+    path: Path, *, account: str, service_date: str, line_items: list[dict], **_: Any
+) -> None:
+    """The same statement as a JPEG — a PHOTO of the bill rather than a PDF of it (N1 / C1).
+
+    This is what camera capture produces: `CameraCapture` draws the frame to a canvas and hands
+    up a `image/jpeg` File at the same 1600px longest edge the client compresses to. The scenario
+    exists to prove a photographed bill travels the identical path to a picked file — same
+    magic-byte gate, same classifier, same extraction — so the capture surface can't quietly
+    become a second, weaker intake.
+    """
+    from PIL import Image, ImageDraw  # local import: only the photo scenario needs Pillow
+
+    total = round(sum(li["charge"] * li.get("units", 1) for li in line_items), 2)
+    rows = [
+        "ITEMIZED STATEMENT OF CHARGES",
+        f"Provider: {PROVIDER}",
+        f"Patient: {PATIENT}    Account #: {account}",
+        f"Date of Service: {service_date}",
+        "",
+        "CPT      Description                                Units   Charge",
+        *[
+            f"{li['code']:<8} {li['description'][:38]:<38} {li.get('units', 1):<7} "
+            f"{_money(li['charge'])}"
+            for li in line_items
+        ],
+        f"TOTAL AMOUNT DUE: {_money(total)}",
+        "",
+        "This is a bill. Please remit payment or contact billing with questions.",
+        f"Questions about your bill? Call {PROVIDER_PHONE}",
+    ]
+    # 1240x1600 ≈ the 1600px-longest-edge, 3:4 frame the capture path emits.
+    img = Image.new("RGB", (1240, 1600), "white")
+    draw = ImageDraw.Draw(img)
+    y = 60
+    for row in rows:
+        draw.text((60, y), row, fill="black")
+        y += 34
+    img.save(path, "JPEG", quality=70)
+
+
 _MAKERS = {
     "bill": make_bill,
+    "bill_photo": make_bill_photo,
     "eob": make_eob,
     "msn": make_msn,
     "collections": make_collections,

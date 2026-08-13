@@ -59,6 +59,54 @@ async def test_leave_and_return_renders_once_email_is_wired(client: AsyncClient,
 
 
 @pytest.mark.asyncio
+async def test_capture_copy_is_served_to_the_camera_surface(client: AsyncClient):
+    """N1 · C1/C5 — the capture prompts and buttons come from the registry like every other
+    string, so the app bundle never becomes a second source of product voice."""
+    body = (await client.get("/v1/copy/upload")).json()
+    for field, key in (
+        ("capture_prompt_bill", "capture.prompt_bill"),
+        ("capture_prompt_card", "capture.prompt_card"),
+        ("capture_looks_good", "capture.looks_good"),
+        ("capture_retake", "capture.retake"),
+        ("capture_add_page", "capture.add_page"),
+    ):
+        assert body[field] == orchestration_step(key), field
+
+
+def test_capture_copy_claims_nothing_about_readability():
+    """Delta B2, at the copy layer. The prototype's capture surface promises "I'll frame the
+    edges for you and check it's readable" and stamps a green "Looks readable" badge. We detect
+    no document edges and make no readability claim, so no string here may imply either — the
+    confirm button is the USER accepting the photo, not us grading it."""
+    strings = {
+        k: orchestration_step(k)
+        for k in (
+            "capture.prompt_bill",
+            "capture.prompt_card",
+            "capture.looks_good",
+            "capture.retake",
+            "capture.add_page",
+        )
+    }
+    for key, text in strings.items():
+        lowered = text.lower()
+        assert "readable" not in lowered, f"{key} claims readability we never checked"
+        assert "frame the edges" not in lowered, f"{key} promises edge detection we don't do"
+        assert not text.startswith("<MISSING-script:"), key
+
+
+def test_a_placeholder_is_withheld_from_the_client_not_rendered(monkeypatch):
+    """A `[PLACEHOLDER-eng]` seed exists so the staging boot gate can BLOCK on it — it is not
+    copy. The endpoint treats one like a missing key so a button can never read
+    "[PLACEHOLDER-eng] Retake" to a dev user."""
+    from app.routes.copy import _is_renderable
+
+    assert _is_renderable("Retake") is True
+    assert _is_renderable("[PLACEHOLDER-eng] Retake") is False
+    assert _is_renderable("<MISSING-script: capture.retake>") is False
+
+
+@pytest.mark.asyncio
 async def test_unknown_surface_is_404_not_an_arbitrary_key_reader(client: AsyncClient):
     """Named, closed surfaces — never a general "read any registry key" endpoint."""
     assert (await client.get("/v1/copy/decline")).status_code == 404

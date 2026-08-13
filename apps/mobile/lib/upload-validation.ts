@@ -24,6 +24,10 @@ export const UPLOAD_ACCEPT_ATTR =
 /** Plain-language reminder shown when a rejected file is picked. */
 export const ACCEPTED_UPLOAD_HINT = 'Upload a PDF or an image (JPG, PNG, or HEIC).';
 
+/** Mirrors the server's per-file cap (config.max_upload_file_bytes). Checked client-side so a
+ *  capture that came out too big is caught before the user waits on an upload that 413s. */
+export const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
+
 export function isAcceptedUpload(file: { name?: string; type?: string }): boolean {
   const type = (file.type || '').toLowerCase();
   if (ACCEPTED_MIME.has(type)) return true;

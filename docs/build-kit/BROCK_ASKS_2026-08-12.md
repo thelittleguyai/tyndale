@@ -88,6 +88,27 @@ the beat:
 | `decline.fabrication_reframe` | your §10.1 ends on a colon that invites the finding; this renders that continuation |
 | `call_script_opener_payer` · `call_script_opener_provider` · `call_script_get_it_in_writing` · `call_script_if_they_push_back` | the four per-call script beats — your §9 authors the plan and the framing, not these |
 | `call_mode_intro` · `call_mode_outro` | entering and leaving call mode |
+| `capture.prompt_bill` · `capture.prompt_card` · `capture.looks_good` · `capture.retake` · `capture.add_page` | **new 2026-08-12** — camera capture (see 3.6) |
+
+### 3.6 Camera capture — five new keys, and one line of your prototype we did not build
+Camera-first capture shipped (checklist C1 + C5, delta N1). Five keys carry its copy; all five are
+engineering-written today and want your voice.
+
+Two notes on the prototype's capture surface specifically:
+
+1. **The hint "I'll frame the edges for you and check it's readable" is not buildable as written.**
+   We don't detect document edges (the guide frame is a static target, not a tracker), and we make
+   no readability claim. Both halves of that sentence would be promises the product doesn't keep.
+2. **The green "Looks readable" badge is not shipped, deliberately.** It's an unconditional claim
+   about the photo in your prototype. What we ship instead: a warning ONLY when we measured a real
+   problem (the frame is below the resolution floor, or its Laplacian variance says it's soft), and
+   otherwise nothing. Passing a sharpness check doesn't make a bill readable — glare, a cut-off
+   corner, a thumb over the total and 6pt print all pass it and still fail OCR — so a "readable"
+   badge contradicted by "I couldn't read this" two screens later costs more trust than it buys.
+   The confirm button is the user accepting the photo, not us grading it.
+
+> **Ask:** author the five, and confirm the no-badge call. If you want a positive signal on that
+> screen, tell us what it should claim and we'll tell you whether it's checkable.
 
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge

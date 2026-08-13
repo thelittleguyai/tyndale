@@ -28,6 +28,7 @@ export function Button({
   leading,
   fullWidth = true,
   className = '',
+  testID,
 }: {
   label: string;
   onPress?: () => void;
@@ -36,12 +37,14 @@ export function Button({
   leading?: ReactNode;
   fullWidth?: boolean;
   className?: string;
+  testID?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
+      testID={testID}
       className={`min-h-[44px] flex-row items-center justify-center gap-2 rounded-control px-4 py-3 ${
         CONTAINER[variant]
       } ${fullWidth ? 'w-full' : 'self-start'} ${disabled ? 'opacity-40' : ''} ${className}`}
