@@ -160,12 +160,25 @@ describe('CaseSummaryScreen terminal states', () => {
 
   it('complete case shows the three-number card and confirmed recovered tally', async () => {
     mockGetCaseSummary.mockResolvedValue(summary({ recovered_so_far: 400 }));
-    const { getByText } = render(<CaseSummaryScreen />);
+    const { getByText, getAllByText } = render(<CaseSummaryScreen />);
     await waitFor(() => expect(getByText('Your three numbers')).toBeTruthy());
     expect(getByText('What you should owe')).toBeTruthy(); // the row label (now unique)
     expect(getByText('$560')).toBeTruthy(); // tyndale_computed
     expect(getByText('Recovered so far')).toBeTruthy();
-    expect(getByText('$400')).toBeTruthy(); // CONFIRMED
+    // Recovered renders TWICE by design — the paired tally, and the banner line that only
+    // appears once something is actually confirmed. Both must show the CONFIRMED figure, so
+    // assert the count rather than loosening to "at least one".
+    expect(getAllByText('$400')).toHaveLength(2);
+  });
+
+  it('hides the banner recovered line until something is confirmed', async () => {
+    // The paired tally still reads $0 — that's the honest confirmed figure sitting beside the
+    // estimate. What must NOT appear is the second, celebratory banner line; one occurrence of
+    // "$0" proves the tally rendered and the banner didn't.
+    mockGetCaseSummary.mockResolvedValue(summary({ recovered_so_far: 0 }));
+    const { getByText, getAllByText } = render(<CaseSummaryScreen />);
+    await waitFor(() => expect(getByText('Your three numbers')).toBeTruthy());
+    expect(getAllByText('$0')).toHaveLength(1);
   });
 
   it('needs-documents case shows the checklist and no three-number card', async () => {
