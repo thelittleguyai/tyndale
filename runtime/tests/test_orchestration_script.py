@@ -80,15 +80,10 @@ def test_staging_boot_still_fails_if_placeholder_copy_returns(monkeypatch, tmp_p
         load_orchestration_script.cache_clear()
 
 
-def test_authored_copy_passes_staging(monkeypatch, tmp_path):
-    prompts = tmp_path / "prompts"
-    prompts.mkdir()
-    (prompts / "orchestration_script.md").write_text(
-        "---\nversion: 1.0.0\n---\n\n## acknowledgment\n\nGot your documents.\n"
-    )
-    monkeypatch.setenv("TYNDALE_INTELLIGENCE_LAYER_ROOT", str(tmp_path))
-    load_orchestration_script.cache_clear()
-    try:
-        Settings(node_env="staging").assert_production_safety()  # real copy → boots clean
-    finally:
-        load_orchestration_script.cache_clear()
+def test_authored_copy_passes_staging(real_orchestration_script):
+    """A complete, placeholder-free drop boots staging clean.
+
+    Uses the shared fixture rather than its own one-key file: since the render-path manifest
+    landed, "authored copy" means every key the bridge renders is present, and a stub with one
+    key would assert a weaker thing than the name promises."""
+    Settings(node_env="staging").assert_production_safety()

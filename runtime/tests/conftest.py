@@ -246,13 +246,20 @@ async def client():
 @pytest.fixture
 def real_orchestration_script(monkeypatch, tmp_path):
     """A non-placeholder orchestration script (DL-91). A complete staging/production config needs
-    real authored copy, so prod-safety tests request this to represent one."""
+    real authored copy, so prod-safety tests request this to represent one.
+
+    It used to seed ONE key, which stopped representing a real script when the render-path
+    manifest landed: a genuine drop carries every key the thread bridge renders, and a boot now
+    fails without them. Seeding the manifest keeps this fixture's promise true — and means a
+    test that uses it is asserting against something a real deploy could actually be."""
     from app.agents.context_loader import load_orchestration_script
+    from app.agents.thread_bridge import RENDER_PATH_KEYS
 
     prompts = tmp_path / "prompts"
     prompts.mkdir()
+    body = "".join(f"## {key}\n\nAuthored copy for {key}.\n\n" for key in sorted(RENDER_PATH_KEYS))
     (prompts / "orchestration_script.md").write_text(
-        "---\nversion: 1.0.0\n---\n\n## acknowledgment\n\nGot your documents.\n"
+        f"---\nversion: 1.0.0\n---\n\n## acknowledgment\n\nGot your documents.\n\n{body}"
     )
     monkeypatch.setenv("TYNDALE_INTELLIGENCE_LAYER_ROOT", str(tmp_path))
     load_orchestration_script.cache_clear()
