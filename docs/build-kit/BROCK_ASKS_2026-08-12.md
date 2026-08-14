@@ -110,6 +110,24 @@ Two notes on the prototype's capture surface specifically:
 > **Ask:** author the five, and confirm the no-badge call. If you want a positive signal on that
 > screen, tell us what it should claim and we'll tell you whether it's checkable.
 
+### 3.7 The audit-ready email — two bodies, engineering-written
+Your §2.2 line ("you can close this — I'll email you the moment it's ready") was withheld because
+we didn't send that email. **We do now.** It sends on both terminal outcomes, because a user who
+left is waiting either way:
+
+| When | Subject | Body |
+|---|---|---|
+| Review finished | "Your Tyndale review is ready" | "Your review is done — the numbers and everything I found are waiting for you." |
+| Finished, needs a document | "One thing would finish your Tyndale review" | "I got as far as I could on your review. There's one document I still need before I can finish the numbers — it's listed in the app." |
+
+Both are engineering-written and PHI-free **by construction** — nothing case-specific is
+interpolated at all, only the sign-in link. That constraint is not stylistic: email lands in an
+inbox we don't control, gets forwarded and indexed, so no amount, provider, date, claim number or
+finding may appear. Anything you write here inherits that limit.
+
+> **Ask:** author both, or tell us they're fine as-is. (Email copy has never been in the registry —
+> the magic-link and nudge text live in code the same way. Say if you'd rather own it there.)
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD

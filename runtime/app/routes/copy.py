@@ -42,13 +42,16 @@ _SURFACES: dict[str, dict[str, str]] = {
 def _leave_and_return_is_honest() -> bool:
     """§2.2 promises "I'll email you the moment it's ready".
 
-    We only make that promise if we can keep it. Today `enable_nudge_emails` is false and the
-    only outbound mail is the document-chase nudge — there is no audit-ready email at all — so
-    the line is WITHHELD rather than rendered as a promise we don't honour (close-the-loop/X1
-    is about not stranding the user, and a false "we'll email you" strands them worse than
-    silence). Flip `enable_nudge_emails` on, with an audit-ready email wired, and it appears.
+    We only make that promise if we can keep it. The email now EXISTS
+    (`app/notify/audit_ready.py`, sent on both terminal outcomes), so the gate is simply
+    whether this environment sends it. Withheld while off — a false "we'll email you" strands
+    the user worse than silence, which is the close-the-loop/X1 point.
+
+    Gated on `enable_audit_ready_email`, not `enable_nudge_emails`: the nudge is a +3d
+    reminder about a missing document, a different promise. Using it here would have let the
+    line render off the wrong switch.
     """
-    return bool(get_settings().enable_nudge_emails)
+    return bool(get_settings().enable_audit_ready_email)
 
 
 def _is_renderable(text: str) -> bool:

@@ -91,6 +91,19 @@ async def _set_status(
     # reconciliation re-run can't double-count.
     if user_id is not None:
         await _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id)
+    # The audit-ready email (D3) — §2.2's "I'll email you the moment it's ready", kept from the
+    # same chokepoint that owns terminal status. Flag-gated, once-per-case and self-no-op'ing
+    # inside; a send failure must never fail the audit that just succeeded, so it's swallowed
+    # here the same way the thread bridge is.
+    from app.notify.audit_ready import should_send
+
+    if should_send(status, incomplete_reason):
+        try:
+            from app.notify.audit_ready import send_audit_ready_email
+
+            await send_audit_ready_email(case_file_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("notify.audit_ready.failed", case_file_id=case_file_id, error=str(exc))
 
 
 async def _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id) -> None:

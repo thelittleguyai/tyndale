@@ -133,6 +133,13 @@ def _init_db() -> None:
                 await conn.execute(
                     text(f"ALTER TABLE case_files ADD COLUMN IF NOT EXISTS {_col} text")
                 )
+            # Audit-ready email idempotency stamp (D3, migration 0038).
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS "
+                    "audit_ready_email_sent_at timestamptz"
+                )
+            )
             # Attest-and-proceed spine (§A2 state 1, migration 0036).
             await conn.execute(
                 text("ALTER TABLE case_files ADD COLUMN IF NOT EXISTS patient_name text")

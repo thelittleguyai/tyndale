@@ -274,6 +274,13 @@ class Settings(BaseSettings):
     # Nudge cadence: first at +3 days, second at +14 days, then in-app resurfacing only.
     nudge_first_days: int = 3
     nudge_second_days: int = 14
+    # The audit-ready email (D3, 2026-08-12) — the one §2.2 promises. SEPARATE from the nudge
+    # flag on purpose: §2.2's "I'll email you the moment it's ready" is a promise about THIS
+    # email, and the in-app line renders itself off this flag alone
+    # (routes/copy._leave_and_return_is_honest). Gating the promise on the nudge flag was a
+    # proxy for "do we send any mail at all" and would have let the line appear while the
+    # audit-ready email stayed dark. Default FALSE so no env sends without an explicit opt-in.
+    enable_audit_ready_email: bool = False
 
     # --- Chat-first audit flow (Brock 2026-07-10, DL-91). Phase A behind a flag; the classic
     # screen flow is fully unchanged when off. enable_first_case_unlock gates the unlock moment

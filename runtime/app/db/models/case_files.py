@@ -167,6 +167,12 @@ class CaseFile(Base):
     #
     # Phones are the contact numbers PRINTED on those documents — never guessed, never looked
     # up externally. NULL means the document didn't print one, and the dial control is hidden.
+    # The audit-ready email (D3, migration 0038). Stamped only AFTER SendGrid accepts, so a
+    # failed send retries on the next terminal transition instead of being silently lost.
+    # NULL = never sent; one email per case.
+    audit_ready_email_sent_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     claim_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     account_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_phone: Mapped[str | None] = mapped_column(Text, nullable=True)

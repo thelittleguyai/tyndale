@@ -161,18 +161,16 @@ async def _mark_sent(case_file_id: str, stage: str) -> None:
 
 
 async def _guarded_email_sender(to_email: str, subject: str, body: str) -> bool:
-    """Send a nudge through the PHI email guard (DL-47). Returns True on send. The guard
-    blocks anything with PHI; nudge copy is PHI-free by construction."""
-    from app.hooks.pre_tool_use import evaluate_send_email
+    """Actually send the nudge (DL-47 PHI guard runs inside `send_product_email`).
 
-    decision = evaluate_send_email({"to": to_email, "subject": subject, "body": body})
-    if not decision.approved:
-        log.warning("nudge.blocked_by_phi_guard", reason=decision.block_reason)
-        return False
-    # SendGrid wiring for nudges lands with the notify_user path; the guard + gating are the
-    # invariant this sprint. TODO(phil-decision): SMS via Twilio (seam left).
-    log.info("nudge.email.sent", to_hash=hash(to_email))
-    return True
+    Until 2026-08-12 this ran the guard, logged "sent", and returned True **without calling
+    SendGrid** — so `_mark_sent` stamped the case's ledger and, because the ledger blocks a
+    retry, that stage's email was lost for good. Returning the real send result is what makes
+    the ledger mean what it says. TODO(phil-decision): SMS via Twilio (seam left).
+    """
+    from app.notify.email import send_product_email
+
+    return await send_product_email(to_email, subject, body, kind="nudge")
 
 
 async def run_nudge_cron(sender: NudgeSender | None = None) -> dict:

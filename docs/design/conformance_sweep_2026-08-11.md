@@ -65,7 +65,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | D1 one status card in place | **PASS** | `_upsert_status_card` — exactly one, updated (`thread_bridge.py`) |
 | D2 four bars, real completion | **PASS** | `_STAGE_ORDER` + `_DONE_AT`; no percentages anywhere. **Labels now Brock's** (§2.1) |
-| D3 leave-and-return line | **DEFERRED — deliberate** (2026-08-11) | wired + gated. WITHHELD while `enable_nudge_emails=false` and no audit-ready email exists: §2.2 promises an email we don't send. Renders automatically once it's true. Follow-up: wire the audit-ready email |
+| D3 leave-and-return line | **PASS — gated on one flag** (2026-08-12) | **The email now exists** (`app/notify/audit_ready.py`): sent on BOTH terminal outcomes (ready, and needs-documents — a user who left is waiting either way), PHI-free through the DL-47 guard, exactly-once via `audit_ready_email_sent_at`. The line is gated on `enable_audit_ready_email` — deliberately NOT the nudge flag, which is a different promise — and renders the moment an env flips it. Withheld until then, because the promise is only true where we send |
 | D4 message discipline | **PASS** | bridge posts on state transitions only; status lives in the card |
 | D5 ≤3 verification cards | **PASS** | `VERIFICATION_GROUP_SIZE = 3` |
 | D6 Yes/No/Not sure | **PASS** | three buttons in `ThreadVerification.tsx` |
