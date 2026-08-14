@@ -442,6 +442,32 @@ export async function getOutcomePrompts(): Promise<OutcomePromptsPayload> {
   return (await res.json()) as OutcomePromptsPayload;
 }
 
+/** Record what happened on ONE call, from call mode's "How did it go?" routes (H6).
+ *
+ *  This is the outcome-capture denominator: how many people who got a gameplan actually made
+ *  the call. It is NOT a case outcome — none of the three routes resolves anything, so it
+ *  carries no money and never retires the dashboard's "did it work?" follow-up permanently.
+ *  Idempotent server-side per (case, step), so a double tap can't inflate the count. */
+export async function recordCallOutcome(
+  caseFileId: string,
+  findingId: string,
+  outcome: 'fixing_it' | 'pushed_back' | 'left_message',
+): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_id: `call-${caseFileId}-${findingId}-${outcome}`,
+      timestamp: new Date().toISOString(),
+      case_file_id: caseFileId,
+      response_id: findingId,
+      feedback_type: 'implicit_signal',
+      call_outcome: outcome,
+    }),
+  });
+  if (!res.ok) throw new Error(`call outcome failed: ${res.status}`);
+}
+
 /** GET /v1/user/me — current user profile (dev-stub auth until Phase 2K). */
 export async function getUserProfile(): Promise<UserProfile> {
   const res = await cfetch(`${BASE_URL}/v1/user/me`);

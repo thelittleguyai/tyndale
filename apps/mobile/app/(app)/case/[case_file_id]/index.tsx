@@ -11,7 +11,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarClock, CheckCircle2, Circle, MessageSquare } from 'lucide-react-native';
 
-import { CaseSummaryPayload, getCaseSummary } from '../../../../lib/api-client';
+import { CaseSummaryPayload, getCaseSummary, recordCallOutcome } from '../../../../lib/api-client';
 import { displayEnum } from '../../../../lib/enum-display';
 import { Gameplan } from '../../../../components/record/Gameplan';
 import { MomentCard } from '../../../../components/ui';
@@ -154,10 +154,19 @@ export default function CaseSummaryScreen() {
         ) : null}
 
         {/* The gameplan + call mode */}
+        {/* H6 — the "How did it go?" routes record at the tap (deep review finding 6). They
+            used to render and go nowhere, deferring to the dashboard follow-up days later,
+            which loses everyone who answered in the moment. Best-effort: a failed record must
+            never block the user's step-through, and the follow-up still catches them. */}
         <Gameplan
           steps={summary.gameplan}
           callModeIntro={summary.call_mode_intro}
           callModeOutro={summary.call_mode_outro}
+          onOutcome={(findingId, outcome) => {
+            void recordCallOutcome(String(summary.case_file_id), findingId, outcome).catch(
+              () => undefined,
+            );
+          }}
         />
 
         {/* Findings */}

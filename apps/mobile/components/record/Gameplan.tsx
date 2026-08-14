@@ -99,10 +99,14 @@ export function Gameplan({
   steps,
   callModeIntro = '',
   callModeOutro = '',
+  onOutcome,
 }: {
   steps: GameplanStep[];
   callModeIntro?: string;
   callModeOutro?: string;
+  /** Forwarded to call mode's "How did it go?" routes. Without it the routes render and go
+   *  nowhere — which is what they did until the 2026-08-13 review caught it. */
+  onOutcome?: (findingId: string, outcome: CallOutcome) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [callMode, setCallMode] = useState(false);
@@ -134,6 +138,7 @@ export function Gameplan({
           steps={steps}
           intro={callModeIntro}
           outro={callModeOutro}
+          onOutcome={onOutcome}
           onClose={() => setCallMode(false)}
         />
       ) : null}

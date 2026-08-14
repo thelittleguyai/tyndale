@@ -61,6 +61,26 @@ async def post_feedback(
     session.add(row)
     await session.flush()  # populate row.id
 
+    # A call-mode route tap stamps the same recency clock — the dashboard shouldn't ask "how
+    # did it go?" the day after the user already told us. It does NOT write an outcome_report,
+    # and that distinction is load-bearing: the follow-up scan retires a case PERMANENTLY once
+    # an outcome_report exists, and none of the three call routes is an outcome ("they said
+    # they'd fix it" is a claim by the party we're auditing). Suppressing on the recency clock
+    # defers the real question by the follow-up window; writing an outcome_report would delete
+    # it. The user still gets asked whether it actually worked.
+    if event.call_outcome is not None:
+        from datetime import datetime, timezone
+
+        from sqlalchemy import update
+
+        from app.db.models.case_files import CaseFile
+
+        await session.execute(
+            update(CaseFile)
+            .where(CaseFile.case_file_id == UUID(event.case_file_id))
+            .values(last_outcome_check_at=datetime.now(timezone.utc))
+        )
+
     # If this is an outcome_report, stamp the case so the dashboard stops
     # re-prompting.
     if event.feedback_type == "outcome_report":
@@ -88,6 +108,16 @@ async def post_feedback(
     from app.analytics.emit import emit, emit_idempotent
 
     case_uuid = UUID(event.case_file_id)
+    if event.call_outcome is not None:
+        # Idempotent per (case, call step): a double-tapped route can't inflate the
+        # outcome-capture denominator. Carries the route only — no money, ever.
+        await emit_idempotent(
+            "call_outcome_recorded",
+            dedupe_key=f"call_outcome_recorded:{case_uuid}:{event.response_id or 'case'}",
+            user_id=user.user_id,
+            case_file_id=case_uuid,
+            properties={"route": event.call_outcome},
+        )
     if event.feedback_type == "outcome_report":
         outcome = payload.get("outcome") or {}
         resolved = outcome.get("resolved")

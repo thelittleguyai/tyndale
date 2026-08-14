@@ -57,6 +57,11 @@ class FeedbackEventIn(BaseModel):
     structured_reason: list[StructuredReason] | None = None
     free_text: str | None = None
     outcome: FeedbackOutcome | None = None
+    # What happened on ONE call the user made, tapped in call mode (H6). Typed rather than
+    # smuggled through outcome_notes so nothing has to sniff a string for meaning (DL-39), and
+    # deliberately NOT an `outcome`: none of the three routes resolves a case, so this must
+    # never reach the recovered tally or permanently retire the outcome follow-up.
+    call_outcome: Literal["fixing_it", "pushed_back", "left_message"] | None = None
     value_confirmation: ValueConfirmation | None = None
     # improvement_consent on the request body is IGNORED by the server — the
     # POST /v1/feedback route reads the user's current consent from the users

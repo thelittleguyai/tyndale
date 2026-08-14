@@ -68,6 +68,9 @@ _STAGES = ("extraction", "translate", "encounter", "audit")
 _VERIFY_ANSWERS = ("yes", "no", "not_sure")
 _NUDGE_STAGES = ("first", "second")
 _OUTCOME_RESOLVED = ("yes", "partial", "no")
+# The three "How did it go?" routes in call mode. None of them is a resolution — see
+# call_outcome_recorded below.
+_CALL_OUTCOME_ROUTES = ("fixing_it", "pushed_back", "left_message")
 _REFUSAL_CATEGORIES = ("crisis", "medical_advice", "legal_advice", "financial_advice", "out_of_scope", "other")
 # §A2 state 1 attest relationships — mirrors app.agents.attest.RELATIONSHIPS (enum, never a
 # name). Brock's §3.1 seven-option menu.
@@ -115,6 +118,11 @@ REGISTRY: dict[str, EventSpec] = {
     "reaudit_delta": EventSpec({"material": bool_prop()}),  # $25/5% materiality (reused constants)
     # call mode is client-side presentation → not server-known
     "call_step_viewed": EventSpec({"step_index": num_prop()}, server_only=False),
+    # What happened on a call the user actually made — Brock's outcome-capture DENOMINATOR.
+    # Deliberately separate from outcome_reported: none of these three routes resolves a case
+    # ("they said they'd fix it" is a claim by the party we're auditing, not a recovery), so
+    # this event carries no money and never feeds recovered_so_far.
+    "call_outcome_recorded": EventSpec({"route": enum_prop(*_CALL_OUTCOME_ROUTES)}),
     # §3 Outcomes -------------------------------------------------------------
     "outcome_reported": EventSpec(
         {"resolved": enum_prop(*_OUTCOME_RESOLVED), "amount_saved": num_prop()}
