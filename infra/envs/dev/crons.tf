@@ -22,8 +22,8 @@ locals {
     # Registered in the runtime since the P0 analytics sprint but never scheduled here, so
     # the admin dashboard's daily metrics silently never accumulated (deep review, finding 3).
     # 04:00 UTC, after qdrant_snapshot, matching the registry's stated cadence.
-    analytics_rollup = { cron = "0 4 * * *", timeout = 900 }    # nightly 04:00
-    nudge            = { cron = "0 15 * * *", timeout = 600 }   # daily 15:00 (registry cadence)
+    analytics_rollup = { cron = "0 4 * * *", timeout = 900 }  # nightly 04:00
+    nudge            = { cron = "0 15 * * *", timeout = 600 } # daily 15:00 (registry cadence)
   }
 }
 
