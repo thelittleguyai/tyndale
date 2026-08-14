@@ -4,7 +4,8 @@
 Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owning workstream.
 **Date:** 2026-08-11 · first pass 24 PASS / 21 FAIL / 22 N-A-YET →
 **after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
-**after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET**
+**after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
+**after B4 + N1 + the audit-ready email (2026-08-12): 45 PASS · 4 FAIL · 0 DEFERRED · 2 PARTIAL · 21 N-A-YET**
 
 Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
 awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
@@ -110,7 +111,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | G3 `[B]` with citation chip | **PARTIAL → FAIL** [unowned] | renderer enforces it and `citation` colour now exists, but **zero keys are tagged `[B]`** — his 4 `[B]` marks are dual `[A]/[B]` on §6.3/§12.1, which we render `[A]`. Needs his call |
 | G4 `[C]` no prediction | **PASS** | 5 `[C]` keys; load-time assert + forbidden-language test |
 | G5 close-the-loop | **PASS** | X1 contract in CI; §8.3 close line authored |
-| G6 +3d/+14d email | **PARTIAL → FAIL** [queued] | cadence + scan built; `nudge.plus_3d`/`plus_14d` (§11.5) now exist but the cron sends its own text and `enable_nudge_emails=false` |
+| G6 +3d/+14d email | **PARTIAL → FAIL** [queued] | cadence + scan built, and the cron now really sends (until 2026-08-12 it logged success without calling SendGrid and stamped the ledger anyway). Still failing for one reason: the cron composes its OWN body instead of rendering Brock's authored `nudge.plus_3d`/`plus_14d` (§11.5), which exist. Unblocked — engineering can fix it without him |
 
 ## H · Record, case page, resolution
 
@@ -121,7 +122,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | H3 sub-case summary | **PASS** (2026-08-12) | findings render their source line (same mechanism as E4; corrected with it) |
 | H4 case-page dark banner | **PASS** (2026-08-11) | dark moment-surface banner: deadline clock, recovered-so-far, open items **+ what each unlocks**, next check-in |
 | H5 gameplan | **PASS** | `Gameplan.tsx`, biggest-wins-first ordering |
-| H6 call mode | **PARTIAL** (2026-08-11) | full-screen + XL type + step-through + pinned dollar strip + the three "How did it go?" routes now wired. **Tap-to-dial seam is live but no number exists to dial** — neither the payer nor the provider phone is extracted or stored, and a claim number isn't a typed field either, so the pinned strip carries the dollar only. Needs a data-model addition, flagged rather than faked |
+| H6 call mode | **PASS** (2026-08-12) | full-screen + XL type + step-through + the three "How did it go?" routes, and delta B4 closed the data gap the earlier PARTIAL named: `claim_number`/`account_number`/`provider_phone`/`payer_phone` are typed fields now, so the pinned strip carries the party's own identifier (claim for a payer call, account for a provider one) and tap-to-dial has a real number. Absent → the row simply doesn't render |
 | H7 pushback route | **PASS** | `call_mode.pushback` (§9.5) — steadfast framing |
 | H8 continuous journey | **PASS** | §11.1 beat + `record_identity` (§11.2) authored |
 | H9 needs-something checklist | **PASS** | ☑/☐ card + how-to-get + inline add-document + §8.3 close |
