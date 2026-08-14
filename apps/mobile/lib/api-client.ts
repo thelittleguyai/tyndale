@@ -933,8 +933,34 @@ export async function fetchCardImageObjectUrl(
  *  never hardcodes product voice; a field is null when the string is deliberately withheld. */
 export type SurfaceCopy = Record<string, string | null>;
 
-export async function getSurfaceCopy(surface: 'upload' | 'status'): Promise<SurfaceCopy> {
+export async function getSurfaceCopy(
+  surface: 'upload' | 'status' | 'access_request',
+): Promise<SurfaceCopy> {
   const res = await cfetch(`${BASE_URL}/v1/copy/${surface}`);
   if (!res.ok) return {};
   return (await res.json()) as SurfaceCopy;
+}
+
+/** A statutory access / deletion / correction request (§A2 state 5).
+ *
+ *  The response is IDENTICAL whether or not the person appears anywhere in Tyndale — it is a
+ *  receipt, never a lookup. Nothing about the result may be branched on to imply otherwise. */
+export type AccessRequestBody = {
+  request_type: 'access' | 'deletion' | 'correction';
+  patient_name: string;
+  contact: string;
+  relationship?: string;
+  details?: string;
+};
+
+export async function submitAccessRequest(
+  body: AccessRequestBody,
+): Promise<{ received: boolean; message: string }> {
+  const res = await cfetch(`${BASE_URL}/v1/access-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`access request failed (${res.status})`);
+  return (await res.json()) as { received: boolean; message: string };
 }

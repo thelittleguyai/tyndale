@@ -396,6 +396,33 @@ drift guard (nothing to compare against).
 <!-- UNMAPPED — his §10.1 ends on a colon that INVITES the finding; this renders that continuation -->
 [A] Here's the thing: you don't need it. What you actually have is stronger — {finding}, worth about ${amount}. That's checkable, it's on their own paperwork, and it's the argument I'd put in front of them.
 
+## access_request.settings_label
+<!-- UNMAPPED — the statutory-rights intake had a route and an encrypted event but NO way in
+     from the app (deep review, finding 4). These six carry the settings row + form. Engineering
+     text, listed for Brock: it's the entry point to a legal right, so the wording matters more
+     than most. `access_request.intro`/`.received` already exist in §E and are unchanged. -->
+[A] Privacy requests — access or delete data for someone named on a bill
+
+## access_request.form_type_label
+<!-- UNMAPPED — see access_request.settings_label -->
+[A] What are you asking for?
+
+## access_request.form_name_label
+<!-- UNMAPPED — whose data the request is about; not necessarily the requester -->
+[A] Who is the request about?
+
+## access_request.form_contact_label
+<!-- UNMAPPED — how to reach the requester; the reply never goes through this app -->
+[A] How should we reach you?
+
+## access_request.form_details_label
+<!-- UNMAPPED — optional free text -->
+[A] Anything else we should know? (optional)
+
+## access_request.form_submit
+<!-- UNMAPPED — the submit control -->
+[A] Send this request
+
 ## capture.prompt_bill
 <!-- UNMAPPED — camera capture (N1 / checklist C1+C5) has no counterpart in his v1, so these five
      ship as engineering text like the other UNMAPPED keys and are listed for him. NOT seeded

@@ -36,6 +36,18 @@ _SURFACES: dict[str, dict[str, str]] = {
         "leave_and_return": "status_leave_and_return",  # §2.2  (D3)
         "long_wait": "long_wait",  # §2.3
     },
+    # Statutory-rights intake (§A2 state 5). Served as a surface because the screen renders
+    # BEFORE — and often without — a session: the person exercising the right may not have an
+    # account, or may be asking us to delete it.
+    "access_request": {
+        "settings_label": "access_request.settings_label",
+        "intro": "access_request.intro",
+        "type_label": "access_request.form_type_label",
+        "name_label": "access_request.form_name_label",
+        "contact_label": "access_request.form_contact_label",
+        "details_label": "access_request.form_details_label",
+        "submit": "access_request.form_submit",
+    },
 }
 
 

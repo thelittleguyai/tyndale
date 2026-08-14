@@ -73,6 +73,28 @@ async def test_capture_copy_is_served_to_the_camera_surface(client: AsyncClient)
         assert body[field] == orchestration_step(key), field
 
 
+@pytest.mark.asyncio
+async def test_access_request_surface_can_render_the_intake(client: AsyncClient):
+    """Deep review finding 4 — the route and its encrypted event existed, but nothing in the
+    app could reach them. The screen renders off this surface, so an empty one is a
+    statutory right with no way in."""
+    r = await client.get("/v1/copy/access_request")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    for field in ("settings_label", "intro", "type_label", "name_label", "contact_label", "submit"):
+        assert body[field], f"{field} is empty — the intake screen can't render"
+    assert body["intro"] == orchestration_step("access_request.intro")
+
+
+def test_access_request_copy_never_implies_a_lookup():
+    """The receipt is identical whether or not the person appears anywhere in Tyndale. Copy
+    that says "we'll check" or "if we find" turns an intake into a disclosure channel."""
+    for key in ("access_request.settings_label", "access_request.intro", "access_request.received"):
+        lowered = orchestration_step(key).lower()
+        for tell in ("if we find", "we'll check", "we will check", "search our", "look up your"):
+            assert tell not in lowered, f"{key} implies a lookup this intake does not do"
+
+
 def test_capture_copy_claims_nothing_about_readability():
     """Delta B2, at the copy layer. The prototype's capture surface promises "I'll frame the
     edges for you and check it's readable" and stamps a green "Looks readable" badge. We detect

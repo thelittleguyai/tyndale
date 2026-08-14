@@ -319,6 +319,12 @@ export default function SettingsScreen() {
         <LinkRow label="Privacy Policy" onPress={() => router.push('/privacy')} />
         <LinkRow label="Terms of Service" onPress={() => router.push('/terms')} />
         <LinkRow label="Data Improvement Consent" onPress={() => setConsentModal(true)} />
+        {/* The way in to the statutory-rights intake (deep review finding 4). The route and its
+            encrypted event already existed; without this row nobody could reach them. */}
+        <LinkRow
+          label="Privacy requests — access or delete data"
+          onPress={() => router.push('/access-request')}
+        />
       </Section>
 
       {/* 5. Account */}
