@@ -108,6 +108,24 @@ variable "enable_nudge_emails" {
   description = "Outbound +3d/+14d nudge emails from the nudge cron. False = the cron scans and logs but sends nothing (in-app resurfacing only)."
 }
 
+variable "enable_audit_ready_email" {
+  type        = bool
+  default     = false
+  description = "The audit-ready email (D3) — sent when an audit reaches a terminal state, on both the ready and needs-documents outcomes. This is the flag Brock's §2.2 'I'll email you the moment it's ready' renders off: false withholds the promise, true makes it true. Separate from enable_nudge_emails, which is the +3d/+14d document reminder — a different promise."
+}
+
+variable "use_real_crisis_classifier" {
+  type        = bool
+  default     = true
+  description = "Run the Haiku crisis classifier in front of chat input. False leaves the keyword screen as the only layer — the screen never fails open either way (a positive is a clean Category-2 decline). Default TRUE, matching the runtime default: turning this off is a deliberate downgrade, so it must be an explicit tfvars choice rather than a silent one."
+}
+
+variable "allow_fixture_fallback" {
+  type        = bool
+  default     = false
+  description = "When use_real_claude is true but no API key resolves, fall back to fixtures instead of raising. MUST stay false anywhere real (CO-15): a prod deploy must never serve the MRI fixture as a real audit. assert_production_safety() refuses to boot production with this true — wired here so that guard has something to guard, and so the value is visible in the plan."
+}
+
 variable "enable_first_case_unlock" {
   type        = bool
   default     = false

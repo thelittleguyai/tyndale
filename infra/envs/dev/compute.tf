@@ -169,6 +169,21 @@ resource "azurerm_container_app" "runtime" {
         value = tostring(var.enable_nudge_emails)
       }
       env {
+        name  = "ENABLE_AUDIT_READY_EMAIL"
+        value = tostring(var.enable_audit_ready_email)
+      }
+      env {
+        name  = "USE_REAL_CRISIS_CLASSIFIER"
+        value = tostring(var.use_real_crisis_classifier)
+      }
+      # Wired so the value is explicit in the plan, not so it gets flipped: false is the
+      # only safe setting anywhere real (CO-15) and assert_production_safety() refuses a
+      # production boot with it true.
+      env {
+        name  = "ALLOW_FIXTURE_FALLBACK"
+        value = tostring(var.allow_fixture_fallback)
+      }
+      env {
         name  = "ENABLE_FIRST_CASE_UNLOCK"
         value = tostring(var.enable_first_case_unlock)
       }
