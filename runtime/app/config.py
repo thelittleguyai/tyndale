@@ -395,6 +395,8 @@ class Settings(BaseSettings):
         # staging/prod boot FAILS until Brock's authored copy replaces every active key.
         if self.is_staging_or_prod:
             problems.extend(self._orchestration_script_placeholder_problems())
+            # …and copy that never arrived at all, not just copy that arrived unauthored.
+            problems.extend(self._missing_render_path_keys())
         if not self.is_production:
             if problems:
                 raise RuntimeError("Unsafe staging config — " + "; ".join(problems))
@@ -431,6 +433,27 @@ class Settings(BaseSettings):
             "Brock's authored copy must replace it before staging/production"
             for key, value in load_orchestration_script().items()
             if isinstance(value, str) and value.strip().startswith(PLACEHOLDER_PREFIX)
+        ]
+
+    def _missing_render_path_keys(self) -> list[str]:
+        """Registry keys the thread bridge renders that the parsed script doesn't contain.
+
+        The placeholder check above catches copy that arrived unauthored. This catches copy that
+        never arrived at all — a truncated or malformed drop, a renamed key, a bad merge. The
+        loader degrades to the literal marker `<MISSING-script: key>`, which is the right
+        behaviour in dev (visible, testable) and the wrong thing to first notice in production,
+        where it lands in a user's thread. So staging/prod refuses to boot instead.
+
+        The bridge module owns the list — it is the thing doing the rendering.
+        """
+        from app.agents.context_loader import load_orchestration_script
+        from app.agents.thread_bridge import RENDER_PATH_KEYS
+
+        present = set(load_orchestration_script())
+        return [
+            f"orchestration_script is MISSING '{key}', which the thread bridge renders — "
+            "users would see a <MISSING-script> marker"
+            for key in sorted(RENDER_PATH_KEYS - present)
         ]
 
     def warn_disabled_real_flags(self) -> None:

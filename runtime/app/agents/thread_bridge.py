@@ -47,6 +47,41 @@ BRIDGE_CONFLICTS: Counter[str] = Counter()
 def get_bridge_conflicts() -> dict[str, int]:
     return dict(BRIDGE_CONFLICTS)
 
+
+# Every registry key this module can put in front of a user (deep review nit 3). A key missing
+# from the registry renders as the literal marker `<MISSING-script: key>` — visible, testable,
+# and exactly the wrong thing to discover in production. `assert_production_safety` refuses a
+# staging/prod boot when any of these is absent, so a malformed or truncated future copy drop
+# fails at startup instead of shipping markers into threads.
+#
+# Kept as an explicit list rather than derived at runtime, because a boot gate shouldn't parse
+# its own source. `test_required_keys_manifest.py` walks this module's AST and fails if a
+# literal key is rendered that isn't listed here, so the two can't drift.
+RENDER_PATH_KEYS: frozenset[str] = frozenset(
+    {
+        # status card + flow stages
+        "stage_label_extraction", "stage_label_translate", "stage_label_encounter",
+        "stage_label_audit",
+        # intake + acknowledgment
+        "record_first_upload_frame", "acknowledgment", "audit_start",
+        # attest-and-proceed
+        "attest.intro", "attest.decline_ack",
+        # verification
+        "verification_intro", "verification_map_confirm", "verification_not_sure",
+        "verification_nudge",
+        # data quality
+        "dataquality_partial_illegible", "dataquality_summary_not_itemized",
+        # reconcile ladder
+        "reconcile.explain", "reconcile.ask_one_input", "reconcile.last_resort",
+        # the reveal + terminal states
+        "three_number_reveal", "completion", "needs_documents_intro", "system_error",
+        "record_post_audit_keep_doing",
+        # chosen dynamically at the call site, so both branches must exist
+        "handoff.pace", "handoff.generic_program",
+        "verification_map_fallback", "verification_map_partial_fallback",
+    }
+)
+
 _STAGE_ORDER = ("extraction", "translate", "encounter", "audit")
 _STAGE_LABEL_KEY = {
     "extraction": "stage_label_extraction",

@@ -13,7 +13,6 @@ both are enumerated in the pull-in summary for him.
 
 from __future__ import annotations
 
-import hashlib
 import pathlib
 import re
 
@@ -81,13 +80,12 @@ def test_mapping_covers_the_registry_and_names_real_sections():
         assert entry.source.startswith(("§", "CHECKLIST", "UNMAPPED", "ENG")), f"{key}: {entry.source!r}"
 
 
-def test_authored_file_is_pinned_by_hash():
-    """A new version of his file SHOULD change this hash — that's the signal to re-run the
-    pull-in and refresh the mapping, not to edit copy in the registry."""
-    digest = hashlib.sha256(_AUTHORED.read_bytes()).hexdigest()
-    assert digest == "1f3d2e0a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60" or True, digest
-    # (Recorded, not enforced — enforcing a byte hash would fail on a legitimate new drop and
-    # tell us nothing the per-key comparison above doesn't say more usefully.)
+# NOT hash-pinned, deliberately. There used to be a `test_authored_file_is_pinned_by_hash`
+# here whose assertion ended in `or True` against a hash that never matched anything — an
+# always-green test that looked like a guard (deep review nit 2). It's gone rather than
+# repaired, because the thing it pretended to check is one we don't want: a byte hash of
+# Brock's file would fail on every legitimate new drop, and it would tell us less than the
+# per-key comparison above, which fails by KEY NAME and points straight at what moved.
 
 
 @pytest.mark.parametrize(

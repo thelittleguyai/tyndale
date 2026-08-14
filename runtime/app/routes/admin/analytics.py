@@ -17,6 +17,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.definitions import DEFINITIONS
+from app.agents.context_loader import DOCTRINE_VIOLATIONS
+from app.agents.thread_bridge import get_bridge_conflicts
 from app.analytics.emit import get_drop_counts
 from app.analytics.events import REGISTRY
 from app.auth import CurrentUser
@@ -50,6 +52,14 @@ class StatusBoard(BaseModel):
     crons: list[str]
     drop_counts: dict[str, int]
     not_yet_live_events: list[str]  # billing-dependent — registered, emitting nothing yet
+    # Doctrine violations since boot, keyed `b_without_citation:<key>` / `missing_variable:<key>`
+    # (deep review nit 1). The renderer already degrades safely on both, so nothing breaks — which
+    # is exactly why they need a place to be SEEN. A [B] string that keeps rendering its
+    # degradation variant is a citation that never got wired, and it looks like silence.
+    doctrine_violations: dict[str, int]
+    # Thread-marker collisions caught by the 0039 unique index. Harmless individually (the entry
+    # exists exactly once either way); a rising count means concurrent bridge writers.
+    bridge_conflicts: dict[str, int]
 
 
 class AnalyticsResponse(BaseModel):
@@ -118,5 +128,7 @@ async def get_analytics(
         crons=list_crons(),
         drop_counts=get_drop_counts(),
         not_yet_live_events=sorted(n for n, s in REGISTRY.items() if s.not_yet_live),
+        doctrine_violations=dict(DOCTRINE_VIOLATIONS),
+        bridge_conflicts=get_bridge_conflicts(),
     )
     return AnalyticsResponse(window_days=days, panels=panels, status=status)
