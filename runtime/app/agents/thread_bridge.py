@@ -20,9 +20,11 @@ time, after the orchestrator module is already initialized.
 from __future__ import annotations
 
 import uuid
+from collections import Counter
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.context_loader import orchestration_step
@@ -35,6 +37,15 @@ from app.db.models.messages import Message
 log = structlog.get_logger(__name__)
 
 VERIFICATION_GROUP_SIZE = 3  # D3: ≤3 verification cards per message
+
+# Marker collisions caught by the partial unique index (migration 0039), since boot. A losing
+# writer is HARMLESS — the entry exists exactly once either way — but it is counted so the race
+# stops being invisible. Surfaced on the admin ops panel alongside the analytics drop counts.
+BRIDGE_CONFLICTS: Counter[str] = Counter()
+
+
+def get_bridge_conflicts() -> dict[str, int]:
+    return dict(BRIDGE_CONFLICTS)
 
 _STAGE_ORDER = ("extraction", "translate", "encounter", "audit")
 _STAGE_LABEL_KEY = {
@@ -586,6 +597,15 @@ async def bootstrap_thread(case_file_id: str) -> str | None:
 async def _post(
     case_file_id: str, *, role: str, kind: str, payload: dict | None = None, content: str | None = None
 ) -> str | None:
+    """Post one thread entry. When `payload` carries a `marker`, this is IDEMPOTENT.
+
+    The marker check used to live only in `_reconcile`, so every caller that posted directly
+    through here — `post_not_sure_acknowledgment` among them — claimed idempotency it didn't
+    have (deep review, finding 7). Two layers now hold it: this read-then-skip for the ordinary
+    case, and a partial unique index (migration 0039) for the concurrent one, because
+    check-then-insert races by construction.
+    """
+    marker = (payload or {}).get("marker")
     async with AsyncSessionLocal() as session:
         case = (
             await session.execute(
@@ -597,9 +617,28 @@ async def _post(
         conv = await get_case_conversation(session, case_file_id, create_owner=case.user_id)
         if conv is None:
             return None
-        await _insert(session, conv, kind, payload, content=content, role=role)
-        await session.commit()
-        return str(conv.conversation_id)
+        # Read the id up front: a rollback below EXPIRES `conv`, and touching an expired
+        # attribute afterwards triggers a lazy refresh — IO outside the greenlet context, which
+        # surfaces as MissingGreenlet rather than as the conflict we actually handled.
+        conversation_id = str(conv.conversation_id)
+        if marker and marker in await _markers(session, conv.conversation_id):
+            return conversation_id  # already said; saying it twice is the bug
+        try:
+            # Both inside the guard: _insert flushes, so a marker collision surfaces THERE,
+            # not at commit. Catching only the commit left the exception escaping into the
+            # caller's blanket except — visible as "the bridge failed" rather than as what it
+            # actually is.
+            await _insert(session, conv, kind, payload, content=content, role=role)
+            await session.commit()
+        except IntegrityError:
+            # The race the index exists to catch: another writer inserted the same marker
+            # between our check and our commit. The thread is already correct — one entry,
+            # theirs — so this is a no-op, but it is COUNTED rather than swallowed, because
+            # "self-healing and unmeasured" is how a losing reconcile stays invisible.
+            await session.rollback()
+            BRIDGE_CONFLICTS[str(marker)] += 1
+            log.info("bridge_marker_conflict", case_file_id=case_file_id, marker=marker)
+        return conversation_id
 
 
 async def post_user_utterance(case_file_id: str, text: str) -> str | None:

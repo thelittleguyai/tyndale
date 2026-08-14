@@ -144,17 +144,40 @@ def test_not_sure_acknowledgment_string_exists_and_is_brocks():
 
 
 @pytest.mark.asyncio
-async def test_not_sure_answer_posts_the_acknowledgment_to_the_thread(monkeypatch):
-    """D8 — the audit proceeds AROUND an unsure item and the thread says so. Asserted at the
-    bridge seam (the route's own path kicks a real audit)."""
+async def test_not_sure_acknowledgment_posts_once_and_only_once(client: AsyncClient):
+    """D8 + deep review finding 7.
+
+    The previous version of this test monkeypatched `_post` — the very function that was
+    supposed to enforce idempotency — so it asserted the copy and proved nothing about the
+    "one per case" claim in the docstring. It was, in fact, false: `_post` ignored the marker
+    entirely and a second call inserted a second row.
+
+    Calling it twice against the real database is the only version of this test that can fail
+    when the bug is present.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
     from app.agents import thread_bridge
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.messages import Message
 
-    posted: list[str] = []
+    up = await client.post(
+        "/v1/upload", files=[("files", ("bill.pdf", b"%PDF-1.4 x", "application/pdf"))]
+    )
+    case_id = up.json()["case_file_id"]
 
-    async def _fake_post(case_file_id, *, role, kind, payload=None, content=None):
-        posted.append(content or "")
-        return "conv"
+    conv_id = await thread_bridge.post_not_sure_acknowledgment(case_id)
+    again = await thread_bridge.post_not_sure_acknowledgment(case_id)
+    assert conv_id and again == conv_id
 
-    monkeypatch.setattr(thread_bridge, "_post", _fake_post)
-    await thread_bridge.post_not_sure_acknowledgment("00000000-0000-0000-0000-000000000001")
-    assert posted and posted[0] == orchestration_step("verification_not_sure")
+    async with AsyncSessionLocal() as s:
+        rows = (
+            await s.execute(
+                select(Message).where(Message.conversation_id == _uuid.UUID(conv_id))
+            )
+        ).scalars().all()
+    acks = [m for m in rows if isinstance(m.payload, dict) and m.payload.get("marker") == "not_sure_ack"]
+    assert len(acks) == 1, f"said it {len(acks)} times — idempotency is not real"
+    assert acks[0].content == orchestration_step("verification_not_sure")

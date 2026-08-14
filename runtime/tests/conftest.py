@@ -133,6 +133,14 @@ def _init_db() -> None:
                 await conn.execute(
                     text(f"ALTER TABLE case_files ADD COLUMN IF NOT EXISTS {_col} text")
                 )
+            # Bridge marker uniqueness (migration 0039) — the DB half of thread idempotency.
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_messages_conversation_marker "
+                    "ON messages (conversation_id, (payload->>'marker')) "
+                    "WHERE payload->>'marker' IS NOT NULL"
+                )
+            )
             # Audit-ready email idempotency stamp (D3, migration 0038).
             await conn.execute(
                 text(
