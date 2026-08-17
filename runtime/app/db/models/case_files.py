@@ -173,6 +173,11 @@ class CaseFile(Base):
     audit_ready_email_sent_at: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    # §10.4 recovery notice (migration 0040) — stamped only after the provider accepts, same
+    # retry-on-failure discipline as the audit-ready stamp above.
+    recovery_email_sent_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     claim_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     account_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_phone: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -213,3 +213,68 @@ def test_the_gate_is_the_audit_ready_flag_not_the_nudge_flag(monkeypatch):
     monkeypatch.setattr(copy_route, "get_settings", lambda: type("S", (), {
         "enable_audit_ready_email": False, "enable_nudge_emails": True})())
     assert copy_route._leave_and_return_is_honest() is False
+
+
+# ── §10.4 — the recovery email (system_error -> audit_complete) ──────────────────────────
+def test_recovery_body_is_phi_free_and_passes_the_real_guard():
+    from app.notify.audit_ready import _recovery_bodies
+
+    subject, text, html = _recovery_bodies("https://app.example.test/signed-in")
+    blob = f"{subject} {text} {html}".lower()
+    for leak in ("$", "mri", "beloit", "claim", "account #", "deductible"):
+        assert leak not in blob, f"{leak!r} reached the recovery email"
+    decision = evaluate_send_email({"to": "m@example.test", "subject": subject, "body": text})
+    assert decision.approved, decision.block_reason
+
+
+@pytest.mark.asyncio
+async def test_recovery_sends_once_and_only_for_completed_cases(monkeypatch):
+    case, user = _Case(status="audit_complete"), _User()
+    case.recovery_email_sent_at = None
+    _patch_db(monkeypatch, case, user)
+    monkeypatch.setattr(audit_ready, "get_settings", lambda: type("S", (), {
+        "enable_audit_ready_email": True, "auth_success_redirect": "https://app.example.test"})())
+    sends: list[str] = []
+
+    async def _send(to, subject, text, html=None, *, kind):
+        sends.append(kind)
+        return True
+
+    monkeypatch.setattr(audit_ready, "send_product_email", _send)
+    assert await audit_ready.send_recovery_email(str(case.case_file_id)) is True
+    assert case.recovery_email_sent_at is not None and sends == ["recovery"]
+    # exactly once
+    assert await audit_ready.send_recovery_email(str(case.case_file_id)) is False
+    assert sends == ["recovery"]
+
+
+@pytest.mark.asyncio
+async def test_recovery_never_sends_for_a_still_broken_case_or_with_the_flag_off(monkeypatch):
+    broken = _Case(status="audit_incomplete", reason="system_error")
+    broken.recovery_email_sent_at = None
+    _patch_db(monkeypatch, broken, _User())
+    monkeypatch.setattr(audit_ready, "get_settings", lambda: type("S", (), {
+        "enable_audit_ready_email": True, "auth_success_redirect": "x"})())
+    monkeypatch.setattr(audit_ready, "send_product_email", _always(True))
+    assert await audit_ready.send_recovery_email(str(broken.case_file_id)) is False
+
+    done = _Case(status="audit_complete")
+    done.recovery_email_sent_at = None
+    _patch_db(monkeypatch, done, _User())
+    monkeypatch.setattr(audit_ready, "get_settings", lambda: type("S", (), {
+        "enable_audit_ready_email": False, "auth_success_redirect": "x"})())
+    assert await audit_ready.send_recovery_email(str(done.case_file_id)) is False
+
+
+def test_system_error_thread_key_follows_the_flag(monkeypatch):
+    """The §10.4 clause renders ONLY where the email actually sends — D3's pattern. Flag on →
+    his full string (with the promise, now true); flag off → the no-email variant."""
+    from app.agents import thread_bridge
+    from app.agents.context_loader import orchestration_step
+
+    full = orchestration_step("system_error")
+    trimmed = orchestration_step("system_error_no_email")
+    assert "email you" in full and "email you" not in trimmed
+    assert not trimmed.startswith("<MISSING-script:")
+    # Both keys are in the render-path manifest so a copy drop can't strand either state.
+    assert {"system_error", "system_error_no_email"} <= thread_bridge.RENDER_PATH_KEYS

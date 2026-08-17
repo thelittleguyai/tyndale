@@ -141,6 +141,13 @@ def _init_db() -> None:
                     "WHERE payload->>'marker' IS NOT NULL"
                 )
             )
+            # Recovery-email stamp (§10.4, migration 0040).
+            await conn.execute(
+                text(
+                    "ALTER TABLE case_files ADD COLUMN IF NOT EXISTS "
+                    "recovery_email_sent_at timestamptz"
+                )
+            )
             # Audit-ready email idempotency stamp (D3, migration 0038).
             await conn.execute(
                 text(

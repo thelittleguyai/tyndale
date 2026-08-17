@@ -298,6 +298,12 @@ Additional variables his strings use, not in the §0 dictionary (flagged for him
 <!-- §10.4 -->
 [A] "Something on my end hiccuped — that's on me, not you, and nothing you uploaded is lost. Give it another moment, or I'll email you the moment I've got it working again."
 
+## system_error_no_email
+<!-- UNMAPPED — §10.4 minus its email clause, rendered while enable_audit_ready_email is off
+     (where the promise would be false). Engineering seed derived from his §10.4; asks §3.9.
+     With the flag on, his full string renders and the recovery email actually sends. -->
+[A] "Something on my end hiccuped — that's on me, not you, and nothing you uploaded is lost. Give it another moment — I'm on it."
+
 ## crisis_care_first
 <!-- §10.5 (new key) — NOT WIRED: conflicts with CLAUDE.md's crisis doctrine (clean refusal, no
      resource routing). Registered so Brock's copy is on file; the crisis path still renders the

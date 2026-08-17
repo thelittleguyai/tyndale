@@ -75,6 +75,7 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "reconcile.explain", "reconcile.ask_one_input", "reconcile.last_resort",
         # the reveal + terminal states
         "three_number_reveal", "completion", "needs_documents_intro", "system_error",
+        "system_error_no_email",  # §10.4 minus the email clause, while the flag is off
         "record_post_audit_keep_doing",
         # chosen dynamically at the call site, so both branches must exist
         "handoff.pace", "handoff.generic_program",
@@ -454,7 +455,16 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await ensure("completion", "system_message", {"text": done, "tone": "neutral"}, done)
     elif status == "audit_incomplete":
         if case.audit_incomplete_reason == "system_error":
-            text = orchestration_step("system_error")
+            # §10.4's closing clause promises "I'll email you the moment I've got it working
+            # again." That email exists now (notify.send_recovery_email) but only sends where
+            # enable_audit_ready_email is on — so the clause renders ONLY there, D3-style: the
+            # no-email variant is the same message without the promise (eng seed, asks §3.9).
+            key = (
+                "system_error"
+                if get_settings().enable_audit_ready_email
+                else "system_error_no_email"
+            )
+            text = orchestration_step(key)
             await ensure("terminal:system_error", "system_message", {"text": text, "tone": "error"}, text)
         else:  # needs_documents (default)
             await _ensure_needs_documents(session, conv, case, ensure)

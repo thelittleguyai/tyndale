@@ -144,6 +144,20 @@ Both at +3d/+14d, email-only, one email per case per run (chase wins when both a
 > **Ask:** confirm the split, or tell us §11.5 was meant to cover the chase too — in which case
 > author the chase line and we'll swap it in.
 
+### 3.9 §10.4's email clause — now true, plus one seed to approve
+Your system_error line ends "…or I'll email you the moment I've got it working again." That
+email exists now: when a system_error case later completes, a recovery notice sends (same flag
+family as the audit-ready email — same promise class). Two things for you:
+
+1. **The recovery email body** (engineering-written, PHI-free like 3.7): subject "Back up and
+   running — your Tyndale review is ready", body "That hiccup on my end is fixed — your review
+   finished, and everything I found is waiting for you." + sign-in link. Author or approve.
+2. **The no-email variant** (`system_error_no_email`, eng seed): where the flag is off, your
+   full §10.4 would promise an email that never sends, so the thread renders your line minus
+   the clause: "…nothing you uploaded is lost. Give it another moment — I'm on it." Approve
+   the trim, or author your own no-email version.
+
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD

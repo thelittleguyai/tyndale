@@ -84,6 +84,70 @@ def should_send(status: str, incomplete_reason: str | None) -> bool:
     return status == "audit_incomplete" and incomplete_reason == _NEEDS_DOCS_REASON
 
 
+_SUBJECT_RECOVERED = "Back up and running — your Tyndale review is ready"
+
+
+def _recovery_bodies(app_url: str) -> tuple[str, str, str]:
+    """§10.4's promised notice — sent only when a system_error case genuinely completed.
+    PHI-free by construction, same as the audit-ready bodies: nothing case-specific."""
+    lead = (
+        "That hiccup on my end is fixed — your review finished, and everything I found is "
+        "waiting for you."
+    )
+    text = f"{lead}\n\nSign in to see it: {app_url}\n\n{FOOTER}\n"
+    html = (
+        f"<p>{lead}</p>"
+        f'<p><a href="{app_url}" '
+        'style="display:inline-block;background:#1F4E4A;color:#fff;padding:12px 20px;'
+        'border-radius:8px;text-decoration:none;font-weight:600">Open Tyndale</a></p>'
+        f'<p style="color:#667">{FOOTER}</p>'
+    )
+    return _SUBJECT_RECOVERED, text, html
+
+
+async def send_recovery_email(case_file_id: str) -> bool:
+    """§10.4 — the recovery notice, once, when a system_error case completes.
+
+    Same flag family as the audit-ready email (it is the same promise class: "I'll email you
+    when X"), same discipline: stamp only after the provider accepts, so a failed send
+    retries on the next recovery transition instead of being lost. The §10.4 string's email
+    clause renders ONLY while this flag is on — see the bridge's key selection.
+    """
+    settings = get_settings()
+    if not settings.enable_audit_ready_email:
+        return False
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        if case is None or case.recovery_email_sent_at is not None:
+            return False
+        if case.status != "audit_complete":
+            return False
+        user = (
+            await s.execute(select(User).where(User.user_id == case.user_id))
+        ).scalar_one_or_none()
+        email = (user.email or "").strip() if user else ""
+        if not email or (user is not None and (user.is_blocked or user.soft_deleted_at)):
+            return False
+
+    subject, text, html = _recovery_bodies(settings.auth_success_redirect)
+    sent = await send_product_email(email, subject, text, html, kind="recovery")
+    if not sent:
+        return False
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        if case is not None and case.recovery_email_sent_at is None:
+            case.recovery_email_sent_at = datetime.datetime.now(datetime.timezone.utc)
+            await s.commit()
+    log.info("notify.recovery.sent", case_file_id=case_file_id)
+    return True
+
+
 async def send_audit_ready_email(case_file_id: str) -> bool:
     """Send the audit-ready (or needs-documents) email for a case, once. Returns True if a
     message was accepted by SendGrid.

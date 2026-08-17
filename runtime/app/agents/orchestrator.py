@@ -71,11 +71,17 @@ async def _set_status(
     written (default None), so any non-incomplete transition (audit_running, audit_complete, a
     re-audit) clears a stale reason — only an audit_incomplete transition carries one."""
     user_id = None
+    was_system_error = False
     async with AsyncSessionLocal() as s:
         cf = (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
         if cf is not None:
+            # §10.4's promise trigger: remember whether this case was sitting in the
+            # system_error state BEFORE this transition overwrites it.
+            was_system_error = (
+                cf.status == "audit_incomplete" and cf.audit_incomplete_reason == "system_error"
+            )
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
             user_id = cf.user_id
@@ -104,6 +110,15 @@ async def _set_status(
             await send_audit_ready_email(case_file_id)
         except Exception as exc:  # noqa: BLE001
             log.warning("notify.audit_ready.failed", case_file_id=case_file_id, error=str(exc))
+    # §10.4 — "I'll email you the moment I've got it working again." True only if we send it:
+    # a case that sat in system_error and has now genuinely completed gets the recovery notice.
+    if was_system_error and status == "audit_complete":
+        try:
+            from app.notify.audit_ready import send_recovery_email
+
+            await send_recovery_email(case_file_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("notify.recovery.failed", case_file_id=case_file_id, error=str(exc))
 
 
 async def _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id) -> None:
