@@ -5,7 +5,8 @@ Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owni
 **Date:** 2026-08-11 · first pass 24 PASS / 21 FAIL / 22 N-A-YET →
 **after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
 **after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
-**after B4 + N1 + the audit-ready email (2026-08-12): 45 PASS · 4 FAIL · 0 DEFERRED · 2 PARTIAL · 21 N-A-YET**
+**after B4 + N1 + the audit-ready email (2026-08-12): 45 PASS · 4 FAIL · 0 DEFERRED · 2 PARTIAL · 21 N-A-YET** →
+**current (2026-08-17, recounted over all 74 rows after H6/G6 corrections): 63 PASS · 4 FAIL (A8 · F2 · F8 · G3 — every one Brock-owned) · 1 PARTIAL (C5, edge detection deliberately not built) · 6 N-A-YET (E6–E8, I1–I3 — all billing-dark)**
 
 Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
 awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
@@ -111,7 +112,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | G3 `[B]` with citation chip | **PARTIAL → FAIL** [unowned] | renderer enforces it and `citation` colour now exists, but **zero keys are tagged `[B]`** — his 4 `[B]` marks are dual `[A]/[B]` on §6.3/§12.1, which we render `[A]`. Needs his call |
 | G4 `[C]` no prediction | **PASS** | 5 `[C]` keys; load-time assert + forbidden-language test |
 | G5 close-the-loop | **PASS** | X1 contract in CI; §8.3 close line authored |
-| G6 +3d/+14d email | **PARTIAL → FAIL** [queued] | **PASS** (2026-08-17) — with a correction to this row's own earlier fix. Reading §11.5 showed his plus_3d/plus_14d are FOLLOW-THROUGH copy ("ready to make that first call"), not document-chase copy, so wiring them into the chase email — what this row previously prescribed — would have been wrong. The cron is now two nudges: the chase keeps its engineering body (it must name the missing document; email chrome per the magic-link precedent), and a new check-in nudge renders his §11.5 verbatim on its real premise (audit done + gameplan + nothing reported), +3d/+14d, email-only, deadline-aware ({deadline_date} from persisted rows only, degrading to the no-variable string when absent), suppressed once the user reports a call. Chase wins when both premises hold. Split flagged for Brock to confirm |
+| G6 +3d/+14d email | **PASS** (2026-08-17) | **PASS** (2026-08-17) — with a correction to this row's own earlier fix. Reading §11.5 showed his plus_3d/plus_14d are FOLLOW-THROUGH copy ("ready to make that first call"), not document-chase copy, so wiring them into the chase email — what this row previously prescribed — would have been wrong. The cron is now two nudges: the chase keeps its engineering body (it must name the missing document; email chrome per the magic-link precedent), and a new check-in nudge renders his §11.5 verbatim on its real premise (audit done + gameplan + nothing reported), +3d/+14d, email-only, deadline-aware ({deadline_date} from persisted rows only, degrading to the no-variable string when absent), suppressed once the user reports a call. Chase wins when both premises hold. Split flagged for Brock to confirm |
 
 ## H · Record, case page, resolution
 
