@@ -250,7 +250,7 @@ export default function SettingsScreen() {
           onPress={saveProfile}
           className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-sm font-bold text-on-accent">
+          <Text className="text-body font-bold text-on-accent">
             {savingProfile ? 'Saving…' : 'Save profile'}
           </Text>
         </PressableScale>
@@ -277,7 +277,7 @@ export default function SettingsScreen() {
 
       {/* 2. Improvement consent */}
       <Section title="Help us improve Tyndale">
-        <Text className="text-sm leading-6 text-secondary">
+        <Text className="text-body leading-6 text-secondary">
           Help make Tyndale better. With your permission, we’ll use your bills and your feedback
           — with all your personal information removed — to improve how Tyndale catches errors.
           This is optional, never affects the service you receive, and you can turn it off anytime.
@@ -340,7 +340,7 @@ export default function SettingsScreen() {
 
       {toast ? (
         <View className="mt-4 rounded-lg bg-accent-tint px-4 py-3">
-          <Text className="text-center text-sm font-semibold text-accent">{toast}</Text>
+          <Text className="text-center text-body font-semibold text-accent">{toast}</Text>
         </View>
       ) : null}
 
@@ -350,13 +350,13 @@ export default function SettingsScreen() {
           <View className="max-h-[80%] rounded-t-3xl bg-surface p-6">
             <Text className="mb-3 text-xl font-bold text-primary">Data Improvement Consent</Text>
             <ScrollView className="max-h-[60vh]">
-              <Text className="text-sm leading-6 text-secondary">{CONSENT_FULL_TEXT}</Text>
+              <Text className="text-body leading-6 text-secondary">{CONSENT_FULL_TEXT}</Text>
             </ScrollView>
             <PressableScale
               onPress={() => setConsentModal(false)}
               className="mt-4 rounded-xl bg-inset px-4 py-3 hover:bg-inset"
             >
-              <Text className="text-center text-sm font-semibold text-primary">Close</Text>
+              <Text className="text-center text-body font-semibold text-primary">Close</Text>
             </PressableScale>
           </View>
         </View>
@@ -367,7 +367,7 @@ export default function SettingsScreen() {
         <View className="flex-1 items-center justify-center bg-black/60 p-6">
           <View className="w-full max-w-md rounded-2xl bg-surface p-6">
             <Text className="text-xl font-bold text-primary">Delete account?</Text>
-            <Text className="mt-3 text-sm leading-6 text-secondary">
+            <Text className="mt-3 text-body leading-6 text-secondary">
               This removes your name, contact info, and insurance details from Tyndale and signs
               you out right away. De-identified examples we’ve already promoted to improve Tyndale
               stay in our improvement dataset because they no longer identify you.
@@ -378,14 +378,14 @@ export default function SettingsScreen() {
                 disabled={deleting}
                 className="flex-1 rounded-xl bg-inset px-4 py-3 hover:bg-inset"
               >
-                <Text className="text-center text-sm font-semibold text-primary">Cancel</Text>
+                <Text className="text-center text-body font-semibold text-primary">Cancel</Text>
               </PressableScale>
               <PressableScale
                 onPress={onDeleteAccount}
                 disabled={deleting}
                 className="flex-1 rounded-xl bg-danger px-4 py-3 hover:opacity-90"
               >
-                <Text className="text-center text-sm font-bold text-primary">
+                <Text className="text-center text-body font-bold text-primary">
                   {deleting ? 'Deleting…' : 'Delete my account'}
                 </Text>
               </PressableScale>
@@ -440,7 +440,7 @@ function BillingSection() {
         <Row label="Plan" value={billing.plan === 'yearly' ? 'Yearly ($100/yr)' : 'Monthly ($11.99/mo)'} />
       ) : (
         <>
-          <Text className="mb-3 text-sm leading-6 text-secondary">
+          <Text className="mb-3 text-body leading-6 text-secondary">
             You have {billing.free_analyses_remaining ?? 0} free bill{' '}
             {(billing.free_analyses_remaining ?? 0) === 1 ? 'analysis' : 'analyses'} left. Subscribe
             for unlimited checks.
@@ -450,13 +450,13 @@ function BillingSection() {
               onPress={() => subscribe('monthly')}
               className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             >
-              <Text className="text-sm font-bold text-on-accent">$11.99 / month</Text>
+              <Text className="text-body font-bold text-on-accent">$11.99 / month</Text>
             </PressableScale>
             <PressableScale
               onPress={() => subscribe('yearly')}
               className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-accent px-4 py-3 hover:bg-inset"
             >
-              <Text className="text-sm font-bold text-accent">$100 / year</Text>
+              <Text className="text-body font-bold text-accent">$100 / year</Text>
             </PressableScale>
           </View>
         </>
@@ -546,7 +546,7 @@ function LinkRow({
       onPress={onPress}
       className="mb-1 -mx-2 flex-row items-center justify-between rounded-lg px-2 py-1.5 hover:bg-inset"
     >
-      <Text className={tone === 'rose' ? 'text-sm text-danger' : 'text-sm text-primary'}>{label}</Text>
+      <Text className={tone === 'rose' ? 'text-body text-danger' : 'text-body text-primary'}>{label}</Text>
       <Text className="text-sm text-faint">›</Text>
     </PressableScale>
   );

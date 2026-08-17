@@ -41,7 +41,7 @@ export function ThumbsDownModal({
       <View className="flex-1 justify-end bg-black/50">
         <View className="rounded-t-3xl bg-surface p-6">
           <Text className="text-xl font-bold text-primary">What was wrong?</Text>
-          <Text className="mt-1 text-sm text-secondary">
+          <Text className="mt-1 text-body text-secondary">
             Your feedback helps Tyndale get better. (Optional)
           </Text>
 
@@ -73,16 +73,16 @@ export function ThumbsDownModal({
               placeholder="Tell us more (optional)"
               placeholderTextColor="rgba(255,255,255,0.35)"
               multiline
-              className="mt-4 min-h-[72px] rounded-lg border border-hairline bg-inset px-3 py-2 text-sm text-primary"
+              className="mt-4 min-h-[72px] rounded-lg border border-hairline bg-inset px-3 py-2 text-body text-primary"
             />
           </ScrollView>
 
           <View className="mt-5 flex-row gap-3">
             <Pressable onPress={skip} className="flex-1 rounded-xl bg-inset px-4 py-3">
-              <Text className="text-center text-sm font-semibold text-secondary">Skip</Text>
+              <Text className="text-center text-body font-semibold text-secondary">Skip</Text>
             </Pressable>
             <Pressable onPress={submit} className="flex-1 rounded-xl bg-accent px-4 py-3">
-              <Text className="text-center text-sm font-bold text-on-accent">Submit</Text>
+              <Text className="text-center text-body font-bold text-on-accent">Submit</Text>
             </Pressable>
           </View>
         </View>

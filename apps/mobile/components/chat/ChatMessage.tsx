@@ -31,13 +31,13 @@ function TierBlock({
     return (
       <View className="mt-2">
         <Text className="mb-1 text-[10px] text-faint">Recommendation</Text>
-        <Text className="text-sm italic leading-6 text-secondary">{chunk.text}</Text>
+        <Text className="text-body italic leading-6 text-secondary">{chunk.text}</Text>
       </View>
     );
   }
   return (
     <View className="mt-2">
-      <Text className="text-sm leading-6 text-primary">{chunk.text}</Text>
+      <Text className="text-body leading-6 text-primary">{chunk.text}</Text>
       {chunk.tier === 'B' && chunk.citations?.length ? (
         <View className="mt-1.5 flex-row flex-wrap gap-1.5">
           {chunk.citations.map((c, i) => (
@@ -64,7 +64,7 @@ export function ChatMessage({
     return (
       <View className="mb-3 items-end">
         <View className="max-w-[85%] rounded-2xl rounded-tr-sm bg-accent px-3.5 py-2.5">
-          <Text className="text-sm leading-5 text-on-accent">{message.content}</Text>
+          <Text className="text-body leading-6 text-on-accent">{message.content}</Text>
         </View>
       </View>
     );
@@ -90,7 +90,7 @@ export function ChatMessage({
         {chunks.length ? (
           chunks.map((ch, i) => <TierBlock key={i} chunk={ch} onCitation={onCitation} />)
         ) : (
-          <Text className="text-sm leading-6 text-primary">
+          <Text className="text-body leading-6 text-primary">
             {message.content || (message.status === 'streaming' ? '…' : '')}
           </Text>
         )}

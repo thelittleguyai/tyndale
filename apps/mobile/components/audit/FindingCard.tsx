@@ -109,7 +109,7 @@ export function FindingCard({
             What to do
           </Text>
           {recLines.main ? (
-            <Text className="text-sm leading-5 text-primary">{recLines.main}</Text>
+            <Text className="text-body leading-6 text-primary">{recLines.main}</Text>
           ) : null}
           {recLines.support ? (
             <Text className="mt-1 text-xs leading-4 text-secondary">{recLines.support}</Text>
@@ -123,7 +123,7 @@ export function FindingCard({
       ) : null}
 
       {typeof lc.claim === 'string' ? (
-        <Text className="mb-2 text-sm leading-5 text-primary">
+        <Text className="mb-2 text-body leading-6 text-primary">
           {lc.claim}
           {typeof lc.marker === 'string' ? (
             <Text className="text-xs text-faint"> {lc.marker}</Text>

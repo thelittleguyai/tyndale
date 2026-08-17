@@ -125,7 +125,7 @@ export default function EncounterVerificationScreen() {
               const ok = d.extraction_status === 'extracted' && d.ocr_text_chars > 0;
               return (
                 <View key={i} className="flex-row items-center justify-between py-1.5">
-                  <Text className="flex-1 pr-3 text-sm text-secondary" numberOfLines={1}>
+                  <Text className="flex-1 pr-3 text-body text-secondary" numberOfLines={1}>
                     {d.filename}
                   </Text>
                   <Text className={ok ? 'text-sm text-accent' : 'text-sm text-danger'}>

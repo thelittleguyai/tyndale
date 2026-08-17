@@ -105,12 +105,12 @@ export function WhyExpander({ text }: { text: string }) {
   return (
     <View className="mt-4">
       <Pressable onPress={() => setOpen((o) => !o)} className="self-start">
-        <Text className="text-sm font-semibold text-sage">
+        <Text className="text-body font-semibold text-sage">
           {open ? '− Why we need this' : '+ Why we need this'}
         </Text>
       </Pressable>
       {open ? (
-        <Text className="mt-2 text-sm leading-6 text-white/70">{text}</Text>
+        <Text className="mt-2 text-body leading-6 text-white/70">{text}</Text>
       ) : null}
     </View>
   );
@@ -173,7 +173,7 @@ export function UploadField({
   if (Platform.OS !== 'web') {
     return (
       <View className="rounded-2xl border border-white/10 bg-navy-soft p-5">
-        <Text className="text-sm text-white/80">
+        <Text className="text-body text-white/80">
           Open Tyndale on the web to add documents for now — the native picker + camera
           capture arrive with the iOS/Android app.
         </Text>
@@ -226,7 +226,7 @@ export function UploadField({
         )}
         <Text className="mt-1 text-xs text-white/50">PDF or image — pick one or several</Text>
       </Pressable>
-      {error ? <Text className="mt-2 text-sm text-rose">{error}</Text> : null}
+      {error ? <Text className="mt-2 text-body text-rose">{error}</Text> : null}
     </View>
   );
 }
@@ -295,7 +295,7 @@ export function WizardShell({
       {children}
       {example ? <ExampleImage label={example} /> : null}
       {why ? <WhyExpander text={why} /> : null}
-      {error ? <Text className="mt-3 text-sm text-rose">{error}</Text> : null}
+      {error ? <Text className="mt-3 text-body text-rose">{error}</Text> : null}
 
       {onContinue ? (
         <Pressable

@@ -45,7 +45,7 @@ function CallBeats({ step }: { step: GameplanStep }) {
         <View>
           <Text className="mb-1 text-xs text-warning">If they push back</Text>
           {s.if_they_push_back.map((line, i) => (
-            <Text key={i} className="text-sm leading-6 text-secondary">
+            <Text key={i} className="text-body leading-6 text-secondary">
               {line}
             </Text>
           ))}
@@ -59,7 +59,7 @@ function Beat({ label, body, accent }: { label: string; body: string; accent?: b
   return (
     <View>
       <Text className="mb-1 text-xs text-faint">{label}</Text>
-      <Text className={`text-sm leading-6 ${accent ? 'font-semibold text-accent' : 'text-primary'}`}>
+      <Text className={`text-body leading-6 ${accent ? 'font-semibold text-accent' : 'text-primary'}`}>
         {body}
       </Text>
     </View>
@@ -114,7 +114,7 @@ export function Gameplan({
   return (
     <View className="mb-6">
       <Text className="mb-1 mt-2 text-xs text-faint">Your game plan</Text>
-      <Text className="mb-3 text-sm leading-5 text-secondary">
+      <Text className="mb-3 text-body leading-6 text-secondary">
         Work the list top to bottom — the biggest-dollar call is first. Tap any step for exactly
         what to say.
       </Text>

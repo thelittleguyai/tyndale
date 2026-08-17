@@ -59,7 +59,7 @@ export default function ChatListScreen() {
 
           {!loading && items.length === 0 ? (
             <View className="mt-6 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
-              <Text className="text-sm leading-6 text-secondary">
+              <Text className="text-body leading-6 text-secondary">
                 Ask anything about medical billing. I can help with insurance terms, billing
                 codes, your rights, appeals processes, and more. For specific bill analysis,
                 upload your documents in a case file.
@@ -68,7 +68,7 @@ export default function ChatListScreen() {
                 onPress={start}
                 className="mt-4 min-h-[44px] justify-center self-start rounded-xl bg-accent px-4 py-2.5 hover:bg-accent"
               >
-                <Text className="text-sm font-bold text-on-accent">Start a conversation</Text>
+                <Text className="text-body font-bold text-on-accent">Start a conversation</Text>
               </PressableScale>
             </View>
           ) : null}
@@ -78,7 +78,7 @@ export default function ChatListScreen() {
               <PressableScale className="mb-2 flex-row items-center gap-3 rounded-xl border border-hairline bg-surface p-4 hover:border-hairline">
                 <MessageSquare size={16} color="var(--c-text-faint)" />
                 <View className="flex-1">
-                  <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
+                  <Text className="text-body font-semibold text-primary" numberOfLines={1}>
                     {c.title || 'Untitled conversation'}
                   </Text>
                   <Text className="text-xs text-faint">{c.message_count} messages</Text>

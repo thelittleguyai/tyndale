@@ -84,7 +84,7 @@ export default function SignInScreen() {
 
         {sent ? (
           <View className="w-full max-w-xs items-center">
-            <Text className="text-center text-sm leading-6 text-accent">
+            <Text className="text-center text-body leading-6 text-accent">
               Check your email — we sent a sign-in link to {email}.
             </Text>
             <Pressable
@@ -134,7 +134,7 @@ export default function SignInScreen() {
           </View>
         )}
 
-        {error ? <Text className="mt-5 text-sm text-danger">{error}</Text> : null}
+        {error ? <Text className="mt-5 text-body text-danger">{error}</Text> : null}
 
         <Text className="mt-10 max-w-xs text-center text-xs text-faint">
           Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial

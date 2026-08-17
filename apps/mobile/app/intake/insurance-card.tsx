@@ -93,19 +93,19 @@ export default function InsuranceCardStep() {
       ) : null}
 
       {docs.length ? (
-        <Text className="mt-3 text-sm text-accent">
+        <Text className="mt-3 text-body text-accent">
           Got it — {docs.length} image{docs.length === 1 ? '' : 's'} uploaded.
         </Text>
       ) : null}
 
       {confs.length ? (
         <View className="mt-4 rounded-2xl bg-warning-tint p-4">
-          <Text className="mb-2 text-sm font-semibold text-warning">
+          <Text className="mb-2 text-body font-semibold text-warning">
             A couple of these were a little blurry — can you double-check?
           </Text>
           {confs.map((c) => (
             <View key={c.field} className="mb-3">
-              <Text className="mb-1 text-sm text-secondary">{c.prompt}</Text>
+              <Text className="mb-1 text-body text-secondary">{c.prompt}</Text>
               <Field
                 label="Correct it if needed"
                 value={corrections[c.field] ?? ''}

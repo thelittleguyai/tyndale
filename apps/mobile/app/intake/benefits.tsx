@@ -94,7 +94,7 @@ export default function BenefitsStep() {
         />
       ) : null}
       {sbcUploaded ? (
-        <Text className="mb-3 mt-3 text-sm text-accent">Got it — I'll read your SBC.</Text>
+        <Text className="mb-3 mt-3 text-body text-accent">Got it — I'll read your SBC.</Text>
       ) : null}
 
       <Text className="mb-2 mt-4 text-xs text-faint">

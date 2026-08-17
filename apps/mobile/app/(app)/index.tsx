@@ -280,7 +280,7 @@ function OutcomeFollowupCard({
         </View>
         <Text className="text-base font-bold text-primary">Quick check-in: how did it go?</Text>
       </View>
-      <Text className="mb-4 text-sm leading-6 text-secondary">
+      <Text className="mb-4 text-body leading-6 text-secondary">
         {prompt.days_since_recommendation} days ago I helped you with {prompt.finding_summary}. Did
         it get resolved?
       </Text>
@@ -336,7 +336,7 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
         <CheckCircle2 size={18} color="var(--c-accent)" />
       </View>
       <View className="flex-1">
-        <Text className="text-sm font-bold text-primary">Finish setting up</Text>
+        <Text className="text-body font-bold text-primary">Finish setting up</Text>
         <Text className="mt-0.5 text-xs leading-5 text-secondary">
           Your intake is saved where you left off — a few more steps unlock your full
           dashboard.

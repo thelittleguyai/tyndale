@@ -170,7 +170,7 @@ export default function Onboarding() {
             }}
             className="min-h-[44px] flex-row items-center justify-between"
           >
-            <Text className="text-sm font-semibold text-accent">Review Terms of Service</Text>
+            <Text className="text-body font-semibold text-accent">Review Terms of Service</Text>
             <Text className="text-sm text-faint">{showTerms ? '▲' : '▼'}</Text>
           </Pressable>
           {showTerms ? (
@@ -188,14 +188,14 @@ export default function Onboarding() {
             >
               {terms ? <Text className="text-xs font-bold text-on-accent">✓</Text> : null}
             </View>
-            <Text className={`flex-1 text-sm ${reviewedTerms ? 'text-primary' : 'text-faint'}`}>
+            <Text className={`flex-1 text-body ${reviewedTerms ? 'text-primary' : 'text-faint'}`}>
               I agree to the Terms of Service and Privacy Policy.
               {reviewedTerms ? '' : ' (Review first)'}
             </Text>
           </Pressable>
         </View>
 
-        {error ? <Text className="mt-3 text-sm text-danger">{error}</Text> : null}
+        {error ? <Text className="mt-3 text-body text-danger">{error}</Text> : null}
 
         <Pressable
           disabled={!canContinue}

@@ -11,7 +11,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <View className="mb-3">
       <Text className="mb-0.5 text-[11px] text-faint">{label}</Text>
-      <Text className="text-sm text-primary">{value}</Text>
+      <Text className="text-body text-primary">{value}</Text>
     </View>
   );
 }

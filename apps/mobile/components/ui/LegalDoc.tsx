@@ -37,7 +37,7 @@ function Block({ block }: { block: LegalBlock }) {
   // callout — all-caps disclaimer / plain-language box
   return (
     <View className="mt-4 rounded-token-md border border-hairline bg-inset p-4">
-      <Text className="text-sm leading-relaxed text-secondary">{block.text}</Text>
+      <Text className="text-body leading-relaxed text-secondary">{block.text}</Text>
     </View>
   );
 }
@@ -47,7 +47,7 @@ export function LegalDocView({ doc, published }: { doc: LegalDoc; published: boo
     <View>
       {!published && (
         <View className="mb-6 rounded-token-md border border-warning bg-warning-tint p-4">
-          <Text className="text-sm font-semibold leading-relaxed text-warning">{DRAFT_BANNER_TEXT}</Text>
+          <Text className="text-body font-semibold leading-relaxed text-warning">{DRAFT_BANNER_TEXT}</Text>
         </View>
       )}
 
@@ -58,7 +58,7 @@ export function LegalDocView({ doc, published }: { doc: LegalDoc; published: boo
 
       {/* Advocacy-not-advice disclaimer, always shown up top. */}
       <View className="mt-4 rounded-token-md border border-hairline bg-accent-tint p-4">
-        <Text className="text-sm leading-relaxed text-secondary">{ADVOCACY_DISCLAIMER}</Text>
+        <Text className="text-body leading-relaxed text-secondary">{ADVOCACY_DISCLAIMER}</Text>
       </View>
 
       {doc.intro.map((block, i) => (

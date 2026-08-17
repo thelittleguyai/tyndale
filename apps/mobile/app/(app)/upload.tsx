@@ -279,8 +279,8 @@ export default function UploadScreen() {
         />
       </View>
 
-      {progress ? <Text className="mt-4 text-sm text-accent">{progress}</Text> : null}
-      {error ? <Text className="mt-4 text-sm text-danger">Upload failed: {error}</Text> : null}
+      {progress ? <Text className="mt-4 text-body text-accent">{progress}</Text> : null}
+      {error ? <Text className="mt-4 text-body text-danger">Upload failed: {error}</Text> : null}
 
       <Text className="mt-12 text-center text-xs text-faint">
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial

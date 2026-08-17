@@ -53,7 +53,7 @@ export default function CompleteStep() {
           {summary.captured.map((c, i) => (
             <View key={i} className="mb-1 flex-row gap-2">
               <Text className="text-accent">✓</Text>
-              <Text className="flex-1 text-sm leading-5 text-secondary">{c}</Text>
+              <Text className="flex-1 text-body leading-6 text-secondary">{c}</Text>
             </View>
           ))}
         </View>
@@ -67,7 +67,7 @@ export default function CompleteStep() {
           {summary.missing_items.map((m, i) => (
             <View key={i} className="mb-1 flex-row gap-2">
               <Text className="text-warning">+</Text>
-              <Text className="flex-1 text-sm leading-5 text-secondary">{m}</Text>
+              <Text className="flex-1 text-body leading-6 text-secondary">{m}</Text>
             </View>
           ))}
         </View>

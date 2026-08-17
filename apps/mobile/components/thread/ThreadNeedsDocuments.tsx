@@ -36,7 +36,7 @@ export function ThreadNeedsDocuments({
             </Text>
           </View>
           {d.have ? null : (
-            <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>
+            <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>
           )}
         </View>
       ))}

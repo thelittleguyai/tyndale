@@ -58,7 +58,7 @@ export function AuditProgress({ status }: { status: string }) {
   return (
     <View className="w-full max-w-2xl self-center px-6">
       <Text className="mb-1 text-xl font-bold text-primary">Checking your bill</Text>
-      <Text className="mb-6 text-sm text-faint">This usually takes a minute or two.</Text>
+      <Text className="mb-6 text-body text-faint">This usually takes a minute or two.</Text>
 
       <View className="rounded-2xl border border-hairline bg-surface p-5">
         {STAGES.map((label, i) => {
@@ -83,10 +83,10 @@ export function AuditProgress({ status }: { status: string }) {
               <Text
                 className={
                   done
-                    ? 'text-sm text-secondary'
+                    ? 'text-body text-secondary'
                     : active
-                      ? 'text-sm font-semibold text-primary'
-                      : 'text-sm text-faint'
+                      ? 'text-body font-semibold text-primary'
+                      : 'text-body text-faint'
                 }
               >
                 {label}

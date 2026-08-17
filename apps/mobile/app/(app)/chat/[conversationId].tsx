@@ -41,7 +41,7 @@ export default function ConversationScreen() {
 function FreeformEmpty() {
   return (
     <View className="px-2 py-10">
-      <Text className="text-center text-sm leading-6 text-faint">
+      <Text className="text-center text-body leading-6 text-faint">
         Ask anything about medical billing — insurance terms, billing codes, your rights,
         appeals. For a specific bill, upload your documents to open a case.
       </Text>

@@ -149,7 +149,7 @@ export default function AuditResultScreen() {
         <Text className="mb-2 text-center text-base font-semibold text-primary">
           This is taking longer than expected
         </Text>
-        <Text className="text-center text-sm text-secondary">
+        <Text className="text-center text-body text-secondary">
           Your audit is still running. Check back in a few minutes — we&apos;ll have your results
           ready.
         </Text>
@@ -276,7 +276,7 @@ export default function AuditResultScreen() {
             <Text className="mb-2 mt-2 text-xs text-faint">
               What we found
             </Text>
-            <Text className="mb-3 text-sm leading-5 text-secondary">
+            <Text className="mb-3 text-body leading-6 text-secondary">
               Most billing issues like these are fixable with a phone call or a short letter —
               Tyndale will guide you.
             </Text>
@@ -340,14 +340,14 @@ function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
           onPress={() => answer(true)}
           className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
         >
-          <Text className="text-sm font-bold text-on-accent">Yes, that&apos;s all of them</Text>
+          <Text className="text-body font-bold text-on-accent">Yes, that&apos;s all of them</Text>
         </Pressable>
         <Pressable
           disabled={busy}
           onPress={() => answer(false)}
           className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
         >
-          <Text className="text-sm font-semibold text-secondary">I have more</Text>
+          <Text className="text-body font-semibold text-secondary">I have more</Text>
         </Pressable>
       </View>
     </View>
@@ -372,8 +372,8 @@ function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
   );
   return (
     <View className="mb-6 rounded-2xl border border-warning bg-warning-tint p-5">
-      <Text className="mb-1 text-sm font-bold text-warning">One thing would sharpen this</Text>
-      <Text className="text-sm leading-6 text-secondary">
+      <Text className="mb-1 text-body font-bold text-warning">One thing would sharpen this</Text>
+      <Text className="text-body leading-6 text-secondary">
         A few plan details were missing, so these numbers are an estimated range. To pin them
         down, find {docs.join(' and ')} and add it — I&apos;ll rerun the math with the real
         figures.
@@ -424,7 +424,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
                   </Text>
                 </View>
                 {d.have ? null : (
-                  <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>
+                  <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>
                 )}
               </View>
             ))}
@@ -445,7 +445,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
             <Text className="mb-2 mt-2 text-xs text-faint">
               What we&rsquo;ve found so far
             </Text>
-            <Text className="mb-3 text-sm leading-5 text-secondary">
+            <Text className="mb-3 text-body leading-6 text-secondary">
               These are worth acting on now — Tyndale will guide you.
             </Text>
             {result.findings.map((f) => (
@@ -539,7 +539,7 @@ function ThreeNumberRow({
         : 'text-xl font-semibold text-primary';
   return (
     <View className={`${last ? '' : 'mb-3 '}flex-row items-baseline justify-between`}>
-      <Text className={dim ? 'flex-1 pr-3 text-sm text-faint' : 'flex-1 pr-3 text-sm text-secondary'}>
+      <Text className={dim ? 'flex-1 pr-3 text-body text-faint' : 'flex-1 pr-3 text-body text-secondary'}>
         {label}
       </Text>
       <Text className={valueClass}>

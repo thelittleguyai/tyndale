@@ -61,11 +61,11 @@ export function UnlockMoment({ payload }: { payload: UnlockMomentPayload }) {
         {payload.value_points.map((p, i) => (
           <View key={i} className="flex-row items-start gap-2">
             <Text className="text-accent">✓</Text>
-            <Text className="flex-1 text-sm leading-6 text-secondary">{p}</Text>
+            <Text className="flex-1 text-body leading-6 text-secondary">{p}</Text>
           </View>
         ))}
       </View>
-      <Text className="text-center text-sm font-semibold text-primary">{payload.footnote}</Text>
+      <Text className="text-center text-body font-semibold text-primary">{payload.footnote}</Text>
     </View>
   );
 }

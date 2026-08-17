@@ -126,7 +126,7 @@ export function CardUpload({
   if (Platform.OS !== 'web') {
     return (
       <View className="rounded-2xl border border-white/10 bg-navy-soft p-4">
-        <Text className="text-sm text-white/80">
+        <Text className="text-body text-white/80">
           Open Tyndale on the web to add your card photo — the native camera arrives with the
           iOS / Android app.
         </Text>
@@ -205,7 +205,7 @@ export function CardUpload({
           className="mb-2 min-h-[44px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4"
           testID={`card-capture-${side}`}
         >
-          <Text className="text-sm font-semibold text-on-accent">
+          <Text className="text-body font-semibold text-on-accent">
             Take a photo of the {side}
           </Text>
         </Pressable>
@@ -217,7 +217,7 @@ export function CardUpload({
         {state === 'uploading' ? (
           <ActivityIndicator color={c.accent} />
         ) : (
-          <Text className="text-sm font-semibold text-white">
+          <Text className="text-body font-semibold text-white">
             {state === 'done'
               ? `✓ ${label} added`
               : cameraOffered

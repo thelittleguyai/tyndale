@@ -50,7 +50,7 @@ export default function BillsStep() {
         <UploadField caseId={caseId} label="Add your medical bill(s)" onUploaded={onUploaded} />
       ) : null}
       {count > 0 ? (
-        <Text className="mt-3 text-sm text-accent">
+        <Text className="mt-3 text-body text-accent">
           {count} bill{count === 1 ? '' : 's'} added — that's enough to run the analysis later.
         </Text>
       ) : null}

@@ -63,7 +63,7 @@ export default function PlanProposalScreen() {
           </View>
         ) : null}
 
-        {err ? <Text className="mb-3 text-sm text-danger">{err}</Text> : null}
+        {err ? <Text className="mb-3 text-body text-danger">{err}</Text> : null}
 
         <Pressable
           disabled={busy}

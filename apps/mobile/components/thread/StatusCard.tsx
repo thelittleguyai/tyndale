@@ -23,7 +23,7 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
         <View key={s.key} className="mb-3 last:mb-0">
           <View className="mb-1.5 flex-row items-center justify-between">
             <Text
-              className={`text-sm ${s.state === 'pending' ? 'text-faint' : 'text-primary'}`}
+              className={`text-body ${s.state === 'pending' ? 'text-faint' : 'text-primary'}`}
             >
               {s.label}
             </Text>

@@ -44,7 +44,7 @@ export default function CaseSummaryScreen() {
         <Text className="mb-2 text-center text-base font-semibold text-primary">
           This case isn&rsquo;t available
         </Text>
-        <Text className="mb-5 text-center text-sm text-secondary">
+        <Text className="mb-5 text-center text-body text-secondary">
           We couldn&rsquo;t load this summary. It may have been removed, or the Record view isn&rsquo;t
           enabled for your account yet.
         </Text>
@@ -109,7 +109,7 @@ export default function CaseSummaryScreen() {
             <Text className="text-base font-semibold text-primary">
               We&rsquo;re not done computing your numbers yet
             </Text>
-            <Text className="mt-1 text-sm leading-6 text-secondary">
+            <Text className="mt-1 text-body leading-6 text-secondary">
               {openNeeded > 0
                 ? 'To finish and lock in what you should owe, we need the documents below.'
                 : 'This case is still in progress — check the chat for the latest.'}
@@ -141,7 +141,7 @@ export default function CaseSummaryScreen() {
                     {d.label}
                   </Text>
                 </View>
-                {d.have ? null : <Text className="ml-6 text-sm leading-6 text-secondary">{d.how_to_get}</Text>}
+                {d.have ? null : <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>}
               </View>
             ))}
             <Pressable
@@ -183,9 +183,9 @@ export default function CaseSummaryScreen() {
                     <Text className="text-sm font-semibold text-accent">up to {money(f.dollar_impact)}</Text>
                   ) : null}
                 </View>
-                {f.claim ? <Text className="text-sm leading-6 text-secondary">{f.claim}</Text> : null}
+                {f.claim ? <Text className="text-body leading-6 text-secondary">{f.claim}</Text> : null}
                 {f.recommendation ? (
-                  <Text className="mt-2 text-sm leading-6 text-secondary">
+                  <Text className="mt-2 text-body leading-6 text-secondary">
                     <Text className="text-faint">What to do: </Text>
                     {displayEnum(f.recommendation)}
                   </Text>
@@ -199,7 +199,7 @@ export default function CaseSummaryScreen() {
         {summary.next_check_in_date ? (
           <View className="mb-6 flex-row items-center gap-2 rounded-2xl border border-hairline bg-surface p-4">
             <CalendarClock size={16} color="var(--c-text-secondary)" />
-            <Text className="text-sm text-secondary">
+            <Text className="text-body text-secondary">
               Next check-in <Text className="font-semibold text-primary">{summary.next_check_in_date}</Text> —
               I&rsquo;ll nudge you if there&rsquo;s no update.
             </Text>
