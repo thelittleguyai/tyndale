@@ -37,8 +37,12 @@ class AnalyticsEvent(Base):
     occurred_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+    # Nullable as of migration 0041 for EXACTLY ONE registered event: the unauthenticated
+    # statutory access-request intake (access_request_received). The emit layer enforces the
+    # allowlist — any other event arriving without a user_id is dropped, so anonymity can't
+    # quietly spread to events whose funnels assume a user.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
     )
     case_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     # Validated against the per-event schema (enums/numbers/booleans only). Never free text.

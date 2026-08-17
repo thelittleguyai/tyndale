@@ -162,9 +162,53 @@ async def test_bad_request_type_is_rejected(client: AsyncClient):
     assert r.status_code == 422
 
 
-def test_access_request_event_is_registered_but_not_yet_live():
-    """Honest state: the intake is unauthenticated and analytics_events.user_id is NOT NULL,
-    so the name/schema are frozen now and emission waits on an anonymous path."""
+def test_access_request_event_is_live_with_the_frozen_schema():
+    """Flipped LIVE 2026-08-17: migration 0041 made user_id nullable and the emit layer
+    allowlists exactly this event for anonymity. The schema is unchanged from its frozen
+    registration — flipping live required no churn, which was the point of registering early."""
     spec = REGISTRY["access_request_received"]
-    assert spec.not_yet_live is True
+    assert spec.not_yet_live is False
     assert set(spec.props["request_type"].values) == {"access", "deletion", "correction"}
+
+
+# --- the anonymous analytics path (deep review item 5, 2026-08-17) -----------
+@pytest.mark.asyncio
+async def test_intake_emits_the_anonymous_event_with_a_null_user(client):
+    """access_request_received is LIVE: server-side emit at the intake, user_id NULL, the
+    request_type enum as the only property — the name/contact/details never leave the
+    encrypted audit envelope."""
+    from sqlalchemy import select
+
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.analytics_events import AnalyticsEvent
+
+    r = await client.post(
+        "/v1/access-request",
+        json={"request_type": "deletion", "patient_name": "Jordan Q. Testpatient",
+              "contact": "jordan@example.test"},
+    )
+    assert r.status_code == 200
+    async with AsyncSessionLocal() as s:
+        rows = (
+            await s.execute(
+                select(AnalyticsEvent)
+                .where(AnalyticsEvent.event_name == "access_request_received")
+                .order_by(AnalyticsEvent.occurred_at.desc())
+                .limit(1)
+            )
+        ).scalars().all()
+    assert rows, "the intake wrote no analytics event"
+    assert rows[0].user_id is None
+    assert rows[0].properties == {"request_type": "deletion"}
+
+
+@pytest.mark.asyncio
+async def test_anonymity_is_a_property_of_one_event_not_an_option():
+    """Any OTHER event arriving without a user is dropped and counted — the null-user door
+    opens for exactly the statutory intake."""
+    from app.analytics.emit import ANONYMOUS_EVENTS, emit, get_drop_counts
+
+    assert ANONYMOUS_EVENTS == {"access_request_received"}
+    before = get_drop_counts().get("anonymous_not_allowed", 0)
+    assert await emit("upload_started", user_id=None, properties={"file_count": 1}) is False
+    assert get_drop_counts().get("anonymous_not_allowed", 0) == before + 1

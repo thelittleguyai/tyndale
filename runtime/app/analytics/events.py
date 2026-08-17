@@ -145,11 +145,12 @@ REGISTRY: dict[str, EventSpec] = {
     # §A2 state 5 — external-program handoff + the access/deletion request intake stub.
     "program_handoff_shown": EventSpec({"program": enum_prop("pace", "other")}),
     # Registered now (name + schema frozen), emitted nowhere yet: the intake is deliberately
-    # UNAUTHENTICATED and analytics_events.user_id is NOT NULL, so an anonymous row has nowhere
-    # to land. The encrypted access_request audit event is the record until analytics grows an
-    # anonymous path — at which point this flips live with no schema churn.
+    # UNAUTHENTICATED by design — LIVE as of 2026-08-17 via the anonymous path (migration
+    # 0041 + emit's ANONYMOUS_EVENTS allowlist, which names exactly this event). Emitted
+    # server-side at the intake route; the request_type enum is the only property (PHI-free —
+    # never the name, contact, or details, which live only in the encrypted audit envelope).
     "access_request_received": EventSpec(
-        {"request_type": enum_prop("access", "deletion", "correction")}, not_yet_live=True
+        {"request_type": enum_prop("access", "deletion", "correction")}
     ),
     "refusal_event": EventSpec({"category": enum_prop(*_REFUSAL_CATEGORIES)}),
     "consent_opt_in": EventSpec(),

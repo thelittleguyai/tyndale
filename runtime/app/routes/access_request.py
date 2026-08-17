@@ -55,6 +55,11 @@ async def submit_access_request(
     # frozen, not_yet_live) and starts emitting when analytics grows an anonymous path; until
     # then the encrypted audit row above is the record of receipt.
     log.info("access_request.received", request_type=body.request_type)
+    # Server-side, anonymous (the intake has no user), PHI-free: the request_type enum only.
+    # Best-effort like every emit — a metrics failure never blocks a statutory right.
+    from app.analytics.emit import emit
+
+    await emit("access_request_received", user_id=None, properties={"request_type": body.request_type})
     return AccessRequestResult(received=True, message=orchestration_step("access_request.received"))
 
 

@@ -6,7 +6,8 @@ Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owni
 **after the conformance-fix session: 38 PASS · 7 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
 **after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
 **after B4 + N1 + the audit-ready email (2026-08-12): 45 PASS · 4 FAIL · 0 DEFERRED · 2 PARTIAL · 21 N-A-YET** →
-**current (2026-08-17, recounted over all 74 rows after H6/G6 corrections): 63 PASS · 4 FAIL (A8 · F2 · F8 · G3 — every one Brock-owned) · 1 PARTIAL (C5, edge detection deliberately not built) · 6 N-A-YET (E6–E8, I1–I3 — all billing-dark)**
+**current (2026-08-17, recounted over all 74 rows after H6/G6 corrections): 63 PASS · 4 FAIL (A8 · F2 · F8 · G3 — every one Brock-owned) · 1 PARTIAL (C5, edge detection deliberately not built) · 6 N-A-YET (E6–E8, I1–I3 — all billing-dark)** →
+**current (2026-08-17 evening, after A8 + delta application): 64 PASS · 3 FAIL (F2 · F8 · G3 — all Brock-owned) · 1 PARTIAL (C5) · 6 N-A-YET (billing-dark)**
 
 Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
 awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
@@ -28,7 +29,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | A5 deductible/OOP amber | **PASS** | `amber.DEFAULT #E08A3C` + `amber.deep` used for deductible figures |
 | A6 citation blue `#2C6E8F` | **PASS** (as of this session) | `colors.citation` added — required by `[B]` chip rendering |
 | A7 cream bg `#FAF7F0` | **PASS** (2026-08-11) | adopted; `brand.cream` |
-| A8 body ≥16px, lh 1.5 | **FAIL** [unowned] | **CORRECTION** — the earlier PASS read the MARKETING scale. Mobile body is **14px** (`type.body`). One-line change, deliberately not made blind: it reflows every screen and this session could run neither the mobile suite nor the app |
+| A8 body ≥16px, lh 1.5 | **PASS** (2026-08-17) | body 16/1.55 (token + tailwind mirror), plus the real work: 84 body-copy call sites promoted from raw text-sm, leading-5→6 on promoted lines, SystemLine's 15px arbitrary class fixed. Verified against the RUNNING app (local export) with before/after screenshots in docs/design/screenshots/ — the 'wants eyes on the app' condition this row set was met literally |
 | A9 contrast ≥4.5:1 | **PASS** (2026-08-11) | 25 pairs asserted ≥4.5:1 in BOTH modes (`test_design_token_guards.py`). Fixed en route: light text.faint 3.37→4.68, warning 3.48→4.88, danger 3.84→4.72, dark text.faint 3.50→5.08 |
 | A10 tap targets ≥44px | **PASS** | `min-h-[44px]` on Button/ListRow/Disclosure |
 | A11 reading level / underlines | **PASS** | no decorative underlines; copy now Brock-authored |

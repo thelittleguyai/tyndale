@@ -35,15 +35,25 @@ def get_drop_counts() -> dict[str, int]:
     return dict(DROP_COUNTER)
 
 
+# The ONLY events that may be written without a user — the unauthenticated statutory intake.
+# Everything else arriving with user_id=None is dropped and counted: anonymity is a property
+# of one named surface, not an option.
+ANONYMOUS_EVENTS: frozenset[str] = frozenset({"access_request_received"})
+
+
 async def emit(
     event_name: str,
     *,
-    user_id: uuid.UUID,
+    user_id: uuid.UUID | None,
     case_file_id: uuid.UUID | None = None,
     properties: dict | None = None,
     occurred_at: datetime.datetime | None = None,
 ) -> bool:
     """Validate + append one event. Returns True on write, False on any drop (never raises)."""
+    if user_id is None and event_name not in ANONYMOUS_EVENTS:
+        DROP_COUNTER["anonymous_not_allowed"] += 1
+        log.warning("analytics.emit.anonymous_not_allowed", event_name=event_name)
+        return False
     try:
         props = validate_event(event_name, properties)
     except EventValidationError as e:

@@ -141,6 +141,10 @@ def _init_db() -> None:
                     "WHERE payload->>'marker' IS NOT NULL"
                 )
             )
+            # Anonymous analytics path (migration 0041) — user_id nullable on a persisted DB.
+            await conn.execute(
+                text("ALTER TABLE analytics_events ALTER COLUMN user_id DROP NOT NULL")
+            )
             # Recovery-email stamp (§10.4, migration 0040).
             await conn.execute(
                 text(
