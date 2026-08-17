@@ -1,6 +1,6 @@
 {
   "name": "captured_bill_photo",
-  "description": "A PHOTOGRAPHED bill (JPEG, as camera capture emits) plus its EOB. N1/C1: a captured photo must reach extraction on exactly the same path as a picked PDF — same magic-byte gate, same classifier, same audit — so camera-first intake never becomes a weaker second door.",
+  "description": "A PHOTOGRAPHED bill (JPEG, as camera capture emits) plus its EOB. N1/C1: a captured photo must reach extraction on exactly the same path as a picked PDF — same magic-byte gate, same classifier, same audit — so camera-first intake never becomes a weaker second door. NOTE: 70551 deliberately, NOT 70553 — 70553 is a FIXTURE_MARKER (the leak tripwire), and the first dev sweep (2026-08-17) proved a scenario that uses a marker as legitimate data fails itself.",
   "documents": [
     {
       "type": "bill_photo",
@@ -9,8 +9,8 @@
       "service_date": "2026-04-08",
       "line_items": [
         {
-          "code": "70553",
-          "description": "MRI brain w/ and w/o contrast",
+          "code": "70551",
+          "description": "MRI brain w/o contrast",
           "charge": 2400,
           "units": 1
         }
@@ -23,7 +23,7 @@
       "service_date": "2026-04-08",
       "line_items": [
         {
-          "code": "70553",
+          "code": "70551",
           "billed": 2400,
           "allowed": 900,
           "plan_paid": 720,

@@ -71,9 +71,12 @@ def annotate_error_type(finding: Any) -> Any:
         "presentation": getattr(finding, "presentation", None),
     }
     had_explicit = bool(as_dict["error_type"])
-    error_type, sub_label = x5.derive_error_type(as_dict)
-    finding.error_type = error_type
-    finding.error_type_sub_label = sub_label
-    if error_type is not None:
-        finding.error_type_source = "upstream" if had_explicit else "derived_draft"
+    try:
+        error_type, sub_label = x5.derive_error_type(as_dict)
+        finding.error_type = error_type
+        finding.error_type_sub_label = sub_label
+        if error_type is not None:
+            finding.error_type_source = "upstream" if had_explicit else "derived_draft"
+    except Exception as exc:  # noqa: BLE001 — a finding the draft can't type must still render
+        log.warning("error_types.derivation_failed", error=str(exc))
     return finding

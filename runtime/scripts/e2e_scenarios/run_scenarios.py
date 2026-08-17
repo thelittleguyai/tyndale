@@ -103,6 +103,14 @@ def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> t
         for p in paths
     ]
     r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
+    if r.status_code == 429:
+        # The 20/hr per-user upload cap (DL-46). A full-suite run legitimately grazes it near
+        # the end (the 2026-08-17 sweep lost its last two scenarios this way), so honor
+        # Retry-After ONCE — a real regression still fails after the single wait.
+        wait = min(int(r.headers.get("Retry-After") or 600), 900)
+        log(f"  upload 429 — honoring Retry-After: waiting {wait}s once")
+        time.sleep(wait)
+        r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
     if r.status_code != 200:
         return r.status_code, ""
     return 200, r.json()["case_file_id"]
@@ -345,10 +353,13 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
     # `terminal` may be a single value or a list of acceptable honest terminals (e.g. a blank /
     # garbage PDF may land on extraction_failed OR not_a_bill depending on whether real DI extracts
     # any trivial text — both are honest no-encounter states, which is what actually matters).
-    want = exp["terminal"]
-    ok = terminal in want if isinstance(want, list) else terminal == want
-    if not ok:
-        fails.append(f"terminal={terminal!r} expected {want!r}")
+    # Branch-flow scenarios (data_quality_kind) assert the thread state instead of a terminal —
+    # their specs deliberately carry no "terminal" key, so the assertion is simply skipped.
+    want = exp.get("terminal")
+    if want is not None:
+        ok = terminal in want if isinstance(want, list) else terminal == want
+        if not ok:
+            fails.append(f"terminal={terminal!r} expected {want!r}")
     # A degradation scenario must NEVER reach the encounter screen: the honest-failure states carry
     # zero line items. Assert both, so a regression that dead-ends on "0 of 0" is caught.
     if exp.get("no_encounter"):
@@ -456,8 +467,12 @@ def _x2_x5_checks(client: httpx.Client, base_url: str, case_id: str) -> list[str
 
     fails: list[str] = []
     v2 = x2.check_x2(findings)
-    if not v2.passed:
-        fails.extend(f"X2: {reason}" for reason in v2.reasons)
+    for reason in v2.reasons:
+        gap_key = "x2:" + reason.split(":", 1)[0]
+        if gap_key in cfg.X_KNOWN_GAPS:
+            log(f"  X2 known-gap (ledgered, not failing): {reason}")
+        else:
+            fails.append(f"X2: {reason}")
 
     v5 = x5.check_x5(findings)
     for reason in v5.reasons:

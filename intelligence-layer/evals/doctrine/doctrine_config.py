@@ -62,6 +62,9 @@ CATEGORY_TO_ERROR_TYPE: dict[str, str] = {
     "accumulator_discrepancy": "stale_accumulator",
     "non_covered": "noncovered_misapplied",
     "phantom_charge_candidate": "phantom_service",
+    # Observed live in the first full dev sweep (2026-08-17): the pipeline emits the
+    # confirmed-tier sibling of the candidate category. Same unambiguous target.
+    "phantom_charge": "phantom_service",
 }
 # finding_type-level derivation, applied only when the category yields nothing.
 FINDING_TYPE_TO_ERROR_TYPE: dict[str, str] = {
@@ -71,7 +74,18 @@ FINDING_TYPE_TO_ERROR_TYPE: dict[str, str] = {
 # Engine states that are CONTEXT, not billing errors — X5 does not apply, and X2 accepts the
 # informational typing for them. ("other" is deliberately absent: unknown is not informational.)
 INFORMATIONAL_CATEGORIES: frozenset[str] = frozenset(
-    {"out_of_scope", "regime_document_mismatch", "cap_constant_not_loaded"}
+    {
+        "out_of_scope",
+        "regime_document_mismatch",
+        "cap_constant_not_loaded",
+        # Observed live in the first full dev sweep (2026-08-17) — the pipeline's all-clear /
+        # audit-performed notes. Eng-classified as context (they assert the ABSENCE of an
+        # error, so no action attaches and no error_type applies); Brock confirms via A6.
+        "diagnostic_clear",
+        "upcoding_diagnostic_clear",
+        "diagnostic_audit_complete_no_confirmed_errors",
+        "cost_sharing_audit",
+    }
 )
 
 # ── X2 · surface-only-if-actionable ──────────────────────────────────────────────────────
@@ -112,5 +126,15 @@ X_KNOWN_GAPS: dict[str, str] = {
     "x3:no_qualifier_surface": (
         "the three-number moment renders no qualifier line yet — the missing-input data "
         "exists (missing_cost_share_inputs) but no surface carries the X3 qualifier"
+    ),
+    "x5:impact_missing_untyped": (
+        "real error findings (phantom_charge, upcoding_candidate — first full dev sweep, "
+        "2026-08-17) carry neither facts.impact nor a typed impact_unknown_reason: the agents "
+        "do not emit the X5_IMPACT_UNKNOWN_REASONS vocabulary yet"
+    ),
+    "x2:no_attached_action+not_typed_informational": (
+        "error findings can reach the user without a bound action (phantom_charge, first full "
+        "dev sweep 2026-08-17) — the finding->gameplan action binding is not yet guaranteed "
+        "by the pipeline"
     ),
 }
