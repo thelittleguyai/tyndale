@@ -142,8 +142,14 @@ def test_nudge_cadence_real_machinery_eligibility():
         ("x5_error_finding_shape", "check_x5", "X5Verdict"),
     ],
 )
-def test_stub_checkers_exist_and_refuse_to_silently_pass(module: str, func: str, verdict_cls: str):
+def test_checkers_exist_with_the_frozen_contract_shape(module: str, func: str, verdict_cls: str):
+    """Until 2026-08-17 these were stubs asserted to RAISE, so nothing could silently pass a
+    rule we couldn't check. They are now implemented (from 37_x_rules_contracts_DRAFT.md,
+    constants in doctrine_config pending Brock's A6 sign-off); this pins the frozen shape —
+    Verdict class exported, empty input is an explicit noted vacuous pass, never a raise.
+    Their teeth live in test_x2x3x5_contracts.py."""
+    import doctrine_config  # noqa: F401 — registered by _load-order in the sibling test file
     mod = _load(module)
     assert hasattr(mod, verdict_cls), f"{module} must export {verdict_cls} (frozen contract shape)"
-    with pytest.raises(NotImplementedError):
-        getattr(mod, func)([])
+    verdict = getattr(mod, func)([])
+    assert verdict.passed and verdict.notes, "empty input must be a NOTED vacuous pass"

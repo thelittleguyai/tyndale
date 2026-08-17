@@ -758,9 +758,12 @@ def _detected_doc_type(documents) -> str | None:
 
 def _with_source_line(f: FindingOut) -> FindingOut:
     """E4/H3 — stamp the grounding line onto every finding the API returns, so a client cannot
-    render a claim without either its source or the explicit no-source state."""
+    render a claim without either its source or the explicit no-source state. Also the X5
+    error_type annotation seam (same one-chokepoint reasoning; see sources/error_types)."""
     f.source_line, f.has_source = finding_source_line(f)
-    return f
+    from app.sources.error_types import annotate_error_type
+
+    return annotate_error_type(f)
 
 
 def not_a_bill_message(filenames: list[str], documents=None) -> str:

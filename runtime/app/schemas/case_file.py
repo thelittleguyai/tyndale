@@ -40,6 +40,16 @@ class FindingOut(BaseModel):
     # therefore cannot render a bare claim even by omission.
     source_line: str = ""
     has_source: bool = False
+    # X5 — the typed error taxonomy (DRAFT pending Brock, packet A6). Derived at the read seam
+    # from doctrine_config's unambiguous category maps when upstream didn't assert one; the
+    # escape hatch carries the category as its sub-label. None on informational findings.
+    # error_type_source says which: "upstream" (asserted) vs "derived_draft" (our mapping).
+    error_type: str | None = None
+    error_type_sub_label: str | None = None
+    error_type_source: str | None = None
+    # X2 — explicit informational typing; upstream doesn't write it yet (the informational
+    # CATEGORIES stand in per doctrine_config), but the field exists so it can.
+    presentation: str | None = None
 
 
 class AuditProvenance(BaseModel):

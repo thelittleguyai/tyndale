@@ -420,6 +420,55 @@ def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: 
     return fails
 
 
+def _load_doctrine(name: str):
+    """Load a doctrine checker from intelligence-layer by file path (the X1 pattern —
+    stdlib-only modules, registered in sys.modules so sibling imports resolve)."""
+    import importlib.util
+    import sys as _sys
+
+    root = pathlib.Path(__file__).resolve().parents[3] / "intelligence-layer" / "evals" / "doctrine"
+    for mod_name in ("doctrine_config", name):
+        if mod_name in _sys.modules:
+            continue
+        spec = importlib.util.spec_from_file_location(mod_name, root / f"{mod_name}.py")
+        mod = importlib.util.module_from_spec(spec)
+        _sys.modules[mod_name] = mod
+        spec.loader.exec_module(mod)
+    return _sys.modules[name]
+
+
+def _x2_x5_checks(client: httpx.Client, base_url: str, case_id: str) -> list[str]:
+    """X2 + X5 over the case's real findings (X3 runs where figures exist; see _x3_checks).
+
+    Known structural gaps (doctrine_config.X_KNOWN_GAPS) demote their named reasons to notes —
+    the debt is visible in the run output, not silently passed, and deleting the ledger entry
+    turns enforcement on. Any reason OUTSIDE the ledger fails the scenario.
+    """
+    r = client.get(f"{base_url}/v1/audit/{case_id}", timeout=60)
+    if r.status_code != 200:
+        return []  # non-audit terminals have no findings to check
+    findings = [f for f in (r.json().get("findings") or [])]
+    if not findings:
+        return []
+    x2 = _load_doctrine("x2_finding_action")
+    x5 = _load_doctrine("x5_error_finding_shape")
+    cfg = __import__("doctrine_config")
+
+    fails: list[str] = []
+    v2 = x2.check_x2(findings)
+    if not v2.passed:
+        fails.extend(f"X2: {reason}" for reason in v2.reasons)
+
+    v5 = x5.check_x5(findings)
+    for reason in v5.reasons:
+        gap_key = "x5:" + reason.split(":", 1)[0]
+        if gap_key in cfg.X_KNOWN_GAPS:
+            log(f"  X5 known-gap (ledgered, not failing): {reason}")
+        else:
+            fails.append(f"X5: {reason}")
+    return fails
+
+
 # Which generated document types actually PRINT each identifier (see generate_docs.py). An MSN
 # is payer-issued but carries no claim number, so it isn't listed — the harness asserts what the
 # fixtures contain, not what the type could theoretically hold.
@@ -568,6 +617,8 @@ def run_scenario(
         if record and case_id:
             fails = fails + _record_checks(client, base_url, case_id, terminal)
             fails = fails + _call_identifier_checks(client, base_url, case_id, scenario)
+        if case_id and terminal == "audit_complete":
+            fails = fails + _x2_x5_checks(client, base_url, case_id)
         return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
                 "pass": not fails, "fails": fails}
     except Exception as e:  # noqa: BLE001 — one scenario's failure never aborts the suite
