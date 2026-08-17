@@ -57,7 +57,12 @@ export function MetricCard({
   return (
     <Card className="flex-1">
       <Text className="text-caption text-secondary">{label}</Text>
-      <Text className={`mt-1 text-[22px] font-medium leading-7 ${numberClass}`}>
+      {/* N5 (round-2): stat prominence — numerals up a step, tabular; the honest
+          confirmed/estimated qualifiers stay exactly as they were. */}
+      <Text
+        className={`mt-1 text-[26px] font-semibold leading-8 ${numberClass}`}
+        style={{ fontVariant: ['tabular-nums'] }}
+      >
         {value}
         {sub ? <Text className="text-[13px] font-normal text-faint">{sub}</Text> : null}
       </Text>

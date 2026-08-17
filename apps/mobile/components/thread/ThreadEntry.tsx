@@ -25,11 +25,12 @@ import { ThreeNumberMoment, UnlockMoment } from './MomentCards';
 import { ThreadNeedsDocuments } from './ThreadNeedsDocuments';
 import { ThreadSuggestion } from './ThreadSuggestion';
 import { ThreadVerification } from './ThreadVerification';
+import { BranchCard, branchKindOf } from './BranchCard';
 
 function SystemLine({ text, tone }: { text: string; tone?: 'neutral' | 'error' }) {
   return (
     <View className={`my-2 w-full rounded-2xl p-4 ${tone === 'error' ? 'bg-danger-tint' : 'bg-surface-raised'}`}>
-      <Text className="text-[15px] leading-6 text-primary">{text}</Text>
+      <Text className="text-body leading-6 text-primary">{text}</Text>
     </View>
   );
 }
@@ -88,6 +89,21 @@ export function ThreadEntry({
       };
       if (p.needs_documents) {
         return <ThreadNeedsDocuments payload={p.needs_documents} caseFileId={caseFileId} />;
+      }
+      {
+        // N2 (round-2) — typed branch states get card presentation with an inline action.
+        // Detection is by the payload's TYPED keys (data_quality.kind / wrongdoc_branch /
+        // branch_state), never by sniffing the copy.
+        const branch = branchKindOf(payload);
+        if (branch) {
+          return (
+            <BranchCard
+              kind={branch}
+              text={(p.text ?? message.content ?? '') as string}
+              caseFileId={caseFileId}
+            />
+          );
+        }
       }
       return <SystemLine text={p.text ?? message.content ?? ''} tone={p.tone} />;
     }

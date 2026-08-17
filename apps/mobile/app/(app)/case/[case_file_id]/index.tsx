@@ -298,7 +298,11 @@ function Tally({
   return (
     <View className="flex-1 rounded-2xl border border-hairline bg-surface p-4">
       <Text className="text-xs text-faint">{label}</Text>
-      <Text className={`mt-0.5 text-xl font-bold ${tone === 'sage' ? 'text-accent' : 'text-primary'}`}>
+      {/* L6 (round-2): prominent stat tiles — numerals up a step, tabular. */}
+      <Text
+        className={`mt-0.5 text-[26px] font-bold leading-8 ${tone === 'sage' ? 'text-accent' : 'text-primary'}`}
+        style={{ fontVariant: ['tabular-nums'] }}
+      >
         {value}
       </Text>
       <Text className="text-[10px] text-faint">{hint}</Text>

@@ -536,7 +536,10 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
     )
     if plan.ask_input:
         ask = orchestration_step("reconcile.ask_one_input", doc_needed=plan.ask_input)
-        await ensure("reconcile_ask", "system_message", {"text": ask, "tone": "neutral"}, ask)
+        await ensure(
+            "reconcile_ask", "system_message",
+            {"text": ask, "tone": "neutral", "branch_state": "reconcile"}, ask,
+        )
     if plan.last_resort:
         last = orchestration_step(
             "reconcile.last_resort",
@@ -544,7 +547,10 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
             provider=case.provider_name,
             payer=_payer_of(case),
         )
-        await ensure("reconcile_last", "system_message", {"text": last, "tone": "neutral"}, last)
+        await ensure(
+            "reconcile_last", "system_message",
+            {"text": last, "tone": "neutral", "branch_state": "reconcile"}, last,
+        )
 
 
 async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
@@ -566,9 +572,13 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     # renders the three numbers with no callout rather than "$0.00 less".
     from app.agents.grounding import gap_callout
 
+    # L2 (round-2) — the service-context line: provider · payer from TYPED fields only.
+    # Parts we don't know are dropped; both unknown -> no key, and the card renders no line.
+    context = " · ".join(x for x in (case.provider_name, _payer_of(case)) if x)
     await ensure(
         "moment:three_number", "moment_card",
-        {"variant": "three_number", "provider_billed": a.provider_billed,
+        {"variant": "three_number", **({"context": context} if context else {}),
+         "provider_billed": a.provider_billed,
          "eob_member_responsibility": a.eob_member_responsibility,
          "tyndale_computed": a.tyndale_computed, "delta": delta, "headline": headline,
          "gap_callout": gap_callout(a.eob_member_responsibility, a.tyndale_computed)},

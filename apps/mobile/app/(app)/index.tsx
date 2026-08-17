@@ -158,6 +158,13 @@ export default function DashboardScreen() {
           <FinishSetupCard currentStep={data.intake_current_step} />
         ) : null}
 
+        {/* B5 (round-2) — the check-in leads the screen: "how did the call go?" is the first
+            thing a returning user with an open loop sees, above the metrics. The advocate asks
+            about YOUR fight before showing its dashboards. */}
+        {(data?.outcome_prompts ?? []).length > 0 ? (
+          <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
+        ) : null}
+
         {/* Four uniform MetricCards (redesign §3) — recovered / identified / deductible / OOP. */}
         <CoverageMetrics
           recovered={record?.aggregates.total_recovered ?? data?.amount_saved_ytd ?? 0}
@@ -209,9 +216,6 @@ export default function DashboardScreen() {
           <ActiveCasesSection cases={data!.active_cases} onChanged={load} />
         ) : null}
 
-        {(data?.outcome_prompts ?? []).length > 0 ? (
-          <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
-        ) : null}
 
         {error ? (
           <Text className="mt-4 text-xs text-danger">Dashboard fetch error: {error}</Text>

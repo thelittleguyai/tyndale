@@ -15,6 +15,7 @@
  * background) and navigate to the results screen, which polls until complete.
  */
 
+import { Check, CircleHelp, X as XIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -332,6 +333,10 @@ function OptionButton({
   const textCls =
     variant === 'primary' ? 'text-on-accent' : variant === 'tertiary' ? 'text-secondary' : 'text-primary';
   const grow = variant === 'tertiary' ? 'self-stretch' : 'flex-1';
+  // L5 (round-2) — an icon beside each label so the three answers scan without reading.
+  const iconColor =
+    variant === 'primary' ? 'var(--c-on-accent)' : variant === 'tertiary' ? 'var(--c-text-secondary)' : 'var(--c-text-primary)';
+  const Icon = variant === 'primary' ? Check : variant === 'secondary' ? XIcon : CircleHelp;
   return (
     <Pressable
       onPress={onPress}
@@ -341,8 +346,9 @@ function OptionButton({
         answered && !selected ? 'opacity-45' : ''
       }`}
     >
-      {selected ? <Text className={`text-caption ${textCls}`}>✓</Text> : null}
+      <Icon size={14} color={iconColor} />
       <Text className={`text-center text-caption font-medium ${textCls}`}>{label}</Text>
+      {selected ? <Text className={`text-caption ${textCls}`}>✓</Text> : null}
     </Pressable>
   );
 }

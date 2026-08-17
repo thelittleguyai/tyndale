@@ -2,8 +2,8 @@
 
 **What this is:** a screen-by-screen diff between Brock's round-2 prototype
 (`docs/design/prototype-round2/`, reference only — never imported or built) and the shipped
-member app (`apps/mobile`). **Nothing here has been applied.** Phil + Brock veto rows; a
-later session applies what survives.
+member app (`apps/mobile`). **Status 2026-08-17: the 16 KEEP rows are applied** (see per-row notes); the 4 conflicts,
+N7 glass, N3, N6, N8, L4 and T5 stay HELD for Brock per the packet.
 
 **Method:** read the prototype component, read our counterpart, record each visible or
 behavioural difference. Sorted by classification, then by screen.
@@ -39,8 +39,8 @@ behavioural difference. Sorted by classification, then by screen.
 | B1 | Status card | Auto-advances the four stages on a timer (1.6s each), then fires `onComplete` | Stages fill on **real** case-state transitions; no timers, no percentages | Prototype behaviour is a demo affordance only. **Do not adopt** — D2/checklist forbids fabricated progress. Ours is correct; recorded so nobody "fixes" it later. |
 | B2 | Upload capture | Live capture shows an edge-detection frame + a "Looks readable" badge, then **Retake / Got it** | Capture state shipped; **badge deliberately not shipped** | **RESOLVED 2026-08-12 — badge dropped, warning kept.** The prototype's badge is unconditional, so it's a claim about a photo nobody checked. We now measure two things for real (longest edge vs the OCR floor; variance-of-Laplacian for focus) and surface them ONLY as a warning when one fails. There is no positive counterpart by design: sharpness is not readability — glare, a cut corner, a thumb over the total all pass and still fail OCR — and a "readable" badge contradicted downstream costs more than it buys. `assessCapture` has no field that could carry a pass, and a test asserts that. Brock's call is logged in the asks doc §3.6. |
 | B3 | Findings | Severity tag (`high`/`medium`/`neutral`) on every finding | We carry `finding_type` (payer/provider/encounter) and colour by that | Two different axes. Severity is a user-facing judgement we don't currently compute; adopting it means deciding what sets it. |
-| B4 | Action card | Per-step phone number + claim number, tap-to-dial | Neither is in our data model | Matches the H6 gap already logged in the conformance sweep. Needs extraction + storage before the UI is buildable. |
-| B5 | Dashboard | A "quick check-in" card surfaces **first** on login ("You were going to call Blue Shield — how did it go?") | Our outcome-followup card sits below the metrics | Reasonable and cheap to move, but it changes what the first screen is *for*. Worth Brock confirming the priority order. |
+| B4 | Action card | Per-step phone number + claim number, tap-to-dial | **DONE 2026-08-12** — typed claim/account/phone fields shipped (migration 0037); the pinned strip carries the party-correct reference and tap-to-dial uses typed numbers only | Closed by the B4 prerequisite session; L7/H6 both PASS in the sweep |
+| B5 | Dashboard | A "quick check-in" card surfaces **first** on login | **APPLIED 2026-08-17** — the outcome follow-up now leads the screen, above the metrics (Phil approved proceeding; Brock can still reorder with one move) |
 
 ---
 
@@ -49,10 +49,10 @@ behavioural difference. Sorted by classification, then by screen.
 | # | Screen | Pattern | Note |
 |---|---|---|---|
 | N1 | Upload | Camera capture with edge-detection framing + looks-good/retake | Checklist C1+C5. **BUILT 2026-08-12 (web).** Camera leads the upload screen, static guide frame, review → Use this photo / Retake, multi-page grouping into one document. Two deliberate departures: **no edge detection** (a static guide, not a tracker — an animated "locking on" overlay would be decoration pretending to be a capability) and **no "Looks readable" badge** (see B2). **Native is blocked on DL-44** — `expo-camera` can't be installed while `react-native-worklets` ERESOLVEs; `isCaptureSupported()` is the one seam to fill. |
-| N2 | Thread | `branch-cards`: five authored state cards — blurry/partial (B2), wrong document (B3), summary bill (B4), numbers-disagree (B5), honest-odds (B10) | **We already have all five behaviours server-side** (§5.1/§5.2/§5.3/§5.4/§10.2) — what's new is the prototype's *card* presentation with an inline action button ("Retake just line 4"). This is presentation over logic we've shipped, so it's cheaper than it looks. |
+| N2 | Thread | `branch-cards`: five authored state cards | **APPLIED (4 of 5) 2026-08-17** — BranchCard renders on the TYPED payload keys (data_quality.kind / wrongdoc_branch / branch_state) with a label chip + one inline action routed to the existing add-a-document path; reconcile is information so it gets no button. Honest-odds (§10.2) is NOT a thread entry today (it renders on the decline path), so its card waits for that plumbing rather than a fake |
 | N3 | Gameplan | `action-card`: numbered, collapsible step with a targets-$ badge and inline script | Ours is a step list + separate call mode. Merging them is a real restructure. |
-| N4 | Dashboard | Deductible/OOP **meters** (met vs total) | We show no accumulator progress on the dashboard. |
-| N5 | Dashboard | Analytics stat cards (recovered, cases, etc.) | We have metric cards; the prototype's are visually distinct and more prominent. Overlaps [token]/[layout] — listed here because the *content* set differs. |
+| N4 | Dashboard | Deductible/OOP **meters** (met vs total) | **CORRECTION — already built before this pass.** MetricCard has carried a met/total progress track since the redesign; "Not set" in screenshots is the honest no-data state, not a missing feature. Row was stale when written |
+| N5 | Dashboard | Analytics stat cards (recovered, cases, etc.) | **APPLIED (prominence) 2026-08-17** — numerals 26px semibold tabular; the confirmed/estimated split kept exactly as-is per the KEEP note |
 | N6 | Dashboard | Action tiles with hover/long-press **tooltips** | Our quick-action tiles have no tooltip layer. |
 | N7 | Global | `glass` / `AmbientAuras` / `GlassCard` — a glassmorphism + ambient-gradient visual language | This is the round-2 visual direction. It is **not** expressible in the current token system (it needs blur, layered translucency and gradient auras). Adopting it is a design-system decision, not a component change — probably the single biggest question in this document. |
 | N8 | Landing→app | `/estimate`, `/find-doctor`, `/plan-visit` surfaces | Post-core features with placeholder screens in our app. Prototype treats them as live. |
@@ -63,12 +63,12 @@ behavioural difference. Sorted by classification, then by screen.
 
 | # | Screen | Prototype | Ours |
 |---|---|---|---|
-| L1 | Status card | Header row ("Working on your audit" → "Audit ready") with spinner/check | We render the four bars without a state header |
-| L2 | Three numbers | Service context line above (`MRI of the left knee · provider · payer`) | We render three numbers without the service line |
-| L3 | Finding card | Title and impact on **one** row, impact right-aligned tabular | Title row + separate impact treatment |
+| L1 | Status card | Header row ("Working on your audit" → "Audit ready") with spinner/check | **APPLIED 2026-08-17** — the two prototype states only; a failed/incomplete terminal gets no header (the rows carry it) rather than copy nobody wrote |
+| L2 | Three numbers | Service context line above (`MRI of the left knee · provider · payer`) | **APPLIED (partial) 2026-08-17** — `provider · payer` from TYPED fields only, omitted when unknown. The service description ("MRI of the left knee") is NOT rendered: no typed field carries it and deriving it from line items would be a guess. Found+fixed en route: the E3 gap callout was in the payload but never rendered by the card |
+| L3 | Finding card | Title and impact on **one** row, impact right-aligned tabular | **APPLIED 2026-08-17** — sub-case findings list: shared row, right-aligned, tabular numerals |
 | L4 | Finding card | Severity tag + citation chip on one meta row under the body | Our source line sits under the claim; no severity tag |
-| L5 | Verification | Three large icon+label buttons in a row | Three buttons, no icons |
-| L6 | Case summary | Recovered/identified as prominent stat tiles | Ours are smaller paired tallies |
+| L5 | Verification | Three large icon+label buttons in a row | **APPLIED 2026-08-17** — check / x / question-mark icons on the shared LineItemCard buttons (thread + classic encounter both) |
+| L6 | Case summary | Recovered/identified as prominent stat tiles | **APPLIED 2026-08-17** — tally numerals up a step (26px, tabular); confirmed/estimated hints untouched |
 | L7 | Call mode | Pinned claim# + dollar strip | We pin the dollar only (no claim number — see B4/C-list) |
 
 ---
@@ -77,12 +77,12 @@ behavioural difference. Sorted by classification, then by screen.
 
 | # | Delta | Note |
 |---|---|---|
-| T1 | Radii: prototype uses `rounded-2xl`/`3xl` (16–24px) | Ours: cards 12 / moment 16. A token-value change, one line. |
+| T1 | Radii: prototype uses `rounded-2xl`/`3xl` (16–24px) | **APPLIED 2026-08-17** — card 16, moment 24, via the token classes so every consumer moved at once. |
 | T2 | `money` green for impacts/CTAs | We now have `money` (#2E7D5B) — **already aligned**, just unused in some spots. |
 | T3 | `citation` chip on findings | We have `citation` and now render it (E4). **Aligned.** |
 | T4 | `severity-high` / `severity-neutral` tokens | We have `danger`/`warning`; needs a name mapping, not new colours — unless C2 says severity is its own axis. |
 | T5 | Display font (`font-display`) for numerals/headings | We use one family throughout. Adding a display face is a token + asset change. |
-| T6 | `shadow-soft`/`shadow-float` elevation scale | Ours: `card`/`elev`. Rename/extend. |
+| T6 | `shadow-soft`/`shadow-float` elevation scale | **APPLIED 2026-08-17** — `soft`/`float` added ALONGSIDE `card`/`elev` (extend, not rename), mirrored in shared tokens. |
 
 ---
 

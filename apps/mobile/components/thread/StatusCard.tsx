@@ -17,8 +17,25 @@ function Bar({ state }: { state: ThreadStageState }) {
 }
 
 export function StatusCard({ payload }: { payload: StatusCardPayload }) {
+  // L1 (round-2) — a state header over the bars. Only the two states the prototype authors:
+  // "Working on your audit" while anything is genuinely active, "Audit ready" when all four
+  // stages are done. A failed/incomplete terminal gets NO header — the rows carry that truth,
+  // and inventing a third header state here would be copy nobody wrote.
+  const allDone = payload.stages.length > 0 && payload.stages.every((s) => s.state === 'done');
+  const anyActive = payload.stages.some((s) => s.state === 'active');
   return (
     <View className="my-2 w-full rounded-card border border-hairline bg-surface p-4">
+      {allDone ? (
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text className="text-body font-semibold text-primary">Audit ready</Text>
+          <Text className="text-body font-bold text-accent">✓</Text>
+        </View>
+      ) : anyActive ? (
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text className="text-body font-semibold text-primary">Working on your audit</Text>
+          <ActivityIndicator size="small" color="var(--c-accent)" />
+        </View>
+      ) : null}
       {payload.stages.map((s) => (
         <View key={s.key} className="mb-3 last:mb-0">
           <View className="mb-1.5 flex-row items-center justify-between">

@@ -20,6 +20,11 @@ function money(n: number): string {
 export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPayload }) {
   return (
     <MomentCard className="my-3">
+      {/* L2 (round-2) — the service-context line: provider · payer, typed fields only. Absent
+          parts are dropped server-side; no line renders when nothing is known. */}
+      {payload.context ? (
+        <Text className="mb-1 text-caption text-moment-text-faint">{payload.context}</Text>
+      ) : null}
       <Text className="mb-3 text-caption text-moment-text-faint">Your three numbers</Text>
       <MomentRow label="What you were billed" value={money(payload.provider_billed)} />
       <MomentRow label="What your insurer says you owe" value={money(payload.eob_member_responsibility)} />
@@ -33,6 +38,12 @@ export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPaylo
         <View className="mt-3 rounded-control px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
           <Text className="text-caption leading-5 text-moment-text">{payload.headline}</Text>
         </View>
+      ) : null}
+      {/* E3 — the gap callout. The bridge has sent this since 2026-08-11 (suppressed server-side
+          on a zero/negative gap); the card never rendered it, so the sweep's PASS was half true.
+          Found + fixed in the round-2 application pass. */}
+      {payload.gap_callout ? (
+        <Text className="mt-2 text-body font-medium text-moment-emphasis">{payload.gap_callout}</Text>
       ) : null}
     </MomentCard>
   );

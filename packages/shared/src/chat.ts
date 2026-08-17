@@ -61,6 +61,10 @@ export interface ThreeNumberMomentPayload {
   tyndale_computed: number;
   delta: number; // billed-minus-computed savings
   headline: string; // script-keyed reveal frame, {{delta_dollars}} interpolated
+  /** L2 — "provider · payer" from TYPED fields only; omitted when neither is known. */
+  context?: string;
+  /** E3 — the gap framing; null/absent on a clean bill (never "$0.00 less"). */
+  gap_callout?: string | null;
 }
 export interface UnlockMomentPayload {
   variant: 'first_case_unlock';
