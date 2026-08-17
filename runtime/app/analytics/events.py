@@ -113,8 +113,10 @@ REGISTRY: dict[str, EventSpec] = {
     # distinct-cases-satisfied ÷ distinct-cases-issued (per-doc-type grain is a P1 enhancement).
     "document_request_issued": EventSpec(),
     "document_request_satisfied": EventSpec(),
-    "nudge_sent": EventSpec({"stage": enum_prop(*_NUDGE_STAGES)}),
-    "nudge_responded": EventSpec({"stage": enum_prop(*_NUDGE_STAGES)}),
+    # `kind` splits the two nudges the 2026-08-17 cron split created: chase (missing document)
+    # vs checkin (Brock §11.5 follow-through). Same cadence, different message and premise.
+    "nudge_sent": EventSpec({"stage": enum_prop(*_NUDGE_STAGES), "kind": enum_prop("chase", "checkin")}),
+    "nudge_responded": EventSpec({"stage": enum_prop(*_NUDGE_STAGES), "kind": enum_prop("chase", "checkin")}),
     "reaudit_delta": EventSpec({"material": bool_prop()}),  # $25/5% materiality (reused constants)
     # call mode is client-side presentation → not server-known
     "call_step_viewed": EventSpec({"step_index": num_prop()}, server_only=False),

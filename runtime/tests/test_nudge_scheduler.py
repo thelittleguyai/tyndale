@@ -84,7 +84,7 @@ def test_chase_documents_are_phi_free_labels():
 
 
 def test_nudge_body_names_documents_never_amounts():
-    item = NudgeItem("u", "c", "+3d", ["your plan's Summary of Benefits (SBC)"])
+    item = NudgeItem("u", "c", "+3d", documents=["your plan's Summary of Benefits (SBC)"])
     body = item.body()
     assert "Summary of Benefits" in body
     assert "$" not in body  # never an amount
@@ -180,3 +180,131 @@ async def test_cron_gated_off_does_not_send(monkeypatch):
     r = await run_nudge_cron(sender=fake_sender)
     assert r["sent"] == 0
     assert sends == []
+
+
+# --- the §11.5 check-in nudge (G6, split from the chase 2026-08-17) ----------------------
+# Brock's nudge.plus_3d/plus_14d are follow-through copy ("ready to make that first call"),
+# not document-chase copy — so they render on the follow-through premise: audit done, a
+# gameplan exists, nothing reported yet. The load-bearing assertions: his words verbatim
+# (drift-guarded via the registry), the deadline slot never leaks or gets invented, and the
+# check-in never fires at a user who already told us how the call went.
+
+_COMPLETE_COVERAGE = {"deductible_amount": 2000, "oop_max_amount": 8000, "coinsurance_percent": 20}
+
+
+async def _checkin_case(days_old: int, *, actionable=True, last_check=None, nudges_sent=None) -> str:
+    """audit_complete, NO chase docs missing, one finding aged `days_old`."""
+    uid = await _dev_user_id()
+    created = datetime.now(timezone.utc) - timedelta(days=days_old)
+    async with AsyncSessionLocal() as s:
+        cf = CaseFile(
+            user_id=uid, status="audit_complete", coverage=dict(_COMPLETE_COVERAGE),
+            nudges_sent=nudges_sent or [], last_outcome_check_at=last_check,
+        )
+        s.add(cf)
+        await s.flush()
+        s.add(Finding(
+            finding_id=uuid.uuid4(), case_file_id=cf.case_file_id,
+            finding_type="payer_side", category="cost_sharing_miscalculation",
+            subagent_source="math_person", voice_tier="B", facts={},
+            recommendation={"action": "Call your insurer to dispute the math."} if actionable else None,
+            created_at=created,
+        ))
+        await s.commit()
+        return str(cf.case_file_id)
+
+
+async def _mine(cfid: str):
+    return [i for i in await scan_for_nudges() if i.case_file_id == cfid]
+
+
+@pytest.mark.asyncio
+async def test_checkin_renders_brocks_plus_3d_verbatim():
+    from app.agents.context_loader import orchestration_step
+
+    cfid = await _checkin_case(4)
+    (item,) = await _mine(cfid)
+    assert item.kind == "checkin" and item.stage == "checkin+3d"
+    assert item.body() == orchestration_step("nudge.plus_3d")  # his words, not engineering's
+    assert "document" not in item.body().lower()  # nothing chase-flavored leaked in
+
+
+@pytest.mark.asyncio
+async def test_checkin_14d_carries_a_persisted_deadline_only():
+    from app.db.models.deadlines import Deadline
+
+    cfid = await _checkin_case(15)
+    async with AsyncSessionLocal() as s:
+        s.add(Deadline(
+            case_file_id=uuid.UUID(cfid), deadline_date=(datetime.now(timezone.utc) + timedelta(days=10)).date(),
+            deadline_type="payer_response", description="payer response window",
+        ))
+        await s.commit()
+    (item,) = await _mine(cfid)
+    assert item.stage == "checkin+14d" and item.deadline_date is not None
+    body = item.body()
+    assert item.deadline_date in body  # the real date, interpolated
+    assert "{deadline_date}" not in body  # never a raw slot
+
+
+@pytest.mark.asyncio
+async def test_checkin_14d_without_a_deadline_degrades_to_the_no_variable_string():
+    """His §0 rule 2 applied to email: an unfillable string isn't sent — the nearest honest
+    rung (the +3d check-in, which needs no variable) is. Never an invented date, and never
+    the in-thread degradation apology, which would be nonsense in an inbox."""
+    from app.agents.context_loader import orchestration_step
+
+    cfid = await _checkin_case(15)
+    (item,) = await _mine(cfid)
+    assert item.stage == "checkin+14d" and item.deadline_date is None
+    body = item.body()
+    assert body == orchestration_step("nudge.plus_3d")
+    assert "{deadline_date}" not in body and "don't have everything" not in body
+
+
+@pytest.mark.asyncio
+async def test_chase_wins_when_both_premises_hold():
+    """A blocked audit is the sharper fact — one email per case, and it's the chase."""
+    cfid = await _case_with_old_finding(4)  # chase coverage + old finding
+    (item,) = await _mine(cfid)
+    assert item.kind == "chase"
+
+
+@pytest.mark.asyncio
+async def test_checkin_suppressed_after_the_user_reported_a_call():
+    """The call-mode tap stamps last_outcome_check_at; "ready to make that first call?"
+    after they told us how it went is tone-deaf, so the check-in stays silent."""
+    cfid = await _checkin_case(4, last_check=datetime.now(timezone.utc))
+    assert await _mine(cfid) == []
+
+
+@pytest.mark.asyncio
+async def test_checkin_requires_an_actionable_gameplan():
+    cfid = await _checkin_case(4, actionable=False)
+    assert await _mine(cfid) == []
+
+
+@pytest.mark.asyncio
+async def test_checkin_ledger_is_distinct_from_the_chase_ledger():
+    """A case chase-nudged before its documents arrived still gets its check-in after —
+    the historical bare "+3d" must not satisfy "checkin+3d"."""
+    cfid = await _checkin_case(4, nudges_sent=["+3d"])
+    (item,) = await _mine(cfid)
+    assert item.stage == "checkin+3d"
+
+
+def test_checkin_bodies_pass_the_real_phi_guard():
+    from app.hooks.pre_tool_use import evaluate_send_email
+
+    for item in (
+        NudgeItem("u", "c", "checkin+3d", kind="checkin"),
+        NudgeItem("u", "c", "checkin+14d", kind="checkin", deadline_date="2026-09-01"),
+    ):
+        decision = evaluate_send_email(
+            {"to": "member@example.test", "subject": item.subject(), "body": item.body()}
+        )
+        assert decision.approved, decision.block_reason
+
+
+def test_checkin_subject_is_not_the_chase_subject():
+    assert NudgeItem("u", "c", "checkin+3d", kind="checkin").subject() != NudgeItem("u", "c", "+3d").subject()

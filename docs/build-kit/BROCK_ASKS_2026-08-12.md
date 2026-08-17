@@ -128,6 +128,22 @@ finding may appear. Anything you write here inherits that limit.
 > **Ask:** author both, or tell us they're fine as-is. (Email copy has never been in the registry —
 > the magic-link and nudge text live in code the same way. Say if you'd rather own it there.)
 
+### 3.8 The nudge split — confirm we read your §11.5 right
+Your §11.5 +3d/+14d copy is follow-through voice ("still here whenever you're ready to make that
+first call"). The shipped nudge cron, older than your script, fires on a DIFFERENT premise: a case
+blocked on a missing document. Putting your check-in copy on a document-chase email would tell
+someone we need their SBC that they're "ready to make that first call" — so we split it:
+
+| Nudge | Fires when | Body |
+|---|---|---|
+| **Chase** | audit blocked on a load-bearing document | engineering text naming the DOCUMENT TYPE (PHI-free; email chrome like the magic link — see 3.7) |
+| **Check-in** | audit done + gameplan + no outcome reported yet | **your §11.5, verbatim from the registry.** +14d cites `{deadline_date}` from a persisted deadline only; with none, the +3d line renders instead (your §0 rule 2 — an email can't carry the in-thread degradation apology). Goes quiet once the user reports how a call went |
+
+Both at +3d/+14d, email-only, one email per case per run (chase wins when both apply).
+
+> **Ask:** confirm the split, or tell us §11.5 was meant to cover the chase too — in which case
+> author the chase line and we'll swap it in.
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD
