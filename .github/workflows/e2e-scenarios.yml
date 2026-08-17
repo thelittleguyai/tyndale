@@ -5,8 +5,8 @@ name: E2E Scenarios (dev, on-demand)
 # finding types + no fixture leakage.
 #
 # workflow_dispatch ONLY — NOT scheduled: each run costs real Claude tokens on dev (~1 audit per
-# scenario; 12 scenarios ≈ a dozen multi-minute agent runs). Trigger it manually when validating
-# a change end-to-end. Uses SYNTHETIC identities only (never real PHI).
+# scenario, and each scenario is a multi-minute agent run — 22 scenarios today). Trigger it
+# manually when validating a change end-to-end. Uses SYNTHETIC identities only (never real PHI).
 #
 # Auth to the dev-only /v1/admin/test-token endpoint (which mints the synthetic test user's
 # session) uses ONE of:
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Comma-separated scenario names to run (blank = all 19)'
+        description: 'Comma-separated scenario names to run (blank = all)'
         required: false
         default: ''
 
@@ -53,4 +53,6 @@ jobs:
               ONLY_ARGS="$ONLY_ARGS --only $s"
             done
           fi
-          uv run python scripts/e2e_scenarios/run_scenarios.py --dev $ONLY_ARGS
+          # --chat-first / --record: dev runs with ENABLE_CHAT_FIRST_AUDIT and
+          # ENABLE_RECORD_VIEW on, so the thread + Record assertion layers always apply.
+          uv run python scripts/e2e_scenarios/run_scenarios.py --dev --chat-first --record $ONLY_ARGS
