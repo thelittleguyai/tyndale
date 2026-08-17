@@ -21,6 +21,10 @@ on:
         description: 'Comma-separated scenario names to run (blank = all)'
         required: false
         default: ''
+      inspect:
+        description: 'READ-ONLY: comma-separated case_file_ids to inspect (no uploads, no audits)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -51,6 +55,11 @@ jobs:
           if [ -n "${{ inputs.only }}" ]; then
             for s in $(echo "${{ inputs.only }}" | tr ',' ' '); do
               ONLY_ARGS="$ONLY_ARGS --only $s"
+            done
+          fi
+          if [ -n "${{ inputs.inspect }}" ]; then
+            for c in $(echo "${{ inputs.inspect }}" | tr ',' ' '); do
+              ONLY_ARGS="$ONLY_ARGS --inspect $c"
             done
           fi
           # --chat-first / --record: dev runs with ENABLE_CHAT_FIRST_AUDIT and

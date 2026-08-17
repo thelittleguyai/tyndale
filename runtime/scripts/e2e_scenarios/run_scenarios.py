@@ -656,7 +656,31 @@ def main() -> int:
                     help="also assert each sub-case appears in /v1/record with the right status + "
                          "honest $0-recovered, plus a suite-level aggregate check (DL-91 D5 §5; "
                          "target server must have ENABLE_RECORD_VIEW on)")
+    ap.add_argument("--inspect", action="append", default=[],
+                    help="READ-ONLY: print an existing case's terminal state, needs-documents "
+                         "checklist, and finding categories, then exit. No uploads, no audits — "
+                         "for diagnosing a prior run's cases (e.g. the needs_documents cascade) "
+                         "without admin access. Repeatable.")
     args = ap.parse_args()
+
+    if args.inspect:
+        base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
+        with httpx.Client(follow_redirects=True) as client:
+            authenticate(client, base_url,
+                         os.environ.get("TYNDALE_ADMIN_TOKEN"), os.environ.get("TYNDALE_E2E_SECRET"))
+            for cid in args.inspect:
+                r = client.get(f"{base_url}/v1/audit/{cid}", timeout=60)
+                log(f"\ncase {cid} -> {r.status_code}")
+                if r.status_code != 200:
+                    continue
+                body = r.json()
+                log(f"  status={body.get('status')} incomplete_reason={body.get('incomplete_reason')}")
+                for need in body.get("documents_needed") or []:
+                    log(f"  needs: {json.dumps(need)}")
+                for f in body.get("findings") or []:
+                    log(f"  finding: category={f.get('category')} finding_type={f.get('finding_type')}"
+                        f" error_type={f.get('error_type')} has_impact={bool((f.get('facts') or {}).get('impact'))}")
+        return 0
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
     scenarios = [json.loads(p.read_text()) for p in sorted(SCENARIO_DIR.glob("*.json"))]
