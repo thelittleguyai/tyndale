@@ -58,6 +58,16 @@ class Message(Base):
             "conversation_id",
             postgresql_where=text("status = 'streaming'"),
         ),
+        # Bridge marker idempotency (migration 0039) — the DB half of "one thread entry per
+        # marker". Partial: rows without a marker are ordinary messages and free to repeat.
+        # Declared here so `alembic check` knows the index is intentional, not drift.
+        Index(
+            "uq_messages_conversation_marker",
+            "conversation_id",
+            text("(payload ->> 'marker')"),
+            unique=True,
+            postgresql_where=text("(payload ->> 'marker') IS NOT NULL"),
+        ),
     )
 
     message_id: Mapped[uuid.UUID] = mapped_column(
