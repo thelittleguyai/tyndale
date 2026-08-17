@@ -30,3 +30,18 @@ jest.mock('nativewind', () => ({
     toggleColorScheme: jest.fn(),
   }),
 }));
+
+
+// expo-camera (native capture, 2026-08-17): render CameraView as a plain View; permission
+// defaults to GRANTED so component tests exercise the live state. Tests override per-case.
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    CameraView: React.forwardRef((props, ref) => React.createElement(View, { ...props, ref })),
+    useCameraPermissions: jest.fn(() => [
+      { granted: true, canAskAgain: true },
+      jest.fn(),
+    ]),
+  };
+});

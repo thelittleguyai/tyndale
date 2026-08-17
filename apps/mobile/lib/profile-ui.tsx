@@ -9,6 +9,7 @@ import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native
 
 import { uploadInsuranceCard, type CardUploadResult } from './api-client';
 import { CameraCapture, isCaptureSupported } from '../components/upload/CameraCapture';
+import { isFilePart } from '../components/upload/capture-types';
 import { useThemeColors } from '../theme/useThemeColors';
 
 export const ALLOWED_CARD_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/webp'];
@@ -232,7 +233,10 @@ export function CardUpload({
           allowMultiPage={false}
           onDone={(files) => {
             setCapturing(false);
-            if (files[0]) void uploadFile(files[0]);
+            // The card flow is web-only (native returns the use-the-web note above), so a
+            // captured page here is always a real File; the guard keeps the types honest.
+            const first = files[0];
+            if (first && isFilePart(first)) void uploadFile(first);
           }}
           onClose={() => setCapturing(false)}
         />

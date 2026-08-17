@@ -21,7 +21,17 @@ const config: ExpoConfig = {
     bundler: 'metro',
     output: 'static',
   },
-  plugins: ['expo-router', 'expo-font', 'expo-secure-store', 'expo-web-browser'],
+  plugins: [
+    'expo-router',
+    'expo-font',
+    'expo-secure-store',
+    'expo-web-browser',
+    // N1 native capture — the permission string states the honest, narrow purpose.
+    [
+      'expo-camera',
+      { cameraPermission: 'Tyndale uses the camera only to photograph your bills and documents.' },
+    ],
+  ],
   experiments: {
     typedRoutes: true,
   },

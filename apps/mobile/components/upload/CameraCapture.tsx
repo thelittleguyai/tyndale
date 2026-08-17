@@ -36,6 +36,7 @@ import {
   type CapturedPage,
 } from '../../lib/capture';
 import { Button } from '../ui';
+import type { CapturedUpload } from './capture-types';
 
 /** Can this build open a live viewfinder at all? False → the caller shows the picker alone. */
 export function isCaptureSupported(): boolean {
@@ -79,8 +80,8 @@ export function CameraCapture({
    *  engineering label above — the viewfinder PROMPT has no fallback and simply doesn't render,
    *  because it's product voice rather than chrome and we don't write it for him. */
   copy?: Record<string, string | null | undefined>;
-  /** Fires once with every captured page, in order, as upload-ready files. */
-  onDone: (files: File[]) => void;
+  /** Fires once with every captured page, in order, as upload-ready parts. */
+  onDone: (files: CapturedUpload[]) => void;
   onClose: () => void;
   allowMultiPage?: boolean;
 }) {

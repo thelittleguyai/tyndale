@@ -32,12 +32,13 @@ import {
   partitionUploads,
 } from '../../lib/upload-validation';
 import { withinUploadBounds } from '../../lib/capture';
+import { isFilePart, type CapturedUpload } from '../../components/upload/capture-types';
 import { CameraCapture, isCaptureSupported } from '../../components/upload/CameraCapture';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { Button, ListRow } from '../../components/ui';
 
-type Queued = { id: string; file: File; name: string; size: number };
+type Queued = { id: string; file: CapturedUpload; name: string; size: number };
 
 function prettyBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -91,19 +92,21 @@ export default function UploadScreen() {
 
   const remove = (id: string) => setQueue((q) => q.filter((x) => x.id !== id));
 
-  /** Captured pages join the same queue as picked files — one path downstream (C1/C5). */
-  const onCaptured = (files: File[]) => {
+  /** Captured pages join the same queue as picked files — one path downstream (C1/C5).
+   *  Web pages are Files (size known → bounds-checked here); native pages are {uri} parts
+   *  whose size isn't known client-side — the server's per-file cap is the check there. */
+  const onCaptured = (files: CapturedUpload[]) => {
     setCapturing(false);
     if (files.length === 0) return;
-    const tooBig = files.filter((f) => !withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
-    const usable = files.filter((f) => withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
+    const tooBig = files.filter((f) => isFilePart(f) && !withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
+    const usable = files.filter((f) => !isFilePart(f) || withinUploadBounds(f.size, MAX_UPLOAD_FILE_BYTES));
     setQueue((q) => [
       ...q,
       ...usable.map((f) => ({
-        id: `${f.name}-${f.size}-${Math.random().toString(36).slice(2, 8)}`,
+        id: `${f.name}-${Math.random().toString(36).slice(2, 8)}`,
         file: f,
         name: f.name,
-        size: f.size,
+        size: isFilePart(f) ? f.size : 0,
       })),
     ]);
     setError(
@@ -207,7 +210,7 @@ export default function UploadScreen() {
                     </View>
                   }
                   title={q.name}
-                  subtitle={prettyBytes(q.size)}
+                  subtitle={q.size > 0 ? prettyBytes(q.size) : 'photo'}
                   trailing={
                     <PressableScale
                       onPress={() => remove(q.id)}
@@ -256,11 +259,34 @@ export default function UploadScreen() {
           ) : null}
         </>
       ) : (
-        <View className="rounded-2xl border border-hairline bg-surface p-6">
-          <Text className="text-base text-secondary">
-            Open Tyndale on the web to upload for now. The native file picker and camera capture
-            arrive with the iOS/Android app.
-          </Text>
+        <View className="gap-3">
+          {/* NATIVE (2026-08-17): the camera is live — DL-44's worklets blocker fell, so
+              expo-camera is installed and capture works. The native FILE PICKER is still
+              pending (expo-document-picker not yet added — its own small follow-up), so
+              photos are the native path and files come via the web app for now. */}
+          <PressableScale
+            onPress={() => setCapturing(true)}
+            accessibilityRole="button"
+            className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-4"
+            testID="upload-take-photo"
+          >
+            <CameraIcon size={20} color="var(--c-on-accent)" />
+            <Text className="text-base font-bold text-on-accent">Take a photo of your bill</Text>
+          </PressableScale>
+          {queue.length > 0 ? (
+            <View className="gap-2">
+              {queue.map((q) => (
+                <ListRow key={q.id} title={q.name} subtitle="photo" />
+              ))}
+            </View>
+          ) : (
+            <View className="rounded-2xl border border-hairline bg-surface p-5">
+              <Text className="text-body text-secondary">
+                Have the bill as a PDF or a saved file? Open Tyndale on the web to upload it —
+                the native file picker is coming.
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
