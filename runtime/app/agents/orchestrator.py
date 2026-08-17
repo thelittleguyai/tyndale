@@ -802,6 +802,42 @@ def not_a_bill_message(filenames: list[str], documents=None) -> str:
     )
 
 
+def _grounded_line_items(
+    cf: CaseFile | None, line_items: list[dict]
+) -> tuple[list[dict], list[str]]:
+    """(kept, dropped_codes) — keep only line items whose base code appears in some uploaded
+    document's OCR text.
+
+    Conservative by design:
+      * no full text stored on ANY extracted doc (pre-guard uploads) → keep everything;
+        a 1000-char preview can't prove absence on a long bill.
+      * items with no code, or codes shorter than 4 chars, are kept — the guard convicts
+        on strong evidence only (the prompt-bleed class is 5-char CPT/HCPCS examples).
+      * modifier forms match on the base ("73721-26" is grounded by "73721").
+    A falsely-dropped real item (e.g. the code itself mis-OCR'd) degrades to the honest
+    ask-for-a-clearer-photo path — recoverable, unlike a fabricated charge shown as real.
+    """
+    docs = [d for d in ((cf.documents if cf else None) or []) if isinstance(d, dict)]
+    texts = [
+        str(d.get("ocr_text") or "")
+        for d in docs
+        if (d.get("extraction_status") or "extracted") == "extracted" and d.get("ocr_text")
+    ]
+    if not texts:
+        return line_items, []
+    haystack = "\n".join(texts).upper()
+    kept: list[dict] = []
+    dropped: list[str] = []
+    for item in line_items:
+        code = str(item.get("code") or "").strip().upper()
+        base = code.split("-", 1)[0].strip()
+        if len(base) < 4 or base in haystack:
+            kept.append(item)
+        else:
+            dropped.append(code)
+    return kept, dropped
+
+
 def _documents_projection(cf: CaseFile | None) -> list[DocumentExtraction]:
     """Per-document extraction provenance (which uploads were read vs failed) for the
     encounter + admin UI, so a degraded audit can never be mistaken for a real one."""
@@ -851,6 +887,36 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     # Read whatever the agent persisted.
     cf = await _load_case(case_file_id)
     line_items = list(cf.line_items) if (cf and cf.line_items) else []
+
+    # GROUNDING GUARD (dev sweep 2026-08-17): under thin OCR (a photographed bill), the
+    # translate agent can echo a worked example from its own skill/tool prompts into the
+    # persisted line items — a fabricated charge on the user's encounter screen, the exact
+    # failure the Grounding Doctrine names as the worst one. Deterministic check: a coded
+    # item whose base code appears in NO uploaded document's OCR text did not come from the
+    # user's documents, so it does not survive. Applies only in real mode (fixture items are
+    # by definition not in any document) and only when full text is stored (legacy cases
+    # carry a 1000-char preview only — insufficient evidence to convict, so nothing drops).
+    if use_real and line_items:
+        line_items, dropped = _grounded_line_items(cf, line_items)
+        if dropped:
+            log.error(
+                "orchestrator.translate.ungrounded_line_items_dropped",
+                case_file_id=case_file_id,
+                dropped_codes=dropped,
+                kept=len(line_items),
+            )
+            # Persist the filtered list NOW — fabricated rows must not survive in the DB
+            # even if a later step fails (the honest no-item paths below return without
+            # rewriting line_items).
+            async with AsyncSessionLocal() as s:
+                row = (
+                    await s.execute(
+                        select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id))
+                    )
+                ).scalar_one_or_none()
+                if row is not None:
+                    row.line_items = line_items
+                    await s.commit()
 
     if not line_items:
         # Real translate produced nothing. Decide the honest terminal state from DOCUMENT-READABILITY

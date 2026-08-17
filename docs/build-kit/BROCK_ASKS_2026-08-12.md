@@ -158,6 +158,25 @@ family as the audit-ready email — same promise class). Two things for you:
    the trim, or author your own no-email version.
 
 
+### 3.10 Your worked example leaked into a user-visible bill (caught + guarded, one ask)
+The first full dev e2e sweep (2026-08-17) caught the translate agent doing the exact thing the
+Grounding Doctrine forbids: on a **photographed** bill whose OCR text came back thin, it echoed
+the worked example from `06_encounter_verification/lineitem_plain_language.md` — "MRI brain
+w/ + w/o contrast (70553)" — into the case's PERSISTED line items. A fabricated charge, shown
+as real, sourced from your teaching example. (We only caught it because 70553 doubles as a
+fixture-leak marker in the harness — your example codes are accidentally perfect canaries.)
+
+Engineering shipped a deterministic guard the same day: a line item whose base code appears in
+**no** uploaded document's OCR text is dropped at the translate seam and logged; if everything
+drops, the case degrades to the honest ask-for-a-clearer-photo path. No prompt change needed
+for safety.
+
+**The one ask:** add an explicit grounding line to that skill — e.g. "Translate only codes that
+appear in the document. If a code is unreadable, say so — never substitute a code from these
+examples." And keep the example codes AS-IS (70553 / A9579 / 36000 are the harness's canary
+set); if you ever swap them, tell engineering so the canaries follow.
+
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD

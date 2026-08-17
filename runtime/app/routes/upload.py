@@ -202,6 +202,11 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         "account_number": grep_account_number(full_text),
         "contact_phone": grep_contact_phone(full_text),
         "byte_count": len(content),
+        # Full OCR text (already capped at 50k by run_document_ocr): the haystack for the
+        # translate-grounding guard — a line item whose code appears in NO document's text is
+        # prompt-example bleed, not the user's bill (first caught: dev sweep 2026-08-17, a
+        # photographed bill whose thin OCR let the agent echo the skill's 70553 example).
+        "ocr_text": full_text[:50000],
         "ocr_text_preview": (ocr.get("ocr_text") or "")[:1000],
         # Full OCR text length (admin visibility): 0 chars alongside extraction_status='error'
         # is the tell that extraction degraded — so a stalled/degraded audit is diagnosable.
