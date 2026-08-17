@@ -81,14 +81,17 @@ module.exports = {
         'token-lg': '20px',
         // Redesign radii (theme/tokens.ts): controls 8 · cards 12 · moment cards 16 · chips 999.
         control: '8px',
-        card: '12px',
-        moment: '16px',
+        card: '16px', // T1: 12→16
+        moment: '24px', // T1: 16→24
         chip: '999px', // the comment above always claimed this; it was never actually defined
       },
       // Token shadows from @tyndale/shared design-tokens (shadows.card / shadows.elev).
       boxShadow: {
         card: '0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05)',
         elev: '0 2px 4px rgba(15, 42, 40, 0.05), 0 8px 24px rgba(15, 42, 40, 0.08)',
+        // T6 — prototype names, extending ours (mirrors shared design-tokens.shadows).
+        soft: '0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05)',
+        float: '0 4px 8px rgba(15, 42, 40, 0.06), 0 12px 32px rgba(15, 42, 40, 0.10)',
       },
     },
   },

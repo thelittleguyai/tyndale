@@ -68,6 +68,10 @@ export const radii = { sm: 8, md: 14, lg: 20 } as const;
 export const shadows = {
   card: '0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05)',
   elev: '0 2px 4px rgba(15, 42, 40, 0.05), 0 8px 24px rgba(15, 42, 40, 0.08)',
+  // Round-2 T6 — the prototype's names, extending (not replacing) ours: `soft` is the card
+  // shadow, `float` sits one step above elev for overlays/menus. Same ink-tinted shadow family.
+  soft: '0 1px 2px rgba(15, 42, 40, 0.04), 0 4px 12px rgba(15, 42, 40, 0.05)',
+  float: '0 4px 8px rgba(15, 42, 40, 0.06), 0 12px 32px rgba(15, 42, 40, 0.10)',
 } as const;
 
 /**
@@ -196,8 +200,9 @@ export const type = {
 /** 4px base grid. Card padding 14–16; section gap 20–24. */
 export const space = { grid: 4, cardPadding: 16, sectionGap: 24 } as const;
 
-/** Controls 8 · cards 12 · moment cards 16 · chips 999. */
-export const radius = { control: 8, card: 12, moment: 16, chip: 999 } as const;
+/** Controls 8 · cards 16 · moment cards 24 · chips 999. Round-2 T1: cards 12→16, moment 16→24
+ * (the prototype's rounded-2xl/3xl scale), applied 2026-08-17 with Phil's go; controls stay 8. */
+export const radius = { control: 8, card: 16, moment: 24, chip: 999 } as const;
 
 /** Minimum interactive target — checklist A10. */
 export const minTapTarget = 44;
