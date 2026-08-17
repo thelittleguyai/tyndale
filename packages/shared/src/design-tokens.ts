@@ -179,18 +179,16 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 /**
  * Type scale — weights 400/500 only, ALL-CAPS killed app-wide (sentence-case captions).
  *
- * ⚠️ CONFORMANCE A8 ("body ≥16px everywhere, line-height 1.5") is NOT met: body is 14px.
- * Deliberately NOT changed here — bumping the global body size reflows every screen, and this
- * session could not run the mobile test suite or see the app to check the result. It is a
- * one-line change (`body.size: 16`, `lineHeight: 1.5`) that wants eyes on the running app.
- * Recorded as a FAIL in docs/design/conformance_sweep_2026-08-11.md (correcting an earlier
- * PASS in that file, which read the marketing scale rather than this one).
+ * CONFORMANCE A8 ("body ≥16px everywhere, line-height 1.5"): body is 16/1.55 as of
+ * 2026-08-17. Heading stays 16 too — it separates from body by WEIGHT (500 vs 400), which
+ * held before at 16-vs-14 only by accident of size. The floor applies to body COPY; caption
+ * and micro are label scales with their own sizes, not exceptions to A8.
  */
 export const type = {
   display: { size: 28, weight: '500', lineHeight: 1.2 },
   title: { size: 21, weight: '500', lineHeight: 1.25 },
   heading: { size: 16, weight: '500', lineHeight: 1.4 },
-  body: { size: 14, weight: '400', lineHeight: 1.55 },
+  body: { size: 16, weight: '400', lineHeight: 1.55 },
   caption: { size: 12, weight: '400', lineHeight: 1.4 },
   micro: { size: 11, weight: '400', lineHeight: 1.3 },
 } as const;

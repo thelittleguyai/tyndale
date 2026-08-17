@@ -62,7 +62,7 @@ module.exports = {
         display: ['28px', { lineHeight: '34px', fontWeight: '500' }],
         title: ['21px', { lineHeight: '26px', fontWeight: '500' }],
         heading: ['16px', { lineHeight: '22px', fontWeight: '500' }],
-        body: ['14px', { lineHeight: '22px', fontWeight: '400' }],
+        body: ['16px', { lineHeight: '25px', fontWeight: '400' }],
         caption: ['12px', { lineHeight: '17px', fontWeight: '400' }],
         micro: ['11px', { lineHeight: '14px', fontWeight: '400' }],
       },
