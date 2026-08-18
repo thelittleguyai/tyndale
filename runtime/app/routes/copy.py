@@ -45,6 +45,13 @@ _SURFACES: dict[str, dict[str, str]] = {
         "notifications_email_description": "settings.notifications_email_description",
         "notifications_sms_label": "settings.notifications_sms_label",
         "notifications_sms_coming_soon": "settings.notifications_sms_coming_soon",
+        # Plan documents (item 5) — same absent-from-registry stance as the keys above:
+        # unauthored keys are WITHHELD server-side (never [PLACEHOLDER-eng], which blocks
+        # the staging boot beyond the deliberate §3.11 pair); client fallbacks render.
+        "plan_documents_title": "settings.plan_documents_title",
+        "plan_documents_description": "settings.plan_documents_description",
+        "plan_documents_empty": "settings.plan_documents_empty",
+        "plan_documents_sbc_on_file": "settings.plan_documents_sbc_on_file",
     },
     # Statutory-rights intake (§A2 state 5). Served as a surface because the screen renders
     # BEFORE — and often without — a session: the person exercising the right may not have an

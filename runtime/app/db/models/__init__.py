@@ -23,6 +23,7 @@ from app.db.models.findings import Finding
 from app.db.models.insurance_cards import InsuranceCard
 from app.db.models.insurance_info import InsuranceInfo
 from app.db.models.magic_link import MagicLinkConsumed
+from app.db.models.plan_documents import PlanDocument
 from app.db.models.plan_library import PlanLibraryEntry
 from app.db.models.transparency_rates import TransparencyRate, TransparencyRateStaging
 from app.db.models.users import User
@@ -51,6 +52,7 @@ __all__ = [
     "Conversation",
     "Message",
     "PlanLibraryEntry",
+    "PlanDocument",
     "InsuranceInfo",
     "InsuranceCard",
 ]

@@ -269,7 +269,7 @@ async def _finalize_result(
                 "status": "audit_incomplete",
                 "incomplete_reason": reason,
                 "documents_needed": (
-                    _documents_needed(await _load_case(case_file_id))
+                    await _documents_needed_with_plan(case_file_id)
                     if reason == "needs_documents"
                     else []
                 ),
@@ -632,7 +632,7 @@ async def _ground_prose(
     return composed
 
 
-def _rung2_three_numbers(case) -> dict | None:
+def _rung2_three_numbers(case, plan_coverage: dict | None = None) -> dict | None:
     """Deterministic three-number completion from DOCUMENT-STATED money (the rung-2 engine).
 
     Anchors, in order of correctness: the EOB's allowed amount (the true cost-share base) →
@@ -640,11 +640,16 @@ def _rung2_three_numbers(case) -> dict | None:
     fact or a bounded computation over one — nothing is invented; an anchor no document
     states stays None and the API says so. Returns None when NO anchor exists (no itemized
     detail and no EOB money) — the genuine needs_documents shape (the Beloit day-one case).
+
+    ``plan_coverage`` (2026-08-19, settings item 5): terms extracted from the user's
+    plan-level SBC. The case's own coverage wins field-by-field; the plan SBC fills the
+    gaps — still document-stated terms, just stated once at the plan level.
     """
     if case is None:
         return None
     from app.sources.cost_share_model import rung2_range
     from app.sources.extraction import eob_money_figures
+    from app.sources.plan_docs import merge_case_coverage
 
     lines_total: float | None = None
     items = [li for li in (case.line_items or []) if isinstance(li, dict)]
@@ -677,7 +682,9 @@ def _rung2_three_numbers(case) -> dict | None:
     else:
         return None  # no document-stated money anywhere — the audit genuinely cannot stand
 
-    rng = rung2_range(anchor, case.coverage, anchor_kind=anchor_kind)
+    rng = rung2_range(
+        anchor, merge_case_coverage(case.coverage, plan_coverage), anchor_kind=anchor_kind
+    )
     # Priors gate (Phil, 2026-08-18): while any prior the range consumed is still a
     # PLACEHOLDER, the user-visible range is suppressed — point form only. Brock's
     # researched table activates ranges per-entry by flipping the flag in the data.
@@ -693,11 +700,16 @@ def _rung2_three_numbers(case) -> dict | None:
     }
 
 
-def _documents_needed(case) -> list[DocumentNeed]:
+def _documents_needed(case, *, plan_sbc: bool = False) -> list[DocumentNeed]:
     """The 'to finish your audit' checklist for a needs_documents case — the three canonical audit
     inputs, EACH with a `have` flag from the case's real document inventory. Returning the full set
     (not just the missing ones) lets the UI show a true checked/unchecked state and lets the user
-    watch items flip to done as they upload. PHI-free: document types + plain 'how to get it'."""
+    watch items flip to done as they upload. PHI-free: document types + plain 'how to get it'.
+
+    ``plan_sbc`` (2026-08-19, settings item 5): the SBC describes the PLAN, not one bill — a
+    plan-level SBC in the user's Plan documents home satisfies the SBC line on EVERY case, so
+    callers pass what app.sources.plan_docs.plan_sbc_state found and this checklist never asks
+    for a document the user already gave us once."""
     types = {
         (d or {}).get("document_type")
         for d in (getattr(case, "documents", None) or [])
@@ -705,7 +717,9 @@ def _documents_needed(case) -> list[DocumentNeed]:
     }
     have_eob = bool(types & _EOB_FAMILY)
     have_bill = bool(types & _BILL_FAMILY)
-    have_sbc = bool(getattr(case, "coverage", None)) or bool(types & _COVERAGE_FAMILY)
+    have_sbc = (
+        plan_sbc or bool(getattr(case, "coverage", None)) or bool(types & _COVERAGE_FAMILY)
+    )
     return [
         DocumentNeed(
             key="eob",
@@ -732,17 +746,19 @@ def _documents_needed(case) -> list[DocumentNeed]:
             label="Summary of Benefits and Coverage (SBC)",
             how_to_get=(
                 "Your plan's benefits summary — find it in your insurance portal under Plan "
-                "Documents, or ask your HR or insurer for the SBC."
+                "Documents, or ask your HR or insurer for the SBC. Already have it? Add it "
+                "once under Settings → Plan documents and every case can use it."
             ),
             have=have_sbc,
         ),
     ]
 
 
-def documents_all_satisfied(case) -> bool:
+def documents_all_satisfied(case, *, plan_sbc: bool = False) -> bool:
     """True once the case has every canonical audit input — the trigger to re-run a
-    needs_documents audit after the user adds the last missing document."""
-    return all(d.have for d in _documents_needed(case))
+    needs_documents audit after the user adds the last missing document. ``plan_sbc``
+    counts the user's plan-level SBC (Settings → Plan documents), same as the checklist."""
+    return all(d.have for d in _documents_needed(case, plan_sbc=plan_sbc))
 
 
 # Agents persist citations as free-form dicts (the pg_store_finding tool schema is an open object,
@@ -801,17 +817,25 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
         profile_state = None
+        plan_sbc, plan_cov = False, None
         if case is not None:
             from app.db.models.users import User
+            from app.sources.plan_docs import plan_sbc_state
 
             profile_state = (
                 await s.execute(select(User.state).where(User.user_id == case.user_id))
             ).scalar_one_or_none()
+            # Plan-level SBC (settings item 5): satisfies the checklist line and
+            # supplies rung-2 terms when this case has no coverage of its own.
+            plan_sbc, plan_cov = await plan_sbc_state(s, case.user_id)
     provenance = _regime_provenance(case, profile_state)
     # A persisted accumulator_discrepancy is the cross-validation material signal (DL-72).
     cv_material = any(getattr(f, "category", None) == "accumulator_discrepancy" for f in rows)
+    from app.sources.plan_docs import merge_case_coverage
+
     disclosure = _compute_disclosure(
-        case.coverage if case else None, cross_validation_material=cv_material
+        merge_case_coverage(case.coverage if case else None, plan_cov),
+        cross_validation_material=cv_material,
     )
 
     findings: list[FindingOut] = []
@@ -880,7 +904,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         # incomplete terminal: a legacy needs_documents case must not silently flip to
         # complete on a GET — it completes on its next run (re-run-on-complete / new upload).
         rung2 = (
-            _rung2_three_numbers(case)
+            _rung2_three_numbers(case, plan_coverage=plan_cov)
             if (case is not None and case.status in ("audit_running", "audit_complete"))
             else None
         )
@@ -920,7 +944,11 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             audit_provenance=provenance,
             disclosure=disclosure,
             incomplete_reason=reason,
-            documents_needed=_documents_needed(case) if reason == "needs_documents" else [],
+            documents_needed=(
+                _documents_needed(case, plan_sbc=plan_sbc)
+                if reason == "needs_documents"
+                else []
+            ),
         )
 
     return AuditResult(
@@ -1113,6 +1141,20 @@ async def _load_case(case_file_id: str) -> CaseFile | None:
         return (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
+
+
+async def _documents_needed_with_plan(case_file_id: str) -> list[DocumentNeed]:
+    """Checklist for one case with the user's plan-level SBC counted (settings item 5)."""
+    from app.sources.plan_docs import plan_sbc_state
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        plan_sbc = False
+        if case is not None:
+            plan_sbc, _ = await plan_sbc_state(s, case.user_id)
+    return _documents_needed(case, plan_sbc=plan_sbc)
 
 
 async def extract_line_items(case_file_id: str) -> ExtractResult:

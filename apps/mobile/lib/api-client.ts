@@ -973,6 +973,65 @@ export async function deleteSecondaryInsurance(): Promise<void> {
   if (!res.ok) throw new Error(`secondary insurance delete failed: ${res.status}`);
 }
 
+/** Plan documents (2026-08-19, item 5) — the plan-level SBC home. One upload satisfies
+ *  the SBC checklist line on every case and feeds rung-2 coverage terms. */
+export interface PlanDocument {
+  plan_document_id: string;
+  document_type: string;
+  filename: string;
+  uploaded_at: string;
+  has_coverage_terms: boolean;
+  is_sbc: boolean;
+}
+
+export interface PlanDocumentsPayload {
+  documents: PlanDocument[];
+  sbc_on_file: boolean;
+}
+
+export async function getPlanDocuments(): Promise<PlanDocumentsPayload> {
+  const res = await cfetch(`${BASE_URL}/v1/plan/documents`);
+  if (!res.ok) throw new Error(`plan documents failed: ${res.status}`);
+  return (await res.json()) as PlanDocumentsPayload;
+}
+
+export async function uploadPlanDocument(file: UploadFilePart): Promise<PlanDocument> {
+  const form = new FormData();
+  if (file instanceof Blob) {
+    form.append('file', file, (file as any).name ?? 'plan-document');
+  } else {
+    form.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType ?? 'application/octet-stream',
+    } as any);
+  }
+  const res = await cfetch(`${BASE_URL}/v1/plan/documents`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`plan document upload failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as PlanDocument;
+}
+
+export async function deletePlanDocument(planDocumentId: string): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/plan/documents/${planDocumentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`plan document delete failed: ${res.status}`);
+}
+
+/** Object URL for viewing a plan document (web) — authed fetch, blob URL out. */
+export async function fetchPlanDocumentObjectUrl(
+  planDocumentId: string,
+): Promise<string | null> {
+  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+  try {
+    const res = await cfetch(`${BASE_URL}/v1/plan/documents/${planDocumentId}/file`);
+    if (!res.ok) return null;
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
+  }
+}
+
 /** Card sides the server stores — the secondary plan's photos live beside the
  *  primary's under their own card_type values (2026-08-19, item 4). */
 export type CardType = 'front' | 'back' | 'secondary_front' | 'secondary_back';

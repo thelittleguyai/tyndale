@@ -201,14 +201,20 @@ def extract_insurance_card_from_text(text: str) -> InsuranceCardFields:
 
 
 def _dollar_after(text: str, label_rx: str) -> FieldValue:
-    m = re.search(label_rx + r"[^\$]{0,40}\$\s?([\d,]+(?:\.\d{2})?)", text, re.IGNORECASE)
+    # label_rx MUST be wrapped non-capturing: with an alternation label ("a|b|c") the bare
+    # concatenation bound the amount suffix to the LAST alternative only, so text matching an
+    # earlier alternative ("Deductible individual" with no $ in reach) matched with group(1)
+    # = None and CRASHED extraction (found 2026-08-19 wiring the plan-level SBC home).
+    m = re.search(
+        r"(?:" + label_rx + r")[^\$]{0,40}\$\s?([\d,]+(?:\.\d{2})?)", text, re.IGNORECASE
+    )
     if m:
         return FieldValue(float(m.group(1).replace(",", "")), _STRONG)
     return FieldValue(None, _NONE)
 
 
 def _percent_after(text: str, label_rx: str) -> FieldValue:
-    m = re.search(label_rx + r"[^\d]{0,40}(\d{1,3})\s*%", text, re.IGNORECASE)
+    m = re.search(r"(?:" + label_rx + r")[^\d]{0,40}(\d{1,3})\s*%", text, re.IGNORECASE)
     if m:
         return FieldValue(float(m.group(1)), _STRONG)
     return FieldValue(None, _NONE)

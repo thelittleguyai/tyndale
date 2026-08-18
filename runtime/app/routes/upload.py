@@ -283,7 +283,11 @@ async def upload(
         session.add(case)
     else:
         case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation
-    reaudit = reaudit and documents_all_satisfied(case)  # …all checklist items now satisfied
+    # The user's plan-level SBC (Settings → Plan documents) counts toward the checklist.
+    from app.sources.plan_docs import plan_sbc_state
+
+    _plan_sbc, _ = await plan_sbc_state(session, user.user_id)
+    reaudit = reaudit and documents_all_satisfied(case, plan_sbc=_plan_sbc)  # …all satisfied now
 
     # Promote the typed provider / date-of-service onto the case (first structured hit wins; a
     # re-upload never overwrites an already-known value). The Record row reads these typed fields.

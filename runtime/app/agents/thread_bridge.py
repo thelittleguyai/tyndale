@@ -672,8 +672,10 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
     sharpening the finished audit rather than finishing it. Both keys are engineering
     placeholders pending Brock (asks §3.11) — a NEW voice state his script doesn't have."""
     from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
+    from app.sources.plan_docs import plan_sbc_state
 
-    needs = _documents_needed(case)
+    plan_sbc, _ = await plan_sbc_state(session, case.user_id)
+    needs = _documents_needed(case, plan_sbc=plan_sbc)
     if all(d.have for d in needs):
         return  # everything's on file — nothing to unlock
     intro = orchestration_step("unlock_more.intro")
@@ -694,10 +696,12 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
 
 async def _ensure_needs_documents(session, conv, case, ensure) -> None:
     from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
+    from app.sources.plan_docs import plan_sbc_state
 
+    plan_sbc, _ = await plan_sbc_state(session, case.user_id)
     items = [
         {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
-        for d in _documents_needed(case)
+        for d in _documents_needed(case, plan_sbc=plan_sbc)
     ]
     intro = orchestration_step("needs_documents_intro")  # §8.1 (no variables)
     await ensure(

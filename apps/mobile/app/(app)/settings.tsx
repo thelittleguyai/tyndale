@@ -7,28 +7,33 @@
  * at placeholder routes until Phase 7 publication.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Image, Linking, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Image, Linking, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
+  deletePlanDocument,
   deleteSecondaryInsurance,
   getBillingStatus,
   getInsuranceInfo,
   getIntakeState,
+  getPlanDocuments,
   getProfileState,
   getSecondaryInsurance,
   getSurfaceCopy,
   getUserProfile,
   fetchCardImageObjectUrl,
+  fetchPlanDocumentObjectUrl,
   patchProfile,
   putSecondaryInsurance,
   requestAccountDeletion,
   startBillingCheckout,
   updateConsent,
+  uploadPlanDocument,
   type BillingStatus,
   type CardType,
   type InsuranceInfo,
+  type PlanDocumentsPayload,
   type ProfileState,
   type SecondaryInsurance,
   type SurfaceCopy,
@@ -89,6 +94,8 @@ export default function SettingsScreen() {
   const [secPlanType, setSecPlanType] = useState<string | null>(null);
   const [savingSecondary, setSavingSecondary] = useState(false);
   const [confirmRemoveSecondary, setConfirmRemoveSecondary] = useState(false);
+  // Plan documents (2026-08-19, item 5) — the plan-level SBC home.
+  const [planDocs, setPlanDocs] = useState<PlanDocumentsPayload | null>(null);
   const [fn, setFn] = useState('');
   const [ln, setLn] = useState('');
   const [dob, setDob] = useState('');
@@ -124,6 +131,7 @@ export default function SettingsScreen() {
       .catch(() => {/* non-fatal */});
     getInsuranceInfo().then(setInsurance).catch(() => {/* non-fatal */});
     getSecondaryInsurance().then(setSecondary).catch(() => {/* non-fatal */});
+    getPlanDocuments().then(setPlanDocs).catch(() => {/* non-fatal */});
     // Detected/confirmed coverage regime (DL-82) — from the user's active case.
     getIntakeState()
       .then((s) => {
@@ -211,6 +219,21 @@ export default function SettingsScreen() {
       await deleteSecondaryInsurance();
       setEditingSecondary(false);
       flash('Secondary plan removed.');
+      load();
+    } catch {
+      flash('Couldn’t remove it — try again.');
+    }
+  };
+
+  const viewPlanDoc = async (id: string) => {
+    const url = await fetchPlanDocumentObjectUrl(id);
+    if (url && typeof window !== 'undefined') window.open(url, '_blank');
+  };
+
+  const removePlanDoc = async (id: string) => {
+    try {
+      await deletePlanDocument(id);
+      flash('Document removed.');
       load();
     } catch {
       flash('Couldn’t remove it — try again.');
@@ -532,6 +555,62 @@ export default function SettingsScreen() {
         )}
       </Section>
 
+      {/* 1c. Plan documents (2026-08-19, item 5) — the plan-level SBC home. One upload
+          satisfies the SBC line on every case's checklist and feeds its coverage terms
+          to the audit. Copy keys come from the settings surface; fallbacks render until
+          Brock authors them (absent-from-registry, never [PLACEHOLDER-eng]). */}
+      <Section title={settingsCopy?.plan_documents_title ?? 'Plan documents'}>
+        <Text className="text-body leading-6 text-secondary">
+          {settingsCopy?.plan_documents_description ??
+            'Your Summary of Benefits and Coverage (SBC) describes your plan, not one bill — add it once here and every case can use it.'}
+        </Text>
+        {planDocs?.sbc_on_file ? (
+          <View className="mt-3 self-start rounded-full bg-accent-tint px-3 py-1" testID="sbc-on-file">
+            <Text className="text-xs font-semibold text-accent">
+              {settingsCopy?.plan_documents_sbc_on_file ??
+                '✓ SBC on file — your cases won’t ask for it again'}
+            </Text>
+          </View>
+        ) : (
+          <Text className="mt-3 text-sm text-faint">
+            {settingsCopy?.plan_documents_empty ?? 'No plan documents yet.'}
+          </Text>
+        )}
+        {(planDocs?.documents ?? []).map((d) => (
+          <View
+            key={d.plan_document_id}
+            className="mt-3 flex-row items-center justify-between gap-3"
+          >
+            <View className="flex-1">
+              <Text className="text-body text-primary" numberOfLines={1}>
+                {d.filename}
+              </Text>
+              <Text className="text-xs text-faint">
+                {d.is_sbc
+                  ? d.has_coverage_terms
+                    ? 'SBC — plan terms read'
+                    : 'SBC — on file (terms not readable)'
+                  : `Looks like: ${d.document_type.replace(/_/g, ' ')}`}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => void viewPlanDoc(d.plan_document_id)}
+              className="min-h-[32px] justify-center"
+            >
+              <Text className="text-sm font-semibold text-accent">View</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void removePlanDoc(d.plan_document_id)}
+              className="min-h-[32px] justify-center"
+              testID={`plan-doc-remove-${d.plan_document_id}`}
+            >
+              <Text className="text-sm font-semibold text-danger">Remove</Text>
+            </Pressable>
+          </View>
+        ))}
+        <PlanDocUpload onDone={() => load()} />
+      </Section>
+
       {/* 2. Improvement consent */}
       <Section title="Help us improve Tyndale">
         <Text className="text-body leading-6 text-secondary">
@@ -771,6 +850,83 @@ function EditField({
         className="min-h-[44px] rounded-lg border border-hairline bg-inset px-3 py-2.5 text-base text-primary"
       />
       {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
+    </View>
+  );
+}
+
+/** Web file-pick → POST /v1/plan/documents. Native mirrors the card-upload note until
+ *  the native document picker lands. Honest result copy: an upload that classifies OFF
+ *  the SBC family is saved but told apart — it doesn't check the SBC box. */
+function PlanDocUpload({ onDone }: { onDone: () => void }) {
+  const inputRef = useRef<any>(null);
+  const [state, setState] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+  const [msg, setMsg] = useState<string | null>(null);
+
+  if (Platform.OS !== 'web') {
+    return (
+      <Text className="mt-3 text-sm text-faint">
+        Open Tyndale on the web to add plan documents — the native picker arrives with the
+        iOS / Android app.
+      </Text>
+    );
+  }
+
+  const onPicked = async (e: any) => {
+    const file: File | undefined = e?.target?.files?.[0];
+    if (!file) return;
+    setState('uploading');
+    setMsg(null);
+    try {
+      const r = await uploadPlanDocument(file);
+      setState('done');
+      setMsg(
+        r.is_sbc
+          ? r.has_coverage_terms
+            ? 'Got it — your SBC is on file and its plan terms were read.'
+            : 'Your SBC is on file. I couldn’t read the numbers from it, but cases won’t ask for it again.'
+          : 'Saved — though this doesn’t look like a benefits summary (SBC), so it won’t check the SBC box.',
+      );
+    } catch (err) {
+      setState('error');
+      setMsg(
+        String(err instanceof Error ? err.message : '').includes('422')
+          ? 'That file won’t work — upload your SBC as a PDF or a clear photo.'
+          : 'Couldn’t upload that — check your connection and try again.',
+      );
+    } finally {
+      if (inputRef.current) inputRef.current.value = '';
+      onDone();
+    }
+  };
+
+  return (
+    <View className="mt-4">
+      {/* react-native-web renders this as a real DOM <input>. */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/*"
+        onChange={onPicked}
+        style={{ display: 'none' }}
+      />
+      <PressableScale
+        onPress={() => inputRef.current?.click?.()}
+        className="min-h-[44px] items-center justify-center rounded-xl bg-inset px-4 py-3"
+        testID="plan-doc-upload"
+      >
+        <Text className="text-body font-semibold text-primary">
+          {state === 'uploading' ? 'Uploading…' : '+ Add a plan document'}
+        </Text>
+      </PressableScale>
+      {msg ? (
+        <Text
+          className={
+            state === 'error' ? 'mt-2 text-sm text-danger' : 'mt-2 text-sm text-secondary'
+          }
+        >
+          {msg}
+        </Text>
+      ) : null}
     </View>
   );
 }
