@@ -838,6 +838,9 @@ export interface ProfileState {
   email: string;
   profile_completed: boolean;
   has_insurance_card: boolean;
+  /** Reminders preference (2026-08-19): gates nudge chases + check-ins ONLY — case
+   *  updates (audit-ready, recovery, magic links) always arrive. */
+  email_notifications_enabled: boolean;
 }
 
 export interface ProfilePatch {
@@ -846,6 +849,7 @@ export interface ProfilePatch {
   date_of_birth?: string | null;
   phone?: string | null;
   accept_terms?: boolean;
+  email_notifications_enabled?: boolean;
 }
 
 export interface InsuranceInfo {
@@ -960,7 +964,7 @@ export async function fetchCardImageObjectUrl(
 export type SurfaceCopy = Record<string, string | null>;
 
 export async function getSurfaceCopy(
-  surface: 'upload' | 'status' | 'access_request',
+  surface: 'upload' | 'status' | 'access_request' | 'settings',
 ): Promise<SurfaceCopy> {
   const res = await cfetch(`${BASE_URL}/v1/copy/${surface}`);
   if (!res.ok) return {};

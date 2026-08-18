@@ -36,6 +36,16 @@ _SURFACES: dict[str, dict[str, str]] = {
         "leave_and_return": "status_leave_and_return",  # §2.2  (D3)
         "long_wait": "long_wait",  # §2.3
     },
+    # Settings copy (2026-08-19, item 1+): unauthored keys are simply ABSENT from the
+    # registry (the capture-keys precedent — missing is withheld and the client falls back
+    # to its own label; a [PLACEHOLDER-eng] seed would block the staging boot beyond the
+    # deliberate §3.11 pair). Queued in the Brock asks inventory.
+    "settings": {
+        "notifications_email_label": "settings.notifications_email_label",
+        "notifications_email_description": "settings.notifications_email_description",
+        "notifications_sms_label": "settings.notifications_sms_label",
+        "notifications_sms_coming_soon": "settings.notifications_sms_coming_soon",
+    },
     # Statutory-rights intake (§A2 state 5). Served as a surface because the screen renders
     # BEFORE — and often without — a session: the person exercising the right may not have an
     # account, or may be asking us to delete it.

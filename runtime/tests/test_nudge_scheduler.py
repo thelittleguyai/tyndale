@@ -308,3 +308,58 @@ def test_checkin_bodies_pass_the_real_phi_guard():
 
 def test_checkin_subject_is_not_the_chase_subject():
     assert NudgeItem("u", "c", "checkin+3d", kind="checkin").subject() != NudgeItem("u", "c", "+3d").subject()
+
+
+# ── the reminders preference (2026-08-19, settings item 1) ────────────────────────────────
+@pytest.mark.asyncio
+async def test_opted_out_user_gets_no_reminder_and_burns_no_stage(monkeypatch):
+    """The preference gates REMINDERS at the cron: the send never happens AND the
+    nudges_sent ledger stays unstamped — a user who opts back in resumes exactly where the
+    cadence left off, instead of having silently burned their stages while opted out."""
+    from app.auth.dev_user import DEV_USER_ID
+    from app.db.models.users import User
+
+    async def set_pref(value: bool) -> None:
+        # resolve_dev_user returns a CurrentUser DTO — the preference lives on the ORM row.
+        async with AsyncSessionLocal() as s:
+            row = (
+                await s.execute(select(User).where(User.user_id == DEV_USER_ID))
+            ).scalar_one()
+            row.email_notifications_enabled = value
+            await s.commit()
+
+    monkeypatch.setattr(get_settings(), "enable_nudge_emails", True)
+    cfid = await _case_with_old_finding(5)
+    await set_pref(False)
+
+    sends: list = []
+
+    async def fake_sender(to, subject, body):
+        sends.append(to)
+        return True
+
+    try:
+        r = await run_nudge_cron(sender=fake_sender)
+        assert sends == []  # nothing delivered
+        assert r["sent"] == 0 and r["skipped"] >= 1
+        async with AsyncSessionLocal() as s:
+            case = (
+                await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(cfid)))
+            ).scalar_one()
+            assert not (case.nudges_sent or [])  # the ledger is untouched
+
+        # Opt back in: the SAME stage is still due and now sends — nothing was burned.
+        await set_pref(True)
+        r2 = await run_nudge_cron(sender=fake_sender)
+        assert r2["sent"] >= 1 and len(sends) >= 1
+    finally:
+        await set_pref(True)
+
+
+def test_transactional_kinds_are_not_reminder_gated():
+    """The split's single source: only 'nudge' is a reminder. audit_ready / recovery are
+    service mail — the preference must never gate them (§2.2/§10.4 promises)."""
+    from app.notify.email import REMINDER_KINDS
+
+    assert REMINDER_KINDS == frozenset({"nudge"})
+    assert "audit_ready" not in REMINDER_KINDS and "recovery" not in REMINDER_KINDS

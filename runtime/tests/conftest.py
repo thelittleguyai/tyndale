@@ -86,6 +86,13 @@ def _init_db() -> None:
             await conn.execute(
                 text("ALTER TABLE case_files ADD COLUMN IF NOT EXISTS soft_deleted_by uuid")
             )
+            # 0042 (create_all won't ALTER a persisted dev DB — the 0041 lesson).
+            await conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "email_notifications_enabled boolean NOT NULL DEFAULT true"
+                )
+            )
             await conn.execute(
                 text(
                     "ALTER TABLE case_files DROP CONSTRAINT IF EXISTS "

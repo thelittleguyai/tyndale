@@ -51,6 +51,12 @@ class User(Base):
     improvement_consent: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    # Email-notifications PREFERENCE (2026-08-19, settings item 1). Gates REMINDERS only —
+    # nudge chases and check-ins. Transactional mail (audit-ready, recovery, magic links)
+    # is service mail and never consults it; the split is documented in app/notify/email.py.
+    email_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

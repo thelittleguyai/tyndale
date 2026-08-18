@@ -55,6 +55,7 @@ async def _state(session: AsyncSession, user_id) -> ProfileState:
         email=u.email,
         profile_completed=bool(u.profile_completed),
         has_insurance_card=await _has_card(session, user_id),
+        email_notifications_enabled=bool(u.email_notifications_enabled),
     )
 
 
@@ -94,6 +95,24 @@ async def patch_profile(
             ConsentHistory(user_id=u.user_id, from_consent=bool(u.service_consent), to_consent=True)
         )
         u.service_consent = True
+
+    if (
+        body.email_notifications_enabled is not None
+        and body.email_notifications_enabled != u.email_notifications_enabled
+    ):
+        u.email_notifications_enabled = body.email_notifications_enabled
+        # Consent-adjacent counter (Brock §6 compliance panel wants opt-out rates). Value
+        # only — never PHI. Best-effort like every server-side emit.
+        try:
+            from app.analytics.emit import emit
+
+            await emit(
+                "notification_pref_changed",
+                user_id=u.user_id,
+                properties={"email_notifications_enabled": body.email_notifications_enabled},
+            )
+        except Exception:  # noqa: BLE001 — analytics must never break a settings save
+            pass
 
     # Gate: required fields are name + DOB + terms. Flip once.
     if (

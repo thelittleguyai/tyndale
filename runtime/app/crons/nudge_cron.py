@@ -241,6 +241,27 @@ async def _checkin_item(
     )
 
 
+async def _opted_out_users(user_ids: set[str]) -> set[str]:
+    """The subset of users whose email_notifications_enabled is FALSE — reminders only;
+    transactional mail never consults this (the split lives in app/notify/email.py)."""
+    from uuid import UUID
+
+    from app.db.models.users import User
+
+    if not user_ids:
+        return set()
+    async with AsyncSessionLocal() as s:
+        rows = (
+            await s.execute(
+                select(User.user_id).where(
+                    User.user_id.in_([UUID(u) for u in user_ids]),
+                    User.email_notifications_enabled.is_(False),
+                )
+            )
+        ).scalars().all()
+    return {str(u) for u in rows}
+
+
 async def _mark_sent(case_file_id: str, stage: str) -> None:
     from uuid import UUID
 
@@ -276,10 +297,21 @@ async def run_nudge_cron(sender: NudgeSender | None = None) -> dict:
     settings = get_settings()
     send = sender or _guarded_email_sender
     items = await scan_for_nudges()
+    opted_out = await _opted_out_users({item.user_id for item in items})
     sent = 0
     skipped = 0
     for item in items:
         if not settings.enable_nudge_emails or not item.email:
+            skipped += 1
+            continue
+        if item.user_id in opted_out:
+            # The user's reminders preference (2026-08-19). Skip BEFORE send/mark so the
+            # nudges_sent ledger stays unstamped — an opted-out user who opts back in must
+            # not have silently burned their nudge stages.
+            log.info(
+                "nudge.skipped_by_preference",
+                case_file_id=item.case_file_id, stage=item.stage, kind=item.kind,
+            )
             skipped += 1
             continue
         ok = await send(item.email, item.subject(), item.body())

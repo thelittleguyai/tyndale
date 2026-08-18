@@ -16,6 +16,18 @@ Two invariants, both non-negotiable:
    success — that's exactly how the nudge silently lost its emails.
 
 No SendGrid key (local dev) is an honest False, not a fake True: nothing was delivered.
+
+THE REMINDER / TRANSACTIONAL SPLIT (2026-08-19, settings item 1):
+
+  * REMINDERS — kind="nudge" (chase + check-in) — honor the user's
+    `email_notifications_enabled` preference. The check lives at the CALLER (the nudge
+    cron, which knows the user and skips BEFORE send/mark so ledgers stay unstamped).
+  * TRANSACTIONAL — kind="audit_ready" / "recovery" (and the auth path's magic links) —
+    are SERVICE MAIL: the direct consequence of an action the user just took or a promise
+    the product just made. They never consult the preference; an opted-out user still
+    gets "your review is ready", because silence there would break §2.2/§10.4 promises.
+
+REMINDER_KINDS below is the split's single source; tests pin both sides.
 """
 
 from __future__ import annotations
@@ -26,6 +38,10 @@ import structlog
 from app.config import get_settings
 
 log = structlog.get_logger(__name__)
+
+# The kinds that are REMINDERS (preference-gated at the caller). Everything else sent
+# through this module is transactional service mail. See the module docstring.
+REMINDER_KINDS = frozenset({"nudge"})
 
 _SENDGRID_ENDPOINT = "https://api.sendgrid.com/v3/mail/send"
 

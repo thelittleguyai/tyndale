@@ -16,6 +16,7 @@ import {
   getInsuranceInfo,
   getIntakeState,
   getProfileState,
+  getSurfaceCopy,
   getUserProfile,
   fetchCardImageObjectUrl,
   patchProfile,
@@ -25,6 +26,7 @@ import {
   type BillingStatus,
   type InsuranceInfo,
   type ProfileState,
+  type SurfaceCopy,
   type UserProfile,
 } from '../../lib/api-client';
 import { useSignOut } from '../../lib/auth';
@@ -70,6 +72,7 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pstate, setPstate] = useState<ProfileState | null>(null);
+  const [settingsCopy, setSettingsCopy] = useState<SurfaceCopy | null>(null);
   const [insurance, setInsurance] = useState<InsuranceInfo | null>(null);
   const [coverageType, setCoverageType] = useState<string | null>(null);
   const [fn, setFn] = useState('');
@@ -85,6 +88,7 @@ export default function SettingsScreen() {
 
   const load = useCallback(() => {
     getUserProfile().then(setProfile).catch(() => {/* non-fatal */});
+    getSurfaceCopy('settings').then(setSettingsCopy).catch(() => {/* fallbacks render */});
     getProfileState()
       .then((s) => {
         setPstate(s);
@@ -161,6 +165,18 @@ export default function SettingsScreen() {
     } catch {
       setDeleting(false);
       flash('Couldn’t delete your account — try again or contact support.');
+    }
+  };
+
+  const toggleEmailNotifications = async (value: boolean) => {
+    if (!pstate) return;
+    setPstate({ ...pstate, email_notifications_enabled: value }); // optimistic
+    try {
+      setPstate(await patchProfile({ email_notifications_enabled: value }));
+      flash(value ? 'Reminders on.' : 'Reminders off — case updates still arrive.');
+    } catch {
+      setPstate({ ...pstate, email_notifications_enabled: !value }); // revert
+      flash('Couldn’t update — try again.');
     }
   };
 
@@ -302,13 +318,29 @@ export default function SettingsScreen() {
         </Pressable>
       </Section>
 
-      {/* 3. Notifications (placeholder) */}
+      {/* 3. Notifications — the email toggle is REAL (SendGrid live, 2026-08-19). It gates
+          REMINDERS only (nudge chases + check-ins); case updates always arrive. SMS stays an
+          honest "Coming soon" (Twilio undecided). Copy from the settings surface; unauthored
+          keys are withheld server-side and these fallbacks render (the capture precedent). */}
       <Section title="Notifications">
-        <DisabledRow label="Email notifications" />
-        <DisabledRow label="SMS notifications" />
-        <Text className="mt-2 text-xs text-faint">
-          Notification preferences arrive when SendGrid + Twilio come online.
-        </Text>
+        <View className="flex-row items-center justify-between py-1">
+          <View className="flex-1 pr-3">
+            <Text className="text-body text-primary">
+              {settingsCopy?.notifications_email_label ?? 'Email notifications'}
+            </Text>
+            <Text className="mt-0.5 text-xs text-faint">
+              {settingsCopy?.notifications_email_description ??
+                'Case updates always arrive — this controls reminders and check-ins.'}
+            </Text>
+          </View>
+          <Switch
+            value={pstate?.email_notifications_enabled ?? true}
+            onValueChange={toggleEmailNotifications}
+            disabled={!pstate}
+            testID="email-notifications-toggle"
+          />
+        </View>
+        <DisabledRow label={settingsCopy?.notifications_sms_label ?? 'SMS notifications'} />
       </Section>
 
       {/* Billing (Item 4) — renders nothing while the dark scaffold is off (enabled:false). */}

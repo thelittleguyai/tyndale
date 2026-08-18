@@ -20,6 +20,9 @@ class ProfileState(BaseModel):
     email: str
     profile_completed: bool
     has_insurance_card: bool
+    # Reminders preference (2026-08-19): gates nudge chases + check-ins ONLY — transactional
+    # mail (audit-ready, recovery, magic links) is service mail and never consults it.
+    email_notifications_enabled: bool = True
 
 
 class ProfilePatch(BaseModel):
@@ -28,6 +31,7 @@ class ProfilePatch(BaseModel):
     date_of_birth: date | None = None
     phone: str | None = None
     accept_terms: bool | None = None
+    email_notifications_enabled: bool | None = None
 
 
 class InsuranceInfoOut(BaseModel):

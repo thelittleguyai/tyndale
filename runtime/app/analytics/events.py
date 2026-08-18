@@ -116,6 +116,9 @@ REGISTRY: dict[str, EventSpec] = {
     # `kind` splits the two nudges the 2026-08-17 cron split created: chase (missing document)
     # vs checkin (Brock §11.5 follow-through). Same cadence, different message and premise.
     "nudge_sent": EventSpec({"stage": enum_prop(*_NUDGE_STAGES), "kind": enum_prop("chase", "checkin")}),
+    # Reminders preference flip (2026-08-19, settings item 1) — the consent-adjacent counter
+    # Brock's §6 compliance panel reads opt-out rates from. Value only, never PHI.
+    "notification_pref_changed": EventSpec({"email_notifications_enabled": bool_prop()}),
     "nudge_responded": EventSpec({"stage": enum_prop(*_NUDGE_STAGES), "kind": enum_prop("chase", "checkin")}),
     "reaudit_delta": EventSpec({"material": bool_prop()}),  # $25/5% materiality (reused constants)
     # call mode is client-side presentation → not server-known
