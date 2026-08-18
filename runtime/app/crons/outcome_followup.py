@@ -34,16 +34,27 @@ class OutcomeFollowup:
     finding_summary: str
 
 
+# Category-slug words that are initialisms, kept upper in the human label.
+_INITIALISMS = frozenset({"eob", "nsa", "gfe", "msn", "mue", "ncci", "er"})
+
+
 def _humanize(category: str) -> str:
-    return category.replace("_", " ").strip().capitalize()
+    """SENTENCE-POSITION label for a finding-category slug. The check-in card drops this
+    mid-sentence ("…I helped you with the {label}. Did it get resolved?"), so no leading
+    capital — the 2026-08-19 walkthrough caught 'I helped you with Cost sharing audit'.
+    The fix is the variable's treatment, not the card copy."""
+    words = category.replace("_", " ").strip().split()
+    return " ".join(w.upper() if w in _INITIALISMS else w for w in words)
 
 
 def _summary_for(findings: list[Finding]) -> str:
-    """Build a short human summary from the recommendation finding(s)."""
+    """Build a short human summary from the recommendation finding(s), article included —
+    the value must read as a noun phrase in sentence position ('the cost sharing audit
+    with UnitedHealthcare'), matching the 'your case' fallback's grammar."""
     rec = next((f for f in findings if (f.recommendation or {}).get("action")), None)
     if rec is None:
         return "your case"
-    label = _humanize(rec.category)
+    label = f"the {_humanize(rec.category)}"
     # Try to name the payer from the finding facts if present.
     payer = (rec.facts or {}).get("payer_name") or (rec.facts or {}).get("payer")
     return f"{label} with {payer}" if payer else label

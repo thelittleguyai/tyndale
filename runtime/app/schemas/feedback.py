@@ -98,7 +98,10 @@ class CaseFeedbackPayload(BaseModel):
 class OutcomePrompt(BaseModel):
     case_file_id: str
     days_since_recommendation: int
-    finding_summary: str = Field(description="e.g. 'Cost sharing miscalculation with UnitedHealthcare'")
+    finding_summary: str = Field(
+        # Sentence-position noun phrase — the card renders "…I helped you with {this}."
+        description="e.g. 'the cost sharing miscalculation with UnitedHealthcare'"
+    )
 
 
 class OutcomePromptsPayload(BaseModel):

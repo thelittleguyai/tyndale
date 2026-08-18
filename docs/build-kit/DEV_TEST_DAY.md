@@ -137,6 +137,23 @@ each box; anything that fails, capture the `case_file_id` (§ "If something brea
 ### 8 · Settings + theme
 - [ ] Toggle light/dark — body text is 16px and reads comfortably in both (A8); compare
       against `docs/design/screenshots/` if unsure
+- [ ] **Notifications** (2026-08-19 item 1): the email toggle is REAL — flip it off, trigger
+      the nudge cron from Admin → zero reminder sends for this user and the ledger stays
+      unstamped (flip back on later → the same stage still sends). Transactional mail
+      (audit-ready, magic links) ignores the toggle. SMS still reads "Coming soon"
+- [ ] **State of residence** (item 2): set it (two-letter code validates); on an account
+      whose documents carry a patient state, the suggestion chip offers it — never
+      silently set. Mailing address folds away under a disclosure
+- [ ] **Coverage type** (item 3): the row is tappable → the same 7-population ladder from
+      intake, detected candidate preselected; confirming writes through the existing
+      user-confirmed path and the row updates on return
+- [ ] **Secondary coverage** (item 4): shows what intake captured (hint) when no row;
+      add insurer / member ID / plan type (chips); card photos front + back store as
+      secondary sides and never touch the primary card merge; two-tap Remove clears
+      row + photos
+- [ ] **Plan documents** (item 5): upload the synthetic SBC once → "SBC on file" chip;
+      a stalled needs-documents case whose only gap was the SBC re-runs by itself;
+      the unlock-more checklist on OTHER cases shows the SBC line checked
 - [ ] Sign out / magic link back in
 
 ### 9 · Access request
