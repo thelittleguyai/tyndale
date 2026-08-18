@@ -278,3 +278,38 @@ def test_system_error_thread_key_follows_the_flag(monkeypatch):
     assert not trimmed.startswith("<MISSING-script:")
     # Both keys are in the render-path manifest so a copy drop can't strand either state.
     assert {"system_error", "system_error_no_email"} <= thread_bridge.RENDER_PATH_KEYS
+
+
+# ── synthetic recipients never reach the provider (2026-08-18) ───────────────────────────
+@pytest.mark.asyncio
+async def test_synthetic_e2e_recipients_are_never_sent_to_sendgrid(monkeypatch):
+    """The sweep fired ~15 real sends at @e2e.tyndale.test — a reserved TLD that can never
+    deliver — in under an hour: a spam-trap signature that can get the SendGrid account
+    paused (the 2026-08-18 mail-send 401s). Synthetic recipients short-circuit BEFORE any
+    network call, and return False so exactly-once stamps stay honest."""
+    from app.notify import email as email_mod
+
+    called: list[str] = []
+
+    class _NeverClient:
+        def __init__(self, *a, **kw):
+            called.append("client")
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **kw):
+            raise AssertionError("a synthetic recipient reached the provider")
+
+    monkeypatch.setattr(email_mod, "get_settings", lambda: type("S", (), {
+        "sendgrid_api_key": "SG.real-looking-key", "sendgrid_from_email": "no-reply@t.test"})())
+    monkeypatch.setattr(email_mod.httpx, "AsyncClient", _NeverClient)
+
+    ok = await email_mod.send_product_email(
+        "e2e-runner@e2e.tyndale.test", "Your review is ready", "Sign in to see it.",
+        kind="audit_ready",
+    )
+    assert ok is False and called == []
