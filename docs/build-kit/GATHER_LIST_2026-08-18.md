@@ -10,15 +10,28 @@ authored files.*
 
 ## Phil — do today (blocks test day)
 
-### 1. SendGrid API key — **product email is down on dev**
-The sweep caught it live: `notify.send_failed kind=audit_ready status=401` — SendGrid is
-rejecting the current key itself (revoked or expired). Until replaced, **no product email
-sends on dev**: audit-ready, needs-docs, nudge chase/check-in, recovery.
+### 1. SendGrid — **product email is down on dev, but the key is NOT the problem**
+The sweep caught it live: `notify.send_failed kind=audit_ready status=401` (~15 times over
+45 min). Diagnosis so far (2026-08-18): the tfvars key is **valid** (SendGrid answers 200
+with full scopes when tested from a laptop), Key Vault **matches tfvars exactly**
+(`terraform plan`: no changes; KV version dated 2026-05-29), the env wiring is correct
+(`SENDGRID_API_KEY` ← KV ref), and IP Access Management is **off**. Yet a revision
+provisioned the same day got 401 — so the fault is between Key Vault and the running
+container (a stale resolved secret) or in the container's egress path.
 
-- Get: a fresh API key from the SendGrid dashboard (Mail Send permission).
-- Put: `sendgrid_api_key` in `infra/envs/dev/terraform.tfvars` → `terraform apply`.
-- While in the dashboard: confirm the `sendgrid_from_email` address (or its domain) is
-  **sender-verified** — a valid key with an unverified sender fails just as completely.
+- **Next step (needs a TTY, 30 seconds):** exec into the runtime container and test the
+  key it actually holds, from its own network position:
+  ```
+  az containerapp exec -n tyndale-dev-runtime -g tyndale-dev-rg --command bash
+  # then inside:
+  printf %s "$SENDGRID_API_KEY" | wc -c
+  curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $SENDGRID_API_KEY" https://api.sendgrid.com/v3/scopes
+  ```
+  `200` + length 69 → key fine in-container, investigate the send path; `401` or a
+  different length → the container holds a stale/dead value: restart the revision
+  (`az containerapp revision restart`) so the KV reference re-resolves, and retest.
+- Until green, **no product email sends on dev**: audit-ready, needs-docs, nudges, recovery.
+- While in SendGrid anyway: confirm the `sendgrid_from_email` sender identity is verified.
 
 ### 2. Warm replicas for the test window
 Scale-to-zero cold starts read as hangs in a hands-on walkthrough (observed live).
