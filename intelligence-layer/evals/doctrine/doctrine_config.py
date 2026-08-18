@@ -93,7 +93,10 @@ INFORMATIONAL_CATEGORIES: frozenset[str] = frozenset(
 # classify the FAMILY — but only for findings that CLAIM NO MONEY (an all-clear asserting a
 # dollar gap is a contradiction the escape hatch logs instead of typing). Interim
 # engineering rule pending Brock's A6 taxonomy, which supersedes this list.
-INFORMATIONAL_CATEGORY_STEMS: tuple[str, ...] = ("_clear", "_clean", "_audit", "no_confirmed")
+# "_complete" / "_pass" joined 2026-08-18 (second sweep minted diagnostic_pass_complete).
+INFORMATIONAL_CATEGORY_STEMS: tuple[str, ...] = (
+    "_clear", "_clean", "_audit", "no_confirmed", "_complete", "_pass",
+)
 
 
 def category_matches_informational(category: str | None) -> bool:
@@ -147,6 +150,13 @@ X_KNOWN_GAPS: dict[str, str] = {
         "error findings can reach the user without a bound action (phantom_charge, first full "
         "dev sweep 2026-08-17) — the finding->gameplan action binding is not yet guaranteed "
         "by the pipeline"
+    ),
+    "scenario:clean_bill_a6_vocabulary": (
+        "the agents mint NOVEL all-clear category phrasings every run "
+        "(diagnostic_audit_clean, then diagnostic_pass_complete the very next sweep) — the "
+        "stem matcher is an interim that will lag new mints until Brock's A6 taxonomy "
+        "bounds the vocabulary. clean_bill_matching_eob prints this on every run so a "
+        "future stem miss reads as the known dependency, not a mystery (2026-08-18)"
     ),
     "scenario:balance_billing_nsa_seed": (
         "the balance-billing finding activates with the 50-state NSA seed (DL-81/DL-88 — "

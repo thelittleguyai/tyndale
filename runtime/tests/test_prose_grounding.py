@@ -40,11 +40,16 @@ def test_grounded_structured_claims_keep():
     assert verdict.action == "keep" and not verdict.scrubbed
 
 
-def test_code_claims_walk_nested_structures():
-    claims = structured_code_claims(
-        {"lines": [{"procedure_code": "73721"}, {"hcpcs": "A9579"}], "note": "ignored"}
+def test_code_claims_split_presence_from_reference():
+    presence, reference = structured_code_claims(
+        {"lines": [{"procedure_code": "73721"}, {"hcpcs": "A9579"}],
+         "correct_panel_code": "80053", "note": "ignored"},
+        None,
+        {"suggested_cpt": "80047"},
     )
-    assert claims == {"73721", "A9579"}
+    assert presence == {"73721", "A9579"}
+    # Reference context: reference-marked facts keys + everything in recommendation.
+    assert reference == {"80053", "80047"}
 
 
 # ── incidental: parenthesized scrubs; inline drops; ungrounded-basis drops ────────────────
@@ -107,3 +112,29 @@ def test_strip_spans_leaves_tidy_text():
     s = "An MRI of the brain (70553) done twice."
     spans = [(m[0], m[1]) for m in prose_mentions(s)]
     assert strip_spans(s, spans) == "An MRI of the brain done twice."
+
+
+# ── reference codes are the finding's ARGUMENT, never a conviction (2026-08-18) ───────────
+def test_unbundling_reference_codes_are_exempt_and_vouch_their_prose_mentions():
+    """The second sweep's false positive: an unbundling finding cites the correct PANEL
+    code that is DELIBERATELY absent from the bill — that's the argument, not a claim
+    about the documents. Reference-context codes never convict, and their prose mentions
+    stay untouched (scrubbing the panel code would gut the finding's usefulness)."""
+    verdict = ground_finding(
+        {
+            "line_item_id": "li-1",
+            "description": "These components (80053) belong to one comprehensive panel.",
+            "correct_panel_code": "80053",
+        },
+        None,
+        {"action": "Ask the biller to rebill these as the comprehensive panel, CPT 80053."},
+        HAYSTACK,  # 80053 appears nowhere in the documents — by the nature of the error
+    )
+    assert verdict.action == "keep"
+    assert not verdict.scrubbed  # vouched mentions are not stripped
+
+
+def test_summary_vouched_reference_codes_do_not_trigger_regeneration():
+    text = "The panel should have been billed as one test (80053)."
+    assert summary_ungrounded_codes(text, HAYSTACK, {"80053"}) == []
+    assert summary_ungrounded_codes(text, HAYSTACK) == ["80053"]  # unvouched still flags

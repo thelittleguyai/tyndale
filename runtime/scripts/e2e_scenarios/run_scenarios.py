@@ -656,8 +656,15 @@ def run_scenario(
                 client, base_url, case_id, scenario["chat_first_verify"]
             )
         audit: dict | None = None
-        # The honest-failure states are terminal at the extract step — no encounter/audit.
-        if terminal not in ("extraction_failed", "not_a_bill"):
+        # 'needs_documents' is terminal AT THE EXTRACT STEP (2026-08-18 — a recognized doc
+        # with a readable amount but no line items; POSTing confirmations to it was the
+        # sweep's 400). The CASE terminal is audit_incomplete/needs_documents: resolve it
+        # and fetch the audit payload so incomplete_reason + checklist assertions run.
+        if terminal == "needs_documents":
+            terminal = _poll_status(client, base_url, case_id)
+            audit = _get_audit(client, base_url, case_id)
+        # The other honest-failure states are terminal at extract — no encounter/audit.
+        elif terminal not in ("extraction_failed", "not_a_bill"):
             _confirm(client, base_url, case_id, extract, scenario.get("encounter", {}))
             t = time.monotonic()
             terminal = _poll_status(client, base_url, case_id)

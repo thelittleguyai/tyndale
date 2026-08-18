@@ -35,32 +35,58 @@ _PAREN_RE = re.compile(r"\(\s*([A-Z]\d{4}|\d{5})\s*\)")
 _CODE_KEY_HINTS = ("code", "cpt", "hcpcs", "procedure")
 _CODE_SHAPE_RE = re.compile(r"\A[A-Z]?\d{4,5}\Z")
 
+# REFERENCE context (2026-08-18, the unbundled_panel false positive): a finding may cite a
+# code that is DELIBERATELY absent from the documents — the panel code the components
+# should have been billed as, the NCCI-correct code, the MUE comparison. Those are the
+# finding's argument, not a claim about what the documents contain, so they are exempt
+# from basis conviction. Key markers below flag reference context; recommendation and
+# legal_claim payloads are reference context wholesale (they argue — the DOCUMENT claims
+# live in facts). Residual accepted with eyes open: an agent could launder a fabricated
+# code through a reference key; a wrong reference is a lesser harm than dropping every
+# legitimate unbundling finding, and the recommendation text still passes the DL-47/PHI
+# gates downstream.
+_REFERENCE_KEY_MARKERS = (
+    "correct", "should", "expected", "recommend", "instead", "bundl", "panel",
+    "replace", "reference", "comparison",
+)
+
 
 def _grounded(code: str, haystack: str) -> bool:
     base = code.strip().upper().split("-", 1)[0]
     return len(base) < 4 or base in haystack
 
 
-def structured_code_claims(*payloads: dict | None) -> set[str]:
-    """Code-shaped values under code-named keys, anywhere in the finding's structured data."""
-    claims: set[str] = set()
+def structured_code_claims(
+    facts: dict | None, legal_claim: dict | None = None, recommendation: dict | None = None
+) -> tuple[set[str], set[str]]:
+    """(presence_claims, reference_codes).
 
-    def walk(node, key_hint: bool) -> None:
+    Presence claims: code-shaped values under code-named keys in the FACTS tree with no
+    reference marker on the path — the finding says the documents contain this code.
+    Reference codes: code-shaped values under reference-marked keys anywhere, plus every
+    code in legal_claim/recommendation — the finding cites them as its argument."""
+    presence: set[str] = set()
+    reference: set[str] = set()
+
+    def walk(node, key_hint: bool, is_reference: bool) -> None:
         if isinstance(node, dict):
             for k, v in node.items():
-                hinted = key_hint or any(h in str(k).lower() for h in _CODE_KEY_HINTS)
-                walk(v, hinted)
+                key = str(k).lower()
+                hinted = key_hint or any(h in key for h in _CODE_KEY_HINTS)
+                ref = is_reference or any(m in key for m in _REFERENCE_KEY_MARKERS)
+                walk(v, hinted, ref)
         elif isinstance(node, list):
             for v in node:
-                walk(v, key_hint)
+                walk(v, key_hint, is_reference)
         elif key_hint and isinstance(node, (str, int)):
             s = str(node).strip().upper()
             if _CODE_SHAPE_RE.match(s):
-                claims.add(s)
+                (reference if is_reference else presence).add(s)
 
-    for p in payloads:
-        walk(p or {}, False)
-    return claims
+    walk(facts or {}, False, False)
+    walk(legal_claim or {}, False, True)
+    walk(recommendation or {}, False, True)
+    return presence, reference
 
 
 def prose_mentions(text: str) -> list[tuple[int, int, str, bool]]:
@@ -100,17 +126,20 @@ def ground_finding(
     """Apply drop-if-basis / scrub-if-incidental to one finding's payloads."""
     payloads = {"facts": facts, "legal_claim": legal_claim, "recommendation": recommendation}
 
-    claims = structured_code_claims(facts, legal_claim, recommendation)
-    ungrounded_claims = sorted(c for c in claims if not _grounded(c, haystack))
+    presence, reference = structured_code_claims(facts, legal_claim, recommendation)
+    ungrounded_claims = sorted(c for c in presence if not _grounded(c, haystack))
     if ungrounded_claims:
         return GroundingVerdict("drop", dropped_codes=ungrounded_claims)
 
-    has_real_grounding = any(_grounded(c, haystack) and len(c) >= 4 for c in claims) or bool(
+    has_real_grounding = any(_grounded(c, haystack) and len(c) >= 4 for c in presence) or bool(
         (facts or {}).get("line_item_id") or (facts or {}).get("line_item_refs")
     )
+    # A code the finding cites as its ARGUMENT (the correct panel code, the NCCI reference)
+    # is vouched: it may legitimately be absent from the documents, so its prose mentions
+    # are never convicted or scrubbed.
+    vouched = {c for c in reference}
 
     scrubbed: dict[str, dict] = {}
-    offenders: list[str] = []
     for name, payload in payloads.items():
         if not payload:
             continue
@@ -123,10 +152,12 @@ def ground_finding(
             if isinstance(node, list):
                 return [clean(v) for v in node]
             if isinstance(node, str):
-                mentions = [m for m in prose_mentions(node) if not _grounded(m[2], haystack)]
+                mentions = [
+                    m for m in prose_mentions(node)
+                    if not _grounded(m[2], haystack) and m[2] not in vouched
+                ]
                 if not mentions:
                     return node
-                offenders.extend(m[2] for m in mentions)
                 if not has_real_grounding or any(not strippable for *_, strippable in mentions):
                     # No real grounding, or an inline load-bearing mention: basis treatment.
                     raise _Basis(sorted({m[2] for m in mentions}))
@@ -149,9 +180,16 @@ class _Basis(Exception):
         self.codes = codes
 
 
-def summary_ungrounded_codes(text: str, haystack: str) -> list[str]:
-    """Context-anchored codes in the LP summary that no document contains."""
-    return sorted({m[2] for m in prose_mentions(text or "") if not _grounded(m[2], haystack)})
+def summary_ungrounded_codes(
+    text: str, haystack: str, vouched: set[str] | frozenset[str] = frozenset()
+) -> list[str]:
+    """Context-anchored codes in the LP summary that no document contains — excluding codes
+    the KEPT findings vouch for as their argument (the unbundling summary legitimately
+    cites the correct panel code)."""
+    return sorted({
+        m[2] for m in prose_mentions(text or "")
+        if not _grounded(m[2], haystack) and m[2] not in vouched
+    })
 
 
 def regeneration_instruction(codes: list[str]) -> str:

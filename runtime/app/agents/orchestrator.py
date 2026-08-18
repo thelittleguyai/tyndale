@@ -555,6 +555,7 @@ async def _ground_prose(
             .scalars()
             .all()
         )
+        vouched: set[str] = set()  # kept findings' reference codes vouch summary mentions
         for f in rows:
             verdict = pg.ground_finding(f.facts, f.legal_claim, f.recommendation, haystack)
             if verdict.action == "drop":
@@ -566,18 +567,21 @@ async def _ground_prose(
                     ungrounded_codes=verdict.dropped_codes,
                 )
                 await s.delete(f)
-            elif verdict.scrubbed:
-                DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
-                for name, payload in verdict.scrubbed.items():
-                    setattr(f, name, payload)
-                log.warning(
-                    "orchestrator.grounding.finding_scrubbed",
-                    case_file_id=case_file_id,
-                    category=f.category,
-                )
+            else:
+                _, refs = pg.structured_code_claims(f.facts, f.legal_claim, f.recommendation)
+                vouched |= refs
+                if verdict.scrubbed:
+                    DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
+                    for name, payload in verdict.scrubbed.items():
+                        setattr(f, name, payload)
+                    log.warning(
+                        "orchestrator.grounding.finding_scrubbed",
+                        case_file_id=case_file_id,
+                        category=f.category,
+                    )
         await s.commit()
 
-    codes = pg.summary_ungrounded_codes(composed, haystack)
+    codes = pg.summary_ungrounded_codes(composed, haystack, vouched)
     if not codes:
         return composed
     if budget.take_regen():
@@ -594,7 +598,7 @@ async def _ground_prose(
             )
             await s.commit()
         composed = lp.final_text
-        codes = pg.summary_ungrounded_codes(composed, haystack)
+        codes = pg.summary_ungrounded_codes(composed, haystack, vouched)
     if codes:
         # Regeneration unavailable or insufficient: no summary beats a fabricated code.
         DOCTRINE_VIOLATIONS["grounding_summary_degraded"] += 1
