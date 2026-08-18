@@ -197,6 +197,34 @@ framing. The X3 qualifier text itself ("between … until I see your …") is en
 [A]-tier data narration, same class as the dollar figures — flag if you want it otherwise.
 
 
+### 3.12 Settings grew up for test day — eight keys, none blocking (2026-08-19)
+Phil's walkthrough found Settings half-real; we made it real. Eight NEW registry keys exist as
+**client fallbacks only** — deliberately ABSENT from the registry (the capture-keys precedent:
+absent keys can't block the staging boot the way `[PLACEHOLDER-eng]` does, and §3.11's pair
+stays the only deliberate placeholder set). Author whenever; each ships with the engineering
+fallback shown in parentheses:
+
+**Notifications** (the toggle is real now — it gates reminders/check-ins ONLY; transactional
+mail — audit-ready, recovery, magic links — never consults it. That split is load-bearing;
+the copy must not promise more):
+1. `settings.notifications_email_label` ("Email notifications")
+2. `settings.notifications_email_description` ("Case updates always arrive — this controls
+   reminders and check-ins.")
+3. `settings.notifications_sms_label` ("SMS notifications")
+4. `settings.notifications_sms_coming_soon` ("Coming soon")
+
+**Plan documents** (the SBC's new home — uploaded once at the plan level, it satisfies the
+SBC line on every case's checklist and feeds the cost-sharing math):
+5. `settings.plan_documents_title` ("Plan documents")
+6. `settings.plan_documents_description` ("Your Summary of Benefits and Coverage (SBC)
+   describes your plan, not one bill — add it once here and every case can use it.")
+7. `settings.plan_documents_empty` ("No plan documents yet.")
+8. `settings.plan_documents_sbc_on_file` ("✓ SBC on file — your cases won't ask for it again")
+
+Also for your §6 dashboards: preference changes emit `notification_pref_changed`
+(email_notifications_enabled true/false), so opt-out rates are countable from day one.
+
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD
