@@ -83,7 +83,51 @@ def test_anchor_precedence_allowed_over_billed_over_lines():
     assert out["anchor_kind"] == "allowed"  # $1,800 — the true cost-share base
     assert out["provider_billed"] == 3700.0  # the itemized lines, not the EOB restatement
     assert out["eob_member_responsibility"] == 360.0
+    assert 0.0 <= out["tyndale_computed"] <= 1800.0
+
+
+# ── the priors gate (Phil, 2026-08-18): placeholder priors suppress the visible range ─────
+def test_placeholder_priors_suppress_the_visible_range():
+    """Every prior is placeholder-flagged today, so a range built on them must not render —
+    the figure ships point-form until Brock's researched values land."""
+    out = _rung2_three_numbers(_case(documents=[_eob_doc()]))
+    assert out is not None
+    assert out["tyndale_computed_low"] is None and out["tyndale_computed_high"] is None
+    assert 0.0 <= out["tyndale_computed"] <= 1800.0  # the point value still ships
+
+
+def test_real_flagged_priors_activate_the_range(monkeypatch):
+    """Brock's data drop is the activation switch: flipping placeholder=False per entry
+    turns the range on with zero code change."""
+    from app.sources import cost_share_model
+    from app.sources.missing_data_priors import InputPrior
+
+    real = {
+        "deductible_amount": InputPrior(
+            low=500.0, base=2000.0, high=8000.0, unit="usd",
+            source="brock_2026", placeholder=False,
+        ),
+        "coinsurance_percent": InputPrior(
+            low=0.10, base=0.20, high=0.40, unit="fraction",
+            source="brock_2026", placeholder=False,
+        ),
+    }
+    monkeypatch.setattr(cost_share_model, "MISSING_DATA_PRIORS", real)
+    out = _rung2_three_numbers(_case(documents=[_eob_doc()]))
+    assert out is not None
+    assert out["tyndale_computed_low"] is not None
     assert 0.0 <= out["tyndale_computed_low"] <= out["tyndale_computed_high"] <= 1800.0
+
+
+def test_stated_coverage_never_counts_as_placeholder():
+    """A range whose spread comes only from stated plan terms (deductible-met vs not)
+    consumed no priors — it renders regardless of the placeholder table."""
+    r = rung2_range(
+        1800.0,
+        {"deductible_amount": 500.0, "oop_max_amount": 6000.0, "coinsurance_percent": 0.2},
+        anchor_kind="allowed",
+    )
+    assert r.placeholder_basis is False
 
 
 def test_bill_only_completes_with_no_invented_eob_number():

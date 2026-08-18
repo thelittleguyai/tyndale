@@ -652,12 +652,16 @@ def _rung2_three_numbers(case) -> dict | None:
         return None  # no document-stated money anywhere — the audit genuinely cannot stand
 
     rng = rung2_range(anchor, case.coverage, anchor_kind=anchor_kind)
+    # Priors gate (Phil, 2026-08-18): while any prior the range consumed is still a
+    # PLACEHOLDER, the user-visible range is suppressed — point form only. Brock's
+    # researched table activates ranges per-entry by flipping the flag in the data.
+    suppress = rng.placeholder_basis
     return {
         "provider_billed": provider_billed,
         "eob_member_responsibility": eob_member,
         "tyndale_computed": rng.base,
-        "tyndale_computed_low": rng.low,
-        "tyndale_computed_high": rng.high,
+        "tyndale_computed_low": None if suppress else rng.low,
+        "tyndale_computed_high": None if suppress else rng.high,
         "anchor_kind": rng.anchor_kind,
         "missing_inputs": rng.missing_inputs,
     }

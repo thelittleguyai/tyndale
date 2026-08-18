@@ -18,7 +18,12 @@ from dataclasses import dataclass
 class InputPrior:
     """A plausible-value prior for one missing input. ``unit`` is 'usd' (a dollar amount)
     or 'fraction' (e.g. a 0.20 coinsurance). ``plausible_values`` are what the range
-    computation sweeps; ``base`` is the best single guess."""
+    computation sweeps; ``base`` is the best single guess.
+
+    ``placeholder`` (2026-08-18, Phil's ruling): while True, any user-visible RANGE this
+    prior feeds is SUPPRESSED — the rung-2 figure renders point-form only. Brock's
+    researched table flips entries to False as they land, activating ranges per-entry
+    with no code change. His data drop IS the activation switch."""
 
     low: float
     base: float
@@ -26,6 +31,7 @@ class InputPrior:
     unit: str  # "usd" | "fraction"
     source: str  # provenance of the prior (placeholder until Brock's table lands)
     note: str = ""
+    placeholder: bool = True
 
     def plausible_values(self) -> list[float]:
         """The values the range computation sweeps. A coarse low/base/high grid for now;

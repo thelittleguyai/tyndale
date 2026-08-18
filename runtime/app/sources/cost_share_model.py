@@ -34,6 +34,10 @@ class Rung2Range:
     anchor_kind: str  # "allowed" | "billed"
     missing_inputs: list[str] = field(default_factory=list)
     model: str = "standard_deductible_coinsurance"
+    # True when any prior CONSUMED by this range is still placeholder-flagged (Phil's
+    # ruling 2026-08-18): the caller suppresses the user-visible range and renders point
+    # form until Brock's researched values land. Stated coverage values never set this.
+    placeholder_basis: bool = False
 
     @property
     def is_point(self) -> bool:
@@ -59,6 +63,7 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
     """
     cov = coverage or {}
     missing = missing_cost_share_inputs(coverage)
+    placeholder_basis = False
 
     stated_ded = cov.get("deductible_amount")
     if stated_ded is not None:
@@ -68,6 +73,7 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
         prior = MISSING_DATA_PRIORS["deductible_amount"]
         ded_candidates = [0.0, *prior.plausible_values()]
         ded_base = prior.base
+        placeholder_basis = placeholder_basis or prior.placeholder
 
     stated_coins = cov.get("coinsurance_percent")
     if stated_coins is not None:
@@ -77,6 +83,7 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
         prior = MISSING_DATA_PRIORS["coinsurance_percent"]
         coins_candidates = prior.plausible_values()
         coins_base = prior.base
+        placeholder_basis = placeholder_basis or prior.placeholder
 
     results = sorted(
         member_cost_share(anchor, d, c) for d in ded_candidates for c in coins_candidates
@@ -88,4 +95,5 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
         anchor=round(float(anchor), 2),
         anchor_kind=anchor_kind,
         missing_inputs=missing,
+        placeholder_basis=placeholder_basis,
     )
