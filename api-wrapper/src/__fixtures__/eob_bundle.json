@@ -1,0 +1,34 @@
+{
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "ExplanationOfBenefit",
+        "id": "eob-full",
+        "status": "active",
+        "billablePeriod": { "start": "2026-03-14", "end": "2026-03-14" },
+        "provider": { "display": "General Hospital" },
+        "item": [
+          {
+            "productOrService": { "coding": [{ "code": "73721", "display": "MRI lower extremity" }] },
+            "servicedDate": "2026-03-14",
+            "adjudication": [
+              { "category": { "coding": [{ "code": "submitted" }] }, "amount": { "value": 1850, "currency": "USD" } },
+              { "category": { "coding": [{ "code": "eligible" }] }, "amount": { "value": 900, "currency": "USD" } },
+              { "category": { "coding": [{ "code": "benefit" }] }, "amount": { "value": 720, "currency": "USD" } },
+              { "category": { "coding": [{ "code": "deductible" }] }, "amount": { "value": 120, "currency": "USD" } },
+              { "category": { "coding": [{ "code": "coinsurance" }] }, "amount": { "value": 60, "currency": "USD" } }
+            ]
+          },
+          {
+            "productOrService": { "coding": [{ "code": "99213" }] },
+            "adjudication": [
+              { "category": { "coding": [{ "code": "submitted" }] }, "amount": { "value": 185 } }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

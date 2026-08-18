@@ -1,0 +1,175 @@
+{
+  "info": {
+    "name": "Tyndale — 1upHealth Wrapper Service",
+    "description": "The wrapper's four data routes + health. Deployed instance is INTERNAL-ONLY — point base_url at a local run (see api-wrapper/API.md for env setup). All data routes: GET only, Bearer auth, app_user_id required. Every value comes wrapped in a SourceResult envelope (value / provenance / freshness / confidence).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{wrapper_token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8088", "description": "Local run of the wrapper. Deployed instance is internal-ingress only." },
+    { "key": "wrapper_token", "value": "dev-local-token", "description": "Must equal the service's WRAPPER_AUTH_TOKEN env. Deployed value: Key Vault secret WRAPPER-AUTH-TOKEN." },
+    { "key": "app_user_id", "value": "REPLACE-with-case-or-user-uuid", "description": "Passthrough id today (D2 identity mapping pending)." }
+  ],
+  "item": [
+    {
+      "name": "Health (unauthenticated)",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+        "description": "Liveness + the two gate booleans. enabled = ENABLE_COVERAGE_CONNECTION; configured = 1up credentials present."
+      },
+      "response": [
+        {
+          "name": "200 — gated off (current dev posture)",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] } },
+          "status": "OK", "code": 200, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"ok\",\n  \"enabled\": false,\n  \"configured\": false\n}"
+        }
+      ]
+    },
+    {
+      "name": "Coverages",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/v1/coverages?app_user_id={{app_user_id}}",
+          "host": ["{{base_url}}"], "path": ["v1", "coverages"],
+          "query": [{ "key": "app_user_id", "value": "{{app_user_id}}", "description": "REQUIRED" }]
+        },
+        "description": "Coverage plans as SourceResult<CoveragePlan>[]. Money in dollars + ISO currency."
+      },
+      "response": [
+        {
+          "name": "200 — one active plan",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/coverages?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "coverages"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] } },
+          "status": "OK", "code": 200, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "[\n  {\n    \"value\": {\n      \"payerName\": \"Blue Shield\",\n      \"memberId\": \"XEG123456789\",\n      \"groupNumber\": \"GRP-4417\",\n      \"planType\": \"PPO\",\n      \"status\": \"active\",\n      \"coverageStart\": \"2026-01-01\"\n    },\n    \"provenance\": {\n      \"vendor\": \"1upHealth\",\n      \"method\": \"fhir-read\",\n      \"sourceRefs\": [\"Coverage/abc123\"],\n      \"retrievedAt\": \"2026-08-13T17:20:11Z\"\n    },\n    \"freshness\": { \"asOf\": \"2026-08-13T17:20:11Z\", \"ageDays\": 0 },\n    \"confidence\": { \"level\": \"high\", \"reasons\": [] }\n  }\n]"
+        },
+        {
+          "name": "424 — no connected payer",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/coverages?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "coverages"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] } },
+          "status": "Failed Dependency", "code": 424, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"missing_tokens\",\n  \"message\": \"No payer tokens for app_user …\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Claims",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/v1/claims?app_user_id={{app_user_id}}&since=2026-01-01",
+          "host": ["{{base_url}}"], "path": ["v1", "claims"],
+          "query": [
+            { "key": "app_user_id", "value": "{{app_user_id}}", "description": "REQUIRED" },
+            { "key": "since", "value": "2026-01-01", "description": "OPTIONAL — service date on/after this ISO date" }
+          ]
+        },
+        "description": "Adjudicated claims as SourceResult<ClaimRecord>[] with per-line CPT/billed/allowed/paid/patientResponsibility."
+      },
+      "response": [
+        {
+          "name": "200 — one claim, one line",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/claims?app_user_id={{app_user_id}}&since=2026-01-01", "host": ["{{base_url}}"], "path": ["v1", "claims"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }, { "key": "since", "value": "2026-01-01" }] } },
+          "status": "OK", "code": 200, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "[\n  {\n    \"value\": {\n      \"claimId\": \"EOB-889123\",\n      \"serviceStart\": \"2026-04-02\",\n      \"provider\": \"Maple Grove Family Medicine\",\n      \"billed\": { \"amount\": 374.0, \"currency\": \"USD\" },\n      \"allowed\": { \"amount\": 254.5, \"currency\": \"USD\" },\n      \"insurerPaid\": { \"amount\": 226.1, \"currency\": \"USD\" },\n      \"patientResponsibility\": { \"amount\": 28.4, \"currency\": \"USD\" },\n      \"adjudicationStatus\": \"complete\",\n      \"lines\": [\n        {\n          \"cptCode\": \"99214\",\n          \"description\": \"Office visit, established\",\n          \"billed\": { \"amount\": 240.0, \"currency\": \"USD\" },\n          \"allowed\": { \"amount\": 142.0, \"currency\": \"USD\" },\n          \"insurerPaid\": { \"amount\": 113.6, \"currency\": \"USD\" },\n          \"patientResponsibility\": { \"amount\": 28.4, \"currency\": \"USD\" }\n        }\n      ]\n    },\n    \"provenance\": { \"vendor\": \"1upHealth\", \"method\": \"fhir-read\", \"sourceRefs\": [\"ExplanationOfBenefit/889123\"], \"retrievedAt\": \"2026-08-13T17:20:11Z\" },\n    \"freshness\": { \"asOf\": \"2026-06-20\", \"ageDays\": 54 },\n    \"confidence\": { \"level\": \"high\", \"reasons\": [] }\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Accumulators",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/v1/accumulators?app_user_id={{app_user_id}}",
+          "host": ["{{base_url}}"], "path": ["v1", "accumulators"],
+          "query": [{ "key": "app_user_id", "value": "{{app_user_id}}", "description": "REQUIRED" }]
+        },
+        "description": "Deductible/OOP positions as SourceResult<AccumulatorSnapshot>[]. Multiple disagreeing readings are PRESERVED (reconciliation is the runtime's job). method is typically computed-from-eob or eob-stated-ytd."
+      },
+      "response": [
+        {
+          "name": "200 — computed-from-EOB reading",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/accumulators?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "accumulators"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] } },
+          "status": "OK", "code": 200, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "[\n  {\n    \"value\": {\n      \"planYearStart\": \"2026-01-01\",\n      \"planYearEnd\": \"2026-12-31\",\n      \"individualDeductible\": {\n        \"limit\": { \"amount\": 2000, \"currency\": \"USD\" },\n        \"met\": { \"amount\": 1750, \"currency\": \"USD\" },\n        \"remaining\": { \"amount\": 250, \"currency\": \"USD\" }\n      },\n      \"individualOopMax\": {\n        \"limit\": { \"amount\": 6500, \"currency\": \"USD\" },\n        \"met\": { \"amount\": 3200, \"currency\": \"USD\" },\n        \"remaining\": { \"amount\": 3300, \"currency\": \"USD\" }\n      }\n    },\n    \"provenance\": { \"vendor\": \"1upHealth\", \"method\": \"computed-from-eob\", \"retrievedAt\": \"2026-08-13T17:20:11Z\" },\n    \"freshness\": { \"asOf\": \"2026-08-01\", \"ageDays\": 12 },\n    \"confidence\": { \"level\": \"medium\", \"reasons\": [\"payer omitted costToBeneficiary\"] }\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Financial picture (combined fan-out)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/v1/financial-picture?app_user_id={{app_user_id}}&since=2026-01-01",
+          "host": ["{{base_url}}"], "path": ["v1", "financial-picture"],
+          "query": [
+            { "key": "app_user_id", "value": "{{app_user_id}}", "description": "REQUIRED" },
+            { "key": "since", "value": "2026-01-01", "description": "OPTIONAL — applies to the claims fan-out" }
+          ]
+        },
+        "description": "All four families in one call: { coverages, claims, accumulators, encounters }, each an array of SourceResults. Prefer the individual routes when you need one family — this triggers all upstream reads."
+      },
+      "response": [
+        {
+          "name": "200 — shape only",
+          "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/financial-picture?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "financial-picture"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] } },
+          "status": "OK", "code": 200, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }],
+          "body": "{\n  \"coverages\": [],\n  \"claims\": [],\n  \"accumulators\": [],\n  \"encounters\": []\n}"
+        }
+      ]
+    },
+    {
+      "name": "Error examples",
+      "item": [
+        {
+          "name": "401 — bad/missing bearer",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/coverages?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "coverages"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] },
+            "description": "Auth deliberately removed on this request to demonstrate the 401."
+          },
+          "response": [
+            { "name": "401", "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/coverages?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "coverages"] } }, "status": "Unauthorized", "code": 401, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }], "body": "{ \"error\": \"unauthorized\" }" }
+          ]
+        },
+        {
+          "name": "400 — missing app_user_id",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/claims", "host": ["{{base_url}}"], "path": ["v1", "claims"] }
+          },
+          "response": [
+            { "name": "400", "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/claims", "host": ["{{base_url}}"], "path": ["v1", "claims"] } }, "status": "Bad Request", "code": 400, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }], "body": "{ \"error\": \"missing_app_user_id\" }" }
+          ]
+        },
+        {
+          "name": "503 — gate off or creds absent",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/accumulators?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "accumulators"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] },
+            "description": "What you get from the DEPLOYED dev instance today (enabled=false), or a local run without 1up creds (configured=false)."
+          },
+          "response": [
+            { "name": "503", "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/accumulators?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "accumulators"] } }, "status": "Service Unavailable", "code": 503, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }], "body": "{\n  \"error\": \"coverage_connection_disabled\",\n  \"enabled\": false,\n  \"configured\": false\n}" }
+          ]
+        },
+        {
+          "name": "502 — upstream (1up/FHIR) failure",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/claims?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "claims"], "query": [{ "key": "app_user_id", "value": "{{app_user_id}}" }] }
+          },
+          "response": [
+            { "name": "502", "originalRequest": { "method": "GET", "url": { "raw": "{{base_url}}/v1/claims?app_user_id={{app_user_id}}", "host": ["{{base_url}}"], "path": ["v1", "claims"] } }, "status": "Bad Gateway", "code": 502, "_postman_previewlanguage": "json", "header": [{ "key": "content-type", "value": "application/json" }], "body": "{\n  \"error\": \"upstream_error\",\n  \"upstreamStatus\": 500,\n  \"message\": \"…(may embed upstream body today — pre-flip hardening item; do not log)\"\n}" }
+          ]
+        }
+      ]
+    }
+  ]
+}

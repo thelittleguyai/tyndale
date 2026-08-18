@@ -1,0 +1,28 @@
+{
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Coverage",
+        "id": "cov-full",
+        "status": "active",
+        "subscriberId": "MBR-889912",
+        "type": { "coding": [{ "code": "PPO", "display": "Preferred Provider Organization" }] },
+        "period": { "start": "2026-01-01", "end": "2026-12-31" },
+        "payor": [{ "display": "Blue Shield of Testland" }],
+        "class": [
+          { "type": { "coding": [{ "code": "group" }] }, "value": "GRP-4471", "name": "Employer Group" },
+          { "type": { "coding": [{ "code": "plan" }] }, "value": "PLN-002", "name": "Gold PPO 2000" }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Coverage",
+        "id": "cov-minimal",
+        "status": "active"
+      }
+    }
+  ]
+}

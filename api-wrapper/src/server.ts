@@ -1,9 +1,5 @@
-import http from "node:http";
-import { timingSafeEqual } from "node:crypto";
-
 import { loadConfig } from "./config.js";
 import { OneUpClient } from "./oneup/client.js";
-import { OneUpApiError, MissingTokensError } from "./oneup/errors.js";
 import { InMemoryTokenStore } from "./store/tokenStore.js";
 import {
   OneUpClaimsSource,
@@ -11,10 +7,13 @@ import {
   OneUpEobAccumulatorSource,
 } from "./adapters/oneup/oneUpSource.js";
 import { TyndaleResolver } from "./core/resolver.js";
-import type { ClaimsQuery } from "./core/interfaces.js";
+import { createWrapperServer, type WrapperSources } from "./serverCore.js";
 
 /**
- * HTTP host for the data-access library.
+ * HTTP host for the data-access library — the deploy ENTRY. All request behavior lives in
+ * serverCore.ts (extracted verbatim 2026-08-18 so the test suite can spin real servers on
+ * ephemeral ports); this file owns exactly what a process entry owns: env parsing, the
+ * fail-fast, adapter construction, and listen().
  *
  * The wrapper's adapters/resolver are a library; this thin server exposes them
  * over HTTP so the Python runtime can register matching source adapters behind
@@ -47,19 +46,12 @@ if (!AUTH_TOKEN) {
   process.exit(1);
 }
 
-interface Sources {
-  coverage: OneUpCoverageSource;
-  claims: OneUpClaimsSource;
-  accumulators: OneUpEobAccumulatorSource;
-  resolver: TyndaleResolver;
-}
-
 /**
  * Build the adapters + resolver from env-supplied 1up credentials. Returns null
  * when the credentials are absent (e.g. a gated-off deploy before the secrets
  * land), so the service still boots and serves /health while data routes 503.
  */
-function buildSources(): Sources | null {
+function buildSources(): WrapperSources | null {
   try {
     const config = loadConfig();
     const store = new InMemoryTokenStore();
@@ -87,115 +79,15 @@ function buildSources(): Sources | null {
 }
 
 const sources = buildSources();
-const CONFIGURED = sources !== null;
 
-function authorized(req: http.IncomingMessage): boolean {
-  const header = req.headers["authorization"] ?? "";
-  const expected = `Bearer ${AUTH_TOKEN}`;
-  const a = Buffer.from(header);
-  const b = Buffer.from(expected);
-  // timingSafeEqual requires equal lengths; the length check is not itself
-  // constant-time but only leaks whether the header length matched.
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body);
-  res.writeHead(status, {
-    "content-type": "application/json",
-    "content-length": Buffer.byteLength(payload),
-  });
-  res.end(payload);
-}
-
-/** Map wrapper/vendor errors onto meaningful HTTP status codes. */
-function sendError(res: http.ServerResponse, err: unknown): void {
-  if (err instanceof MissingTokensError) {
-    // The user has no connected payer (or 1up token) yet — a dependency the
-    // caller must satisfy, not a server fault.
-    sendJson(res, 424, { error: "missing_tokens", message: err.message });
-    return;
-  }
-  if (err instanceof OneUpApiError) {
-    sendJson(res, 502, {
-      error: "upstream_error",
-      upstreamStatus: err.status,
-      message: err.message,
-    });
-    return;
-  }
-  console.error("Unhandled error serving request:", err);
-  sendJson(res, 500, { error: "internal_error" });
-}
-
-type Handler = (
-  appUserId: string,
-  query: ClaimsQuery | undefined,
-) => Promise<unknown>;
-
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
-  const path = url.pathname;
-
-  // Health is unauthenticated so the platform probe and the runtime can check
-  // liveness without holding the bearer.
-  if (req.method === "GET" && path === "/health") {
-    sendJson(res, 200, {
-      status: "ok",
-      enabled: ENABLED,
-      configured: CONFIGURED,
-    });
-    return;
-  }
-
-  if (req.method !== "GET") {
-    sendJson(res, 405, { error: "method_not_allowed" });
-    return;
-  }
-
-  if (!authorized(req)) {
-    sendJson(res, 401, { error: "unauthorized" });
-    return;
-  }
-
-  if (!ENABLED || sources === null) {
-    sendJson(res, 503, {
-      error: "coverage_connection_disabled",
-      enabled: ENABLED,
-      configured: CONFIGURED,
-    });
-    return;
-  }
-
-  const appUserId = url.searchParams.get("app_user_id");
-  if (!appUserId) {
-    sendJson(res, 400, { error: "missing_app_user_id" });
-    return;
-  }
-
-  const since = url.searchParams.get("since");
-  const query: ClaimsQuery | undefined = since ? { since } : undefined;
-
-  const routes: Record<string, Handler> = {
-    "/v1/coverages": (id) => sources.coverage.getCoverages(id),
-    "/v1/claims": (id, q) => sources.claims.getClaims(id, q),
-    "/v1/accumulators": (id) => sources.accumulators.getAccumulators(id),
-    "/v1/financial-picture": (id, q) => sources.resolver.getFinancialPicture(id, q),
-  };
-
-  const handler = routes[path];
-  if (!handler) {
-    sendJson(res, 404, { error: "not_found" });
-    return;
-  }
-
-  handler(appUserId, query)
-    .then((body) => sendJson(res, 200, body))
-    .catch((err) => sendError(res, err));
+const server = createWrapperServer({
+  authToken: AUTH_TOKEN,
+  enabled: ENABLED,
+  sources,
 });
 
 server.listen(PORT, () => {
   console.log(
-    `wrapper-service listening on :${PORT} (enabled=${ENABLED}, configured=${CONFIGURED})`,
+    `wrapper-service listening on :${PORT} (enabled=${ENABLED}, configured=${sources !== null})`,
   );
 });

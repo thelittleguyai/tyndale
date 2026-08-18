@@ -1,0 +1,10 @@
+{
+  "resourceType": "OperationOutcome",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "processing",
+      "diagnostics": "Could not process ExplanationOfBenefit for patient MARGARET R. OTHERPERSON (MBR-889912): malformed adjudication block"
+    }
+  ]
+}

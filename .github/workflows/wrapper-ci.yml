@@ -1,0 +1,33 @@
+name: Wrapper CI
+
+# Lightweight PR gate for the 1up wrapper — typecheck + the node:test suite (server contract,
+# fixture-driven adapters, envelope, token store, docs drift). Path-scoped and self-contained:
+# ZERO coupling to launch-critical workflows (deploy-wrapper.yml runs the same gate before an
+# image build; this exists so a PR touching api-wrapper/** gets the verdict without deploying).
+
+on:
+  pull_request:
+    paths:
+      - "api-wrapper/**"
+      - ".github/workflows/wrapper-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-wrapper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
