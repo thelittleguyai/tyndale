@@ -384,17 +384,51 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             if marker.lower() in blob:
                 fails.append(f"FIXTURE MARKER {marker!r} leaked into the result")
         findings = audit.get("findings", [])
-        if "max_findings" in exp and len(findings) > exp["max_findings"]:
-            fails.append(f"{len(findings)} findings > max {exp['max_findings']}")
+        # max_findings counts ERROR findings only: informational context (all-clear notes,
+        # audit-performed summaries — cfg.INFORMATIONAL_CATEGORIES) is not an accusation, and
+        # a clean bill legitimately carries e.g. a cost_sharing_audit note (dev sweep
+        # 2026-08-17: "1 findings > max 0" on a clean bill was exactly this).
+        informational = _load_doctrine("doctrine_config").INFORMATIONAL_CATEGORIES
+        countable = [
+            f for f in findings
+            if f.get("category") not in informational
+            and f.get("presentation") != "informational_context"
+        ]
+        if "max_findings" in exp and len(countable) > exp["max_findings"]:
+            fails.append(f"{len(countable)} error findings > max {exp['max_findings']}")
         for want in exp.get("finding_types", []):
             hay = " ".join(
                 f"{f.get('category', '')} {f.get('finding_type', '')} "
                 f"{json.dumps(f.get('facts', {}))} {json.dumps(f.get('recommendation', {}))}"
                 for f in findings
             ).lower()
-            if want.lower() not in hay:
+            # '|' separates acceptable framings of the SAME error — a more precise category
+            # is a pass, not a miss (the doubled-MRI duplicate is correctly mue_excess_units).
+            if not any(alt.strip().lower() in hay for alt in want.split("|") if alt.strip()):
                 fails.append(f"no finding matching {want!r}")
     return fails
+
+
+def _qualifier_checks(messages: list[dict] | None) -> list[str]:
+    """X3 on the wire (rung-2): a completed audit with missing coverage inputs must render
+    its three-number moment WITH the qualifier — text naming an input, point|range form —
+    in the same payload as the figure (same visual unit by construction)."""
+    if not messages:
+        return ["qualifier: no thread to inspect"]
+    for m in messages:
+        p = m.get("payload") or {}
+        if m.get("kind") == "moment_card" and p.get("variant") == "three_number":
+            q = p.get("qualifier")
+            if not q:
+                return ["qualifier: three-number moment carries no X3 qualifier"]
+            if not q.get("names"):
+                return ["qualifier: names no missing input (generic qualifiers fail X3)"]
+            if q.get("form") not in ("point", "range"):
+                return [f"qualifier: bad form {q.get('form')!r}"]
+            if q.get("form") == "range" and p.get("tyndale_computed_low") is None:
+                return ["qualifier: range form without a rendered range"]
+            return []
+    return ["qualifier: no three-number moment card in the thread"]
 
 
 def _record_checks(client: httpx.Client, base_url: str, case_id: str, terminal: str) -> list[str]:
@@ -627,6 +661,8 @@ def run_scenario(
                 fails = fails + _reconcile_checks(thread)
             if exp.get("data_quality_kind"):
                 fails = fails + _data_quality_checks(thread, exp["data_quality_kind"])
+            if exp.get("expect_qualifier"):
+                fails = fails + _qualifier_checks(thread)
         if scenario.get("chat_declines") and case_id:
             fails = fails + _decline_checks(client, base_url, case_id, scenario["chat_declines"])
         if record and case_id:

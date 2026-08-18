@@ -10,6 +10,7 @@ import type {
   LineItemResponse,
   Message,
   NeedsDocumentsPayload,
+  UnlockMorePayload,
   StatusCardPayload,
   SystemMessagePayload,
   ThreeNumberMomentPayload,
@@ -86,9 +87,15 @@ export function ThreadEntry({
     case 'system_message': {
       const p = payload as unknown as SystemMessagePayload & {
         needs_documents?: NeedsDocumentsPayload;
+        unlock_more?: UnlockMorePayload;
       };
       if (p.needs_documents) {
         return <ThreadNeedsDocuments payload={p.needs_documents} caseFileId={caseFileId} />;
+      }
+      if (p.unlock_more) {
+        // Rung-2 (2026-08-18): the audit COMPLETED with inputs missing — the same have/need
+        // component under unlock framing. Deepens the audit; never reads as unfinished.
+        return <ThreadNeedsDocuments payload={p.unlock_more} caseFileId={caseFileId} unlock />;
       }
       {
         // N2 (round-2) — typed branch states get card presentation with an inline action.

@@ -25,6 +25,7 @@
   "expect": {
     "terminal": "audit_complete",
     "no_fixture": true,
-    "assert_x1": true
+    "assert_x1": true,
+    "expect_qualifier": true
   }
 }

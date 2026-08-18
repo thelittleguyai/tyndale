@@ -38,16 +38,45 @@ def test_interpolation_and_missing_fallback():
     assert orchestration_step("does_not_exist") == "<MISSING-script: does_not_exist>"
 
 
-def test_registry_is_placeholder_free_so_staging_boots():
-    """THE staging unblock (content drop, item 1): not one authored value may still carry the
-    engineering placeholder prefix."""
-    offenders = [k for k, v in load_orchestration_script().items()
-                 if v.strip().startswith(PLACEHOLDER_PREFIX)]
-    assert offenders == [], f"placeholder copy still in the registry: {offenders}"
+# Rung-2 (2026-08-18): DELIBERATE placeholders — the unlock-more voice state is Brock's to
+# author (asks §3.11), and the staging boot block is the forcing function. When he authors
+# them, empty this set and restore the zero-placeholder assertions below.
+DELIBERATE_PLACEHOLDERS = {"unlock_more.intro", "unlock_more.item_hint"}
 
 
-def test_staging_boot_now_passes_with_authored_copy():
-    """The gate that was blocking staging: it must now find zero placeholders and boot clean."""
+def test_placeholders_are_exactly_the_section_311_set():
+    """The zero-placeholder milestone (content drop, item 1) holds for every key EXCEPT the
+    two §3.11 unlock-more seeds — pinned exactly, both directions: a stray new placeholder
+    fails here, and Brock authoring §3.11 fails here too (the reminder to empty the set)."""
+    offenders = sorted(k for k, v in load_orchestration_script().items()
+                       if v.strip().startswith(PLACEHOLDER_PREFIX))
+    assert offenders == sorted(DELIBERATE_PLACEHOLDERS), (
+        f"placeholder set drifted from the deliberate §3.11 set: {offenders}"
+    )
+
+
+def test_staging_boot_blocks_on_exactly_the_311_keys():
+    """The forcing function, proven live: staging refuses to boot NAMING the unlock-more
+    keys — and nothing else."""
+    import pytest
+
+    with pytest.raises(RuntimeError, match="unlock_more.intro") as exc:
+        Settings(node_env="staging").assert_production_safety()
+    assert "unlock_more.item_hint" in str(exc.value)
+
+
+def test_staging_boots_once_the_311_keys_are_authored(monkeypatch):
+    """The original milestone, preserved by simulation: with the two seeds authored, staging
+    boots clean again — Brock's copy drop is the ONLY thing between here and staging."""
+    from app.agents import context_loader
+
+    authored = dict(load_orchestration_script())
+    for key in DELIBERATE_PLACEHOLDERS:
+        assert key in authored
+        authored[key] = '[A] "authored stand-in"'
+    # The safety check imports load_orchestration_script from context_loader at call time,
+    # so patching the module attribute is the whole simulation.
+    monkeypatch.setattr(context_loader, "load_orchestration_script", lambda: authored)
     Settings(node_env="staging").assert_production_safety()
 
 

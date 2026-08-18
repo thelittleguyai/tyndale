@@ -54,12 +54,28 @@ export interface VerificationRequestPayload {
   group_index: number;
   line_items: LineItem[];
 }
+/** X3 — the qualifier a computed figure carries when its inputs were incomplete. Renders in
+ *  the SAME visual unit as the figure (the X3 contract; a footnote elsewhere fails it). */
+export interface X3Qualifier {
+  text: string;
+  names: string[]; // the missing input(s) the qualifier names, most material first
+  form: 'point' | 'range';
+  same_unit: boolean;
+}
 export interface ThreeNumberMomentPayload {
   variant: 'three_number';
-  provider_billed: number;
-  eob_member_responsibility: number;
+  /** Null when no document stated it (rung-2: a bill-only case has no EOB number, and
+   *  showing one would fabricate it). The card renders an honest "not on file yet". */
+  provider_billed: number | null;
+  eob_member_responsibility: number | null;
   tyndale_computed: number;
-  delta: number; // billed-minus-computed savings
+  /** Present when coverage inputs are missing (rung-2): the priors-swept range the X3
+   *  qualifier speaks to. tyndale_computed is its base. */
+  tyndale_computed_low?: number;
+  tyndale_computed_high?: number;
+  qualifier?: X3Qualifier;
+  computed_source?: 'agent' | 'engine_rung2';
+  delta: number | null; // EOB-minus-computed; null when the EOB number is unknown
   headline: string; // script-keyed reveal frame, {{delta_dollars}} interpolated
   /** L2 — "provider · payer" from TYPED fields only; omitted when neither is known. */
   context?: string;
@@ -85,11 +101,19 @@ export interface NeedsDocumentsPayload {
   intro: string;
   items: NeedsDocumentsItem[];
 }
+/** Rung-2 unlock-more (2026-08-18): the same have/need items on a COMPLETED audit,
+ *  framed as deepening the finished audit — an unlock, never a gate. */
+export interface UnlockMorePayload {
+  intro: string;
+  item_hint: string;
+  items: NeedsDocumentsItem[];
+}
 /** payload for kind='system_message' — a plain rendered script line. */
 export interface SystemMessagePayload {
   text: string;
   tone?: 'neutral' | 'error';
   needs_documents?: NeedsDocumentsPayload; // present on the needs_documents ask
+  unlock_more?: UnlockMorePayload; // present on the complete-with-missing-inputs unlock card
 }
 
 export interface ChatCitation {

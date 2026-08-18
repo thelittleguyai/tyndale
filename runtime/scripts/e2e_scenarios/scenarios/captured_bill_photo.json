@@ -38,6 +38,7 @@
   },
   "expect": {
     "terminal": "audit_complete",
-    "no_fixture": true
+    "no_fixture": true,
+    "expect_qualifier": true
   }
 }

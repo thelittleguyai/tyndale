@@ -440,6 +440,20 @@ async def extract_coverage_payload(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def eob_money_figures(text: str) -> dict[str, float | None]:
+    """The EOB's three money anchors from its OCR text — pure, reusable wherever stored
+    document text is at hand (the rung-2 completion reads these from case.documents without
+    a DI round-trip). Same greps extract_eob_payload has always used; None when not found —
+    never a guessed number."""
+    return {
+        "billed_amount": _first_dollar(text, ("BILLED",)),
+        "allowed_amount": _first_dollar(text, ("ALLOWED",)),
+        "patient_responsibility": _first_dollar(
+            text, ("PATIENT RESPONSIBILITY", "YOU OWE", "MEMBER RESPONSIBILITY")
+        ),
+    }
+
+
 async def extract_eob_payload(args: dict[str, Any]) -> dict[str, Any]:
     """EOB dict from an uploaded EOB — {eob, raw_ocr}.
 
@@ -453,11 +467,7 @@ async def extract_eob_payload(args: dict[str, Any]) -> dict[str, Any]:
     return {
         "eob": {
             "claim_id": _grep(text.upper(), ("CLAIM:", "CLAIM ID:")),
-            "billed_amount": _first_dollar(text, ("BILLED",)),
-            "allowed_amount": _first_dollar(text, ("ALLOWED",)),
-            "patient_responsibility": _first_dollar(
-                text, ("PATIENT RESPONSIBILITY", "YOU OWE", "MEMBER RESPONSIBILITY")
-            ),
+            **eob_money_figures(text),
             "remark_codes": [],
             # --- CO-12B additive: accumulator-reconstruction inputs (heuristic, low-confidence) ---
             "adjudication_date": _grep_date(

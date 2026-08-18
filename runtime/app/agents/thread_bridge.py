@@ -77,6 +77,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "three_number_reveal", "completion", "needs_documents_intro", "system_error",
         "system_error_no_email",  # §10.4 minus the email clause, while the flag is off
         "record_post_audit_keep_doing",
+        # rung-2 unlock-more (complete-with-missing-inputs; eng placeholders, asks §3.11)
+        "unlock_more.intro", "unlock_more.item_hint",
         # chosen dynamically at the call site, so both branches must exist
         "handoff.pace", "handoff.generic_program",
         "verification_map_fallback", "verification_map_partial_fallback",
@@ -453,6 +455,10 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await _ensure_reconcile_state(session, conv, case, ensure)
         done = orchestration_step("completion")
         await ensure("completion", "system_message", {"text": done, "tone": "neutral"}, done)
+        # Rung-2 follow-through: a COMPLETED audit that ran with documents missing offers the
+        # same have/need checklist re-framed as "this deepens your audit" — an unlock, never a
+        # gate (the SBC-gate removal, 2026-08-18). The true-gate case keeps needs_documents.
+        await _ensure_unlock_more(session, conv, case, ensure)
     elif status == "audit_incomplete":
         if case.audit_incomplete_reason == "system_error":
             # §10.4's closing clause promises "I'll email you the moment I've got it working
@@ -563,6 +569,47 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
         )
 
 
+# Plain-English names for the cost-share inputs an X3 qualifier may cite ([A]-tier data
+# labels, not authored voice — like the dollar figures themselves).
+_X3_INPUT_NAMES = {
+    "deductible_amount": "deductible",
+    "oop_max_amount": "out-of-pocket maximum",
+    "coinsurance_percent": "coinsurance rate",
+}
+
+
+def _x3_qualifier(a, disclosure) -> dict | None:
+    """The X3 qualifier for the tyndale_computed figure — SAME visual unit as the number
+    (the moment card renders it under the figure). Tier 0 forbids one (hedging a complete
+    number is its own X3 failure); tier 1 gets the point form; tier ≥2 the range form when
+    a range exists. Names the most material missing input (chase-worthy first)."""
+    if disclosure is None or disclosure.tier == 0 or not disclosure.missing_inputs:
+        return None
+    named_key = (disclosure.chase_inputs or disclosure.missing_inputs)[0]
+    name = _X3_INPUT_NAMES.get(named_key, named_key.replace("_", " "))
+    has_range = (
+        a.tyndale_computed_low is not None
+        and a.tyndale_computed_high is not None
+        and a.tyndale_computed_low != a.tyndale_computed_high
+    )
+    if disclosure.tier >= 2 and has_range:
+        return {
+            "text": (
+                f"between ${a.tyndale_computed_low:,.2f} and ${a.tyndale_computed_high:,.2f} "
+                f"until I see your {name}"
+            ),
+            "names": [name],
+            "form": "range",
+            "same_unit": True,
+        }
+    return {
+        "text": f"based on a typical {name} — your plan's SBC would pin it down",
+        "names": [name],
+        "form": "point",
+        "same_unit": True,
+    }
+
+
 async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     from app.agents.orchestrator import _assemble_result  # lazy — avoids the import cycle
 
@@ -570,18 +617,31 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     a = result.audit
     if a is None:
         return
-    delta = round(a.eob_member_responsibility - a.tyndale_computed, 2)
+    # Rung-2 completions may lack an anchor a document never stated (bill-only: no EOB
+    # figure; EOB-only: billed comes from the EOB). None renders as an honest em dash in
+    # the headline; the card gets the raw None and shows its own "not on file" treatment.
+    eob_known = a.eob_member_responsibility is not None
+    delta = round(a.eob_member_responsibility - a.tyndale_computed, 2) if eob_known else None
+    has_range = a.tyndale_computed_low is not None and a.tyndale_computed_high is not None and (
+        a.tyndale_computed_low != a.tyndale_computed_high
+    )
+    tyndale_str = (
+        f"between ${a.tyndale_computed_low:,.2f} and ${a.tyndale_computed_high:,.2f}"
+        if has_range
+        else f"${a.tyndale_computed:,.2f}"
+    )
     headline = orchestration_step(
         "three_number_reveal",
-        billed=f"${a.provider_billed:,.2f}",
+        billed=f"${a.provider_billed:,.2f}" if a.provider_billed is not None else "—",
         payer=_payer_of(case),
-        eob_owed=f"${a.eob_member_responsibility:,.2f}",
-        tyndale_owed=f"${a.tyndale_computed:,.2f}",
+        eob_owed=f"${a.eob_member_responsibility:,.2f}" if eob_known else "—",
+        tyndale_owed=tyndale_str,
     )
-    # E3 — the gap framing. None on a clean bill (gap 0) or a negative gap; the moment then
-    # renders the three numbers with no callout rather than "$0.00 less".
+    # E3 — the gap framing. None on a clean bill (gap 0), a negative gap, or an unknown EOB
+    # number; the moment then renders the numbers with no callout rather than "$0.00 less".
     from app.agents.grounding import gap_callout
 
+    qualifier = _x3_qualifier(a, result.disclosure)
     # L2 (round-2) — the service-context line: provider · payer from TYPED fields only.
     # Parts we don't know are dropped; both unknown -> no key, and the card renders no line.
     context = " · ".join(x for x in (case.provider_name, _payer_of(case)) if x)
@@ -590,8 +650,45 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
         {"variant": "three_number", **({"context": context} if context else {}),
          "provider_billed": a.provider_billed,
          "eob_member_responsibility": a.eob_member_responsibility,
-         "tyndale_computed": a.tyndale_computed, "delta": delta, "headline": headline,
-         "gap_callout": gap_callout(a.eob_member_responsibility, a.tyndale_computed)},
+         "tyndale_computed": a.tyndale_computed,
+         **(
+             {"tyndale_computed_low": a.tyndale_computed_low,
+              "tyndale_computed_high": a.tyndale_computed_high}
+             if has_range
+             else {}
+         ),
+         **({"qualifier": qualifier} if qualifier else {}),
+         "computed_source": a.computed_source,
+         "delta": delta, "headline": headline,
+         "gap_callout": (
+             gap_callout(a.eob_member_responsibility, a.tyndale_computed) if eob_known else None
+         )},
+    )
+
+
+async def _ensure_unlock_more(session, conv, case, ensure) -> None:
+    """The unlock-more card on a COMPLETED audit with un-checked inputs: the same
+    DocumentNeed items the needs-documents state uses, under copy that frames them as
+    sharpening the finished audit rather than finishing it. Both keys are engineering
+    placeholders pending Brock (asks §3.11) — a NEW voice state his script doesn't have."""
+    from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
+
+    needs = _documents_needed(case)
+    if all(d.have for d in needs):
+        return  # everything's on file — nothing to unlock
+    intro = orchestration_step("unlock_more.intro")
+    hint = orchestration_step("unlock_more.item_hint")
+    await ensure(
+        "unlock_more", "system_message",
+        {"text": intro, "tone": "neutral",
+         "unlock_more": {
+             "intro": intro, "item_hint": hint,
+             "items": [
+                 {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
+                 for d in needs
+             ],
+         }},
+        intro,
     )
 
 

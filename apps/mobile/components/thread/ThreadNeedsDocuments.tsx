@@ -8,19 +8,28 @@ import { CheckCircle2, Circle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
-import type { NeedsDocumentsPayload } from '@tyndale/shared';
+import type { NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
 
 export function ThreadNeedsDocuments({
   payload,
   caseFileId,
+  unlock = false,
 }: {
-  payload: NeedsDocumentsPayload;
+  payload: NeedsDocumentsPayload | UnlockMorePayload;
   caseFileId: string;
+  /** Rung-2 unlock-more framing: the audit is DONE; these items deepen it. Same have/need
+   *  component — only the surrounding voice differs (the intro/hint come from the server). */
+  unlock?: boolean;
 }) {
   const router = useRouter();
+  const hint = unlock && 'item_hint' in payload ? payload.item_hint : null;
   return (
-    <View className="my-2 w-full rounded-2xl border border-accent bg-accent-tint p-5">
+    <View
+      className="my-2 w-full rounded-2xl border border-accent bg-accent-tint p-5"
+      testID={unlock ? 'unlock-more-card' : 'needs-documents-card'}
+    >
       <Text className="mb-3 text-base leading-6 text-primary">{payload.intro}</Text>
+      {hint ? <Text className="mb-3 text-caption text-secondary">{hint}</Text> : null}
       {payload.items.map((d, i) => (
         <View key={d.key} className={i > 0 ? 'mt-3 border-t border-hairline pt-3' : ''}>
           <View className="mb-1 flex-row items-start gap-2">

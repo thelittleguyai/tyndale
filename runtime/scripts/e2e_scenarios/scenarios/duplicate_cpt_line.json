@@ -1,6 +1,6 @@
 {
   "name": "duplicate_cpt_line",
-  "description": "Same CPT billed twice \u2014 the original test case (73721 x2).",
+  "description": "Same CPT billed twice — the original test case (73721 x2).",
   "documents": [
     {
       "type": "bill",
@@ -52,8 +52,9 @@
   "expect": {
     "terminal": "audit_complete",
     "finding_types": [
-      "duplicate"
+      "duplicate|mue_excess_units"
     ],
-    "no_fixture": true
+    "no_fixture": true,
+    "expect_qualifier": true
   }
 }

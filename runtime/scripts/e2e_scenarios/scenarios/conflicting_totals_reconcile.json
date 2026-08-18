@@ -8,7 +8,11 @@
       "account": "E2E-RECON-01",
       "service_date": "2026-04-08",
       "line_items": [
-        { "code": "99284", "description": "Emergency department visit", "charge": 1850.0 }
+        {
+          "code": "99284",
+          "description": "Emergency department visit",
+          "charge": 1850.0
+        }
       ]
     },
     {
@@ -35,6 +39,7 @@
     "terminal": "audit_complete",
     "no_fixture": true,
     "assert_x1": true,
-    "reconcile_no_premature_last_resort": true
+    "reconcile_no_premature_last_resort": true,
+    "expect_qualifier": true
   }
 }

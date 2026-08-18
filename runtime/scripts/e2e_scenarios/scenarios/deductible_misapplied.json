@@ -42,6 +42,7 @@
       "payer_side",
       "cost_sharing"
     ],
-    "no_fixture": true
+    "no_fixture": true,
+    "expect_qualifier": true
   }
 }

@@ -507,6 +507,63 @@ _BILL_FAMILY = {"bill", "gfe", "itemized_bill"}
 _COVERAGE_FAMILY = {"plan_summary", "insurance_card"}
 
 
+def _rung2_three_numbers(case) -> dict | None:
+    """Deterministic three-number completion from DOCUMENT-STATED money (the rung-2 engine).
+
+    Anchors, in order of correctness: the EOB's allowed amount (the true cost-share base) →
+    the EOB's billed → the itemized lines' billed total. Every figure here is a document
+    fact or a bounded computation over one — nothing is invented; an anchor no document
+    states stays None and the API says so. Returns None when NO anchor exists (no itemized
+    detail and no EOB money) — the genuine needs_documents shape (the Beloit day-one case).
+    """
+    if case is None:
+        return None
+    from app.sources.cost_share_model import rung2_range
+    from app.sources.extraction import eob_money_figures
+
+    lines_total: float | None = None
+    items = [li for li in (case.line_items or []) if isinstance(li, dict)]
+    billed_values = [li.get("billed_amount") for li in items if li.get("billed_amount") is not None]
+    if billed_values:
+        try:
+            lines_total = round(sum(float(v) for v in billed_values), 2)
+        except (TypeError, ValueError):
+            lines_total = None
+
+    eob_figs: dict[str, float | None] = {}
+    for d in case.documents or []:
+        if not isinstance(d, dict) or (d.get("document_type") not in _EOB_FAMILY):
+            continue
+        text = d.get("ocr_text") or d.get("ocr_text_preview") or ""
+        if text:
+            eob_figs = eob_money_figures(text)
+            if any(v is not None for v in eob_figs.values()):
+                break
+
+    provider_billed = lines_total if lines_total is not None else eob_figs.get("billed_amount")
+    eob_member = eob_figs.get("patient_responsibility")
+
+    if eob_figs.get("allowed_amount") is not None:
+        anchor, anchor_kind = eob_figs["allowed_amount"], "allowed"
+    elif eob_figs.get("billed_amount") is not None:
+        anchor, anchor_kind = eob_figs["billed_amount"], "billed"
+    elif lines_total is not None:
+        anchor, anchor_kind = lines_total, "billed"
+    else:
+        return None  # no document-stated money anywhere — the audit genuinely cannot stand
+
+    rng = rung2_range(anchor, case.coverage, anchor_kind=anchor_kind)
+    return {
+        "provider_billed": provider_billed,
+        "eob_member_responsibility": eob_member,
+        "tyndale_computed": rng.base,
+        "tyndale_computed_low": rng.low,
+        "tyndale_computed_high": rng.high,
+        "anchor_kind": rng.anchor_kind,
+        "missing_inputs": rng.missing_inputs,
+    }
+
+
 def _documents_needed(case) -> list[DocumentNeed]:
     """The 'to finish your audit' checklist for a needs_documents case — the three canonical audit
     inputs, EACH with a `have` flag from the case's real document inventory. Returning the full set
@@ -672,11 +729,48 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
                     )
 
     if three_numbers is None:
-        # Real agents ran but wrote no three-number finding. NEVER return {0,0,0}
-        # with status="complete" — that presents "you owe $0" as a finished audit
-        # (CO-15 T2.3). Surface a degraded status with no audit block; the findings
-        # + composed summary still ship so the user isn't dead-ended (Graceful
-        # Degradation Doctrine).
+        # Real agents ran but wrote no three-number finding — historically the SBC gate:
+        # the Math Person (correctly) refuses to invent a member-responsibility figure
+        # without coverage terms, and the whole audit parked in needs_documents. Phil's
+        # ruling (2026-08-18, from the first full dev sweep): COMPLETE at the achievable
+        # rung instead. The deterministic rung-2 engine anchors on document-stated money
+        # (EOB allowed/billed, or the itemized lines) and sweeps the standard cost-share
+        # model over the Sprint-C priors — the figure ships as a RANGE with an X3
+        # qualifier, never as a refusal. NEVER {0,0,0}-as-complete (CO-15 T2.3): with no
+        # document anchor at all, the honest needs_documents state below still applies.
+        # Engage at audit time (status audit_running) and on reads of COMPLETED cases (the
+        # rung-2 numbers are derived, not persisted — the bridge re-derives the moment after
+        # finalize, deterministically reaching the same range). Never on a persisted
+        # incomplete terminal: a legacy needs_documents case must not silently flip to
+        # complete on a GET — it completes on its next run (re-run-on-complete / new upload).
+        rung2 = (
+            _rung2_three_numbers(case)
+            if (case is not None and case.status in ("audit_running", "audit_complete"))
+            else None
+        )
+        if rung2 is not None:
+            log.info(
+                "orchestrator.rung2_completion",
+                case_file_id=case_file_id,
+                anchor_kind=rung2["anchor_kind"],
+                missing_inputs=rung2["missing_inputs"],
+            )
+            return AuditResult(
+                case_file_id=case_file_id,
+                status="complete",
+                audit=ThreeNumberAudit(
+                    provider_billed=rung2["provider_billed"],
+                    eob_member_responsibility=rung2["eob_member_responsibility"],
+                    tyndale_computed=rung2["tyndale_computed"],
+                    tyndale_computed_low=rung2["tyndale_computed_low"],
+                    tyndale_computed_high=rung2["tyndale_computed_high"],
+                    computed_source="engine_rung2",
+                ),
+                findings=findings,
+                summary=composed,
+                audit_provenance=provenance,
+                disclosure=disclosure,
+            )
         log.warning("orchestrator.no_three_number_finding", case_file_id=case_file_id)
         # Read back the persisted honest reason (set at finalize). Default to needs_documents:
         # a re-fetch of a document-poor case is user-actionable, not a system failure.

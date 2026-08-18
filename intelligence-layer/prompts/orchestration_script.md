@@ -304,6 +304,18 @@ Additional variables his strings use, not in the §0 dictionary (flagged for him
      With the flag on, his full string renders and the recovery email actually sends. -->
 [A] "Something on my end hiccuped — that's on me, not you, and nothing you uploaded is lost. Give it another moment — I'm on it."
 
+## unlock_more.intro
+<!-- UNMAPPED — a NEW voice state the script doesn't have (rung-2 completion, 2026-08-18):
+     the audit COMPLETED with coverage terms missing; the have/need checklist re-frames as
+     "this deepens your audit", never as unfinished. Deliberately [PLACEHOLDER-eng] (staging
+     boot BLOCKS until authored) — asks §3.11. -->
+[A] "[PLACEHOLDER-eng] Your audit is done — and one more document would sharpen it. Add your plan's SBC and I can pin down the cost-sharing math exactly instead of ranging it."
+
+## unlock_more.item_hint
+<!-- UNMAPPED — the one-line hint above the unlock checklist items. Same state as
+     unlock_more.intro; asks §3.11. -->
+[A] "[PLACEHOLDER-eng] Already checked items are on file — anything unchecked deepens what I can verify."
+
 ## crisis_care_first
 <!-- §10.5 (new key) — NOT WIRED: conflicts with CLAUDE.md's crisis doctrine (clean refusal, no
      resource routing). Registered so Brock's copy is on file; the crisis path still renders the

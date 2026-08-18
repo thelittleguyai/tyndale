@@ -6,14 +6,30 @@ from pydantic import BaseModel, Field
 
 
 class ThreeNumberAudit(BaseModel):
-    """The Independent Audit Doctrine's three numbers."""
+    """The Independent Audit Doctrine's three numbers.
 
-    provider_billed: float = Field(description="What the provider billed")
-    eob_member_responsibility: float = Field(
-        description="What the payer's EOB claims the member owes"
+    Rung-2 completion (2026-08-18, the SBC-gate removal): an audit with missing coverage
+    terms COMPLETES with `tyndale_computed` as the priors-swept range's base and
+    `tyndale_computed_low/high` bracketing it (X3 tier ≥2 renders the range form). An
+    anchor a document never stated is None — a bill-only case has no EOB number to show,
+    and showing one would fabricate it. `computed_source` says who produced the number:
+    the Math Person agent, or the deterministic rung-2 engine."""
+
+    provider_billed: float | None = Field(None, description="What the provider billed")
+    eob_member_responsibility: float | None = Field(
+        None, description="What the payer's EOB claims the member owes"
     )
     tyndale_computed: float = Field(
         description="What Tyndale independently computes the member should owe"
+    )
+    tyndale_computed_low: float | None = Field(
+        None, description="Range floor when coverage inputs are missing (X3 range form)"
+    )
+    tyndale_computed_high: float | None = Field(
+        None, description="Range ceiling when coverage inputs are missing (X3 range form)"
+    )
+    computed_source: str = Field(
+        "agent", description="'agent' (Math Person) | 'engine_rung2' (deterministic model)"
     )
     currency: str = "USD"
 

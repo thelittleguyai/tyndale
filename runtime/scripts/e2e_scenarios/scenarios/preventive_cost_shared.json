@@ -42,6 +42,7 @@
       "preventive",
       "payer_side"
     ],
-    "no_fixture": true
+    "no_fixture": true,
+    "expect_qualifier": true
   }
 }

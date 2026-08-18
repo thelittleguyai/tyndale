@@ -7,7 +7,10 @@ import { Text, View } from 'react-native';
 import type { ThreeNumberMomentPayload, UnlockMomentPayload } from '@tyndale/shared';
 import { MomentCard } from '../ui';
 
-function money(n: number): string {
+function money(n: number | null | undefined): string {
+  // Rung-2 completions can lack an anchor no document stated (bill-only: no EOB figure).
+  // "Not on file yet" is the honest render — a number here would be a fabrication.
+  if (n === null || n === undefined) return 'Not on file yet';
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -30,10 +33,28 @@ export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPaylo
       <MomentRow label="What your insurer says you owe" value={money(payload.eob_member_responsibility)} />
       <View className="flex-row items-baseline justify-between pb-0.5 pt-2.5">
         <Text className="text-body font-medium text-moment-text">What you should owe</Text>
-        <Text className="text-[30px] font-medium leading-9 text-moment-emphasis">
-          {money(payload.tyndale_computed)}
-        </Text>
+        {/* X3 range form (rung-2): missing coverage inputs make the honest figure a RANGE,
+            rendered as the number itself — never a point value pretending precision. */}
+        {payload.tyndale_computed_low != null && payload.tyndale_computed_high != null ? (
+          <Text
+            className="text-[22px] font-medium leading-7 text-moment-emphasis"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            {money(payload.tyndale_computed_low)}–{money(payload.tyndale_computed_high)}
+          </Text>
+        ) : (
+          <Text className="text-[30px] font-medium leading-9 text-moment-emphasis">
+            {money(payload.tyndale_computed)}
+          </Text>
+        )}
       </View>
+      {/* X3 — the qualifier renders IN THE SAME VISUAL UNIT as the figure (the contract;
+          a footnote elsewhere fails `qualifier_detached`). */}
+      {payload.qualifier ? (
+        <Text className="pb-1 text-right text-caption text-moment-text-faint" testID="x3-qualifier">
+          {payload.qualifier.text}
+        </Text>
+      ) : null}
       {payload.headline ? (
         <View className="mt-3 rounded-control px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
           <Text className="text-caption leading-5 text-moment-text">{payload.headline}</Text>

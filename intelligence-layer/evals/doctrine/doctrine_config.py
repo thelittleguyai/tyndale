@@ -123,10 +123,8 @@ X_KNOWN_GAPS: dict[str, str] = {
         "most findings do not yet carry line-item refs — only encounter-mismatch findings "
         "write facts.line_item_id; agent findings need the refs plumbed through"
     ),
-    "x3:no_qualifier_surface": (
-        "the three-number moment renders no qualifier line yet — the missing-input data "
-        "exists (missing_cost_share_inputs) but no surface carries the X3 qualifier"
-    ),
+    # x3:no_qualifier_surface DELETED 2026-08-18 — the rung-2 completion put the qualifier on
+    # the three-number moment (same visual unit, point/range by tier). Enforcement is ON.
     "x5:impact_missing_untyped": (
         "real error findings (phantom_charge, upcoding_candidate — first full dev sweep, "
         "2026-08-17) carry neither facts.impact nor a typed impact_unknown_reason: the agents "

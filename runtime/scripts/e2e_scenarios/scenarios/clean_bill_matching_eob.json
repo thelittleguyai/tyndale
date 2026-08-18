@@ -1,6 +1,6 @@
 {
   "name": "clean_bill_matching_eob",
-  "description": "Clean office visit, bill and EOB agree \u2014 the false-positive control.",
+  "description": "Clean office visit, bill and EOB agree — the false-positive control.",
   "documents": [
     {
       "type": "bill",
@@ -41,6 +41,7 @@
     "incomplete_reason": null,
     "finding_types": [],
     "max_findings": 0,
-    "no_fixture": true
+    "no_fixture": true,
+    "expect_qualifier": true
   }
 }

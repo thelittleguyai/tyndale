@@ -177,6 +177,26 @@ examples." And keep the example codes AS-IS (70553 / A9579 / 36000 are the harne
 set); if you ever swap them, tell engineering so the canaries follow.
 
 
+### 3.11 A voice state your script doesn't have: "complete — and one document would sharpen it"
+Phil ruled on the SBC gate (2026-08-18, from the first full dev sweep): an audit **completes at
+the achievable rung**. Missing coverage terms no longer park a case in needs-documents — the
+cost-sharing figure ships as a RANGE with an X3 qualifier naming the missing input ("between
+$X and $Y until I see your deductible"), and the have/need checklist appears on the FINISHED
+audit re-framed as deepening it. Your script authors needs-documents ("to finish your audit…")
+but has no state for *finished-and-improvable*. Two keys render as `[PLACEHOLDER-eng]` until
+you author them (staging boot BLOCKS on placeholders, so these are yours before staging):
+
+1. **`unlock_more.intro`** — the line above the checklist on a completed audit. Eng seed:
+   "Your audit is done — and one more document would sharpen it. Add your plan's SBC and I can
+   pin down the cost-sharing math exactly instead of ranging it."
+2. **`unlock_more.item_hint`** — the one-liner above the items. Eng seed: "Already checked
+   items are on file — anything unchecked deepens what I can verify."
+
+Voice guidance we followed pending you: completion first, invitation second, zero "unfinished"
+framing. The X3 qualifier text itself ("between … until I see your …") is engineering-owned
+[A]-tier data narration, same class as the dollar figures — flag if you want it otherwise.
+
+
 ### 3.2 The SUD edge prompt — your two documents disagree
 Conformance checklist **F2** lists a substance-use-program prompt as an expected attest edge
 case. Your script **§3 authors only teen and deceased**. We render an engineering-written SUD
