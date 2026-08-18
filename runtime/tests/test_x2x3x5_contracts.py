@@ -230,5 +230,51 @@ def test_config_is_coherent():
         assert target in cfg.X5_ERROR_TYPES
     for key in cfg.X_KNOWN_GAPS:
         rule, reason = key.split(":", 1)
-        assert rule in ("x2", "x3", "x5") and len(reason) > 3
+        # "scenario:" (2026-08-18): a deliberately-gated scenario names its ledger entry so
+        # the harness prints the gap on every run (balance-billing awaits the NSA seed).
+        assert rule in ("x2", "x3", "x5", "scenario") and len(reason) > 3
     assert len(cfg.X5_ERROR_TYPES) == 14
+
+
+# ── the informational-stem interim (2026-08-18, pending A6) ───────────────────────────────
+def test_stems_classify_novel_all_clear_phrasings_but_never_mapped_error_categories():
+    """The agents mint new all-clear names every run (diagnostic_audit_clean,
+    coverage_math_audit); the stems catch the family. COHERENCE: no category mapped to a
+    real error_type may ever stem-match informational — that would silently erase errors."""
+    assert cfg.category_matches_informational("diagnostic_audit_clean")
+    assert cfg.category_matches_informational("coverage_math_audit")
+    assert cfg.category_matches_informational("three_number_audit")
+    assert cfg.category_matches_informational("out_of_scope")  # exact set still works
+    assert not cfg.category_matches_informational("balance_billing")
+    assert not cfg.category_matches_informational("phantom_charge")
+    for mapped in cfg.CATEGORY_TO_ERROR_TYPE:
+        assert not cfg.category_matches_informational(mapped), (
+            f"error category {mapped!r} stem-matches informational — errors would vanish"
+        )
+
+
+def test_annotate_stamps_informational_only_when_no_money_is_claimed():
+    """The read-seam stamp: an all-clear family finding with no dollar claim becomes
+    presentation=informational_context (X2/X5 then exclude it); the SAME category claiming
+    money is the logged escape hatch and stays an error. Explicit upstream presentation is
+    never overwritten."""
+    from types import SimpleNamespace
+
+    from app.sources.error_types import annotate_error_type
+
+    def finding(category, facts=None, presentation=None):
+        return SimpleNamespace(
+            category=category, facts=facts or {}, presentation=presentation,
+            error_type=None, error_type_sub_label=None, finding_type="payer_side",
+        )
+
+    clean = annotate_error_type(finding("diagnostic_audit_clean"))
+    assert clean.presentation == "informational_context"
+    assert clean.error_type is None  # X5 does not apply to informational context
+
+    moneyed = annotate_error_type(finding("coverage_math_audit", facts={"gap": 250.0}))
+    assert moneyed.presentation is None  # escape hatch: logged, never silently typed
+    assert moneyed.error_type is not None  # still an error (the hatch at minimum)
+
+    explicit = annotate_error_type(finding("diagnostic_clear", presentation="upstream_set"))
+    assert explicit.presentation == "upstream_set"  # upstream typing is never overwritten

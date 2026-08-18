@@ -665,6 +665,11 @@ def run_scenario(
             audit = _get_audit(client, base_url, case_id)
 
         fails = pre_fails + _check(scenario, terminal, extract, audit)
+        if exp.get("ledgered_gap"):
+            # A scenario asserting deliberately-gated behavior names its ledger entry so the
+            # gap stays VISIBLE in every run's output, never buried in a green row.
+            entry = _load_doctrine("doctrine_config").X_KNOWN_GAPS.get(exp["ledgered_gap"], "?")
+            log(f"  ledgered gap ({exp['ledgered_gap']}): {entry}")
         if chat_first and case_id:
             thread = _fetch_thread(client, base_url, case_id)
             fails = fails + _chat_first_checks(thread, terminal, no_placeholders)

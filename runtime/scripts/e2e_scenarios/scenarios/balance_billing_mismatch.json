@@ -39,10 +39,10 @@
   "expect": {
     "terminal": "audit_complete",
     "finding_types": [
-      "balance",
       "provider_side"
     ],
     "no_fixture": true,
-    "expect_qualifier": true
+    "expect_qualifier": true,
+    "ledgered_gap": "scenario:balance_billing_nsa_seed"
   }
 }

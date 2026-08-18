@@ -88,6 +88,19 @@ INFORMATIONAL_CATEGORIES: frozenset[str] = frozenset(
     }
 )
 
+# The agents mint NOVEL all-clear phrasings every run (diagnostic_audit_clean,
+# coverage_math_audit, … — 2026-08-18 sweep), so exact names can't keep up. These stems
+# classify the FAMILY — but only for findings that CLAIM NO MONEY (an all-clear asserting a
+# dollar gap is a contradiction the escape hatch logs instead of typing). Interim
+# engineering rule pending Brock's A6 taxonomy, which supersedes this list.
+INFORMATIONAL_CATEGORY_STEMS: tuple[str, ...] = ("_clear", "_clean", "_audit", "no_confirmed")
+
+
+def category_matches_informational(category: str | None) -> bool:
+    """Exact-set membership, else the stem families (see INFORMATIONAL_CATEGORY_STEMS)."""
+    c = str(category or "")
+    return c in INFORMATIONAL_CATEGORIES or any(s in c for s in INFORMATIONAL_CATEGORY_STEMS)
+
 # ── X2 · surface-only-if-actionable ──────────────────────────────────────────────────────
 # What counts as "an action" bound to a finding (draft: user-executable next step bound to
 # THAT finding — a call step targeting it, a document request whose satisfaction advances it,
@@ -134,5 +147,11 @@ X_KNOWN_GAPS: dict[str, str] = {
         "error findings can reach the user without a bound action (phantom_charge, first full "
         "dev sweep 2026-08-17) — the finding->gameplan action binding is not yet guaranteed "
         "by the pipeline"
+    ),
+    "scenario:balance_billing_nsa_seed": (
+        "the balance-billing finding activates with the 50-state NSA seed (DL-81/DL-88 — "
+        "Brock's launch condition; enable_nsa_checks stays OFF per Phil 2026-08-18). The "
+        "balance_billing_mismatch scenario asserts the GATED behavior until the seed lands — "
+        "this entry keeps the gap visible instead of buried in a green row"
     ),
 }

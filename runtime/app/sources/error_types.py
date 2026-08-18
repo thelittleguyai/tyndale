@@ -58,10 +58,36 @@ def _doctrine():
 def annotate_error_type(finding: Any) -> Any:
     """Stamp error_type / error_type_sub_label / error_type_source onto a FindingOut-like
     object. Explicit upstream values are respected untouched; informational findings get no
-    type at all (X5 does not apply to them)."""
+    type at all (X5 does not apply to them).
+
+    Also stamps ``presentation="informational_context"`` for the all-clear category
+    FAMILIES (2026-08-18 interim, pending Brock's A6 taxonomy): the agents mint novel
+    all-clear phrasings each run, so the doctrine config's stem matcher classifies them —
+    but ONLY when the finding claims no money. A stem-match that carries a dollar gap is a
+    contradiction: logged as the escape hatch, never silently typed."""
     x5 = _doctrine()
     if x5 is None:
         return finding
+
+    cfg = sys.modules.get("doctrine_config")
+    if (
+        cfg is not None
+        and getattr(finding, "presentation", None) is None
+        and cfg.category_matches_informational(getattr(finding, "category", None))
+    ):
+        facts = getattr(finding, "facts", None) or {}
+        gap = facts.get("gap")
+        claims_money = (
+            isinstance(gap, (int, float)) and not isinstance(gap, bool) and gap > 0
+        ) or bool(facts.get("impact"))
+        if claims_money:
+            log.warning(
+                "error_types.informational_stem_with_money",
+                category=getattr(finding, "category", None),
+            )
+        else:
+            finding.presentation = "informational_context"
+
     as_dict = {
         "error_type": getattr(finding, "error_type", None),
         "error_type_sub_label": getattr(finding, "error_type_sub_label", None),
