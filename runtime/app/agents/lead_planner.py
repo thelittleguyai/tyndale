@@ -88,19 +88,26 @@ async def compose_final(
     math_person_summary: str,
     *,
     session: AsyncSession | None = None,
+    extra_instruction: str | None = None,
 ) -> RunResult:
+    """``extra_instruction`` (prose-grounding regeneration, 2026-08-18): appended to the
+    compose input for the ONE retry the grounding guard is allowed — an engineering-side
+    interim until Brock's §3.10 line lands in the skill itself. Never used on first pass."""
     settings = get_settings()
     system_blocks = compose_system_prompt(
         "lead_planner_v1_lite",
         include_skills=None,
     )
+    user_message = _build_user_message(
+        case_file_id, bill_detective_summary, math_person_summary
+    )
+    if extra_instruction:
+        user_message = f"{user_message}\n\n{extra_instruction}"
     return await run_agent(
         model=settings.claude_model_for("lead_planner"),
         system_blocks=system_blocks,
         tool_names=TOOL_ALLOWLIST,
-        initial_user_message=_build_user_message(
-            case_file_id, bill_detective_summary, math_person_summary
-        ),
+        initial_user_message=user_message,
         case_file_id=case_file_id,
         actor="lead_planner",
         session=session,

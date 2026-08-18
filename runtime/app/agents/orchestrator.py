@@ -222,6 +222,13 @@ async def _run_real_agents(
             stop_action=lp.stop_action, human_review_needed=lp.human_review_needed,
         )
 
+    # Prose grounding (2026-08-18): findings and the summary are scanned against the
+    # documents' own text before ANY terminal state — the same fabrication class the
+    # translate guard stops, one layer up.
+    t = time.monotonic()
+    composed = await _ground_prose(case_file_id, composed, budget, bd.final_text, mp.final_text)
+    stage_ms["prose_grounding_ms"] = _ms(t)
+
     return composed, budget_stopped, stage_ms
 
 
@@ -505,6 +512,98 @@ _BILL_FAMILY = {"bill", "gfe", "itemized_bill"}
 
 # Document types that satisfy the SBC/coverage-terms need (a benefits summary or the card).
 _COVERAGE_FAMILY = {"plan_summary", "insurance_card"}
+
+
+def _document_haystack(cf) -> str | None:
+    """Every extracted document's stored OCR text, uppercased — the shared conviction
+    corpus for the translate guard AND the prose-grounding pass. None when no full text is
+    stored (legacy cases): no evidence, no conviction."""
+    docs = [d for d in ((cf.documents if cf else None) or []) if isinstance(d, dict)]
+    texts = [
+        str(d.get("ocr_text") or "")
+        for d in docs
+        if (d.get("extraction_status") or "extracted") == "extracted" and d.get("ocr_text")
+    ]
+    return "\n".join(texts).upper() if texts else None
+
+
+async def _ground_prose(
+    case_file_id: str, composed: str, budget, bd_text: str, mp_text: str
+) -> str:
+    """The finding/summary grounding pass (2026-08-18, drop-if-basis / scrub-if-incidental).
+
+    Runs after the agents, before any terminal state: findings whose BASIS depends on a
+    code no document contains are DELETED (counted as grounding_drop:{category} alongside
+    the doctrine violations on the ops panel); incidental parenthetical references are
+    span-stripped; the LP summary gets ONE regeneration with the §3.10-style correction
+    inline, then degrades to no-summary rather than shipping a fabricated code. Dropping
+    to zero findings is safe by construction — the existing honest states (rung-2
+    completion, all-clear, needs_documents) take over downstream."""
+    from app.agents.context_loader import DOCTRINE_VIOLATIONS
+    from app.sources import prose_grounding as pg
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        haystack = _document_haystack(case)
+        if haystack is None:
+            return composed  # legacy/preview-only case — no evidence, no conviction
+        rows = (
+            (await s.execute(select(Finding).where(Finding.case_file_id == UUID(case_file_id))))
+            .scalars()
+            .all()
+        )
+        for f in rows:
+            verdict = pg.ground_finding(f.facts, f.legal_claim, f.recommendation, haystack)
+            if verdict.action == "drop":
+                DOCTRINE_VIOLATIONS[f"grounding_drop:{f.category}"] += 1
+                log.error(
+                    "orchestrator.grounding.finding_dropped",
+                    case_file_id=case_file_id,
+                    category=f.category,
+                    ungrounded_codes=verdict.dropped_codes,
+                )
+                await s.delete(f)
+            elif verdict.scrubbed:
+                DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
+                for name, payload in verdict.scrubbed.items():
+                    setattr(f, name, payload)
+                log.warning(
+                    "orchestrator.grounding.finding_scrubbed",
+                    case_file_id=case_file_id,
+                    category=f.category,
+                )
+        await s.commit()
+
+    codes = pg.summary_ungrounded_codes(composed, haystack)
+    if not codes:
+        return composed
+    if budget.take_regen():
+        DOCTRINE_VIOLATIONS["grounding_summary_regen"] += 1
+        log.warning(
+            "orchestrator.grounding.summary_regenerating",
+            case_file_id=case_file_id,
+            ungrounded_codes=codes,
+        )
+        async with AsyncSessionLocal() as s:
+            lp = await lead_planner.compose_final(
+                case_file_id, bd_text, mp_text, session=s,
+                extra_instruction=pg.regeneration_instruction(codes),
+            )
+            await s.commit()
+        composed = lp.final_text
+        codes = pg.summary_ungrounded_codes(composed, haystack)
+    if codes:
+        # Regeneration unavailable or insufficient: no summary beats a fabricated code.
+        DOCTRINE_VIOLATIONS["grounding_summary_degraded"] += 1
+        log.error(
+            "orchestrator.grounding.summary_degraded",
+            case_file_id=case_file_id,
+            ungrounded_codes=codes,
+        )
+        return ""
+    return composed
 
 
 def _rung2_three_numbers(case) -> dict | None:
@@ -911,15 +1010,9 @@ def _grounded_line_items(
     A falsely-dropped real item (e.g. the code itself mis-OCR'd) degrades to the honest
     ask-for-a-clearer-photo path — recoverable, unlike a fabricated charge shown as real.
     """
-    docs = [d for d in ((cf.documents if cf else None) or []) if isinstance(d, dict)]
-    texts = [
-        str(d.get("ocr_text") or "")
-        for d in docs
-        if (d.get("extraction_status") or "extracted") == "extracted" and d.get("ocr_text")
-    ]
-    if not texts:
+    haystack = _document_haystack(cf)
+    if haystack is None:
         return line_items, []
-    haystack = "\n".join(texts).upper()
     kept: list[dict] = []
     dropped: list[str] = []
     for item in line_items:
