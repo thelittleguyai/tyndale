@@ -29,10 +29,12 @@ OCR, Foundry Claude, fixture fallback off), so everything below is the true prod
 Admin → System, or `GET /v1/admin/system/health`: `deploy_sha` matches your pushed HEAD;
 `anthropic_status`, `qdrant_status` healthy; `last_claude_call` recent and ok.
 
-### 0.3b Pin a warm replica for the test window
-Set runtime `min_replicas = 1` in the dev tfvars and apply. Scale-to-zero cold starts read
-as hangs during a hands-on walkthrough (observed live 2026-08-17 — a first request after
-idle can sit through container boot). Revert after test day if you want scale-to-zero back.
+### 0.3b Pin warm replicas for the test window
+In `infra/envs/dev/compute.tf`, set `min_replicas = 1` on the **runtime** app (line ~108)
+and the **app** container (line ~1089), then apply. These are hardcoded in compute.tf, not
+tfvars. Scale-to-zero cold starts read as hangs during a hands-on walkthrough (observed
+live 2026-08-17 — a first request after idle sits through container boot). Revert after
+test day if you want scale-to-zero back.
 
 ### 0.4 B4 backfill (typed call identifiers on existing cases)
 From `runtime/` with `DATABASE_URL` pointed at the dev database (same connection pattern as
