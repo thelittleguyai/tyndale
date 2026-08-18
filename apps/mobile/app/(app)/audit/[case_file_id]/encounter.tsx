@@ -93,9 +93,17 @@ export default function EncounterVerificationScreen() {
 
   // Honest degraded states — we NEVER show fabricated line items here (the invariant: no 0-item
   // encounter). 'extraction_failed' = couldn't read the docs; 'not_a_bill' = they read fine but
-  // aren't a bill/EOB. Both show the honest reason (naming the file) + a path to re-upload.
-  if (extract && (extract.status === 'extraction_failed' || extract.status === 'not_a_bill')) {
+  // aren't a bill/EOB; 'needs_documents' (2026-08-18) = readable with a real amount but no
+  // line-item detail — the ask is for MORE PAPER, not a better photo. All show the honest
+  // reason + a path forward.
+  if (
+    extract &&
+    (extract.status === 'extraction_failed' ||
+      extract.status === 'not_a_bill' ||
+      extract.status === 'needs_documents')
+  ) {
     const isNotBill = extract.status === 'not_a_bill';
+    const isNeedsDocs = extract.status === 'needs_documents';
     return (
       <ScrollView
         className="flex-1 bg-page"
@@ -107,13 +115,19 @@ export default function EncounterVerificationScreen() {
 
         <View className="mb-5 rounded-2xl bg-surface-raised p-5">
           <Text className="text-3xl font-bold leading-tight text-primary">
-            {isNotBill ? "This doesn't look like a medical bill" : "We couldn't read your documents"}
+            {isNeedsDocs
+              ? 'One more document finishes this'
+              : isNotBill
+                ? "This doesn't look like a medical bill"
+                : "We couldn't read your documents"}
           </Text>
-          <Text className="mt-3 max-w-2xl text-[15px] leading-6 text-secondary">
+          <Text className="mt-3 max-w-2xl text-body leading-6 text-secondary">
             {extract.extraction_message ??
-              (isNotBill
-                ? 'Upload a bill, an Explanation of Benefits, an insurance card, or a plan summary and I\'ll check it for you.'
-                : 'Try uploading a clearer photo or PDF — good lighting, all four corners in frame, one document per image.')}
+              (isNeedsDocs
+                ? "We can read this document and the amount on it — it just doesn't include the line-item detail we audit. Add the itemized bill or the EOB for this visit."
+                : isNotBill
+                  ? 'Upload a bill, an Explanation of Benefits, an insurance card, or a plan summary and I\'ll check it for you.'
+                  : 'Try uploading a clearer photo or PDF — good lighting, all four corners in frame, one document per image.')}
           </Text>
         </View>
 

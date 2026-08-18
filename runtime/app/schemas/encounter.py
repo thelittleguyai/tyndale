@@ -72,7 +72,12 @@ class ExtractResult(BaseModel):
     # VISIBLY rather than fabricate line items. 'not_a_bill' — the doc(s) read fine but none is a
     # bill/EOB, so there's nothing to audit. Either way the UI shows an honest message + re-upload
     # CTA and never a 0-item encounter screen.
-    status: Literal["encounter_verification_pending", "extraction_failed", "not_a_bill"]
+    # 'needs_documents' (2026-08-18): the doc read fine WITH a real amount but carries no
+    # line-item detail — the case terminal is audit_incomplete/needs_documents and the ask
+    # is for more paper (itemized bill / EOB), never a re-photograph.
+    status: Literal[
+        "encounter_verification_pending", "extraction_failed", "not_a_bill", "needs_documents"
+    ]
     line_items: list[LineItem]
     intro_message: str = Field(
         description="The 'Tyndale double-checking on your behalf' framing for the UI header"

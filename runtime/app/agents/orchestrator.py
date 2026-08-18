@@ -14,6 +14,7 @@ raise loudly at audit time.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
@@ -943,6 +944,34 @@ EXTRACTION_FAILED_MESSAGE = (
     "photo or a PDF — good lighting, all four corners in frame, one document per image."
 )
 
+# needs_documents at EXTRACT time (2026-08-18, Phil's ruling): the document READ fine and
+# carries a real amount — it just has no line-item detail to audit (a collections notice, a
+# summary statement). The ask is for MORE PAPER, not a better photo.
+NEEDS_DOCUMENTS_EXTRACT_MESSAGE = (
+    "We can read this document and the amount on it — but it doesn't include the line-item "
+    "detail we audit. Add the itemized bill or the EOB for this visit and we'll take it "
+    "from there."
+)
+
+# A dollar-looking figure — the "readable amount" test for the needs_documents split.
+_AMOUNT_RE = re.compile(r"\$\s*[\d,]+(?:\.\d{2})?|\b\d{1,3}(?:,\d{3})*\.\d{2}\b")
+
+
+def _any_recognized_doc_has_amount(cf) -> bool:
+    """True when some extracted, classified document's stored text shows a dollar figure —
+    the evidence that the upload is auditable in principle and the honest ask is for the
+    itemized detail, not a re-photograph."""
+    for d in (cf.documents if cf else None) or []:
+        if not isinstance(d, dict):
+            continue
+        if (d.get("extraction_status") or "extracted") != "extracted":
+            continue
+        if (d.get("document_type") or "unclassified") == "unclassified":
+            continue
+        if _AMOUNT_RE.search(str(d.get("ocr_text") or d.get("ocr_text_preview") or "")):
+            return True
+    return False
+
 # Distinct from extraction_failed: the document(s) READ fine, they just aren't a medical bill or
 # insurance document — so there's nothing to audit. Name the file(s) so the user knows exactly
 # which upload was the problem, and point them at what Tyndale can actually help with.
@@ -1188,10 +1217,21 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
                     "orchestrator.extract.wrong_document_redirect",
                 )
 
-            # (c) We recognized a medical document (bill/EOB, or a collections notice / denial /
-            # card / plan summary) but extracted no billable line items → extraction_failed. This is
-            # NOT "not a bill" — it's a real medical doc we couldn't turn into line items. Never
-            # falls through to fixtures.
+            # (c) We recognized a medical document but extracted no billable line items.
+            # Split (2026-08-18, Phil's ruling — needs_documents governs): a recognized doc
+            # with a READABLE AMOUNT (a collections notice, a summary statement) is
+            # auditable in principle — the user needs to SUPPLY the itemized detail, not
+            # re-photograph anything. That's the needs_documents chase (the real Beloit
+            # day-one behavior). extraction_failed stays reserved for documents we
+            # genuinely could not read. Never falls through to fixtures either way.
+            if _any_recognized_doc_has_amount(cf):
+                await _set_status(
+                    case_file_id, "audit_incomplete", incomplete_reason="needs_documents"
+                )
+                return _degrade(
+                    "needs_documents", NEEDS_DOCUMENTS_EXTRACT_MESSAGE,
+                    "orchestrator.extract.recognized_amount_needs_documents",
+                )
             await _set_status(case_file_id, "extraction_failed")
             return _degrade(
                 "extraction_failed", EXTRACTION_FAILED_MESSAGE,

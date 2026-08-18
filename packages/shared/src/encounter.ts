@@ -47,7 +47,9 @@ export interface ExtractResult {
    * the doc(s) read fine but none is a bill/EOB, so there's nothing to audit. Either way the UI
    * shows an honest message + re-upload CTA (never fabricated line items, never a 0-item screen).
    */
-  status: 'encounter_verification_pending' | 'extraction_failed' | 'not_a_bill';
+  // 'needs_documents' (2026-08-18): the doc read fine WITH a real amount but no line-item
+  // detail — the ask is for more paper (itemized bill / EOB), never a re-photograph.
+  status: 'encounter_verification_pending' | 'extraction_failed' | 'not_a_bill' | 'needs_documents';
   line_items: LineItem[];
   intro_message: string;
   /** Set when status is a failure state: the honest, user-facing reason (names the file for not_a_bill). */

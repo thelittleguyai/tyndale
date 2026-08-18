@@ -146,9 +146,9 @@ async def test_readable_but_not_a_bill_degrades_to_not_a_bill(client: AsyncClien
 async def test_recognized_nonbill_doc_is_extraction_failed_not_not_a_bill(
     client: AsyncClient, monkeypatch
 ):
-    # A RECOGNIZED medical document (a collections notice) that yields no line items must degrade to
-    # extraction_failed — NEVER 'not_a_bill'. not_a_bill is reserved for genuinely non-medical
-    # uploads; mislabeling a collections notice "not a medical bill" was the Phase-1 over-capture.
+    # A RECOGNIZED medical document (a collections notice) that yields no line items AND shows no
+    # readable amount degrades to extraction_failed — NEVER 'not_a_bill'. (2026-08-18: a notice
+    # WITH a readable amount now takes the needs_documents path instead — see the sibling test.)
     async def _collections_ocr(args):
         return {
             "filename": args.get("filename", "f"),
@@ -198,3 +198,49 @@ async def test_zero_item_invariant_never_reaches_encounter(client: AsyncClient, 
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
         ).scalar_one()
     assert cf.status != "encounter_verification_pending"
+
+
+@pytest.mark.asyncio
+async def test_recognized_doc_with_readable_amount_is_needs_documents(
+    client: AsyncClient, monkeypatch
+):
+    """Phil's ruling (2026-08-18): a collections notice / summary statement that READS fine
+    and shows a real amount is auditable in principle — the honest ask is for the itemized
+    detail (needs_documents + the chase checklist), never "we couldn't read your documents".
+    extraction_failed stays reserved for genuinely unreadable uploads."""
+
+    async def _collections_with_amount_ocr(args):
+        return {
+            "filename": args.get("filename", "f"),
+            "ocr_text": (
+                "FINAL NOTICE — PAST DUE. AMOUNT DUE: $1,850.00. "
+                "This account is being referred to COLLECTIONS."
+            ),
+            "extraction_status": "extracted",
+            "byte_count": 10, "pages": [], "key_value_pairs": [], "tables_count": 0,
+        }
+
+    monkeypatch.setattr("app.routes.upload.run_document_ocr", _collections_with_amount_ocr)
+    up = await client.post(
+        "/v1/upload", files={"file": ("notice.pdf", b"%PDF-1.4 x", "application/pdf")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+
+    _force_real_claude(monkeypatch)
+
+    async def _empty_translate(case_file_id, mode="translate"):
+        return RunResult(final_text="", tool_calls=[], usage={})
+
+    monkeypatch.setattr(bill_detective, "run", _empty_translate)
+
+    result = await orchestrator.extract_line_items(case_id)
+    assert result.status == "needs_documents"
+    assert result.line_items == []
+    assert "itemized bill" in (result.extraction_message or "")
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+    assert cf.status == "audit_incomplete"
+    assert cf.audit_incomplete_reason == "needs_documents"
