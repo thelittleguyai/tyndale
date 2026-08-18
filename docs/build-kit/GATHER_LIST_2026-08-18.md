@@ -10,27 +10,23 @@ authored files.*
 
 ## Phil — do today (blocks test day)
 
-### 1. SendGrid — **product email is down on dev, but the key is NOT the problem**
-The sweep caught it live: `notify.send_failed kind=audit_ready status=401` (~15 times over
-45 min). Diagnosis so far (2026-08-18): the tfvars key is **valid** (SendGrid answers 200
-with full scopes when tested from a laptop), Key Vault **matches tfvars exactly**
-(`terraform plan`: no changes; KV version dated 2026-05-29), the env wiring is correct
-(`SENDGRID_API_KEY` ← KV ref), and IP Access Management is **off**. Yet a revision
-provisioned the same day got 401 — so the fault is between Key Vault and the running
-container (a stale resolved secret) or in the container's egress path.
+### 1. SendGrid — RESOLVED to an account-protection issue; one confirmation left
+The sweep's `notify.send_failed status=401` (~15× in 45 min) was chased end to end on
+2026-08-18. **Everything checks valid**: the tfvars key answers 200 with full scopes, Key
+Vault matches tfvars exactly, and — verified by exec probe inside the running container —
+the container holds the **identical** key (hash-compared) and SendGrid accepts it from the
+container's own egress. The failures were real at the time, on the send endpoint only.
 
-- **Next step (needs a TTY, 30 seconds):** exec into the runtime container and test the
-  key it actually holds, from its own network position:
-  ```
-  az containerapp exec -n tyndale-dev-runtime -g tyndale-dev-rg --command bash
-  # then inside:
-  printf %s "$SENDGRID_API_KEY" | wc -c
-  curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $SENDGRID_API_KEY" https://api.sendgrid.com/v3/scopes
-  ```
-  `200` + length 69 → key fine in-container, investigate the send path; `401` or a
-  different length → the container holds a stale/dead value: restart the revision
-  (`az containerapp revision restart`) so the KV reference re-resolves, and retest.
-- Until green, **no product email sends on dev**: audit-ready, needs-docs, nudges, recovery.
+**Best-fit diagnosis:** the sweep fired ~15 emails at `…@e2e.tyndale.test` — a reserved
+TLD that can never deliver — in under an hour. That is a textbook spam-trap signature, and
+SendGrid pauses mail-send (401) when its fraud review trips.
+
+- **Fixed in code (`93ad148`, deployed):** product emails to the synthetic e2e suffix now
+  short-circuit before any network call — sweeps will never again fire real sends.
+- **Remaining check (Phil, 1 min):** request a magic link to your real address from the
+  dev sign-in screen. Link arrives → account healthy, item closed. Nothing arrives →
+  check the SendGrid dashboard for an alert/compliance banner (Activity feed will show
+  the 401-era attempts) — that's a SendGrid-side unpause, not a config change.
 - While in SendGrid anyway: confirm the `sendgrid_from_email` sender identity is verified.
 
 ### 2. Warm replicas for the test window
