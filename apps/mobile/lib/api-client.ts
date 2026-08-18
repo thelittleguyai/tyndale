@@ -936,8 +936,49 @@ export async function getInsuranceInfo(): Promise<InsuranceInfo> {
   return (await res.json()) as InsuranceInfo;
 }
 
+/** Secondary coverage (2026-08-19, item 4) — display + edit only; COB math is Brock's
+ *  pending content (B6). captured_hint carries what intake noted while no row exists. */
+export interface SecondaryInsurance {
+  exists: boolean;
+  insurer: string | null;
+  member_id: string | null;
+  plan_type: string | null;
+  has_front: boolean;
+  has_back: boolean;
+  captured_hint: string | null;
+}
+
+export async function getSecondaryInsurance(): Promise<SecondaryInsurance> {
+  const res = await cfetch(`${BASE_URL}/v1/insurance/secondary`);
+  if (!res.ok) throw new Error(`secondary insurance failed: ${res.status}`);
+  return (await res.json()) as SecondaryInsurance;
+}
+
+export async function putSecondaryInsurance(body: {
+  insurer?: string | null;
+  member_id?: string | null;
+  plan_type?: string | null;
+}): Promise<SecondaryInsurance> {
+  const res = await cfetch(`${BASE_URL}/v1/insurance/secondary`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`secondary insurance save failed: ${res.status} ${await res.text()}`);
+  return (await res.json()) as SecondaryInsurance;
+}
+
+export async function deleteSecondaryInsurance(): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/insurance/secondary`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`secondary insurance delete failed: ${res.status}`);
+}
+
+/** Card sides the server stores — the secondary plan's photos live beside the
+ *  primary's under their own card_type values (2026-08-19, item 4). */
+export type CardType = 'front' | 'back' | 'secondary_front' | 'secondary_back';
+
 export async function uploadInsuranceCard(
-  card_type: 'front' | 'back',
+  card_type: CardType,
   image_base64: string,
   mime_type: string,
   file_size?: number,
@@ -952,7 +993,7 @@ export async function uploadInsuranceCard(
 }
 
 /** URL for a card side's image — the runtime streams it (or 302s to a signed Blob URL). */
-export function insuranceCardImageUrl(card_type: 'front' | 'back'): string {
+export function insuranceCardImageUrl(card_type: CardType): string {
   return `${BASE_URL}/v1/insurance/card/${card_type}/image`;
 }
 
@@ -960,7 +1001,7 @@ export function insuranceCardImageUrl(card_type: 'front' | 'back'): string {
  *  object URL usable as an <Image> source — works cross-origin where a bare <img> can't
  *  send the cookie. Web only; returns null elsewhere or on failure. */
 export async function fetchCardImageObjectUrl(
-  card_type: 'front' | 'back',
+  card_type: CardType,
 ): Promise<string | null> {
   if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
   try {

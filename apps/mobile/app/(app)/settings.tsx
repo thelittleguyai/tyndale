@@ -12,20 +12,25 @@ import { Image, Linking, Modal, Pressable, ScrollView, Switch, Text, TextInput, 
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
+  deleteSecondaryInsurance,
   getBillingStatus,
   getInsuranceInfo,
   getIntakeState,
   getProfileState,
+  getSecondaryInsurance,
   getSurfaceCopy,
   getUserProfile,
   fetchCardImageObjectUrl,
   patchProfile,
+  putSecondaryInsurance,
   requestAccountDeletion,
   startBillingCheckout,
   updateConsent,
   type BillingStatus,
+  type CardType,
   type InsuranceInfo,
   type ProfileState,
+  type SecondaryInsurance,
   type SurfaceCopy,
   type UserProfile,
 } from '../../lib/api-client';
@@ -76,6 +81,14 @@ export default function SettingsScreen() {
   const [settingsCopy, setSettingsCopy] = useState<SurfaceCopy | null>(null);
   const [insurance, setInsurance] = useState<InsuranceInfo | null>(null);
   const [coverageType, setCoverageType] = useState<string | null>(null);
+  // Secondary plan (2026-08-19, item 4) — display + edit only; COB math is B6 (Brock).
+  const [secondary, setSecondary] = useState<SecondaryInsurance | null>(null);
+  const [editingSecondary, setEditingSecondary] = useState(false);
+  const [secInsurer, setSecInsurer] = useState('');
+  const [secMemberId, setSecMemberId] = useState('');
+  const [secPlanType, setSecPlanType] = useState<string | null>(null);
+  const [savingSecondary, setSavingSecondary] = useState(false);
+  const [confirmRemoveSecondary, setConfirmRemoveSecondary] = useState(false);
   const [fn, setFn] = useState('');
   const [ln, setLn] = useState('');
   const [dob, setDob] = useState('');
@@ -110,6 +123,7 @@ export default function SettingsScreen() {
       })
       .catch(() => {/* non-fatal */});
     getInsuranceInfo().then(setInsurance).catch(() => {/* non-fatal */});
+    getSecondaryInsurance().then(setSecondary).catch(() => {/* non-fatal */});
     // Detected/confirmed coverage regime (DL-82) — from the user's active case.
     getIntakeState()
       .then((s) => {
@@ -156,6 +170,50 @@ export default function SettingsScreen() {
       flash('Couldn’t save — check the fields and try again.');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const startEditSecondary = () => {
+    setSecInsurer(secondary?.insurer ?? '');
+    setSecMemberId(secondary?.member_id ?? '');
+    setSecPlanType(secondary?.plan_type ?? null);
+    setEditingSecondary(true);
+  };
+
+  const saveSecondary = async () => {
+    if (savingSecondary) return;
+    setSavingSecondary(true);
+    try {
+      const updated = await putSecondaryInsurance({
+        insurer: secInsurer.trim() || null,
+        member_id: secMemberId.trim() || null,
+        plan_type: secPlanType,
+      });
+      setSecondary(updated);
+      setEditingSecondary(false);
+      flash('Secondary plan saved.');
+    } catch {
+      flash('Couldn’t save the secondary plan — try again.');
+    } finally {
+      setSavingSecondary(false);
+    }
+  };
+
+  const removeSecondary = async () => {
+    // Two-tap confirm: the first tap arms, the second deletes (row + both card photos).
+    if (!confirmRemoveSecondary) {
+      setConfirmRemoveSecondary(true);
+      setTimeout(() => setConfirmRemoveSecondary(false), 4000);
+      return;
+    }
+    setConfirmRemoveSecondary(false);
+    try {
+      await deleteSecondaryInsurance();
+      setEditingSecondary(false);
+      flash('Secondary plan removed.');
+      load();
+    } catch {
+      flash('Couldn’t remove it — try again.');
     }
   };
 
@@ -350,6 +408,128 @@ export default function SettingsScreen() {
             <CardUpload side="back" initialDone={!!insurance?.has_back} onResult={() => load()} />
           </View>
         </View>
+
+        {/* Secondary coverage (2026-08-19, item 4) — capture + display only. Coordination-of-
+            benefits math is Brock's pending content (B6); nothing here computes with it. */}
+        <Text className="mb-2 mt-4 text-xs text-faint">Secondary coverage</Text>
+        {secondary?.exists && !editingSecondary ? (
+          <>
+            <Row label="Insurer" value={secondary.insurer ?? '—'} />
+            <Row label="Member ID" value={secondary.member_id ?? '—'} />
+            <Row
+              label="Plan type"
+              value={
+                secondary.plan_type
+                  ? (REGIME_LABELS[secondary.plan_type] ?? secondary.plan_type)
+                  : '—'
+              }
+            />
+            <Text className="mb-2 mt-3 text-xs text-faint">Card photos (secondary)</Text>
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <CardThumb side="secondary_front" present={!!secondary.has_front} />
+                <CardUpload
+                  side="front"
+                  cardType="secondary_front"
+                  initialDone={!!secondary.has_front}
+                  onResult={() => load()}
+                />
+              </View>
+              <View className="flex-1">
+                <CardThumb side="secondary_back" present={!!secondary.has_back} />
+                <CardUpload
+                  side="back"
+                  cardType="secondary_back"
+                  initialDone={!!secondary.has_back}
+                  onResult={() => load()}
+                />
+              </View>
+            </View>
+            <View className="mt-3 flex-row gap-5">
+              <Pressable onPress={startEditSecondary} testID="secondary-edit" className="min-h-[32px] justify-center">
+                <Text className="text-sm font-semibold text-accent">Edit</Text>
+              </Pressable>
+              <Pressable onPress={removeSecondary} testID="secondary-remove" className="min-h-[32px] justify-center">
+                <Text className="text-sm font-semibold text-danger">
+                  {confirmRemoveSecondary ? 'Tap again to remove' : 'Remove'}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : editingSecondary ? (
+          <View>
+            <EditField
+              label="Insurer"
+              value={secInsurer}
+              onChangeText={setSecInsurer}
+              placeholder="e.g. Aetna"
+            />
+            <EditField
+              label="Member ID"
+              value={secMemberId}
+              onChangeText={setSecMemberId}
+              placeholder="On the card"
+            />
+            <Text className="mb-1 text-sm text-secondary">Plan type</Text>
+            <View className="mb-3 flex-row flex-wrap gap-2">
+              {/* Same regime vocabulary as the primary — minus self_pay, which can't be a
+                  SECOND plan. Tap the selected chip again to clear. */}
+              {Object.entries(REGIME_LABELS)
+                .filter(([value]) => value !== 'self_pay')
+                .map(([value, label]) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => setSecPlanType(secPlanType === value ? null : value)}
+                    className={
+                      secPlanType === value
+                        ? 'rounded-full bg-accent px-3 py-1.5'
+                        : 'rounded-full bg-inset px-3 py-1.5'
+                    }
+                  >
+                    <Text
+                      className={
+                        secPlanType === value
+                          ? 'text-xs font-semibold text-on-accent'
+                          : 'text-xs text-secondary'
+                      }
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+            <View className="flex-row gap-3">
+              <PressableScale
+                onPress={saveSecondary}
+                className="min-h-[44px] flex-1 items-center justify-center rounded-xl bg-accent px-4"
+                testID="secondary-save"
+              >
+                <Text className="text-body font-bold text-on-accent">
+                  {savingSecondary ? 'Saving…' : 'Save'}
+                </Text>
+              </PressableScale>
+              <PressableScale
+                onPress={() => setEditingSecondary(false)}
+                className="min-h-[44px] flex-1 items-center justify-center rounded-xl bg-inset px-4"
+              >
+                <Text className="text-body font-semibold text-secondary">Cancel</Text>
+              </PressableScale>
+            </View>
+          </View>
+        ) : (
+          <>
+            {secondary?.captured_hint ? (
+              <Text className="mb-2 text-sm text-secondary">{secondary.captured_hint}</Text>
+            ) : null}
+            <Pressable
+              onPress={startEditSecondary}
+              testID="secondary-add"
+              className="min-h-[32px] justify-center self-start"
+            >
+              <Text className="text-sm font-semibold text-accent">+ Add a secondary plan</Text>
+            </Pressable>
+          </>
+        )}
       </Section>
 
       {/* 2. Improvement consent */}
@@ -595,7 +775,7 @@ function EditField({
   );
 }
 
-function CardThumb({ side, present }: { side: 'front' | 'back'; present: boolean }) {
+function CardThumb({ side, present }: { side: CardType; present: boolean }) {
   const [uri, setUri] = useState<string | null>(null);
   useEffect(() => {
     if (!present) {

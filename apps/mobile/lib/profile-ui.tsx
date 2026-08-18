@@ -7,7 +7,7 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 
-import { uploadInsuranceCard, type CardUploadResult } from './api-client';
+import { uploadInsuranceCard, type CardType, type CardUploadResult } from './api-client';
 import { CameraCapture, isCaptureSupported } from '../components/upload/CameraCapture';
 import { isFilePart } from '../components/upload/capture-types';
 import { useThemeColors } from '../theme/useThemeColors';
@@ -108,15 +108,21 @@ async function compressImage(
  *  "use the web app" note (mirrors the intake UploadField until the native camera lands). */
 export function CardUpload({
   side,
+  cardType,
   initialDone = false,
   onResult,
   onUploadingChange,
 }: {
   side: 'front' | 'back';
+  /** What the server stores this capture as — defaults to `side`. The secondary plan
+   *  (2026-08-19, item 4) posts 'secondary_front'/'secondary_back' while keeping the
+   *  plain front/back wording the user actually sees. */
+  cardType?: CardType;
   initialDone?: boolean;
   onResult?: (r: CardUploadResult) => void;
   onUploadingChange?: (uploading: boolean) => void;
 }) {
+  const postAs: CardType = cardType ?? side;
   const c = useThemeColors();
   const inputRef = useRef<any>(null);
   const [state, setState] = useState<CardState>(initialDone ? 'done' : 'idle');
@@ -154,7 +160,7 @@ export function CardUpload({
         setMsg('That image is too large even after compression — try a smaller photo.');
         return;
       }
-      const result = await uploadInsuranceCard(side, base64, mime, size);
+      const result = await uploadInsuranceCard(postAs, base64, mime, size);
       const ok = ['extracted', 'merged'].includes(result.extraction_status);
       setState(ok ? 'done' : 'partial');
       setMsg(
@@ -204,7 +210,7 @@ export function CardUpload({
           onPress={() => setCapturing(true)}
           accessibilityRole="button"
           className="mb-2 min-h-[44px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4"
-          testID={`card-capture-${side}`}
+          testID={`card-capture-${postAs}`}
         >
           <Text className="text-body font-semibold text-on-accent">
             Take a photo of the {side}
