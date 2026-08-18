@@ -82,10 +82,21 @@ honest ranges.
 
 ## Jonas / engineering — provisioning and code, no credentials
 
-### 7. Qdrant `payer_policies` collection is missing on dev
-Caught live in runtime logs: `Collection payer_policies doesn't exist`. Payer-side
-grounding is degraded until `init_collections` + its ingestion run on dev. Plausibly part
-of the balance-billing detection miss.
+### 7. Qdrant collections — RESOLVED to a bigger gap than logged, schemas now in place
+The log line (`Collection payer_policies doesn't exist`) undersold it: dev had only ONE of
+the four collections (`billing_codes`). Phil's in-container init (2026-08-18) created the
+other three — `error_detection_rules`, `laws_regulations`, `payer_policies` — meaning
+every dev audit to date ran with rules/laws/payer retrieval hitting NONEXISTENT
+collections (tool errors, not even empty results). That context belongs next to every
+past judgment about detection quality.
+
+Now: the schemas exist, so retrieval degrades honestly (empty results) instead of
+erroring. **The corpora are still empty** — ingestion is content-dependent (Brock's rules
+and laws drops + the ingestion runs; Jonas). Two Jonas-side notes from the same session:
+qdrant-client 1.18.0 vs server 1.12.4 is outside the supported version skew (pin the
+client or upgrade the Qdrant image), and collection creation outlived the default client
+timeout — the dev Qdrant container may be resource-starved enough to matter for retrieval
+latency too.
 
 ### 8. Pre-flip blockers for the 1up wrapper (parked — gated off, not test-day)
 - **1up sandbox credentials** (`ONEUP_CLIENT_ID` / `ONEUP_CLIENT_SECRET`) into the
