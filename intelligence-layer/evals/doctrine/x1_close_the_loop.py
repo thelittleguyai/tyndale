@@ -46,8 +46,8 @@ import re
 from dataclasses import dataclass, field
 
 # Case statuses considered OPEN (an information request may — must — leave the case here).
-# Everything else (resolved, archived, not_a_bill, and future attest_declined-style closes)
-# is a closed/terminal-resolved state in which an unanswered ask would strand the user.
+# Everything else (resolved, archived, and future attest_declined-style closes) is a
+# closed/terminal-resolved state in which an unanswered ask would strand the user.
 OPEN_STATUSES = frozenset(
     {
         "uploaded",
@@ -59,6 +59,11 @@ OPEN_STATUSES = frozenset(
         "audit_running",
         "audit_incomplete",  # incl. reason=needs_documents — the X1 archetype
         "audit_complete",  # open for outcome follow-up / added documents
+        # A REDIRECT, not a closure (§A2 state 2, corrected 2026-08-18 from the dev sweep's
+        # insurance_card_only fail): the upload route attaches further documents to a
+        # not_a_bill case and the typed wrongdoc next_action routes exactly there — the ask
+        # ("add your bill") is answerable in place. The return-path check (a) still applies.
+        "not_a_bill",
     }
 )
 
@@ -128,6 +133,13 @@ def _has_return_path(message: dict, thread: list[dict]) -> bool:
     needs = payload.get("needs_documents") or {}
     if isinstance(needs, dict) and needs.get("items"):
         return True  # the checklist IS the upload affordance (rendered with add-document)
+    unlock = payload.get("unlock_more") or {}
+    if isinstance(unlock, dict) and unlock.get("items"):
+        return True  # rung-2: the unlock checklist renders with the same add-document path
+    if payload.get("next_action"):
+        # The typed wrongdoc affordance (§A2 state 2) — rendered as an inline action button
+        # (the N2 branch card), routing to the case's own upload. Structured, not prose.
+        return True
     if message.get("kind") == "verification_request":
         return True  # rendered with its own confirm/deny response affordance
     # An explicit structured "the case remains open" marker (e.g. the §12 program handoff):

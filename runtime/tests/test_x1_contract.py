@@ -148,8 +148,46 @@ def test_checkers_exist_with_the_frozen_contract_shape(module: str, func: str, v
     constants in doctrine_config pending Brock's A6 sign-off); this pins the frozen shape —
     Verdict class exported, empty input is an explicit noted vacuous pass, never a raise.
     Their teeth live in test_x2x3x5_contracts.py."""
-    import doctrine_config  # noqa: F401 — registered by _load-order in the sibling test file
+    # Standalone-safe (the sweep-regression fix exposed the old sibling-test-order
+    # dependency): register doctrine_config ourselves when no other file has yet.
+    if "doctrine_config" not in sys.modules:
+        _load("doctrine_config")
     mod = _load(module)
     assert hasattr(mod, verdict_cls), f"{module} must export {verdict_cls} (frozen contract shape)"
     verdict = getattr(mod, func)([])
     assert verdict.passed and verdict.notes, "empty input must be a NOTED vacuous pass"
+
+
+# ── the sweep regressions (2026-08-17): affordances X1's detector missed ──────────────────
+def test_wrongdoc_next_action_is_a_return_path_and_not_a_bill_is_open():
+    """insurance_card_only's fail was the DETECTOR, not the product: the card-branch entry
+    carries a typed next_action (rendered as the N2 branch card's action button) and the
+    upload route attaches further documents to a not_a_bill case — a redirect, not a
+    closure. Both halves pinned."""
+    thread = [{
+        "kind": "system_message",
+        "role": "system",
+        "payload": {
+            "text": "That looks like an insurance card, not a bill or EOB — add your bill "
+                    "and I'll get to work.",
+            "wrongdoc_branch": "card",
+            "next_action": "add_bill_or_eob",
+        },
+    }]
+    verdict = x1.check_x1(thread, "not_a_bill", nudge_state=None)
+    assert verdict.passed, verdict.reasons
+
+
+def test_unlock_more_checklist_is_a_return_path_on_a_complete_case():
+    """Rung-2: the unlock-more card is an ask ("add your SBC…") whose checklist renders with
+    the same add-document affordance the needs-documents card has."""
+    thread = [{
+        "kind": "system_message",
+        "role": "system",
+        "payload": {
+            "text": "Your audit is done — add your plan's SBC and I can pin the math down.",
+            "unlock_more": {"intro": "…", "item_hint": "…", "items": [{"key": "sbc", "have": False}]},
+        },
+    }]
+    verdict = x1.check_x1(thread, "audit_complete", nudge_state=None)
+    assert verdict.passed, verdict.reasons
