@@ -20,7 +20,11 @@ export type MessageKind =
   | 'system_message'
   | 'moment_card'
   | 'verification_request'
-  | 'verification_suggestion';
+  | 'verification_suggestion'
+  // CS1 attest-and-proceed ask (server Literal gained it 2026-08-18 — the missing kind
+  // 500'd every attest-gated thread). ThreadEntry's default case renders it as a plain
+  // message; the attest menu itself lives on the attest screen.
+  | 'attest_request';
 
 /**
  * payload for kind='verification_suggestion' (D4b). A free-text reply mapped to cards + intended

@@ -96,6 +96,11 @@ class ConversationOut(BaseModel):
 MessageKind = Literal[
     "message", "status_card_update", "system_message", "moment_card", "verification_request",
     "verification_suggestion",
+    # CS1's attest-and-proceed ask. The bridge has written this kind since 2026-08-11, but no
+    # thread CONTAINED one until the e2e identity fix made the gate fire (2026-08-18) — at
+    # which point GET /v1/conversations/{id} 500'd on every attest-gated thread because this
+    # Literal didn't know the kind. test_thread_kinds pins bridge-written ⊆ MessageKind.
+    "attest_request",
 ]
 
 

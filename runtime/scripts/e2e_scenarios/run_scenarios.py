@@ -295,14 +295,24 @@ def _decline_checks(client: httpx.Client, base_url: str, case_id: str, specs: li
         re.IGNORECASE,
     )
     fails: list[str] = []
+    # The chat route is conversation-scoped: POST /v1/conversations/{id}/messages with
+    # {content} (the old /v1/messages shape never existed on dev — these checks had never
+    # actually run until the 2026-08-18 fix).
+    convs = client.get(
+        f"{base_url}/v1/conversations",
+        params={"case_id": case_id, "mode": "per_case", "limit": 1}, timeout=30,
+    ).json().get("conversations") or []
+    if not convs:
+        return [f"decline: no conversation for case {case_id}"]
+    conv_id = convs[0]["conversation_id"]
     for spec in specs or []:
         r = client.post(
-            f"{base_url}/v1/messages",
-            json={"case_file_id": case_id, "content": spec["utterance"], "mode": "per_case"},
+            f"{base_url}/v1/conversations/{conv_id}/messages",
+            json={"content": spec["utterance"]},
             timeout=120,
         )
         if r.status_code != 200:
-            fails.append(f"decline[{spec['kind']}]: POST /v1/messages -> {r.status_code}")
+            fails.append(f"decline[{spec['kind']}]: POST conversations/messages -> {r.status_code}")
             continue
         body = r.text
         if len(body.strip()) < 40:
