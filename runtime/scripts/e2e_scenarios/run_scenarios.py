@@ -144,15 +144,20 @@ def _confirm(client: httpx.Client, base_url: str, case_id: str, extract: dict, e
 
 
 def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
+    """Poll to a STABLE terminal: two consecutive identical reads. The dev sweep
+    (collections_only, 2026-08-17) caught `extraction_failed` on a single read while the
+    state machine was still advancing to `audit_incomplete` — one extra 4s read makes the
+    harness assert settled truth instead of a transition frame."""
     terminal = {"audit_complete", "audit_incomplete", "extraction_failed", "resolved", "archived"}
     deadline = time.monotonic() + POLL_TIMEOUT_S
-    status = "audit_running"
+    status, prev = "audit_running", None
     while time.monotonic() < deadline:
         r = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30)
         r.raise_for_status()
         status = r.json()["status"]
-        if status in terminal:
+        if status in terminal and status == prev:
             return status
+        prev = status
         time.sleep(POLL_INTERVAL_S)
     return status  # last seen (a timeout — reported as a mismatch)
 
