@@ -48,6 +48,26 @@ class ProfilePatch(BaseModel):
     zip_code: str | None = None
 
 
+class SecondaryInsuranceOut(BaseModel):
+    """The secondary plan (2026-08-19, item 4) — display + edit surface only; COB math is
+    Brock's pending content (B6). captured_hint carries what intake's guided flow noted
+    (has_secondary_coverage + detail from the case coverage blob) while no row exists."""
+
+    exists: bool = False
+    insurer: str | None = None
+    member_id: str | None = None
+    plan_type: str | None = None
+    has_front: bool = False
+    has_back: bool = False
+    captured_hint: str | None = None
+
+
+class SecondaryInsurancePatch(BaseModel):
+    insurer: str | None = None
+    member_id: str | None = None
+    plan_type: str | None = None
+
+
 class InsuranceInfoOut(BaseModel):
     insurer: str | None = None
     plan_name: str | None = None

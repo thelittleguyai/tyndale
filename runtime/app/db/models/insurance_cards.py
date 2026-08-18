@@ -29,7 +29,12 @@ from app.db.base import Base
 class InsuranceCard(Base):
     __tablename__ = "insurance_cards"
     __table_args__ = (
-        CheckConstraint("card_type IN ('front', 'back')", name="ck_insurance_cards_card_type"),
+        # secondary_front/back joined in 0044 (settings item 4) — the SAME storage and
+        # capture path serves the secondary plan's card, keyed by type, no new column.
+        CheckConstraint(
+            "card_type IN ('front', 'back', 'secondary_front', 'secondary_back')",
+            name="ck_insurance_cards_card_type",
+        ),
         UniqueConstraint("user_id", "card_type", name="uq_insurance_cards_user_type"),
     )
 

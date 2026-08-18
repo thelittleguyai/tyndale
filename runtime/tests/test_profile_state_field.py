@@ -54,3 +54,31 @@ async def test_patch_validates_state_and_roundtrips(client: AsyncClient):
 
     r = await client.patch("/v1/profile", json={"state": ""})
     assert r.status_code == 200 and r.json()["state"] is None
+
+
+# ── secondary insurance (2026-08-19, item 4 — B6 groundwork, no COB math) ─────────────────
+@pytest.mark.asyncio
+async def test_secondary_insurance_crud_roundtrip(client: AsyncClient):
+    # Empty state: no row, no hint (this dev user's cases carry no intake note here).
+    r = await client.get("/v1/insurance/secondary")
+    assert r.status_code == 200
+
+    r = await client.put(
+        "/v1/insurance/secondary",
+        json={"insurer": "Acme Duo", "member_id": "DUO-77", "plan_type": "medicare_advantage"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["exists"] is True and body["insurer"] == "Acme Duo"
+    assert body["plan_type"] == "medicare_advantage"
+
+    # Primary endpoint is untouched by the secondary row.
+    primary = (await client.get("/v1/insurance/info")).json()
+    assert primary.get("insurer") != "Acme Duo" or primary.get("member_id") != "DUO-77"
+
+    r = await client.put("/v1/insurance/secondary", json={"plan_type": "not_a_plan_type"})
+    assert r.status_code == 422
+
+    r = await client.delete("/v1/insurance/secondary")
+    assert r.status_code == 204
+    assert (await client.get("/v1/insurance/secondary")).json()["exists"] is False

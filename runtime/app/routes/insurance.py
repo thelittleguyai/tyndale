@@ -28,7 +28,13 @@ from app.db.models.insurance_cards import InsuranceCard
 from app.db.models.insurance_info import InsuranceInfo
 from app.db.session import get_session
 from app.ingestion.blob_storage import BlobStorage
-from app.schemas.profile import CardUploadRequest, CardUploadResult, InsuranceInfoOut
+from app.schemas.profile import (
+    CardUploadRequest,
+    CardUploadResult,
+    InsuranceInfoOut,
+    SecondaryInsuranceOut,
+    SecondaryInsurancePatch,
+)
 from app.sources.case_data import parse_iso_date
 from app.sources.insurance_card import (
     DATE_FIELDS,
@@ -42,7 +48,10 @@ log = structlog.get_logger(__name__)
 
 _MAX_CARD_BYTES = 10 * 1024 * 1024
 _ALLOWED_MIME = {"image/jpeg", "image/jpg", "image/png", "image/heic", "image/webp"}
-_CARD_TYPES = ("front", "back")
+# secondary_front/back (2026-08-19, item 4): the same upload/extract/serve path stores
+# the SECONDARY plan's card, keyed by type. Extraction merge stays primary-only — the
+# secondary row is user-entered (B6 groundwork; COB logic is Brock's pending content).
+_CARD_TYPES = ("front", "back", "secondary_front", "secondary_back")
 
 
 def _card_storage() -> BlobStorage:
@@ -95,7 +104,7 @@ async def upload_card(
     user: CurrentUser = Depends(current_user),
 ) -> CardUploadResult:
     if body.card_type not in _CARD_TYPES:
-        raise HTTPException(status_code=422, detail="card_type must be 'front' or 'back'")
+        raise HTTPException(status_code=422, detail="unknown card_type")
     if body.mime_type not in _ALLOWED_MIME:
         raise HTTPException(status_code=422, detail="Unsupported image type.")
     try:
@@ -138,6 +147,23 @@ async def upload_card(
     card.raw_ocr_json = projected
     card.extraction_status = extraction_status
 
+    # Secondary-card sides (2026-08-19, item 4): store + OCR-project only — NEVER merge
+    # into the primary insurance_info (the "other side" arithmetic below is primary-pair
+    # logic, and the secondary row is user-entered; B6 groundwork).
+    if body.card_type not in ("front", "back"):
+        await session.commit()
+        info = (
+            await session.execute(select(InsuranceInfo).where(
+                InsuranceInfo.user_id == user.user_id, InsuranceInfo.role == "primary"
+            ))
+        ).scalar_one_or_none()
+        has_front, has_back = await _sides_present(session, user.user_id)
+        return CardUploadResult(
+            card_type=body.card_type,
+            extraction_status=extraction_status,
+            insurance_info=_info_out(info, has_front, has_back),
+        )
+
     # 4) Merge with the other side's stored projection, then upsert insurance_info.
     other_type = "back" if body.card_type == "front" else "front"
     other = (
@@ -155,7 +181,9 @@ async def upload_card(
     merged = merge_card_sides(front_mapped, back_mapped)
 
     info = (
-        await session.execute(select(InsuranceInfo).where(InsuranceInfo.user_id == user.user_id))
+        await session.execute(select(InsuranceInfo).where(
+            InsuranceInfo.user_id == user.user_id, InsuranceInfo.role == "primary"
+        ))
     ).scalar_one_or_none()
     if info is None:
         info = InsuranceInfo(user_id=user.user_id)
@@ -185,7 +213,9 @@ async def get_insurance_info(
     user: CurrentUser = Depends(current_user),
 ) -> InsuranceInfoOut:
     info = (
-        await session.execute(select(InsuranceInfo).where(InsuranceInfo.user_id == user.user_id))
+        await session.execute(select(InsuranceInfo).where(
+            InsuranceInfo.user_id == user.user_id, InsuranceInfo.role == "primary"
+        ))
     ).scalar_one_or_none()
     has_front, has_back = await _sides_present(session, user.user_id)
     return _info_out(info, has_front, has_back)
@@ -217,3 +247,129 @@ async def get_card_image(
     # Local/CI: stream the bytes through this authed, PHI-free route.
     data = await storage.read_bytes(card.blob_ref)
     return Response(content=data, media_type=card.mime_type or "application/octet-stream")
+
+
+# --------------------------------------------------------------------------- #
+# Secondary insurance (2026-08-19, item 4) — capture-and-display only (B6
+# groundwork). Intake noted has_secondary_coverage inside the case coverage
+# blob; this promotes it to a real, editable role='secondary' row. NO COB
+# ordering or dollar logic — that is Brock's pending content.
+# --------------------------------------------------------------------------- #
+
+
+async def _secondary_row(session: AsyncSession, user_id) -> InsuranceInfo | None:
+    return (
+        await session.execute(
+            select(InsuranceInfo).where(
+                InsuranceInfo.user_id == user_id, InsuranceInfo.role == "secondary"
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _secondary_captured_hint(session: AsyncSession, user_id) -> str | None:
+    """What intake's guided flow noted, surfaced while no secondary row exists yet."""
+    from app.db.models.case_files import CaseFile
+
+    rows = (
+        await session.execute(
+            select(CaseFile.coverage)
+            .where(CaseFile.user_id == user_id)
+            .order_by(CaseFile.created_at.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+    for cov in rows:
+        if isinstance(cov, dict) and cov.get("has_secondary_coverage"):
+            return str(cov.get("secondary_coverage_detail") or "You mentioned a second plan during intake.")
+    return None
+
+
+def _secondary_out(
+    info: InsuranceInfo | None, has_front: bool, has_back: bool, hint: str | None
+) -> SecondaryInsuranceOut:
+    if info is None:
+        return SecondaryInsuranceOut(
+            exists=False, has_front=has_front, has_back=has_back, captured_hint=hint
+        )
+    return SecondaryInsuranceOut(
+        exists=True,
+        insurer=info.insurer,
+        member_id=info.member_id,
+        plan_type=info.plan_type,
+        has_front=has_front,
+        has_back=has_back,
+        captured_hint=None,
+    )
+
+
+async def _secondary_sides(session: AsyncSession, user_id) -> tuple[bool, bool]:
+    rows = (
+        (
+            await session.execute(
+                select(InsuranceCard.card_type).where(InsuranceCard.user_id == user_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return "secondary_front" in rows, "secondary_back" in rows
+
+
+@router.get("/insurance/secondary", response_model=SecondaryInsuranceOut)
+async def get_secondary_insurance(
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> SecondaryInsuranceOut:
+    info = await _secondary_row(session, user.user_id)
+    hint = None if info else await _secondary_captured_hint(session, user.user_id)
+    front, back = await _secondary_sides(session, user.user_id)
+    return _secondary_out(info, front, back, hint)
+
+
+@router.put("/insurance/secondary", response_model=SecondaryInsuranceOut)
+async def put_secondary_insurance(
+    body: SecondaryInsurancePatch,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> SecondaryInsuranceOut:
+    from app.plan_types import PLAN_TYPES
+
+    if body.plan_type is not None and body.plan_type != "" and body.plan_type not in PLAN_TYPES:
+        raise HTTPException(status_code=422, detail="invalid plan_type")
+    info = await _secondary_row(session, user.user_id)
+    if info is None:
+        info = InsuranceInfo(user_id=user.user_id, role="secondary")
+        session.add(info)
+    if body.insurer is not None:
+        info.insurer = body.insurer.strip() or None
+    if body.member_id is not None:
+        info.member_id = body.member_id.strip() or None
+    if body.plan_type is not None:
+        info.plan_type = body.plan_type or None
+    info.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    front, back = await _secondary_sides(session, user.user_id)
+    return _secondary_out(info, front, back, None)
+
+
+@router.delete("/insurance/secondary", status_code=204)
+async def delete_secondary_insurance(
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> Response:
+    info = await _secondary_row(session, user.user_id)
+    if info is not None:
+        await session.delete(info)
+    for ct in ("secondary_front", "secondary_back"):
+        card = (
+            await session.execute(
+                select(InsuranceCard).where(
+                    InsuranceCard.user_id == user.user_id, InsuranceCard.card_type == ct
+                )
+            )
+        ).scalar_one_or_none()
+        if card is not None:
+            await session.delete(card)
+    await session.commit()
+    return Response(status_code=204)

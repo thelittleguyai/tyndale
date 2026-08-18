@@ -102,6 +102,24 @@ def _init_db() -> None:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS zip_code varchar(10)",
             ):
                 await conn.execute(text(ddl))
+            # 0044 — secondary insurance (role column + constraint swaps).
+            for ddl in (
+                "ALTER TABLE insurance_info ADD COLUMN IF NOT EXISTS "
+                "role text NOT NULL DEFAULT 'primary'",
+                "ALTER TABLE insurance_info DROP CONSTRAINT IF EXISTS uq_insurance_info_user",
+                "ALTER TABLE insurance_info DROP CONSTRAINT IF EXISTS "
+                "uq_insurance_info_user_role",
+                "ALTER TABLE insurance_info ADD CONSTRAINT uq_insurance_info_user_role "
+                "UNIQUE (user_id, role)",
+                "ALTER TABLE insurance_info DROP CONSTRAINT IF EXISTS ck_insurance_info_role",
+                "ALTER TABLE insurance_info ADD CONSTRAINT ck_insurance_info_role "
+                "CHECK (role IN ('primary', 'secondary'))",
+                "ALTER TABLE insurance_cards DROP CONSTRAINT IF EXISTS "
+                "ck_insurance_cards_card_type",
+                "ALTER TABLE insurance_cards ADD CONSTRAINT ck_insurance_cards_card_type "
+                "CHECK (card_type IN ('front', 'back', 'secondary_front', 'secondary_back'))",
+            ):
+                await conn.execute(text(ddl))
             await conn.execute(
                 text(
                     "ALTER TABLE case_files DROP CONSTRAINT IF EXISTS "

@@ -34,7 +34,10 @@ _REGIME_SQL_IN = ", ".join(f"'{t}'" for t in PLAN_TYPES)
 class InsuranceInfo(Base):
     __tablename__ = "insurance_info"
     __table_args__ = (
-        UniqueConstraint("user_id", name="uq_insurance_info_user"),
+        # One row per (user, role) since 0044 — role='secondary' is the B6 groundwork
+        # (capture-and-display only; COB ordering/dollar logic is Brock's pending content).
+        UniqueConstraint("user_id", "role", name="uq_insurance_info_user_role"),
+        CheckConstraint("role IN ('primary', 'secondary')", name="ck_insurance_info_role"),
         CheckConstraint(
             f"coverage_regime IS NULL OR coverage_regime IN ({_REGIME_SQL_IN})",
             name="ck_insurance_info_coverage_regime",
@@ -47,6 +50,7 @@ class InsuranceInfo(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
     )
+    role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'primary'"))
     insurer: Mapped[str | None] = mapped_column(Text, nullable=True)
     plan_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     plan_number: Mapped[str | None] = mapped_column(Text, nullable=True)
