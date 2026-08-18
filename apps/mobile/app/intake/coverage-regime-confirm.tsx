@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import type { CoverageRegime } from '@tyndale/shared';
 
@@ -34,6 +35,12 @@ const REGIME_OPTIONS: { value: CoverageRegime; label: string; hint: string }[] =
 ];
 
 export default function CoverageRegimeConfirmStep() {
+  // from=settings (2026-08-19, item 3): the SAME ladder serves the Settings "Coverage
+  // type" row — same detection preselect, same confirm path (user_declared, verified).
+  // The only difference is flow control: save returns to Settings instead of advancing
+  // the wizard, and skip (a wizard concept) is hidden.
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const fromSettings = from === 'settings';
   const { state, caseId, loading, error } = useWizard();
   const detection = state?.captured_data.regime_detection ?? null;
   const [selected, setSelected] = useState<CoverageRegime | ''>('');
@@ -53,6 +60,10 @@ export default function CoverageRegimeConfirmStep() {
     setSaveErr(null);
     try {
       await intakeConfirmRegime(selected, caseId);
+      if (fromSettings) {
+        router.back();
+        return;
+      }
       goToStep('coverage-details');
     } catch {
       setSaveErr(SAVE_ERROR_MESSAGE);
@@ -92,8 +103,8 @@ export default function CoverageRegimeConfirmStep() {
       continueLabel={selected ? 'Confirm' : 'Choose one to continue'}
       busy={busy}
       error={error ?? saveErr}
-      skippable
-      onSkip={onSkip}
+      skippable={!fromSettings}
+      onSkip={fromSettings ? undefined : onSkip}
     >
       <View className="gap-2">
         {REGIME_OPTIONS.map((opt) => {

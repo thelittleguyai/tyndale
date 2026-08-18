@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import {
   getBillingStatus,
@@ -125,7 +125,9 @@ export default function SettingsScreen() {
       })
       .catch(() => {/* non-fatal */});
   }, []);
-  useEffect(() => load(), [load]);
+  // Focus-driven (2026-08-19): returning from the coverage ladder (or any
+  // sub-screen) refreshes the rows, so a just-confirmed regime shows immediately.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -325,7 +327,18 @@ export default function SettingsScreen() {
         <Row label="Insurer" value={insurance?.insurer ?? '—'} />
         <Row label="Member ID" value={insurance?.member_id ?? '—'} />
         <Row label="Plan" value={insurance?.plan_name ?? '—'} />
-        <Row label="Coverage type" value={coverageType ?? 'Not set'} />
+        {/* Item 3 (2026-08-19): "Not set" is now SETTABLE — the same verification ladder
+            intake uses, same confirm path (user_declared, verified). */}
+        <Pressable
+          onPress={() => router.push('/intake/coverage-regime-confirm?from=settings')}
+          className="flex-row items-center justify-between py-1"
+          testID="coverage-type-row"
+        >
+          <Text className="text-sm text-secondary">Coverage type</Text>
+          <Text className={coverageType ? 'text-sm text-primary' : 'text-sm text-accent'}>
+            {coverageType ?? 'Set it →'}
+          </Text>
+        </Pressable>
         <Text className="mb-2 mt-3 text-xs text-faint">Card photos</Text>
         <View className="flex-row gap-3">
           <View className="flex-1">
