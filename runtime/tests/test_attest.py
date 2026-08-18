@@ -277,3 +277,32 @@ async def test_declined_case_count_is_isolated(client: AsyncClient):
             )
         ).scalar_one()
     assert open_like == 0
+
+
+# ── the sweep regression (2026-08-17): a NAMELESS profile silences the gate ───────────────
+def test_nameless_profile_never_triggers_and_the_suite_identity_does():
+    """Root cause of the harness attest no-show: the synthetic e2e user was minted with no
+    profile name, so names_match returned None ("unknowable never triggers" — the CORRECT
+    conservative product rule) and the gate stayed silent for every harness run while the
+    409s upstream had nothing to enforce. The e2e identity now carries the doc generator's
+    suite name (JORDAN Q. TESTPATIENT); this pins all three halves of the geometry."""
+    from types import SimpleNamespace
+
+    from app.agents.attest import evaluate_attest_state
+
+    def case(patient="MARGARET R. OTHERPERSON"):
+        return SimpleNamespace(attest_status=None, patient_name=patient, documents=[])
+
+    nameless = SimpleNamespace(first_name=None, last_name=None)
+    silent = case()
+    assert evaluate_attest_state(silent, nameless) is False  # the sweep's silent no-show
+    assert silent.attest_status is None  # unknowable — untouched, never fabricated
+
+    suite = SimpleNamespace(first_name="Jordan", last_name="Testpatient")
+    mismatched = case()
+    assert evaluate_attest_state(mismatched, suite) is True
+    assert mismatched.attest_status == "required"  # the 409 gate now has teeth
+
+    # The suite's OWN documents must NOT trigger — middle initials are noise (worked example).
+    own = case(patient="JORDAN Q. TESTPATIENT")
+    assert evaluate_attest_state(own, suite) is False

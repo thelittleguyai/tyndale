@@ -84,9 +84,21 @@ async def issue_test_token(
 
     user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if user is None:
-        user = User(email=email, user_type="user")
+        # The synthetic identity carries the doc generator's suite patient name
+        # (JORDAN Q. TESTPATIENT): ordinary scenarios' documents MATCH the profile, and the
+        # name-mismatch scenario's MARGARET R. OTHERPERSON MISMATCHES, so the attest gate
+        # engages. A NAMELESS profile silenced the gate for every harness run — names_match
+        # returns None ("unknowable never triggers", the correct conservative product rule)
+        # when the profile side is missing (root cause, first full dev sweep 2026-08-17).
+        user = User(
+            email=email, user_type="user", first_name="Jordan", last_name="Testpatient"
+        )
         session.add(user)
         await session.flush()
+    elif not (user.first_name or user.last_name):
+        # Backfill the already-persisted synthetic user (minted nameless before 2026-08-18) —
+        # test-token reuses by email, so without this the dev row stays nameless forever.
+        user.first_name, user.last_name = "Jordan", "Testpatient"
     try:
         token = create_session_token(str(user.user_id))
     except InvalidTokenError as exc:
