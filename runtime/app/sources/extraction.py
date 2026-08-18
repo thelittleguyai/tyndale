@@ -227,6 +227,32 @@ def grep_patient_name(text: str) -> str | None:
     return _grep_anchored_name(text, _PATIENT_ANCHORS)
 
 
+# "CITY, ST 12345" — the ST must be a real jurisdiction (app.us_states) and must sit in the
+# PATIENT block, not the provider letterhead: bills carry both addresses, and suggesting the
+# provider's state as the user's residence would be a wrong default dressed as a smart one.
+_STATE_ZIP_RE = re.compile(r"\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b")
+
+
+def grep_patient_state(text: str) -> str | None:
+    """Typed patient-address state (2026-08-19, settings item 2) — SUGGESTION-grade only.
+
+    Conservative by construction: only a `ST 12345` shape on one of the three lines after a
+    patient anchor counts, and the ST must be a real state. The value is never silently
+    written to the profile — it surfaces as a prefill the user confirms."""
+    from app.us_states import US_STATES
+
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        upper = line.upper()
+        if not any(a in upper for a in _PATIENT_ANCHORS):
+            continue
+        for candidate in lines[i : i + 4]:
+            m = _STATE_ZIP_RE.search(candidate.upper())
+            if m and m.group(1) in US_STATES:
+                return m.group(1)
+    return None
+
+
 # --- Typed case identifiers (delta B4 / conformance H6-L7) --------------------------------
 # The claim number and account number the user must read aloud on the call. Extracted TYPED at
 # parse time (DL-39), same discipline as provider_name: the call script cites a stored field,

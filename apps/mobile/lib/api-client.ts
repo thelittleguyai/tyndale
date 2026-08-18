@@ -841,6 +841,15 @@ export interface ProfileState {
   /** Reminders preference (2026-08-19): gates nudge chases + check-ins ONLY — case
    *  updates (audit-ready, recovery, magic links) always arrive. */
   email_notifications_enabled: boolean;
+  /** State of residence — the jurisdiction field (seed-era state-law selection). */
+  state: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  zip_code: string | null;
+  /** Document-derived PREFILL, present only while state is unset — confirmed, never
+   *  silently applied. */
+  suggested_state: string | null;
 }
 
 export interface ProfilePatch {
@@ -850,6 +859,11 @@ export interface ProfilePatch {
   phone?: string | null;
   accept_terms?: boolean;
   email_notifications_enabled?: boolean;
+  state?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  zip_code?: string | null;
 }
 
 export interface InsuranceInfo {

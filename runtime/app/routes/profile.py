@@ -56,7 +56,34 @@ async def _state(session: AsyncSession, user_id) -> ProfileState:
         profile_completed=bool(u.profile_completed),
         has_insurance_card=await _has_card(session, user_id),
         email_notifications_enabled=bool(u.email_notifications_enabled),
+        state=u.state,
+        address_line1=u.address_line1,
+        address_line2=u.address_line2,
+        city=u.city,
+        zip_code=u.zip_code,
+        suggested_state=None if u.state else await _suggested_state(session, user_id),
     )
+
+
+async def _suggested_state(session: AsyncSession, user_id) -> str | None:
+    """The most recent document-extracted patient-address state across the user's cases —
+    a PREFILL the user confirms (populate-don't-ask), never silently written. Present only
+    while the profile state is unset."""
+    from app.db.models.case_files import CaseFile
+
+    rows = (
+        await session.execute(
+            select(CaseFile.documents)
+            .where(CaseFile.user_id == user_id)
+            .order_by(CaseFile.created_at.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+    for docs in rows:
+        for d in docs or []:
+            if isinstance(d, dict) and d.get("patient_state"):
+                return str(d["patient_state"])
+    return None
 
 
 @router.get("/profile/state", response_model=ProfileState)
@@ -89,6 +116,22 @@ async def patch_profile(
         u.last_name = body.last_name.strip() or None
     if body.phone is not None:
         u.phone = body.phone.strip() or None
+
+    if body.state is not None:
+        from app.us_states import US_STATES
+
+        cleaned = body.state.strip().upper()
+        if cleaned and cleaned not in US_STATES:
+            raise HTTPException(status_code=422, detail="Use a two-letter US state code.")
+        u.state = cleaned or None
+    if body.address_line1 is not None:
+        u.address_line1 = body.address_line1.strip() or None
+    if body.address_line2 is not None:
+        u.address_line2 = body.address_line2.strip() or None
+    if body.city is not None:
+        u.city = body.city.strip() or None
+    if body.zip_code is not None:
+        u.zip_code = body.zip_code.strip() or None
 
     if body.accept_terms and not u.service_consent:
         session.add(

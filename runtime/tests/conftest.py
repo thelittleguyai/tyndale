@@ -93,6 +93,15 @@ def _init_db() -> None:
                     "email_notifications_enabled boolean NOT NULL DEFAULT true"
                 )
             )
+            # 0043 — profile state + optional address.
+            for ddl in (
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS state varchar(2)",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS address_line1 text",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS address_line2 text",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS city text",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS zip_code varchar(10)",
+            ):
+                await conn.execute(text(ddl))
             await conn.execute(
                 text(
                     "ALTER TABLE case_files DROP CONSTRAINT IF EXISTS "

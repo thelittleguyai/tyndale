@@ -470,11 +470,16 @@ def _compute_disclosure(coverage: dict | None, *, cross_validation_material: boo
     )
 
 
-def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
+def _regime_provenance(
+    case: CaseFile | None, profile_state: str | None = None
+) -> AuditProvenance:
     """The coverage-regime context this audit ran under (Sprint B, DL-82). Every
     non-commercial or unconfirmed regime still uses the generic path but carries an
     explicit assumption naming the pending population corpus, so nothing silently
-    pretends to have applied population-specific rules."""
+    pretends to have applied population-specific rules.
+
+    ``profile_state`` (2026-08-19, settings item 2): feeds the jurisdiction assumption —
+    document evidence wins over the profile default (app/sources/jurisdiction.py)."""
     from app.plan_types import COMMERCIAL_FAMILY, SUPPRESS_FEDERAL_PROTECTIONS
 
     regime = case.coverage_regime if case else None
@@ -500,6 +505,22 @@ def _regime_provenance(case: CaseFile | None) -> AuditProvenance:
         assumptions.append(
             "surprise-billing / No Surprises Act checks are not yet enabled "
             "(pending the 50-state seed — DL-81/DL-88)"
+        )
+    # Jurisdiction (2026-08-19, settings item 2): named with its SOURCE so nothing pretends
+    # state rules were applied before the seed. Document evidence wins over the profile.
+    from app.sources.jurisdiction import case_jurisdiction
+
+    state, source = case_jurisdiction(case, profile_state)
+    if state:
+        assumptions.append(
+            f"state-law jurisdiction: {state} "
+            f"({'from this case’s documents' if source == 'document' else 'from your profile'})"
+            " — state-specific rules apply with the 50-state seed"
+        )
+    else:
+        assumptions.append(
+            "state-law jurisdiction unknown — set your state in Settings so state-specific "
+            "rules can apply when the 50-state seed lands"
         )
     return AuditProvenance(
         coverage_regime=regime, regime_verified=verified, assumptions=assumptions
@@ -779,7 +800,14 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         case = (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
-    provenance = _regime_provenance(case)
+        profile_state = None
+        if case is not None:
+            from app.db.models.users import User
+
+            profile_state = (
+                await s.execute(select(User.state).where(User.user_id == case.user_id))
+            ).scalar_one_or_none()
+    provenance = _regime_provenance(case, profile_state)
     # A persisted accumulator_discrepancy is the cross-validation material signal (DL-72).
     cv_material = any(getattr(f, "category", None) == "accumulator_discrepancy" for f in rows)
     disclosure = _compute_disclosure(

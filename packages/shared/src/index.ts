@@ -12,4 +12,5 @@ export * from './record';
 export * from './case-summary';
 export * from './provenance';
 export * from './legal';
+export * from './us-states';
 export { default } from './design-tokens';

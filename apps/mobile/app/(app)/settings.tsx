@@ -33,7 +33,8 @@ import { useSignOut } from '../../lib/auth';
 import { clearIntakeDeferred } from '../../lib/intake-deferred';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
-import { Card, ThemeToggle } from '../../components/ui';
+import { Card, Disclosure, ThemeToggle } from '../../components/ui';
+import { US_STATES, type UsState } from '@tyndale/shared';
 import { CardUpload, formatPhone, isoToMdy, validateDob } from '../../lib/profile-ui';
 import { useThemeColors } from '../../theme/useThemeColors';
 
@@ -79,6 +80,11 @@ export default function SettingsScreen() {
   const [ln, setLn] = useState('');
   const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
+  const [usState, setUsState] = useState('');
+  const [addr1, setAddr1] = useState('');
+  const [addr2, setAddr2] = useState('');
+  const [city, setCity] = useState('');
+  const [zip, setZip] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -96,6 +102,11 @@ export default function SettingsScreen() {
         setLn(s.last_name ?? '');
         setDob(isoToMdy(s.date_of_birth));
         setPhone(s.phone ?? '');
+        setUsState(s.state ?? '');
+        setAddr1(s.address_line1 ?? '');
+        setAddr2(s.address_line2 ?? '');
+        setCity(s.city ?? '');
+        setZip(s.zip_code ?? '');
       })
       .catch(() => {/* non-fatal */});
     getInsuranceInfo().then(setInsurance).catch(() => {/* non-fatal */});
@@ -131,6 +142,11 @@ export default function SettingsScreen() {
         last_name: ln.trim() || null,
         date_of_birth: dob.trim() ? dobCheck.iso : null,
         phone: phone.trim() || null,
+        state: usState.trim() || null,
+        address_line1: addr1.trim() || null,
+        address_line2: addr2.trim() || null,
+        city: city.trim() || null,
+        zip_code: zip.trim() || null,
       });
       setPstate(updated);
       flash('Profile saved.');
@@ -241,6 +257,38 @@ export default function SettingsScreen() {
           onChangeText={(t) => setPhone(formatPhone(t))}
           placeholder="(555) 123-4567"
         />
+        {/* State of residence (2026-08-19, item 2) — the jurisdiction field. A document-
+            derived suggestion prefills as a CONFIRM chip, never a silent write. */}
+        <EditField
+          label="State"
+          value={usState}
+          onChangeText={(t) => setUsState(t.toUpperCase().slice(0, 2))}
+          placeholder="WI"
+          error={usState && !US_STATES.includes(usState as UsState) ? 'Two-letter US state code' : undefined}
+        />
+        {!usState && pstate?.suggested_state ? (
+          <Pressable
+            onPress={() => setUsState(pstate.suggested_state ?? '')}
+            className="mb-2 self-start rounded-full bg-accent-tint px-3 py-1"
+            testID="state-suggestion-chip"
+          >
+            <Text className="text-xs font-semibold text-accent">
+              We spotted {pstate.suggested_state} on your documents — use it?
+            </Text>
+          </Pressable>
+        ) : null}
+        <Disclosure summary="Mailing address (optional)">
+          <EditField label="Address line 1" value={addr1} onChangeText={setAddr1} placeholder="123 Main St" />
+          <EditField label="Address line 2" value={addr2} onChangeText={setAddr2} placeholder="Apt 4" />
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <EditField label="City" value={city} onChangeText={setCity} placeholder="Beloit" />
+            </View>
+            <View className="w-28">
+              <EditField label="ZIP" value={zip} onChangeText={setZip} placeholder="53511" />
+            </View>
+          </View>
+        </Disclosure>
         <Row label="Email" value={pstate?.email ?? profile?.email ?? '—'} />
         <View className="mt-2 flex-row items-center justify-between">
           <Text className="text-sm text-secondary">Account type</Text>

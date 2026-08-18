@@ -57,6 +57,15 @@ class User(Base):
     email_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    # State of residence (2026-08-19, settings item 2) — the load-bearing jurisdiction
+    # field for seed-era state-law selection (DL-81). Two-letter code from app/us_states.py.
+    # Per-case DOCUMENT evidence still wins over this default when they conflict (the
+    # jurisdiction helper logs the conflict). Address lines are optional context only.
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    address_line1: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address_line2: Mapped[str | None] = mapped_column(Text, nullable=True)
+    city: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

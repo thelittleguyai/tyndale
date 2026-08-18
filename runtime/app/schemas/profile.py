@@ -23,6 +23,15 @@ class ProfileState(BaseModel):
     # Reminders preference (2026-08-19): gates nudge chases + check-ins ONLY — transactional
     # mail (audit-ready, recovery, magic links) is service mail and never consults it.
     email_notifications_enabled: bool = True
+    # State of residence + optional mailing address (2026-08-19, settings item 2). State is
+    # the load-bearing jurisdiction field; suggested_state is a document-derived PREFILL the
+    # user confirms (populate-don't-ask) — present only while state is unset.
+    state: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    zip_code: str | None = None
+    suggested_state: str | None = None
 
 
 class ProfilePatch(BaseModel):
@@ -32,6 +41,11 @@ class ProfilePatch(BaseModel):
     phone: str | None = None
     accept_terms: bool | None = None
     email_notifications_enabled: bool | None = None
+    state: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    zip_code: str | None = None
 
 
 class InsuranceInfoOut(BaseModel):

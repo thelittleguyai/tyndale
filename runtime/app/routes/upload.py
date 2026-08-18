@@ -45,6 +45,7 @@ from app.sources.extraction import (  # OCR engine (CO-12A: moved out of ocr_too
     grep_claim_number,
     grep_contact_phone,
     grep_patient_name,
+    grep_patient_state,
     grep_provider_name,
     run_document_ocr,
 )
@@ -194,6 +195,9 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         # parsed-back-out-of prose. Conservative; None when no structured anchor is present.
         "provider_name": grep_provider_name(full_text),
         "patient_name": grep_patient_name(full_text),
+        # Suggestion-grade patient-address state (2026-08-19): prefills the profile field
+        # as a CONFIRMED suggestion, never a silent write.
+        "patient_state": grep_patient_state(full_text),
         "date_of_service": _grep_date(full_text, ("DATE OF SERVICE", "SERVICE DATE", "DOS")),
         # Call identifiers (B4). Extracted per DOCUMENT because that's where they're true — a
         # case with three EOBs has three claim numbers. `contact_phone` is stored party-neutral
