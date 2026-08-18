@@ -305,7 +305,8 @@ async def test_synthetic_e2e_recipients_are_never_sent_to_sendgrid(monkeypatch):
             raise AssertionError("a synthetic recipient reached the provider")
 
     monkeypatch.setattr(email_mod, "get_settings", lambda: type("S", (), {
-        "sendgrid_api_key": "SG.real-looking-key", "sendgrid_from_email": "no-reply@t.test"})())
+        "sendgrid_api_key": "SG.real-looking-key", "sendgrid_from_email": "no-reply@t.test",
+        "synthetic_email_suffix_list": ["@e2e.tyndale.test"]})())
     monkeypatch.setattr(email_mod.httpx, "AsyncClient", _NeverClient)
 
     ok = await email_mod.send_product_email(

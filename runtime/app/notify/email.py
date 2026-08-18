@@ -40,12 +40,12 @@ def _to_domain(email: str) -> str:
     return email.split("@")[-1] if "@" in email else "?"
 
 
-# The e2e harness's synthetic identities (test_support.SYNTHETIC_EMAIL_SUFFIX). `.test` is a
-# reserved TLD — these addresses can NEVER deliver, and a full sweep completing ~15 audits
-# fires ~15 real sends at them in under an hour: a textbook spam-trap signature that can get
-# the SendGrid account flagged/paused (the 2026-08-18 sweep's mail-send 401s, while the same
-# key answered 200 on read endpoints). Synthetic recipients never reach the provider.
-_SYNTHETIC_RECIPIENT_SUFFIX = "@e2e.tyndale.test"
+# Synthetic-identity suffixes (settings.synthetic_email_suffixes — env-extendable so
+# staging's test identities are coverable). `.test` is a reserved TLD — those addresses can
+# NEVER deliver, and a full sweep completing ~15 audits fires ~15 real sends at them in
+# under an hour: a textbook spam-trap signature that can get the SendGrid account
+# flagged/paused (the 2026-08-18 sweep's mail-send 401s, while the same key answered 200 on
+# read endpoints). Synthetic recipients never reach the provider.
 
 
 async def send_product_email(
@@ -66,7 +66,8 @@ async def send_product_email(
         log.error("notify.blocked_by_phi_guard", kind=kind, reason=decision.block_reason)
         return False
 
-    if to_email.strip().lower().endswith(_SYNTHETIC_RECIPIENT_SUFFIX):
+    recipient = to_email.strip().lower()
+    if any(recipient.endswith(s) for s in settings.synthetic_email_suffix_list):
         # False (nothing delivered) so exactly-once ledgers stay unstamped — the harness
         # asserts honest state, and a synthetic user re-completing retries harmlessly.
         log.info("notify.synthetic_recipient_no_send", kind=kind, to_domain=_to_domain(to_email))

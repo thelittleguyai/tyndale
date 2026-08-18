@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     port: int = Field(default=4000)
     log_level: str = Field(default="info")
     cors_allowed_origins: str = Field(default="", description="comma-separated origin allow-list")
+    # Recipient suffixes that never receive real email (the e2e harness's synthetic
+    # identities; staging's test identities join by env override). Comma-separated, same
+    # parsing pattern as CORS. See notify/email.py — sends short-circuit BEFORE any network
+    # call so sweeps can't burn the SendGrid account's reputation (2026-08-18).
+    synthetic_email_suffixes: str = Field(
+        default="@e2e.tyndale.test",
+        description="comma-separated recipient suffixes that are never sent real email",
+    )
 
     # --- Database (REQUIRED — fail-fast if absent) ---
     database_url: str = Field(description="asyncpg DSN, e.g. postgresql+asyncpg://user:pw@host/db")
@@ -347,6 +355,12 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
+
+    @property
+    def synthetic_email_suffix_list(self) -> list[str]:
+        return [
+            s.strip().lower() for s in self.synthetic_email_suffixes.split(",") if s.strip()
+        ]
 
     @property
     def is_production(self) -> bool:
