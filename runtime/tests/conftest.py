@@ -288,6 +288,18 @@ async def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def _reset_access_request_limiter():
+    """The access-request per-IP window (LOW-14) is process-local and every test shares one
+    fake client IP — without a reset, unrelated tests posting the intake route would start
+    429ing once five had run in one process."""
+    from app.auth.rate_limit import access_request_limiter
+
+    access_request_limiter.reset()
+    yield
+    access_request_limiter.reset()
+
+
 @pytest.fixture
 def real_orchestration_script(monkeypatch, tmp_path):
     """A non-placeholder orchestration script (DL-91). A complete staging/production config needs

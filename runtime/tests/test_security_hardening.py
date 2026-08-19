@@ -186,3 +186,44 @@ async def test_medium5_admin_action_writes_uuid_actor():
         assert "@" not in row.actor
         await s.delete(row)
         await s.commit()
+
+
+# ── LOW-14: the unauthenticated access-request intake has a tight per-IP window ─────
+
+
+def _access_body(**over):
+    body = {
+        "request_type": "access",
+        "patient_name": "Requester Person",
+        "contact": "requester@example.com",
+    }
+    body.update(over)
+    return body
+
+
+@pytest.mark.asyncio
+async def test_low14_dedicated_limit_trips_and_receipt_stays_identical(client):
+    receipts = []
+    for _ in range(5):
+        r = await client.post("/v1/access-request", json=_access_body())
+        assert r.status_code == 200
+        receipts.append(r.json())
+    # The receipt never varies — non-enumeration holds through the whole window.
+    assert all(rc == receipts[0] for rc in receipts)
+    assert receipts[0]["received"] is True
+
+    sixth = await client.post("/v1/access-request", json=_access_body())
+    assert sixth.status_code == 429
+    assert "Retry-After" in sixth.headers
+    # The 429 discloses nothing beyond any other 429.
+    assert sixth.json() == {"detail": "too many requests"}
+
+
+@pytest.mark.asyncio
+async def test_low14_size_ceilings_reject_oversize_fields(client):
+    r = await client.post("/v1/access-request", json=_access_body(patient_name="x" * 201))
+    assert r.status_code == 422
+    r = await client.post("/v1/access-request", json=_access_body(details="x" * 2001))
+    assert r.status_code == 422
+    r = await client.post("/v1/access-request", json=_access_body(details="x" * 2000))
+    assert r.status_code == 200  # at the ceiling still fine

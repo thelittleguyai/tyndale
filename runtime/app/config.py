@@ -138,6 +138,10 @@ class Settings(BaseSettings):
     # Rate limits for magic-link requests (sliding window, in-memory for V1-Lite).
     magic_link_rate_per_email_hour: int = 5
     magic_link_rate_per_ip_hour: int = 20
+    # LOW-14 (2026-08-19 review): the unauthenticated access-request intake writes a
+    # PHI-bearing audit row per POST — it gets a tight dedicated per-IP window on top
+    # of the global limiter.
+    access_request_rate_per_ip_hour: int = 5
 
     # --- Hardening (Phase 2K.2 / DL-46) --------------------------------------
     # Fills the gap from DL-42 (runtime went public at api.tyndaleapp.net). All

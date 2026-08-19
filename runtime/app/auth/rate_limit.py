@@ -47,3 +47,8 @@ class SlidingWindowRateLimiter:
 
 # Module-level singleton used by the magic-link route.
 magic_link_limiter = SlidingWindowRateLimiter()
+
+# LOW-14 (2026-08-19 security review): the unauthenticated access-request intake gets its
+# own TIGHT per-IP window (default 5/hour) — the global 1000/hr limit alone allowed
+# PHI-row write amplification into the encrypted audit table.
+access_request_limiter = SlidingWindowRateLimiter()

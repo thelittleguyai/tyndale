@@ -15,10 +15,12 @@ from __future__ import annotations
 import datetime
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.context_loader import orchestration_step
+from app.auth.rate_limit import RateLimitExceeded, access_request_limiter
+from app.config import get_settings
 from app.db.session import get_session
 from app.schemas.access_request import AccessRequestIn, AccessRequestResult
 from app.security.audit_writer import build_audit_event
@@ -30,9 +32,27 @@ log = structlog.get_logger(__name__)
 @router.post("/access-request", response_model=AccessRequestResult)
 async def submit_access_request(
     body: AccessRequestIn,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> AccessRequestResult:
     """Record an access/deletion request and confirm receipt. No lookup, no disclosure."""
+    # LOW-14 (2026-08-19 security review): each POST writes a PHI-bearing audit row, and
+    # the route is unauthenticated — a tight per-IP window (on top of the global limiter)
+    # caps write amplification. The 429 carries no more than any other 429; the receipt's
+    # non-enumeration property is untouched.
+    ip = request.client.host if request.client else "unknown"
+    try:
+        access_request_limiter.check(
+            f"ip:{ip}",
+            limit=get_settings().access_request_rate_per_ip_hour,
+            window_seconds=3600,
+        )
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="too many requests",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
     session.add(
         build_audit_event(
             event_type="access_request",
