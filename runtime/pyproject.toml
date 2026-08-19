@@ -13,7 +13,6 @@ dependencies = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "python-multipart>=0.0.9",
-    "python-jose[cryptography]>=3.3",
     "httpx>=0.27",
     "structlog>=24.1",
     "presidio-analyzer>=2.2",
@@ -21,7 +20,10 @@ dependencies = [
     "qdrant-client>=1.12",
     "jsonschema>=4.21",
     # Phase 2D walking skeleton — real Anthropic Claude + Azure Document Intelligence
-    "pyjwt>=2.8",  # Phase 2K — session + magic-link JWTs (HS256)
+    # Phase 2K — session + magic-link JWTs (HS256). EXACT pin (MEDIUM-10, 2026-08-19
+    # review): the auth-critical dep doesn't float; python-jose (unused, CVE-carrying)
+    # was removed in the same pass.
+    "pyjwt==2.13.0",
     "anthropic>=0.39",
     "azure-ai-documentintelligence>=1.0",
     "azure-core>=1.30",
