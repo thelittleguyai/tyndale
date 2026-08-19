@@ -142,6 +142,21 @@ async def callback(
 
 
 # --- Email magic link --------------------------------------------------------
+def _safe_return_path(value: object) -> str | None:
+    """MEDIUM-2 (2026-08-19 security review): return_url rides inside the SIGNED magic-link
+    token, but its VALUE originates from the unauthenticated request — unvalidated, it is an
+    open redirect off our origin the moment the victim clicks a genuine link. Accept only a
+    same-origin RELATIVE path: exactly one leading '/', no scheme, no protocol-relative
+    '//host', no backslash (browser URL parsers normalize '\\' to '/', so '/\\evil.com'
+    becomes '//evil.com'), no control characters. Anything else reads as absent and the
+    caller falls back to the default post-login path."""
+    if not isinstance(value, str) or not value.startswith("/") or value.startswith("//"):
+        return None
+    if "\\" in value or any(ord(c) < 0x20 for c in value):
+        return None
+    return value
+
+
 class MagicLinkRequest(BaseModel):
     email: str
     return_url: str | None = None
@@ -169,8 +184,9 @@ async def magic_link_request(body: MagicLinkRequest, request: Request) -> dict:
         ) from exc
 
     # Build + send the link. We always return 200 regardless of whether the
-    # email maps to an existing account (anti-enumeration).
-    token, _jti = create_magic_link_token(email, body.return_url)
+    # email maps to an existing account (anti-enumeration). An unsafe return_url is
+    # never even signed into the token (verify re-checks regardless — tokens outlive code).
+    token, _jti = create_magic_link_token(email, _safe_return_path(body.return_url))
     magic_link_url = f"{settings.magic_link_base_url}/v1/auth/magic-link-verify?token={token}"
     try:
         await send_magic_link_email(email, magic_link_url)
@@ -210,7 +226,9 @@ async def magic_link_verify(
     await session.commit()
 
     session_token = create_session_token(str(user.user_id), user.jwt_version or 1)
-    dest = claims.get("return_url") or settings.auth_success_redirect
+    # Enforced at CONSUME time too, not just at mint: already-issued tokens (and any
+    # future mint path) stay constrained to same-origin relative paths.
+    dest = _safe_return_path(claims.get("return_url")) or settings.auth_success_redirect
     redirect = RedirectResponse(url=dest, status_code=302)
     _set_session_cookie(redirect, session_token)
     return redirect
