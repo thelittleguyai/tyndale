@@ -222,13 +222,15 @@ async def test_error_response_no_traceback_in_production(monkeypatch):
 @pytest.mark.asyncio
 async def test_error_response_includes_correlation_id(monkeypatch):
     monkeypatch.setattr(get_settings(), "node_env", "development")
+    # MEDIUM-6 (2026-08-19): verbose bodies are an explicit opt-in now, not implied by dev.
+    monkeypatch.setattr(get_settings(), "debug_error_responses", True)
     transport = ASGITransport(app=_app_that_raises(), raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://t") as c:
         r = await c.get("/boom")
     assert r.status_code == 500
     body = r.json()
     assert body["correlation_id"] and body["request_id"]
-    assert "traceback" in body  # dev surfaces it
+    assert "traceback" in body  # opted-in dev surfaces it
 
 
 # --- JWT hardening -----------------------------------------------------------

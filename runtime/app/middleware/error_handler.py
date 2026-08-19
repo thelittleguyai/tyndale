@@ -1,12 +1,14 @@
 """JSON-shaped error responses.
 
-Dev / staging: the traceback IS returned in the response so curl + browsers
-see the actual exception — the local debug loop is otherwise blind because
-500 hides everything. Production: the response stays opaque ('an unexpected
-error occurred'); the full traceback only lives in the server log.
+MEDIUM-6 (2026-08-19 security review): the OPAQUE body (correlation_id only) is the
+default in EVERY env. Verbose bodies (exc type/message/traceback) require the explicit
+DEBUG_ERROR_RESPONSES opt-in and are hard-forced off in staging/production regardless
+of the flag (settings.error_responses_verbose) — a traceback can carry PHI, and "not
+production" is not a safety boundary once an env is publicly reachable. Local dev sets
+the flag in .env so the curl/browser debug loop still sees the actual exception.
 
-Either way, ``log.exception`` writes the full structlog-formatted traceback
-to the server log, so even in dev you have a permanent record.
+Either way, ``log.exception`` writes the full structlog-formatted traceback to the
+server log, so the correlation_id always resolves to a full trace server-side.
 """
 
 from __future__ import annotations
@@ -44,9 +46,9 @@ def add_error_handlers(app: FastAPI) -> None:
         )
 
         settings = get_settings()
-        if settings.is_production:
-            # Production: NO exception type/message/traceback in the body —
-            # correlation_id only.
+        if not settings.error_responses_verbose:
+            # Default everywhere: NO exception type/message/traceback in the body —
+            # correlation_id only (it resolves to the full trace in the server log).
             return JSONResponse(
                 status_code=500,
                 content={
@@ -57,7 +59,8 @@ def add_error_handlers(app: FastAPI) -> None:
                 },
             )
 
-        # Dev / staging — surface the traceback to the caller too (DL-29).
+        # DEBUG_ERROR_RESPONSES opt-in, non-public env only — the curl/browser debug loop
+        # sees the actual exception (DL-29's intent, behind an explicit flag now).
         return JSONResponse(
             status_code=500,
             content={

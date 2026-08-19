@@ -112,3 +112,42 @@ async def test_medium2_relative_return_url_passes_through(client, real_auth):
     r = await client.get(f"/v1/auth/magic-link-verify?token={token}", follow_redirects=False)
     assert r.status_code == 302
     assert r.headers["location"] == "/case/123"
+
+
+# ── MEDIUM-6: verbose 500 bodies are an explicit opt-in, never in a public env ──────
+
+
+async def _boom_body(monkeypatch, *, node_env: str, debug_flag: bool) -> dict:
+    from httpx import ASGITransport, AsyncClient as _AC
+
+    from tests.test_hardening import _app_that_raises
+
+    monkeypatch.setattr(get_settings(), "node_env", node_env)
+    monkeypatch.setattr(get_settings(), "debug_error_responses", debug_flag)
+    transport = ASGITransport(app=_app_that_raises(), raise_app_exceptions=False)
+    async with _AC(transport=transport, base_url="http://t") as c:
+        r = await c.get("/boom")
+    assert r.status_code == 500
+    return r.json()
+
+
+@pytest.mark.asyncio
+async def test_medium6_dev_default_is_opaque(monkeypatch):
+    body = await _boom_body(monkeypatch, node_env="development", debug_flag=False)
+    assert "traceback" not in body and "exc_type" not in body
+    assert "secret-detail-xyz" not in str(body)
+    assert body["correlation_id"]  # still resolvable server-side
+
+
+@pytest.mark.asyncio
+async def test_medium6_opt_in_dev_is_verbose(monkeypatch):
+    body = await _boom_body(monkeypatch, node_env="development", debug_flag=True)
+    assert "traceback" in body and body["exc_type"] == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_medium6_staging_is_opaque_even_with_the_flag(monkeypatch):
+    # Hard-forced: a public env never returns tracebacks, whatever the flag says.
+    body = await _boom_body(monkeypatch, node_env="staging", debug_flag=True)
+    assert "traceback" not in body and "exc_type" not in body
+    assert "secret-detail-xyz" not in str(body)

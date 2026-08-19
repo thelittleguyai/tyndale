@@ -214,6 +214,9 @@ general local recipe (no Docker needed):
    CORS_ALLOWED_ORIGINS="http://localhost:8081" COOKIE_DOMAIN="" COOKIE_SECURE=false
    uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
    For harness-speed local runs add `RATE_LIMIT_ENABLED=false` (the test suite does).
+   For tracebacks in 500 bodies add `DEBUG_ERROR_RESPONSES=true` (2026-08-19 hardening:
+   opaque correlation-id-only responses are the default in every env now; the flag is
+   ignored in staging/prod).
 2. **Web build** (any Node ≥22): `cd apps/mobile &&
    EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npx expo export --platform web
    --output-dir dist-a8` (build dirs stay uncommitted).

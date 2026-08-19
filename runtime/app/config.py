@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     # set 0 so freshly-created cases are eligible without time-travel.
     outcome_followup_days: int = 14
 
+    # MEDIUM-6 (2026-08-19 security review): verbose 500 bodies (exc type/message/
+    # traceback) are opt-in via this flag, never implied by "not production" — a
+    # traceback can carry PHI. Hard-forced off in any public env regardless of the
+    # flag (see error_responses_verbose). Local dev sets it in .env for the debug loop.
+    debug_error_responses: bool = False
+
     # --- Auth (Phase 2K) ------------------------------------------------------
     # USE_REAL_AUTH=false keeps the dev-mode current_user stub (the seeded admin
     # user) so local dev works without Google creds. MUST be true in production.
@@ -371,6 +377,14 @@ class Settings(BaseSettings):
         """Staging is a faithful production rehearsal — the prod-only guards that can run without
         real cloud creds (e.g. the placeholder-copy check) apply to both."""
         return self.node_env in ("staging", "production")
+
+    @property
+    def error_responses_verbose(self) -> bool:
+        """Whether 500 bodies may carry exc type/message/traceback (MEDIUM-6). Requires the
+        explicit DEBUG_ERROR_RESPONSES opt-in AND a non-public env — staging/production are
+        hard-forced opaque no matter what the flag says, because a traceback can carry PHI.
+        The full traceback always reaches the server log either way."""
+        return self.debug_error_responses and not self.is_staging_or_prod
 
     def warn_missing_in_prod(self) -> None:
         """Log a warning for each prod-relevant optional var that is unset."""
