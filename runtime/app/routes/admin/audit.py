@@ -44,10 +44,14 @@ async def _query(
     if user_id:
         stmt = stmt.where(AuditEvent.user_id == admin_uuid(user_id))
     if admin_id:
+        # MEDIUM-5 (2026-08-19): new rows carry the admin's UUID in actor; rows written
+        # before the change carry the email. Match either so history stays filterable.
         email = (
             await session.execute(select(User.email).where(User.user_id == admin_uuid(admin_id)))
         ).scalar_one_or_none()
-        stmt = stmt.where(AuditEvent.actor == (email or "__no_such_admin__"))
+        stmt = stmt.where(
+            AuditEvent.actor.in_([str(admin_uuid(admin_id)), email or "__no_such_admin__"])
+        )
     if tool_name:
         stmt = stmt.where(AuditEvent.tools_invoked.cast(String).ilike(f"%{tool_name}%"))
     for raw, lower in ((date_from, True), (date_to, False)):

@@ -236,7 +236,10 @@ async def test_audit_event_written_on_verdict_submit(client: AsyncClient):
             .all()
         )
     assert len(rows) == 1
-    assert rows[0].actor == "pfluegelcx@gmail.com"  # the dev admin
+    # MEDIUM-5 (2026-08-19): the cleartext actor column carries the admin's UUID now;
+    # the email rides only in the encrypted payload.
+    uuid.UUID(rows[0].actor)
+    assert "@" not in rows[0].actor
     assert rows[0].outcome == "success"
 
 

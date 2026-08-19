@@ -106,7 +106,8 @@ async def test_block_sets_flag_bumps_jwt_version_writes_audit(client: AsyncClien
     assert u.blocked_by is not None
     assert u.jwt_version == 2  # bumped → outstanding sessions revoked
     audits = await _audit_for(uid)
-    assert any(_action(a) == "block" and a.actor == "pfluegelcx@gmail.com" for a in audits)
+    # MEDIUM-5 (2026-08-19): actor is the acting admin's UUID; email lives in the payload.
+    assert any(_action(a) == "block" and uuid.UUID(a.actor) for a in audits)
 
 
 @pytest.mark.asyncio

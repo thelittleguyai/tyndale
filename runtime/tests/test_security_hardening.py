@@ -151,3 +151,38 @@ async def test_medium6_staging_is_opaque_even_with_the_flag(monkeypatch):
     body = await _boom_body(monkeypatch, node_env="staging", debug_flag=True)
     assert "traceback" not in body and "exc_type" not in body
     assert "secret-detail-xyz" not in str(body)
+
+
+# ── MEDIUM-5: the cleartext audit actor column holds the admin's UUID, not email ────
+
+
+@pytest.mark.asyncio
+async def test_medium5_admin_action_writes_uuid_actor():
+    import uuid as uuid_mod
+
+    from sqlalchemy import select
+
+    from app.auth.dev_user import CurrentUser
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.audit_events import AuditEvent
+    from app.routes.admin._deps import audit_admin_action
+
+    admin_id = uuid_mod.uuid4()
+    admin = CurrentUser(
+        user_id=admin_id, email="staff@tyndale.example", first_name="Staff", user_type="admin"
+    )
+    async with AsyncSessionLocal() as s:
+        await audit_admin_action(s, admin=admin, action="hardening_test_probe")
+        await s.commit()
+        row = (
+            await s.execute(
+                select(AuditEvent)
+                .where(AuditEvent.actor == str(admin_id))
+                .order_by(AuditEvent.timestamp.desc())
+            )
+        ).scalars().first()
+        assert row is not None
+        uuid_mod.UUID(row.actor)  # parses as a UUID — no email in the cleartext column
+        assert "@" not in row.actor
+        await s.delete(row)
+        await s.commit()

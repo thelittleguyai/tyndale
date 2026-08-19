@@ -62,9 +62,11 @@ async def audit_admin_action(
 ) -> None:
     """Write one admin-action audit row (does NOT commit — caller owns the txn).
 
-    Convention: actor = acting admin's email, user_id = the TARGET user (so the HIPAA
-    "every access of patient X" query filters the indexed column), and the acting admin's
-    id is duplicated into the payload for the admin_id filter.
+    Convention: actor = acting admin's USER ID, user_id = the TARGET user (so the HIPAA
+    "every access of patient X" query filters the indexed column). MEDIUM-5 (2026-08-19
+    security review): the actor column is cleartext — staff email is PII, so the UUID
+    goes there and the email rides only in the ENCRYPTED payload (acting_admin_email).
+    Rows written before this change carry emails; the admin_id filter matches both.
     """
     payload = {
         "action": action,
@@ -76,7 +78,7 @@ async def audit_admin_action(
     session.add(
         build_audit_event(
             event_type="user_action",
-            actor=admin.email,  # admin rows record the acting admin's email (convention above)
+            actor=str(admin.user_id),  # UUID in the cleartext column (convention above)
             user_id=target_user_id,
             case_file_id=case_file_id,
             payload=payload,
