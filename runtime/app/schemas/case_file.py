@@ -5,6 +5,16 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+def as_dict(value: object) -> dict | None:
+    """Defensive read of an agent-written open-object column (facts / legal_claim /
+    recommendation). Agents store free-form JSON; the literal STRING 'null' has occurred
+    live (2026-08-19 dev sweep: deductible_misapplied's recommendation), and any non-dict
+    value 500s the strict FindingOut — or AttributeErrors every `(x or {}).get(...)`
+    reader, since a non-empty string is truthy. Anything that isn't a dict reads as
+    absent; the row itself is preserved for diagnosis."""
+    return value if isinstance(value, dict) else None
+
+
 class ThreeNumberAudit(BaseModel):
     """The Independent Audit Doctrine's three numbers.
 

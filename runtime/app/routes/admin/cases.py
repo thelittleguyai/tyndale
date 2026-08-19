@@ -30,6 +30,7 @@ from app.routes.admin._deps import admin_uuid as _uuid
 from app.routes.admin._deps import audit_admin_action
 from app.routes.admin._deps import decode_payload as _decode_payload
 from app.routes.admin._deps import iso as _iso
+from app.schemas.case_file import as_dict
 
 router = APIRouter(tags=["v1-admin"])
 
@@ -50,7 +51,7 @@ def _finding_dict(f: Finding) -> dict:
         "category": f.category,
         "subagent_source": f.subagent_source,
         "voice_tier": f.voice_tier,
-        "facts": f.facts or {},
+        "facts": as_dict(f.facts) or {},
         "legal_claim": f.legal_claim,
         "recommendation": f.recommendation,
         "status": f.status,

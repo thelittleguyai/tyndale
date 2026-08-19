@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.db.models.deadlines import Deadline
 from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
+from app.schemas.case_file import as_dict
 
 _RECOVERED_STATES = ("yes", "partial")  # only genuine recoveries count toward the total
 
@@ -66,7 +67,7 @@ async def confirmed_recovered_by_case(
 def three_number_from_findings(findings: list[Finding]) -> dict | None:
     """The three numbers from the first finding whose facts carry all three (never {0,0,0})."""
     for f in findings:
-        facts = f.facts or {}
+        facts = as_dict(f.facts) or {}
         pb, eob, tc = (
             facts.get("provider_billed"),
             facts.get("eob_member_responsibility"),
@@ -92,7 +93,7 @@ def identified_estimate_from_findings(findings: list[Finding]) -> float:
     dollar figures, so a payer-only total would under-count and contradict its own gameplan."""
     total = 0.0
     for f in findings:
-        gap = (f.facts or {}).get("gap")
+        gap = (as_dict(f.facts) or {}).get("gap")
         if gap is not None:
             try:
                 total += max(0.0, float(gap))

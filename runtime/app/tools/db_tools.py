@@ -80,6 +80,16 @@ async def _pg_upsert_finding(args: dict[str, Any]) -> dict[str, Any]:
     elif citations:
         legal_claim = {"citations": citations}
 
+    # Normalize the open-object columns at WRITE time too: a real agent has passed the
+    # literal string 'null' here (2026-08-19 dev sweep), and a non-dict in these columns
+    # breaks every reader. Readers still defend themselves (schemas.case_file.as_dict) —
+    # this just stops minting new bad rows.
+    from app.schemas.case_file import as_dict
+
+    facts = as_dict(args.get("facts")) or {}
+    legal_claim = as_dict(legal_claim)
+    recommendation = as_dict(args.get("recommendation"))
+
     async with AsyncSessionLocal() as s:
         s.add(
             Finding(
@@ -89,9 +99,9 @@ async def _pg_upsert_finding(args: dict[str, Any]) -> dict[str, Any]:
                 category=args["category"],
                 subagent_source=args.get("subagent_source", "unknown"),
                 voice_tier=args.get("voice_tier", "B"),
-                facts=args.get("facts", {}),
+                facts=facts,
                 legal_claim=legal_claim,
-                recommendation=args.get("recommendation"),
+                recommendation=recommendation,
             )
         )
         await s.commit()

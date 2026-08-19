@@ -28,6 +28,7 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
+from app.schemas.case_file import as_dict
 from app.schemas.dashboard import (
     ActiveCase,
     CopayAmount,
@@ -282,7 +283,7 @@ async def _amount_saved_ytd(s: AsyncSession, cases: list[CaseFile]) -> float:
     for f in rows:
         if f.created_at and f.created_at.year != year:
             continue
-        gap = (f.facts or {}).get("gap")
+        gap = (as_dict(f.facts) or {}).get("gap")
         try:
             if gap is not None:
                 total += float(gap)

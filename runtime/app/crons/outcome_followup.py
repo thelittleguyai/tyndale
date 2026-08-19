@@ -22,6 +22,7 @@ from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
 from app.db.models.feedback import FeedbackEvent
 from app.db.models.findings import Finding
+from app.schemas.case_file import as_dict
 
 log = structlog.get_logger(__name__)
 
@@ -51,12 +52,13 @@ def _summary_for(findings: list[Finding]) -> str:
     """Build a short human summary from the recommendation finding(s), article included —
     the value must read as a noun phrase in sentence position ('the cost sharing audit
     with UnitedHealthcare'), matching the 'your case' fallback's grammar."""
-    rec = next((f for f in findings if (f.recommendation or {}).get("action")), None)
+    rec = next((f for f in findings if (as_dict(f.recommendation) or {}).get("action")), None)
     if rec is None:
         return "your case"
     label = f"the {_humanize(rec.category)}"
     # Try to name the payer from the finding facts if present.
-    payer = (rec.facts or {}).get("payer_name") or (rec.facts or {}).get("payer")
+    facts = as_dict(rec.facts) or {}
+    payer = facts.get("payer_name") or facts.get("payer")
     return f"{label} with {payer}" if payer else label
 
 
@@ -97,7 +99,7 @@ async def scan_for_outcome_followups(user_id: str | None = None) -> list[Outcome
             )).scalars().all()
             rec_findings = [
                 f for f in findings
-                if (f.recommendation or {}).get("action") or f.voice_tier == "C"
+                if (as_dict(f.recommendation) or {}).get("action") or f.voice_tier == "C"
             ]
             if not rec_findings:
                 continue

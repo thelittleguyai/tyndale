@@ -31,6 +31,7 @@ from app.agents.context_loader import orchestration_step
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
+from app.schemas.case_file import as_dict
 from app.db.models.conversations import Conversation
 from app.db.models.messages import Message
 
@@ -520,7 +521,7 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
         return
 
     plan = plan_reconcile(
-        finding.facts or {},
+        as_dict(finding.facts) or {},
         completeness_confirmed=bool((case.coverage or {}).get("eob_set_complete")),
     )
     _by_source = {f["source"]: f["value"] for f in plan.figures}

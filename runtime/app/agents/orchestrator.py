@@ -41,6 +41,7 @@ from app.schemas.case_file import (
     DocumentNeed,
     FindingOut,
     ThreeNumberAudit,
+    as_dict,
 )
 from app.schemas.encounter import (
     DEFAULT_INTRO_MESSAGE,
@@ -841,7 +842,10 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     findings: list[FindingOut] = []
     three_numbers: dict | None = None
     for f in rows:
-        facts = f.facts or {}
+        # Same defensive-read rule as citations, one level up (2026-08-19 dev sweep: an
+        # agent stored the literal STRING 'null' as a recommendation, and the strict
+        # FindingOut 500'd the audit fetch — `or {}` doesn't save you from a truthy string).
+        facts = as_dict(f.facts) or {}
         # Citations live inside legal_claim["citations"] (Finding has no
         # separate citations column — see app/tools/db_tools.py).
         raw_citations = []
@@ -859,8 +863,8 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
                     subagent_source=f.subagent_source or "unknown",
                     voice_tier=f.voice_tier or "B",
                     facts=facts,
-                    legal_claim=f.legal_claim,
-                    recommendation=f.recommendation,
+                    legal_claim=as_dict(f.legal_claim),
+                    recommendation=as_dict(f.recommendation),
                     citations=citations,
                 )
             )

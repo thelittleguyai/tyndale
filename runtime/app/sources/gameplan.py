@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from app.agents.context_loader import orchestration_step
 from app.db.models.findings import Finding
+from app.schemas.case_file import as_dict
 from app.schemas.case_summary import CallScript, GameplanStep
 from app.sources.call_identifiers import CallIdentifiers, for_party, script_variables
 
@@ -45,7 +46,7 @@ def humanize_category(category: str) -> str:
 
 
 def _dollar_of(f: Finding) -> float | None:
-    gap = (f.facts or {}).get("gap")
+    gap = (as_dict(f.facts) or {}).get("gap")
     if gap is None:
         return None
     try:
@@ -55,7 +56,7 @@ def _dollar_of(f: Finding) -> float | None:
 
 
 def _action_of(f: Finding) -> str | None:
-    rec = f.recommendation or {}
+    rec = as_dict(f.recommendation) or {}
     action = rec.get("action")
     return action.strip() if isinstance(action, str) and action.strip() else None
 
@@ -63,10 +64,10 @@ def _action_of(f: Finding) -> str | None:
 def _problem_of(f: Finding) -> str:
     """The 'here's the problem' beat: the finding's own Tier-B claim, else the Tier-C reasoning.
     Agent-authored — engineering never composes legal/coverage language here."""
-    claim = (f.legal_claim or {}).get("claim")
+    claim = (as_dict(f.legal_claim) or {}).get("claim")
     if isinstance(claim, str) and claim.strip():
         return claim.strip()
-    reasoning = (f.recommendation or {}).get("reasoning")
+    reasoning = (as_dict(f.recommendation) or {}).get("reasoning")
     if isinstance(reasoning, str) and reasoning.strip():
         return reasoning.strip()
     return humanize_category(f.category)

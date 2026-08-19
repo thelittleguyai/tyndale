@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.context_loader import orchestration_step
 from app.agents.orchestrator import _documents_needed
 from app.appeals.deadlines import DEADLINE_RULES
+from app.schemas.case_file import as_dict
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
@@ -255,14 +256,14 @@ def _row_service_date(case) -> str | None:
 
 
 def _finding_brief(f: Finding) -> FindingBrief:
-    facts = f.facts or {}
+    facts = as_dict(f.facts) or {}
     gap = facts.get("gap")
     try:
         dollar = round(max(0.0, float(gap)), 2) if gap is not None else None
     except (TypeError, ValueError):
         dollar = None
-    claim = (f.legal_claim or {}).get("claim")
-    action = (f.recommendation or {}).get("action")
+    claim = (as_dict(f.legal_claim) or {}).get("claim")
+    action = (as_dict(f.recommendation) or {}).get("action")
     return FindingBrief(
         finding_id=str(f.finding_id),
         finding_type=f.finding_type,

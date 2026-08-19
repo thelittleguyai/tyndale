@@ -44,6 +44,7 @@ from app.db.models.findings import Finding
 from app.db.models.users import User
 from app.sources.materiality import USER_CHASE, is_material
 from app.sources.missing_data_priors import MISSING_DATA_PRIORS, missing_cost_share_inputs
+from app.schemas.case_file import as_dict
 
 log = structlog.get_logger(__name__)
 
@@ -196,7 +197,7 @@ async def _checkin_item(
     """The §11.5 check-in, when its premise actually holds (see the module docstring)."""
     if case.status != "audit_complete":
         return None  # his copy presumes a finished audit and a gameplan to act on
-    if not any((f.recommendation or {}).get("action") or f.voice_tier == "C" for f in findings):
+    if not any((as_dict(f.recommendation) or {}).get("action") or f.voice_tier == "C" for f in findings):
         return None  # no actionable step → nothing to check in about
     if case.last_outcome_check_at is not None:
         return None  # the user already told us how it went (call-mode tap or follow-up)
