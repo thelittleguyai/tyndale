@@ -77,7 +77,11 @@ def test_staging_boots_once_the_311_keys_are_authored(monkeypatch):
     # The safety check imports load_orchestration_script from context_loader at call time,
     # so patching the module attribute is the whole simulation.
     monkeypatch.setattr(context_loader, "load_orchestration_script", lambda: authored)
-    Settings(node_env="staging").assert_production_safety()
+    # HIGH-1 (2026-08-19): staging also demands real auth + no fixture fallback now, so a
+    # clean staging boot means copy AND those two — this test stays about the copy gate.
+    Settings(
+        node_env="staging", use_real_auth=True, allow_fixture_fallback=False
+    ).assert_production_safety()
 
 
 def test_loader_missing_file_degrades_to_empty(monkeypatch, tmp_path):
@@ -115,4 +119,6 @@ def test_authored_copy_passes_staging(real_orchestration_script):
     Uses the shared fixture rather than its own one-key file: since the render-path manifest
     landed, "authored copy" means every key the bridge renders is present, and a stub with one
     key would assert a weaker thing than the name promises."""
-    Settings(node_env="staging").assert_production_safety()
+    Settings(
+        node_env="staging", use_real_auth=True, allow_fixture_fallback=False
+    ).assert_production_safety()

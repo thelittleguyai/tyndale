@@ -411,23 +411,30 @@ class Settings(BaseSettings):
             problems.extend(self._orchestration_script_placeholder_problems())
             # …and copy that never arrived at all, not just copy that arrived unauthored.
             problems.extend(self._missing_render_path_keys())
+            # HIGH-1 (2026-08-19 security review): staging is publicly reachable, so the
+            # auth + fixture asserts apply there exactly as in production. With the stub,
+            # EVERY request resolves to a seeded admin with no sign-in — a public env must
+            # never boot that way, and must never be able to serve a fixture as an audit.
+            if not self.use_real_auth:
+                problems.append(
+                    "USE_REAL_AUTH must be true in any public env (staging/production) — "
+                    "the seeded-admin stub (no sign-in required) must never be reachable"
+                )
+            if self.allow_fixture_fallback:
+                problems.append(
+                    "ALLOW_FIXTURE_FALLBACK must be false in any public env "
+                    "(staging/production)"
+                )
         if not self.is_production:
             if problems:
                 raise RuntimeError("Unsafe staging config — " + "; ".join(problems))
             return
-        if self.allow_fixture_fallback:
-            problems.append("ALLOW_FIXTURE_FALLBACK must be false in production")
         if not self.use_real_claude:
             problems.append("USE_REAL_CLAUDE must be true in production")
         if not self.use_foundry:
             problems.append(
                 "USE_FOUNDRY must be true in production — Claude must route through the "
                 "Azure Foundry BAA path (managed identity), not Anthropic-direct (DL-79)"
-            )
-        if not self.use_real_auth:
-            problems.append(
-                "USE_REAL_AUTH must be true in production — the dev seeded-admin stub "
-                "(no sign-in required) must never run in prod"
             )
         if not self.use_real_ocr:
             problems.append(
