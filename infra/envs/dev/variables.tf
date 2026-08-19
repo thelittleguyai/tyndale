@@ -108,6 +108,12 @@ variable "enable_nudge_emails" {
   description = "Outbound +3d/+14d nudge emails from the nudge cron. False = the cron scans and logs but sends nothing (in-app resurfacing only)."
 }
 
+variable "debug_error_responses" {
+  type        = bool
+  default     = false
+  description = "Verbose 500 bodies (exc type/message/traceback) — MEDIUM-6, 2026-08-19 review. Default false: opaque correlation-id-only responses. The runtime hard-forces this off in staging/production regardless; flipping it here affects dev only."
+}
+
 variable "enable_audit_ready_email" {
   type        = bool
   default     = false

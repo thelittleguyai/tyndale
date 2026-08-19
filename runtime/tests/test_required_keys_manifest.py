@@ -79,7 +79,11 @@ def test_staging_boots_with_the_current_script(monkeypatch):
         assert key in authored, f"render-path key {key} missing from the script"
         authored[key] = '[A] "authored stand-in"'
     monkeypatch.setattr(context_loader, "load_orchestration_script", lambda: authored)
-    Settings(node_env="staging").assert_production_safety()
+    # HIGH-1 (2026-08-19): a staging boot also demands real auth + no fixture fallback;
+    # this test stays about the render-path manifest.
+    Settings(
+        node_env="staging", use_real_auth=True, allow_fixture_fallback=False
+    ).assert_production_safety()
 
 
 def test_a_missing_render_path_key_blocks_the_staging_boot(monkeypatch):

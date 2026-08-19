@@ -169,6 +169,10 @@ resource "azurerm_container_app" "runtime" {
         value = tostring(var.enable_nudge_emails)
       }
       env {
+        name  = "DEBUG_ERROR_RESPONSES"
+        value = tostring(var.debug_error_responses)
+      }
+      env {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
       }
