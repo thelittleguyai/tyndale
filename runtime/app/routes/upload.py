@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,16 @@ def _classify(ocr_text: str, filename: str | None = None) -> tuple[str, float]:
     return classify_document(ocr_text, filename).as_tuple()
 
 
+def _safe_storage_name(filename: str | None) -> str:
+    """The filename component of a blob/disk STORAGE name (LOW hygiene, 2026-08-19 review).
+    Path separators and dot-dot sequences are stripped defensively — the uuid prefix
+    already neutralizes traversal, but a storage name should never carry client-controlled
+    path structure at all. Display keeps the original filename; only storage names change."""
+    safe = re.sub(r"[/\\]+", "_", filename or "upload")
+    safe = safe.replace("..", "_")
+    return safe[-100:] or "upload"
+
+
 async def _persist(content: bytes, filename: str) -> str:
     """Write the upload to local disk or Azure Blob; return a URI/path string."""
     settings = get_settings()
@@ -93,7 +104,7 @@ async def _persist(content: bytes, filename: str) -> str:
                 account_url=settings.azure_storage_account_url, credential=cred
             ) as svc:
                 container = svc.get_container_client(settings.azure_storage_uploads_container)
-                blob_name = f"{uuid.uuid4()}_{filename}"
+                blob_name = f"{uuid.uuid4()}_{_safe_storage_name(filename)}"
                 await container.upload_blob(name=blob_name, data=content, overwrite=False)
                 return f"{settings.azure_storage_account_url}/{settings.azure_storage_uploads_container}/{blob_name}"
         except Exception as exc:  # noqa: BLE001 — Blob is the durable store; never downgrade
@@ -121,7 +132,7 @@ async def _persist(content: bytes, filename: str) -> str:
         )
     target_dir = Path(settings.local_uploads_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = f"{uuid.uuid4()}_{filename or 'upload'}"
+    safe_name = f"{uuid.uuid4()}_{_safe_storage_name(filename)}"
     path = target_dir / safe_name
     path.write_bytes(content)
     return str(path)

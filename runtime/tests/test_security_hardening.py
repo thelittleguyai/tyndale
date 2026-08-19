@@ -227,3 +227,49 @@ async def test_low14_size_ceilings_reject_oversize_fields(client):
     assert r.status_code == 422
     r = await client.post("/v1/access-request", json=_access_body(details="x" * 2000))
     assert r.status_code == 200  # at the ceiling still fine
+
+
+# ── LOW hygiene: storage names never carry client-controlled path structure ─────────
+
+
+def test_low_hygiene_storage_name_strips_separators():
+    from app.routes.upload import _safe_storage_name
+
+    assert "/" not in _safe_storage_name("../../etc/passwd")
+    assert ".." not in _safe_storage_name("../../etc/passwd")
+    assert "\\" not in _safe_storage_name("..\\..\\windows\\evil.pdf")
+    assert _safe_storage_name("bill.pdf") == "bill.pdf"  # normal names untouched
+    assert _safe_storage_name(None) == "upload"
+    assert _safe_storage_name("//") == "_"
+
+
+@pytest.mark.asyncio
+async def test_low_hygiene_hostile_filename_persists_inside_the_uploads_dir(client):
+    from pathlib import Path
+
+    r = await client.post(
+        "/v1/upload",
+        files={"file": ("../../escape/../evil.pdf", b"%PDF-1.4 x", "application/pdf")},
+    )
+    assert r.status_code == 200, r.text
+    case_id = r.json()["case_file_id"]
+
+    from sqlalchemy import select
+
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.case_files import CaseFile
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(
+                select(CaseFile).where(CaseFile.case_file_id == __import__("uuid").UUID(case_id))
+            )
+        ).scalar_one()
+        uri = case.documents[0]["uri"]
+        stored = Path(uri)
+        # The stored file's own name carries no separators or dot-dot, and it resolved
+        # INSIDE the uploads dir (belt to the uuid prefix's braces).
+        assert ".." not in stored.name and "/" not in stored.name
+        assert stored.resolve().parent == Path(get_settings().local_uploads_dir).resolve()
+        await s.delete(case)
+        await s.commit()
