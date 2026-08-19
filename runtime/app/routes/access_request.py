@@ -8,6 +8,12 @@ none.
 Unauthenticated by design: the person exercising the right may not have (or may be asking to
 delete) an account. That means the endpoint must never confirm or deny that a person, case,
 or record exists — the receipt is identical in every case.
+
+D2-track note (MEDIUM-13, 2026-08-19 security review): account "deletion" today retains
+case-file PHI (documents/coverage/EOBs) under the stated retention posture. Defensible, but
+it is a COMPLIANCE DECISION that must be made explicitly with counsel and disclosed — decide
+it in the D2 / access-request-fulfillment work, and consider crypto-shredding document blobs
+on deletion.
 """
 
 from __future__ import annotations

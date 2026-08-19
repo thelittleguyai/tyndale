@@ -143,3 +143,12 @@ Prefer the individual routes when you need one family — the resolver fan-out t
 
 ## Known pre-flip caveats (why the gate stays off)
 In-memory token store (payer tokens die on restart/scale-to-zero → **424s after any restart** until re-connect); `app_user_id` passthrough pending the D2 identity mapping; 502 `message` PHI-hardening. All tracked; none block local/sandbox testing.
+
+### Pre-flip security gates (2026-08-19 review — MUST close before `ENABLE_COVERAGE_CONNECTION=true`)
+1. **HIGH-4 — upstream error bodies are PHI.** `src/oneup/errors.ts` embeds up to 500 chars of
+   the upstream FHIR body into error messages, which the runtime then surfaces. Before the flip:
+   log a correlation id + status only — never the body, in responses or logs.
+2. **MEDIUM-7 — per-user authz at the wrapper.** Any bearer holder can request any
+   `app_user_id` (the Python mapper is a passthrough placeholder) → cross-patient FHIR read if
+   an id is ever mis-set. Before the flip: derive `app_user_id` server-side from the case owner
+   (the D2 identity work), never from tool args, and enforce per-user authz here.
