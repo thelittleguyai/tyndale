@@ -11,7 +11,14 @@ below with the researched priors; do not change the shape or the keys.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+import os
+from dataclasses import dataclass, replace
+from pathlib import Path
+
+import structlog
+
+log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -32,6 +39,9 @@ class InputPrior:
     source: str  # provenance of the prior (placeholder until Brock's table lands)
     note: str = ""
     placeholder: bool = True
+    # Per-entry provenance date from the tranche that set this entry (Brock 2026-08-18:
+    # tranches land piecemeal, so provenance is per ENTRY, never per table).
+    as_of: str | None = None
 
     def plausible_values(self) -> list[float]:
         """The values the range computation sweeps. A coarse low/base/high grid for now;
@@ -74,6 +84,68 @@ MISSING_DATA_PRIORS: dict[str, InputPrior] = {
         source="placeholder", note="annual household income for the Medicaid 5% cost-share cap",
     ),
 }
+
+# ── The receiving dock (Brock 2026-08-18, priors tranches) ──────────────────────────────
+# Brock's table arrives in TRANCHES: JSON files under intelligence-layer/reference/priors/,
+# each updating SOME entries. They merge PER ENTRY over the placeholders above at import
+# (later files win per entry), carrying provenance (source, as_of) per entry. An entry flips
+# live the moment its tranche says "placeholder": false; untouched siblings stay dark. The
+# merge mutates MISSING_DATA_PRIORS IN PLACE so every module that imported the dict sees it.
+_TRANCHE_DIR = "reference/priors"
+_NUMERIC = ("low", "base", "high")
+
+
+def _priors_dir() -> Path:
+    override = os.environ.get("TYNDALE_INTELLIGENCE_LAYER_ROOT")
+    root = Path(override).resolve() if override else Path(__file__).resolve().parents[3] / "intelligence-layer"
+    return root / _TRANCHE_DIR
+
+
+def _merge_entry(current: InputPrior, patch: dict, *, source: str, as_of: str | None) -> InputPrior:
+    fields: dict = {}
+    for k in _NUMERIC:
+        if k in patch:
+            fields[k] = float(patch[k])
+    if "unit" in patch and patch["unit"] in ("usd", "fraction"):
+        fields["unit"] = patch["unit"]
+    if "note" in patch:
+        fields["note"] = str(patch["note"])
+    fields["placeholder"] = bool(patch.get("placeholder", True))
+    fields["source"] = str(patch.get("source") or source)
+    fields["as_of"] = patch.get("as_of") or as_of
+    merged = replace(current, **fields)
+    if not merged.low <= merged.base <= merged.high:
+        raise ValueError(f"prior must satisfy low <= base <= high: {merged}")
+    return merged
+
+
+def load_priors(target: dict[str, InputPrior] | None = None) -> dict[str, InputPrior]:
+    """Merge every tranche file (sorted by name) into ``target`` (default: the live table),
+    per entry, in place. Unknown keys are logged and skipped; a malformed file is logged and
+    skipped — the placeholders stay dark rather than the runtime failing to import."""
+    table = MISSING_DATA_PRIORS if target is None else target
+    directory = _priors_dir()
+    if not directory.is_dir():
+        return table
+    for path in sorted(directory.glob("*.json")):
+        try:
+            tranche = json.loads(path.read_text(encoding="utf-8"))
+            source = str(tranche.get("source") or path.name)
+            as_of = tranche.get("as_of")
+            for key, patch in (tranche.get("entries") or {}).items():
+                if key not in table:
+                    log.warning("priors.unknown_entry", file=path.name, key=key)
+                    continue
+                if not isinstance(patch, dict):
+                    continue
+                table[key] = _merge_entry(table[key], patch, source=source, as_of=as_of)
+        except Exception as exc:  # noqa: BLE001 — a bad tranche never breaks the runtime
+            log.error("priors.tranche_rejected", file=path.name, error=str(exc))
+    return table
+
+
+load_priors()
+
 
 # Cost-share inputs the forward audit needs; absence of any of these is what the disclosure
 # ladder may chase (only when the input's plausible span crosses USER_CHASE).
