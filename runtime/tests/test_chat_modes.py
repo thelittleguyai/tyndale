@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.agents import lead_planner
-from app.agents.chat import looks_like_specific_situation, tool_names_for
+from app.agents.chat import looks_like_case_intent, looks_like_specific_situation, tool_names_for
 from app.agents.context_loader import compose_chat_system_prompt
 
 
@@ -37,3 +37,11 @@ def test_lead_planner_branches_correctly_on_chat_mode():
 def test_specific_situation_detector():
     assert looks_like_specific_situation("I got a $4,200 bill and Aetna paid $800")
     assert not looks_like_specific_situation("what does CPT 27447 mean")
+
+
+def test_case_intent_detector_covers_the_field_test_and_plain_questions_stay_out():
+    for yes in ("Yes, create a case", "create a case", "Can you check my bill?",
+                "I want to upload my EOB", "yes please", "start a new case"):
+        assert looks_like_case_intent(yes), yes
+    for no in ("what does CPT 27447 mean", "how do deductibles work", "no thanks"):
+        assert not looks_like_case_intent(no), no

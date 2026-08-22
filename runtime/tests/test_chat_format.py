@@ -69,3 +69,31 @@ def test_suggested_only_honored_at_the_end():
     assert replies == [] and stripped == text  # mid-text = confusion, left as ordinary text
     assert extract_suggested_replies("") == ("", [])
     assert extract_suggested_replies("plain answer") == ("plain answer", [])
+
+
+# ── case-intent CTA (2026-08-22): one directive family, peeled from the tail ──────────
+from app.agents.chat_format import CREATE_CASE_CTA, extract_directives  # noqa: E402
+
+
+def test_cta_line_extracted_and_stripped():
+    text = "Let's get your case started — tap below to upload your bill.\nCTA: create_case"
+    clean, replies, cta = extract_directives(text)
+    assert cta == "create_case" and replies == []
+    assert clean == "Let's get your case started — tap below to upload your bill."
+    assert CREATE_CASE_CTA["action_type"] == "create_case_cta"
+
+
+def test_cta_and_suggested_in_either_order():
+    a = 'Answer.\nSUGGESTED: ["Yes", "No"]\nCTA: create_case'
+    b = 'Answer.\nCTA: create_case\nSUGGESTED: ["Yes", "No"]'
+    for text in (a, b):
+        clean, replies, cta = extract_directives(text)
+        assert clean == "Answer." and replies == ["Yes", "No"] and cta == "create_case"
+
+
+def test_unknown_or_malformed_cta_is_stripped_not_honored():
+    clean, _, cta = extract_directives("Answer.\nCTA: launch_rockets")
+    assert clean == "Answer." and cta is None
+    clean, _, cta = extract_directives("CTA: create_case is what I'd do\nreal answer")
+    assert cta is None and "CTA:" in clean  # mid-text = ordinary text, untouched
+    assert extract_directives("plain") == ("plain", [], None)

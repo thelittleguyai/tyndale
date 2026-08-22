@@ -42,3 +42,23 @@ async def test_suggested_replies_round_trip_sse_and_persistence(client: AsyncCli
     last = [m for m in detail["messages"] if m["role"] == "assistant"][-1]
     assert last["suggested_replies"] == ["Yes, I have a bill", "Just curious"]  # persisted
     assert last["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_yes_create_a_case_gets_the_button_and_no_lecture(client: AsyncClient):
+    """The eval fixture for the 2026-08-22 dead end: 'Yes, create a case' → the very next
+    message carries create_case_cta and none of the banned phrases."""
+    from app.agents.chat_contract import freeform_banned_phrase_hits
+
+    cid = await _new_conversation(client)
+    events = await _stream(client, cid, "Yes, create a case")
+    completed = next(e for e in events if e["event"] == "assistant_message_completed")
+    citations = completed["data"]["citations"] or []
+    assert any(c.get("action_type") == "create_case_cta" for c in citations)
+    text = " ".join(ch["text"] for ch in completed["data"]["content_chunks"] or [])
+    assert "tap below to upload your bill" in text
+    assert freeform_banned_phrase_hits(text) == []
+
+    detail = (await client.get(f"/v1/conversations/{cid}")).json()
+    last = [m for m in detail["messages"] if m["role"] == "assistant"][-1]
+    assert any((c or {}).get("action_type") == "create_case_cta" for c in last["citations"] or [])

@@ -25,6 +25,13 @@ import re
 MAX_SUGGESTED = 4
 MAX_SUGGESTED_WORDS = 5
 
+# The create-case call to action (2026-08-22, case-intent fix). The model emits a final
+# ``CTA: create_case`` line — the SAME trailing-directive family as SUGGESTED — and the
+# server attaches this action to the turn's citations so CreateCaseCta renders a button.
+CREATE_CASE_CTA: dict = {"action_type": "create_case_cta", "title": "Create a case"}
+KNOWN_CTAS: dict[str, dict] = {"create_case": CREATE_CASE_CTA}
+_CTA_LINE_RE = re.compile(r"^\s*CTA\s*:\s*([A-Za-z_]+)\s*$", re.IGNORECASE)
+
 _TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
 _TABLE_SEP_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 _SUGGESTED_LINE_RE = re.compile(r"^\s*SUGGESTED\s*:\s*(.*?)\s*$", re.IGNORECASE)
@@ -91,3 +98,33 @@ def extract_suggested_replies(text: str) -> tuple[str, list[str]]:
         if len(replies) >= MAX_SUGGESTED:
             break
     return stripped, replies
+
+
+def extract_directives(text: str) -> tuple[str, list[str], str | None]:
+    """Peel EVERY trailing directive line off the text, in any order:
+    ``SUGGESTED: [...]`` (tap-to-reply chips) and ``CTA: create_case`` (the create-case
+    button). Returns (clean_text, suggested_replies, cta_name). A CTA line naming an
+    unknown action is stripped and ignored; a malformed SUGGESTED line is stripped and
+    yields no chips. Directives never render as text."""
+    current = text or ""
+    replies: list[str] = []
+    cta: str | None = None
+    for _ in range(4):  # bounded: at most a couple of directive lines
+        lines = current.rstrip().splitlines()
+        if not lines:
+            break
+        last = lines[-1]
+        if _SUGGESTED_LINE_RE.match(last):
+            current, found = extract_suggested_replies(current)
+            if found and not replies:
+                replies = found
+            continue
+        m = _CTA_LINE_RE.match(last)
+        if m:
+            current = "\n".join(lines[:-1]).rstrip()
+            name = m.group(1).strip().lower()
+            if name in KNOWN_CTAS and cta is None:
+                cta = name
+            continue
+        break
+    return current, replies, cta

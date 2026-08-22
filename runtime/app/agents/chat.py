@@ -39,7 +39,7 @@ from app.agents.llm_health import (
     claude_path_label,
     record_claude_call,
 )
-from app.agents.chat_format import extract_suggested_replies, strip_markdown_tables
+from app.agents.chat_format import CREATE_CASE_CTA, extract_directives, strip_markdown_tables
 from app.agents.runner import _block_to_dict, _client, _collect_retrieved_chunks, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
@@ -129,6 +129,25 @@ _SITUATION_WORDS = (
 _GAP_WORDS = ("rare", "experimental", "investigational", "unusual", "uncommon")
 
 
+# Case INTENT (2026-08-22): the user says they want a case / to upload or check a bill, or
+# answers yes to the offer. The model is the primary trigger (its CTA: line); this is the
+# belt-and-suspenders fallback on BOTH paths so "Yes, create a case" can never dead-end.
+_CASE_INTENT_RE = re.compile(
+    r"\b(?:create|start|open|make)\s+(?:a\s+|my\s+|the\s+)?(?:new\s+)?case\b"
+    r"|\b(?:upload|check|review|analy[sz]e|look\s+at|audit)\s+(?:my|this|the|a|our)\s+(?:bill|eob|statement)s?\b"
+    r"|\byes,?\s*(?:please|let'?s|create|start|upload|do\s+it|go\s+ahead)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_case_intent(text: str) -> bool:
+    """True when the user expresses intent to start a case / upload a bill (→ CTA)."""
+    return bool(_CASE_INTENT_RE.search(text or ""))
+
+
+_CASE_INTENT_REPLY = "Let's get your case started — tap below to upload your bill."
+
+
 def looks_like_specific_situation(text: str) -> bool:
     """True when a freeform message describes a SPECIFIC bill/claim that needs
     case-level analysis (→ create_case_cta). A dollar amount plus billing
@@ -155,11 +174,18 @@ def _tokenize(text: str) -> list[str]:
 
 
 async def _fixture_stream(*, mode: str, case_id, user_id, user_message: str) -> AsyncIterator[dict]:
-    # Freeform: a specific situation → redirect to case creation (no speculation).
-    if mode == "freeform" and looks_like_specific_situation(user_message):
+    # Freeform: a specific situation → the create-case offer; explicit case INTENT ("Yes,
+    # create a case", "check my bill") → one sentence + the button, never a lecture.
+    if mode == "freeform" and (
+        looks_like_specific_situation(user_message) or looks_like_case_intent(user_message)
+    ):
         text = (
-            "It looks like you're describing a specific bill or claim. To analyze it "
-            "properly, I'd need you to upload the documents. Would you like to create a case?"
+            _CASE_INTENT_REPLY
+            if looks_like_case_intent(user_message)
+            else (
+                "It looks like you're describing a specific bill or claim. To analyze it "
+                "properly, I'd need you to upload the documents. Would you like to create a case?"
+            )
         )
         for tok in _tokenize(text):
             yield {"event": "token", "data": {"delta": tok, "tier": "C"}}
@@ -491,13 +517,25 @@ async def _real_stream(
     # Brock 2026-08-22: the renderer has no table support and the mode prompt forbids
     # tables — if one slips through anyway, rows become plain lines before chunking.
     full = strip_markdown_tables(full)
-    # Item 3: the trailing SUGGESTED line becomes tap-to-reply chips and never renders.
-    full, suggested_replies = extract_suggested_replies(full)
+    # Trailing directives (one family): SUGGESTED → tap-to-reply chips; CTA → the
+    # create-case button. Parsed + stripped here, never rendered.
+    full, suggested_replies, cta = extract_directives(full)
 
     # 3.1: parse citations + tiers out of the real stream to match the fixture/shared contract,
     # and apply the Stop citation gate. retrieved chunks come from the raw tool results.
     retrieved = _collect_retrieved_chunks(retrieved_results)
     chunks, citations, unresolved = _chunks_and_citations(full, retrieved)
+    # The create-case CTA on the LIVE path (2026-08-22 — it was fixture-only before): the
+    # model's CTA line is the primary trigger; the intent / specific-situation detectors
+    # are the fallback if it forgot. Attached to the turn's citations, which is where the
+    # client (ChatMessage → CreateCaseCta) looks for it on both paths.
+    if mode == "freeform" and (
+        cta == "create_case"
+        or looks_like_case_intent(user_message)
+        or looks_like_specific_situation(user_message)
+    ):
+        if not any(c.get("action_type") == "create_case_cta" for c in citations):
+            citations.append(dict(CREATE_CASE_CTA))
     if unresolved:
         # An ungrounded citation slipped through. On the AUDIT (batch) path run_agent regenerates
         # up to 3x; on this LIVE-STREAMING path a re-run would re-stream tokens, so we DEGRADE
@@ -523,9 +561,12 @@ async def _real_stream(
         )
         from app.agents.context_loader import DOCTRINE_VIOLATIONS
 
+        from app.agents.chat_contract import freeform_banned_phrase_hits
+
         violations = freeform_contract_violations(full)
         if unsubstantiated_stat_in_tier_a(chunks):
             violations.append("unsubstantiated_stat_tier_a")
+        violations.extend(f"banned_phrase:{hit}" for hit in freeform_banned_phrase_hits(full))
         for reason in violations:
             DOCTRINE_VIOLATIONS[f"freeform_contract:{reason}"] += 1
         if violations:

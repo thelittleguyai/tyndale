@@ -86,3 +86,26 @@ def unsubstantiated_stat_in_tier_a(chunks: list[dict]) -> list[str]:
         if _STAT_RE.search(text) and _ERROR_CLAIM_RE.search(text):
             hits.append(text[:120])
     return hits
+
+
+# ── Banned failure copy (2026-08-22, the case-intent dead end) ──────────────────────────
+# The field test's reply: "I'm currently in freeform chat mode and can't create a case…
+# you'll need to use the case creation flow." A user who did everything right got a
+# lecture. These never appear in ANY freeform response, any tier — the model emits the
+# CTA instead (prompts/chat_modes/freeform_mode.md).
+FREEFORM_BANNED_PATTERNS: tuple[str, ...] = (
+    r"freeform chat mode",
+    r"\bchat mode\b",
+    r"\bcan(?:'|’)?t create a case\b",
+    r"\bcannot create a case\b",
+    r"\bunable to create a case\b",
+    # One pattern so the leftmost match can't swallow the longer phrase ("use the case
+    # creation flow" is a single hit, not "use the case creation" + an orphaned "flow").
+    r"\b(?:use the )?case[- ]creation(?: flow)?\b",
+)
+_FREEFORM_BANNED_RE = re.compile("|".join(FREEFORM_BANNED_PATTERNS), re.IGNORECASE)
+
+
+def freeform_banned_phrase_hits(text: str) -> list[str]:
+    """The banned failure phrases present in ``text`` (lowercased), [] when clean."""
+    return [m.group(0).lower() for m in _FREEFORM_BANNED_RE.finditer(text or "")]
