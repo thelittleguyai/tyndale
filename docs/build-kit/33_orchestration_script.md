@@ -1,8 +1,8 @@
-# Tyndale Orchestration Script — v1
+# Tyndale Orchestration Script — v1.1
 
 **What this is:** every system-authored message string the chat thread renders across the whole journey — acknowledgments, stage labels, verification intros, data-quality states, the reveal, the unlock, needs-documents asks, resolution/call copy, terminal states, and the continuous-journey beats. This is the D1 deliverable from the chat-first sign-off (`brock_to_phil_chatfirst_decisions_2026-07-10.md`): **we author the voice; Phil renders these verbatim; placeholder copy never reaches staging.** It is a doctrine file — it encodes the locked rules-logic and voice tiering as user-facing language.
 
-**Status:** v1, for Brock sign-off → then to Phil as part of the Batch-A drop.
+**Status:** v1.1 — v1 signed off; §8.4–8.5 (unlock-more) added and §10.5 amended per Brock's 2026-08-18 response (§1 + B1).
 
 ---
 
@@ -164,6 +164,12 @@ Rung 2 — genuinely can't reconcile (last resort):
 **8.3 Close-the-loop line (always closes a needs-state — X1)** `[A]`
 > "Add them here whenever they arrive — I'll pick up right where we left off. I'm keeping this case open for you."
 
+**8.4 Complete — and one document would sharpen it (unlock-more intro)** `[A]` *(rung-2: the audit COMPLETED with coverage terms missing; the checklist re-frames as deepening, never as unfinished — Brock 2026-08-18 §1)*
+> "That's your complete audit — every charge checked. One thing would make the numbers sharper: your plan's Summary of Benefits. With it I can name your exact share instead of a close range."
+
+**8.5 Unlock-more item hint** `[A]`
+> "Everything checked is already on file. Each unchecked one is optional — and adds something more I can verify."
+
 ---
 
 ## 9 · Resolution plan + call mode (post-unlock)
@@ -199,8 +205,8 @@ Rung 2 — genuinely can't reconcile (last resort):
 **10.4 Generic failure — never dead-end** `[A]`
 > "Something on my end hiccuped — that's on me, not you, and nothing you uploaded is lost. Give it another moment, or I'll email you the moment I've got it working again."
 
-**10.5 Distress / crisis (no refusal-pairing here — care first)** `[A]`
-> "It sounds like you're carrying a lot right now, and that matters more than any bill. If you want, I'm here to keep working through this with you — and if you'd like to talk to someone, I can share a few resources."
+**10.5 Distress / crisis (no refusal-pairing here — care first)** `[A]` *(amended per Brock 2026-08-18 B1: DL-04 stands — the wired path is the clean decline, and the resources clause is removed so the doctrine file no longer contradicts it)*
+> "It sounds like you're carrying a lot right now, and that matters more than any bill. If you want, I'm here to keep working through this with you."
 
 ---
 
@@ -234,5 +240,6 @@ Rung 2 — genuinely can't reconcile (last resort):
 ---
 
 ## Changelog
+- **v1.1 (2026-08-18, Brock response §1 + B1):** §8.4 `unlock_more.intro` + §8.5 `unlock_more.item_hint` authored (the rung-2 complete-and-improvable state; closes asks §3.11 — the staging-boot blocker). §10.5 loses the "…and if you'd like to talk to someone, I can share a few resources" clause (B1: DL-04 clean decline stands; the crisis path's behavior is unchanged and test-pinned). A5: §3 authors teen + deceased only — the engineering-authored SUD prompt is removed; checklist F2 amended to conform (script is doctrine; the checklist is a verification aid).
 - **v1 (2026-07-16):** Initial full script. Sources: chat-first sign-off D0–D7 + design-pass feedback (`brock_to_phil_chatfirst_decisions_2026-07-10.md`), approved flow copy (`claude_design_prompt_tyndale_flow.md`), and locked rules-logic (`tyndale_rules_logic_locked_decisions.md`, Batches 1–5 incl. B5-1…B5-6). Voice-tier tags and grounding/close-the-loop/never-predict rules applied throughout.
 - **Open for Brock sign-off:** (1) the §7 unlock line wording; (2) the §10.2 guarantee-decline phrasing; (3) the §3 attest strings (mirror the locked B5-6 wording). On approval → Batch-A drop to Phil.

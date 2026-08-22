@@ -98,7 +98,8 @@ def test_edge_signals_are_prompts_from_typed_fields_only():
     adult = _Case(documents=[{"patient_dob": "1980-05-02"}])
     assert attest_edge_signals(adult) == []
     assert "deceased" in attest_edge_signals(_Case(), patient_deceased=True)
-    assert "substance" in attest_edge_signals(_Case(documents=[{"program_type": "substance_use"}]))
+    # A5 (Brock 2026-08-18): no SUD prompt — §3 authors teen + deceased only.
+    assert attest_edge_signals(_Case(documents=[{"program_type": "substance_use"}])) == []
     assert attest_edge_signals(_Case(documents=[{"patient_dob": "not-a-date"}])) == []  # no guess
 
 

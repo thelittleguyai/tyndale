@@ -3,6 +3,8 @@
 
 **How to use:** every item is pass/fail against an exact expected value. Walk the live app + landing page with this open; mark ❌ anything that deviates and send back the ❌ list — don't fix silently, some deviations may be fine but that's Brock's call. Sources: `brock_to_phil_chatfirst_decisions_2026-07-10.md`, `claude_design_prompt_tyndale_flow.md` (both now in `research_companions/`), `33_orchestration_script.md`, the master handoff §A, and the approved palette decisions.
 
+**Precedence (Brock 2026-08-18, A5):** the orchestration script (`33_orchestration_script.md`) is **doctrine**; this checklist is a **verification aid that conforms to it**. Where the two disagree, the conflict gets **flagged to Brock, never self-reconciled** by engineering — and the checklist row is amended to match the script once he rules.
+
 **⚠️ One honesty note:** the approved v7 landing-page HTML mockup did not survive to disk (same working-folder failure as the script). Its approved values are encoded below as checklist items — they are the reference. If you want a pixel-level HTML reference regenerated, say so.
 
 ---
@@ -84,7 +86,7 @@
 | # | Check | Expected |
 |---|---|---|
 | F1 | Attest-and-proceed | Name mismatch → relationship menu (7 options, **no** "none of the above, but let me in"), confirm line naming the patient, logged; **decline path** if refused (script §3.1–3.2) |
-| F2 | Attest edge prompts | Teen sensitive-care, deceased/estate, SUD-program → **elevated prompts, not hard blocks** (§3.3–3.4) |
+| F2 | Attest edge prompts | Teen sensitive-care, deceased/estate → **elevated prompts, not hard blocks** (§3.3–3.4). *Amended per Brock 2026-08-18 A5 — script governs: §3 authors teen + deceased only; the SUD-program prompt is removed from this row and from the product.* |
 | F3 | Illegible/partial | Never renders a guessed number; names the unreadable part; asks for the one specific fix; runs what's readable (§5.1) |
 | F4 | Summary-vs-itemized | Coaches getting the **itemized** bill + request script (§5.2) |
 | F5 | Wrong document | Typed redirect naming what was detected ("that looks like a prescription label...") + what a bill/EOB looks like — **not** a generic `not_a_bill` dead-end (§5.3) |

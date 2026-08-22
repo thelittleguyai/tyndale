@@ -19,5 +19,5 @@ class AttestResult(BaseModel):
     attest_status: str  # attested | declined
     case_status: str
     confirmation: str  # the rendered confirm/decline line
-    # Elevated edge-case prompts (teen / deceased / substance) — guidance, never blocks.
+    # Elevated edge-case prompts (teen / deceased) — guidance, never blocks.
     edge_prompts: list[str] = Field(default_factory=list)

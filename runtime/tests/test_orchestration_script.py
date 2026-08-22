@@ -38,50 +38,48 @@ def test_interpolation_and_missing_fallback():
     assert orchestration_step("does_not_exist") == "<MISSING-script: does_not_exist>"
 
 
-# Rung-2 (2026-08-18): DELIBERATE placeholders — the unlock-more voice state is Brock's to
-# author (asks §3.11), and the staging boot block is the forcing function. When he authors
-# them, empty this set and restore the zero-placeholder assertions below.
-DELIBERATE_PLACEHOLDERS = {"unlock_more.intro", "unlock_more.item_hint"}
+# v1.1 (Brock 2026-08-18 §1): the §3.11 unlock-more seeds are AUTHORED. The deliberate
+# placeholder set is EMPTY again — the zero-placeholder milestone holds for every key, and
+# the staging copy gates pass against the real registry (the staging-boot unblock).
+DELIBERATE_PLACEHOLDERS: set[str] = set()
 
 
-def test_placeholders_are_exactly_the_section_311_set():
-    """The zero-placeholder milestone (content drop, item 1) holds for every key EXCEPT the
-    two §3.11 unlock-more seeds — pinned exactly, both directions: a stray new placeholder
-    fails here, and Brock authoring §3.11 fails here too (the reminder to empty the set)."""
+def test_no_placeholders_remain():
+    """Zero placeholders, pinned both directions: a stray new [PLACEHOLDER-eng] fails here."""
     offenders = sorted(k for k, v in load_orchestration_script().items()
                        if v.strip().startswith(PLACEHOLDER_PREFIX))
-    assert offenders == sorted(DELIBERATE_PLACEHOLDERS), (
-        f"placeholder set drifted from the deliberate §3.11 set: {offenders}"
+    assert offenders == sorted(DELIBERATE_PLACEHOLDERS) == [], (
+        f"placeholder copy in the registry: {offenders}"
     )
 
 
-def test_staging_boot_blocks_on_exactly_the_311_keys():
-    """The forcing function, proven live: staging refuses to boot NAMING the unlock-more
-    keys — and nothing else."""
-    import pytest
-
-    with pytest.raises(RuntimeError, match="unlock_more.intro") as exc:
-        Settings(node_env="staging").assert_production_safety()
-    assert "unlock_more.item_hint" in str(exc.value)
-
-
-def test_staging_boots_once_the_311_keys_are_authored(monkeypatch):
-    """The original milestone, preserved by simulation: with the two seeds authored, staging
-    boots clean again — Brock's copy drop is the ONLY thing between here and staging."""
-    from app.agents import context_loader
-
-    authored = dict(load_orchestration_script())
-    for key in DELIBERATE_PLACEHOLDERS:
-        assert key in authored
-        authored[key] = '[A] "authored stand-in"'
-    # The safety check imports load_orchestration_script from context_loader at call time,
-    # so patching the module attribute is the whole simulation.
-    monkeypatch.setattr(context_loader, "load_orchestration_script", lambda: authored)
-    # HIGH-1 (2026-08-19): staging also demands real auth + no fixture fallback now, so a
-    # clean staging boot means copy AND those two — this test stays about the copy gate.
+def test_staging_copy_gates_pass_against_the_real_registry():
+    """THE STAGING-BOOT UNBLOCK (Brock 2026-08-18 §1): with §8.4/§8.5 authored, a staging
+    boot passes BOTH copy gates — no placeholder copy, no missing render-path key — against
+    the real registry, no simulation. (HIGH-1's auth/fixture asserts are satisfied
+    explicitly so this stays about the copy gates.)"""
     Settings(
         node_env="staging", use_real_auth=True, allow_fixture_fallback=False
-    ).assert_production_safety()
+    ).assert_production_safety()  # no raise
+
+
+def test_unlock_more_copy_is_brocks_verbatim():
+    script = load_orchestration_script()
+    assert script["unlock_more.intro"].startswith("That's your complete audit — every charge checked.")
+    assert script["unlock_more.item_hint"] == (
+        "Everything checked is already on file. Each unchecked one is optional — and adds "
+        "something more I can verify."
+    )
+
+
+def test_crisis_copy_carries_no_resource_routing():
+    """B1 (Brock 2026-08-18): DL-04 stands. The unwired §10.5 key is gone from the registry
+    and the wired crisis path is still the clean decline — no resources, no routing."""
+    from app.agents.chat import _CRISIS_DECLINE
+
+    assert "crisis_care_first" not in load_orchestration_script()
+    assert "resources" not in _CRISIS_DECLINE.lower()
+    assert "attest.edge_substance" not in load_orchestration_script()  # A5
 
 
 def test_loader_missing_file_degrades_to_empty(monkeypatch, tmp_path):

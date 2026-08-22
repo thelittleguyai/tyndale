@@ -125,17 +125,14 @@ def _patient_age(case: CaseFile) -> int | None:
 
 
 def attest_edge_signals(case: CaseFile, *, patient_deceased: bool = False) -> list[str]:
-    """§3's three elevated edge cases, surfaced as PROMPTS (extra guidance), never blocks.
+    """§3's elevated edge cases, surfaced as PROMPTS (extra guidance), never blocks.
     Signals are typed-field seams: teen = extracted patient_dob puts the patient under 18;
-    deceased = the user selected it in the menu; substance-use = a document carries the
-    typed program_type marker (extraction lands it later — the seam is live now)."""
+    deceased = the user selected it in the menu. (A5, Brock 2026-08-18: the SUD signal is
+    gone — his §3 authors teen + deceased only, and the script governs.)"""
     signals: list[str] = []
     age = _patient_age(case)
     if age is not None and age < 18:
         signals.append("teen")
     if patient_deceased:
         signals.append("deceased")
-    docs = [d for d in (case.documents or []) if isinstance(d, dict)]
-    if any(str(d.get("program_type") or "") == "substance_use" for d in docs):
-        signals.append("substance")
     return signals

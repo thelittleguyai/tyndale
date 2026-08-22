@@ -29,8 +29,9 @@ from app.security.audit_writer import build_audit_event
 router = APIRouter(tags=["v1"])
 log = structlog.get_logger(__name__)
 
-_EDGE_KEY = {"teen": "attest.edge_teen", "deceased": "attest.edge_deceased",
-             "substance": "attest.edge_substance"}
+# A5 (Brock 2026-08-18): his §3 authors teen + deceased only — the engineering-authored
+# SUD prompt is gone; the script governs, the checklist (F2) was amended to conform.
+_EDGE_KEY = {"teen": "attest.edge_teen", "deceased": "attest.edge_deceased"}
 
 
 async def _record(

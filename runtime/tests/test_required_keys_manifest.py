@@ -66,21 +66,11 @@ def test_every_manifest_key_exists_in_the_registry_today():
     assert not missing, f"render-path keys absent from the registry: {missing}"
 
 
-def test_staging_boots_with_the_current_script(monkeypatch):
-    """Manifest completeness proven via the boot check — with the two DELIBERATE §3.11
-    placeholders (unlock_more.*, rung-2) simulated as authored, since their block is a
-    separate, intended gate (see test_orchestration_script). Every RENDER_PATH_KEY must
-    exist; only the §3.11 pair may be unauthored."""
-    from app.agents import context_loader
-    from app.agents.context_loader import load_orchestration_script
-
-    authored = dict(load_orchestration_script())
-    for key in ("unlock_more.intro", "unlock_more.item_hint"):
-        assert key in authored, f"render-path key {key} missing from the script"
-        authored[key] = '[A] "authored stand-in"'
-    monkeypatch.setattr(context_loader, "load_orchestration_script", lambda: authored)
-    # HIGH-1 (2026-08-19): a staging boot also demands real auth + no fixture fallback;
-    # this test stays about the render-path manifest.
+def test_staging_boots_with_the_current_script():
+    """Manifest completeness proven via the boot check against the REAL registry — since
+    v1.1 (Brock 2026-08-18 §1) there are no deliberate placeholders left to simulate.
+    Every RENDER_PATH_KEY must exist and be authored. (HIGH-1's auth/fixture asserts are
+    satisfied explicitly so this stays about the render-path manifest.)"""
     Settings(
         node_env="staging", use_real_auth=True, allow_fixture_fallback=False
     ).assert_production_safety()
