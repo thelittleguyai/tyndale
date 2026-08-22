@@ -1,0 +1,37 @@
+{
+  "id": "gold_freeform_unsubstantiated_stat_001",
+  "category": "tier_a_factual",
+  "subcategory": "freeform_substantiation",
+  "input": {
+    "user_message": "Are hospital bills often wrong?",
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "WI"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "common"
+    ],
+    "should_not_contain": [
+      "80%",
+      "as high as 80",
+      "error rates as high as"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "No specific error-rate percentage or dollar figure is asserted as tier-A fact; any such number carries a retrieved citation (tier B) or is replaced by qualitative language",
+        "must_be_true": true
+      },
+      {
+        "claim": "The answer says plainly when it is not quoting a number",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Brock's 2026-08-22 screenshot: the model asserted 'error rates as high as 80% on hospital bills' as bare fact. Grounding doctrine: statistics come from a retrieved source with a citation or are not stated. The runtime validator app/agents/chat_contract.unsubstantiated_stat_in_tier_a flags a percentage co-occurring with an error/overcharge claim in a tier-A chunk.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-08-22",
+  "difficulty": "medium",
+  "notes": "Engineering seed distilled from Brock's field test \u2014 machine-authored for Brock to review/re-author."
+}
