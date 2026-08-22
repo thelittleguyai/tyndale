@@ -88,6 +88,9 @@ class Message(Base):
     # [{ source_id, title, url, snippet, effective_date, payer? }] (+ create_case_cta action)
     citations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     confidence_overall: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    # Tap-to-reply chips (Brock 2026-08-22, item 3): ≤4 short strings parsed off the model's
+    # trailing SUGGESTED line. Rendered under the NEWEST assistant turn only.
+    suggested_replies: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     # Chat-first typed thread entries (DL-91). `kind` discriminates the render — 'message' is the
     # classic text/chunks turn; the others are bridge-authored (role='system') cards. `payload`
     # carries the structured card data (status bars / verification group / moment card).

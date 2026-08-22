@@ -183,6 +183,9 @@ export interface Message {
   tool_calls?: ToolCall[] | null;
   citations?: ChatCitation[] | null;
   confidence_overall?: number | null;
+  /** Tap-to-reply chips (Brock 2026-08-22, item 3): ≤4 short strings on a freeform assistant
+   *  turn. Rendered under the NEWEST assistant message only; tapping sends the literal text. */
+  suggested_replies?: string[] | null;
   status: MessageStatus;
   error_message?: string | null;
   token_usage_input?: number | null;

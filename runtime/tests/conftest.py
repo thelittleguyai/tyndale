@@ -152,6 +152,10 @@ def _init_db() -> None:
             await conn.execute(
                 text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS payload jsonb")
             )
+            # 0046 — tap-to-reply chips (2026-08-22).
+            await conn.execute(
+                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS suggested_replies jsonb")
+            )
             await conn.execute(
                 text("ALTER TABLE messages DROP CONSTRAINT IF EXISTS ck_messages_kind")
             )

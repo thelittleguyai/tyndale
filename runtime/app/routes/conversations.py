@@ -65,6 +65,7 @@ def message_to_out(m: Message) -> MessageOut:
         confidence_overall=(
             float(m.confidence_overall) if m.confidence_overall is not None else None
         ),
+        suggested_replies=m.suggested_replies,
         status=m.status,
         error_message=m.error_message,
         token_usage_input=m.token_usage_input,

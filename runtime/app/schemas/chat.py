@@ -116,6 +116,8 @@ class MessageOut(BaseModel):
     tool_calls: list[ToolCall] | None = None
     citations: list[Citation] | None = None
     confidence_overall: float | None = None
+    # Tap-to-reply chips (item 3, 2026-08-22) — present on freeform assistant turns.
+    suggested_replies: list[str] | None = None
     status: MessageStatus
     error_message: str | None = None
     token_usage_input: int | None = None

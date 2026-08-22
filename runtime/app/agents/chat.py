@@ -39,7 +39,7 @@ from app.agents.llm_health import (
     claude_path_label,
     record_claude_call,
 )
-from app.agents.chat_format import strip_markdown_tables
+from app.agents.chat_format import extract_suggested_replies, strip_markdown_tables
 from app.agents.runner import _block_to_dict, _client, _collect_retrieved_chunks, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
@@ -252,6 +252,10 @@ async def _fixture_stream(*, mode: str, case_id, user_id, user_message: str) -> 
             ],
             "citations": [citation],
             "confidence_overall": 0.8,
+            # Item 3 fixture parity: the real path parses these off a SUGGESTED line.
+            "suggested_replies": (
+                ["Yes, I have a bill", "Just curious"] if mode == "freeform" else []
+            ),
             "usage": usage,
         },
     }
@@ -487,6 +491,8 @@ async def _real_stream(
     # Brock 2026-08-22: the renderer has no table support and the mode prompt forbids
     # tables — if one slips through anyway, rows become plain lines before chunking.
     full = strip_markdown_tables(full)
+    # Item 3: the trailing SUGGESTED line becomes tap-to-reply chips and never renders.
+    full, suggested_replies = extract_suggested_replies(full)
 
     # 3.1: parse citations + tiers out of the real stream to match the fixture/shared contract,
     # and apply the Stop citation gate. retrieved chunks come from the raw tool results.
@@ -533,6 +539,7 @@ async def _real_stream(
             "content_chunks": chunks,
             "citations": citations,
             "confidence_overall": None,
+            "suggested_replies": suggested_replies if mode == "freeform" else [],
             "usage": {"input_tokens": total_in, "output_tokens": total_out},
             "tool_calls": tool_calls_made,
         },

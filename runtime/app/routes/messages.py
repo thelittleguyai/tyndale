@@ -131,6 +131,7 @@ async def _finalize_assistant(
                 m.citations = final.get("citations")
                 m.tool_calls = final.get("tool_calls")
                 m.confidence_overall = final.get("confidence_overall")
+                m.suggested_replies = final.get("suggested_replies") or None
                 usage = final.get("usage") or {}
                 m.token_usage_input = usage.get("input_tokens")
                 m.token_usage_output = usage.get("output_tokens")
@@ -345,6 +346,7 @@ async def post_message(
                     "content_chunks": final.get("content_chunks"),
                     "citations": final.get("citations"),
                     "confidence_overall": final.get("confidence_overall"),
+                    "suggested_replies": final.get("suggested_replies") or [],
                     "token_usage_input": usage.get("input_tokens"),
                     "token_usage_output": usage.get("output_tokens"),
                     "estimated_cost_usd": cost,

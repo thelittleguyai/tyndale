@@ -121,6 +121,7 @@ export function useChatStream(conversationId: string): UseChatStream {
               content_chunks: d.content_chunks,
               citations: d.citations,
               confidence_overall: d.confidence_overall,
+              suggested_replies: d.suggested_replies ?? null,
               status: 'complete',
             });
             break;

@@ -44,6 +44,20 @@ This mode is read on a phone, one thumb-scroll at a time. The contract is HARD:
 - **No preambles.** No "here's why it matters and what each path looks like" — answer,
   then ask. The voice-tier and citation rules above are unchanged by this contract.
 
+## Suggested replies — tap instead of type (Brock's 2026-08-22 field test)
+
+When the natural next step is a **small closed choice** (yes/no, pick one of a few),
+ALWAYS offer tappable replies instead of asking the user to type. Convention: end your
+answer with ONE final line, exactly this shape and nothing after it:
+
+```
+SUGGESTED: ["Yes, I have a bill", "No bill yet"]
+```
+
+- A JSON array of 2–4 short strings, each ≤ 5 words, phrased as the USER would say them.
+- The line is parsed off server-side and rendered as chips — it is never shown as text.
+- Omit the line entirely when the next step is open-ended.
+
 ## Permanent footer
 
 End substantive answers with:

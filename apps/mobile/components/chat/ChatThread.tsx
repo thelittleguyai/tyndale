@@ -10,6 +10,7 @@ import { ChatComposer } from './ChatComposer';
 import { ChatMessage } from './ChatMessage';
 import { useChatStream } from './ChatStream';
 import { CitationDetailModal } from './CitationDetailModal';
+import { SuggestedReplies } from './SuggestedReplies';
 import { ToolCallIndicator } from './ToolCallIndicator';
 
 export function ChatThread({
@@ -23,6 +24,13 @@ export function ChatThread({
   const { messages, streaming, activeTools, error, send, stop } = useChatStream(conversationId);
   const [citation, setCitation] = useState<ChatCitation | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Item 3 (2026-08-22): chips hang off the NEWEST assistant turn only, once it's complete.
+  const last = messages[messages.length - 1];
+  const chips =
+    !streaming && last && last.role === 'assistant' && last.status === 'complete'
+      ? (last.suggested_replies ?? []).filter((r) => typeof r === 'string' && r.trim())
+      : [];
 
   const onRetry = (m: Message) => {
     const idx = messages.findIndex((x) => x.message_id === m.message_id);
@@ -59,6 +67,7 @@ export function ChatThread({
               onRetry={onRetry}
             />
           ))}
+          <SuggestedReplies replies={chips} onPick={(text) => send(text)} disabled={streaming} />
           <ToolCallIndicator tools={activeTools} />
           {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
         </View>
