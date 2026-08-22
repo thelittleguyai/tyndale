@@ -53,6 +53,13 @@ _SURFACES: dict[str, dict[str, str]] = {
         "plan_documents_empty": "settings.plan_documents_empty",
         "plan_documents_sbc_on_file": "settings.plan_documents_sbc_on_file",
     },
+    # Freeform "Ask Tyndale" opener (Brock 2026-08-22, item 4): a client-rendered scripted
+    # first bubble + four choice chips. Registry keys (UNMAPPED/PROPOSED, shippable seed
+    # copy) so Brock owns the words and the drift guard covers them once authored.
+    "chat": {
+        "opener": "freeform_opener",
+        "opener_chips": "freeform_opener_chips",
+    },
     # Statutory-rights intake (§A2 state 5). Served as a surface because the screen renders
     # BEFORE — and often without — a session: the person exercising the right may not have an
     # account, or may be asking us to delete it.

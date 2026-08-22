@@ -6,6 +6,7 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 
 import { ChatThread } from '../../../components/chat/ChatThread';
+import { FreeformOpener } from '../../../components/chat/FreeformOpener';
 import { getConversation } from '../../../lib/api-client';
 
 export default function ConversationScreen() {
@@ -33,18 +34,12 @@ export default function ConversationScreen() {
         </Text>
         <View className="w-12" />
       </View>
-      <ChatThread conversationId={id} emptyState={<FreeformEmpty />} />
-    </View>
-  );
-}
-
-function FreeformEmpty() {
-  return (
-    <View className="px-2 py-10">
-      <Text className="text-center text-body leading-6 text-faint">
-        Ask anything about medical billing — insurance terms, billing codes, your rights,
-        appeals. For a specific bill, upload your documents to open a case.
-      </Text>
+      {/* Item 4 (2026-08-22): a scripted opener + choice chips replaces the static empty
+          state. Client-rendered; the first tap/typed line becomes the first user turn. */}
+      <ChatThread
+        conversationId={id}
+        emptyState={(onSuggest) => <FreeformOpener onChip={onSuggest} />}
+      />
     </View>
   );
 }

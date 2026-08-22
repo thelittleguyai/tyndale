@@ -7,7 +7,8 @@ import { ChevronLeft, MessageSquare, Plus } from 'lucide-react-native';
 
 import type { Conversation } from '@tyndale/shared';
 
-import { createConversation, listConversations } from '../../../lib/api-client';
+import { createConversation, getSurfaceCopy, listConversations } from '../../../lib/api-client';
+import { OPENER_FALLBACK } from '../../../components/chat/FreeformOpener';
 import { PressableScale } from '../../../components/ui/PressableScale';
 import { ScreenView } from '../../../components/ui/Screen';
 
@@ -15,6 +16,12 @@ export default function ChatListScreen() {
   const router = useRouter();
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [opener, setOpener] = useState<string>(OPENER_FALLBACK);
+  useEffect(() => {
+    getSurfaceCopy('chat')
+      .then((c) => c.opener && setOpener(c.opener))
+      .catch(() => {/* fallback renders */});
+  }, []);
 
   const load = useCallback(() => {
     listConversations({ mode: 'freeform', limit: 50 })
@@ -59,11 +66,7 @@ export default function ChatListScreen() {
 
           {!loading && items.length === 0 ? (
             <View className="mt-6 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
-              <Text className="text-body leading-6 text-secondary">
-                Ask anything about medical billing. I can help with insurance terms, billing
-                codes, your rights, appeals processes, and more. For specific bill analysis,
-                upload your documents in a case file.
-              </Text>
+              <Text className="text-body leading-6 text-secondary">{opener}</Text>
               <PressableScale
                 onPress={start}
                 className="mt-4 min-h-[44px] justify-center self-start rounded-xl bg-accent px-4 py-2.5 hover:bg-accent"

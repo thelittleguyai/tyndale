@@ -505,3 +505,17 @@ drift guard (nothing to compare against).
 <!-- ENG — the honest no-source state for a finding whose source can't be resolved. Grounding
      doctrine: a claim renders WITH its source or says plainly that it can't yet. -->
 [A] I can't point to a source for this one yet — I've flagged it rather than state it as fact.
+
+## freeform_opener
+<!-- UNMAPPED — the freeform "Ask Tyndale" scripted opener (Brock's 2026-08-22 field test,
+     item 4). Client-rendered as the first assistant bubble of an EMPTY conversation (no LLM
+     call, nothing persisted until the user replies). INTERIM engineering seed in Brock's own
+     words from the feedback; PROPOSED for his approval in 33_orchestration_script_v2_DRAFT.md —
+     shippable copy, deliberately NOT a [PLACEHOLDER-eng] (that would block staging). -->
+[A] "What can I help you with today?"
+
+## freeform_opener_chips
+<!-- UNMAPPED — the four tappable choices under freeform_opener (item 4). ONE string, chips
+     separated by " · "; the client splits on that separator. Each chip is sent verbatim as the
+     user's first message. Same interim/PROPOSED status as freeform_opener. -->
+[A] "Understand a bill · Check if a bill is correct · Think I'm overcharged · Something else"

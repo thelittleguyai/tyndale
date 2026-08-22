@@ -84,6 +84,27 @@ Sections mirror v1 numbering. New keys carry their registry names. `[A]/[B]/[C]`
 
 ---
 
+## Freeform "Ask Tyndale" opener — PROPOSED, interim engineering seed (2026-08-22)
+
+*Status: INTERIM. These two keys are LIVE in the registry as shippable seed copy (not
+`[PLACEHOLDER-eng]`, so they don't block staging) because Brock's 2026-08-22 field test
+found the freeform empty state was static copy with nothing to tap. The seed uses Brock's
+own words from that feedback. Marked UNMAPPED in the registry until he approves or
+re-authors them here, at which point they move into his file and the drift guard covers
+them verbatim.*
+
+**Freeform opener** `[A]` — key: `freeform_opener` — client-rendered as the first assistant
+bubble of an empty conversation (no LLM call, nothing persisted until the user replies):
+> "What can I help you with today?"
+
+**Opener chips** `[A]` — key: `freeform_opener_chips` — four tappable choices under the
+opener. Stored as ONE string separated by " · " (the client splits it); each chip is sent
+verbatim as the user's first message:
+> "Understand a bill · Check if a bill is correct · Think I'm overcharged · Something else"
+
+*Open for Brock: the four labels, the separator convention, and whether "Something else"
+should instead route to a typed prompt.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.
