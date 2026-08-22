@@ -47,7 +47,7 @@ const GROUNDING_CHIPS = [
 
 /** The "remembers your case" proof rows — an ILLUSTRATIVE case, not a real member. */
 const REMEMBERED_CASE_ROWS: { k: string; v: string }[] = [
-  { k: 'Your plan', v: 'UnitedHealthcare Choice Plus' },
+  { k: 'Your plan', v: 'a major national plan' },
   { k: 'Deductible met this year', v: '$1,750.00' },
   { k: 'Open case', v: 'St. Anne — appeal due Jul 24' },
   { k: 'Resolved before', v: '2 bills, $890.00 saved' },
@@ -190,8 +190,10 @@ export default function HomePage() {
                 Your medical bill advocate
               </span>
               <h1 className="mt-6 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Medical bills are full of errors.{' '}
-                <span className="text-white/80">Find what&rsquo;s hiding in yours.</span>
+                Medical bills have more errors than you think.{' '}
+                <span className="text-white/80">
+                  Tyndale finds them, and knows exactly how to resolve them
+                </span>
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/70">
                 Upload your bill and insurance documents, and Tyndale translates every charge
@@ -338,6 +340,9 @@ export default function HomePage() {
 
         {/* ── B4 · Recovered for members ── */}
         <SavingsBand />
+
+        {/* C3 · Tips band — enabled per Brock 2026-08-18 */}
+        <TipsBand />
 
         {/* ── Clean-bill reassurance (prototype copy; not a checklist item) ── */}
         <CleanBillBand />
@@ -493,6 +498,56 @@ function SavingsBand() {
         <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink/65">
           Money that was never theirs to pay, back where it belongs.
         </p>
+      </div>
+    </section>
+  );
+}
+
+/* C3 (Brock 2026-08-18): the tips band ships. Ported from the prototype's TIPS minus the
+   "$400 dispute right" tip, which stays HELD until its C2 citation lands. No dead buttons
+   while billing is dark: the CTA is the same "Check my bill — free" as the hero, and the
+   playbook is labeled "Included with Core" (his copy) instead of a locked upsell. */
+const TIPS: string[] = [
+  'Always demand the itemized bill',
+  'Catch duplicate & unbundled charges',
+  'Anchor to the posted cash price',
+  'Claim charity care most never hear about',
+  'Win the appeal insurers expect you to skip',
+];
+
+function TipsBand() {
+  return (
+    <section className="bg-cream">
+      <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            The playbook the billing office hopes you don&rsquo;t have.
+          </h2>
+          <span className="inline-flex items-center rounded-full bg-sage-soft px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sage-deep">
+            Included with Core
+          </span>
+        </div>
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {TIPS.map((tip) => (
+            <li
+              key={tip}
+              className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-white p-4"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sage-tint text-sage-deep">
+                <Lock size={16} aria-hidden="true" />
+              </span>
+              <p className="text-base font-medium leading-snug text-ink/80">{tip}</p>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-8">
+          <a
+            href="/signin"
+            className="inline-flex min-h-[48px] items-center rounded-lg bg-teal px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-teal-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-teal/60 focus-visible:ring-offset-2"
+          >
+            Check my bill &mdash; free
+          </a>
+        </div>
       </div>
     </section>
   );
