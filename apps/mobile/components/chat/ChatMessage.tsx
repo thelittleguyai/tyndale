@@ -8,6 +8,15 @@ import type { ChatCitation, ContentChunk, Message } from '@tyndale/shared';
 
 import { CitationChip } from './CitationChip';
 import { CreateCaseCta } from './CreateCaseCta';
+import { ChatMarkdown } from './Markdown';
+
+// The SUGGESTED convention (tap-to-reply chips) is parsed + stripped server-side at
+// completion; while tokens are still streaming the raw trailing line would flash, so the
+// streaming fallback hides it client-side too.
+const TRAILING_SUGGESTED_RE = /\n?\s*SUGGESTED\s*:.*$/is;
+function stripTrailingSuggested(text: string): string {
+  return text.replace(TRAILING_SUGGESTED_RE, '');
+}
 
 function ConfidenceBadge({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -31,13 +40,14 @@ function TierBlock({
     return (
       <View className="mt-2">
         <Text className="mb-1 text-[10px] text-faint">Recommendation</Text>
-        <Text className="text-body italic leading-6 text-secondary">{chunk.text}</Text>
+        <ChatMarkdown text={chunk.text} className="text-body italic leading-6 text-secondary" />
       </View>
     );
   }
   return (
     <View className="mt-2">
-      <Text className="text-body leading-6 text-primary">{chunk.text}</Text>
+      {/* Markdown applies WITHIN the chunk text only — tiers + citation chips stay as they are. */}
+      <ChatMarkdown text={chunk.text} className="text-body leading-6 text-primary" />
       {chunk.tier === 'B' && chunk.citations?.length ? (
         <View className="mt-1.5 flex-row flex-wrap gap-1.5">
           {chunk.citations.map((c, i) => (
@@ -90,9 +100,13 @@ export function ChatMessage({
         {chunks.length ? (
           chunks.map((ch, i) => <TierBlock key={i} chunk={ch} onCitation={onCitation} />)
         ) : (
-          <Text className="text-body leading-6 text-primary">
-            {message.content || (message.status === 'streaming' ? '…' : '')}
-          </Text>
+          <ChatMarkdown
+            text={
+              stripTrailingSuggested(message.content || '') ||
+              (message.status === 'streaming' ? '…' : '')
+            }
+            className="text-body leading-6 text-primary"
+          />
         )}
 
         {hasCta ? <CreateCaseCta conversationId={conversationId} /> : null}

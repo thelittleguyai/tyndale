@@ -39,6 +39,7 @@ from app.agents.llm_health import (
     claude_path_label,
     record_claude_call,
 )
+from app.agents.chat_format import strip_markdown_tables
 from app.agents.runner import _block_to_dict, _client, _collect_retrieved_chunks, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
@@ -483,6 +484,9 @@ async def _real_stream(
 
     record_claude_call(ok=True, path=path)
     full = "\n\n".join(p for p in text_parts if p).strip()
+    # Brock 2026-08-22: the renderer has no table support and the mode prompt forbids
+    # tables — if one slips through anyway, rows become plain lines before chunking.
+    full = strip_markdown_tables(full)
 
     # 3.1: parse citations + tiers out of the real stream to match the fixture/shared contract,
     # and apply the Stop citation gate. retrieved chunks come from the raw tool results.
