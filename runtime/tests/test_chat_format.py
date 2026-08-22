@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agents.chat_format import extract_suggested_replies, strip_markdown_tables
+from app.agents.chat_format import strip_markdown_tables
 
 _TABLE = (
     "Here is a comparison:\n\n"

@@ -508,6 +508,23 @@ async def _real_stream(
         )
         log.info("chat.stop_gate.degraded", mode=mode, action=stop.action, unresolved=unresolved)
 
+    if mode == "freeform":
+        # Brock 2026-08-22 response contract — OBSERVED, not enforced (the text already
+        # streamed). Counters surface drift on the admin System page; evals fail on it.
+        from app.agents.chat_contract import (
+            freeform_contract_violations,
+            unsubstantiated_stat_in_tier_a,
+        )
+        from app.agents.context_loader import DOCTRINE_VIOLATIONS
+
+        violations = freeform_contract_violations(full)
+        if unsubstantiated_stat_in_tier_a(chunks):
+            violations.append("unsubstantiated_stat_tier_a")
+        for reason in violations:
+            DOCTRINE_VIOLATIONS[f"freeform_contract:{reason}"] += 1
+        if violations:
+            log.info("chat.freeform_contract_violation", reasons=violations, words=len(full.split()))
+
     display = "\n\n".join(c["text"] for c in chunks)
     yield {
         "event": "complete",

@@ -1,0 +1,42 @@
+{
+  "id": "gold_freeform_mobile_brevity_001",
+  "category": "confident_voice_rubric",
+  "subcategory": "freeform_response_contract",
+  "input": {
+    "user_message": "What's the difference between a copay and coinsurance?",
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "WI"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "copay",
+      "coinsurance"
+    ],
+    "should_not_contain": [
+      "|---",
+      "| Term",
+      "here's why it matters and what each path looks like"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "The answer is at most ~120 words (hard eval ceiling 200) \u2014 mobile-first; the user did not ask for depth",
+        "must_be_true": true
+      },
+      {
+        "claim": "No markdown table appears; at most one list of up to four one-sentence items",
+        "must_be_true": true
+      },
+      {
+        "claim": "At most one question, and it comes at the end",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Freeform 'Ask Tyndale' is read on a phone. Brock's 2026-08-22 field test hit a multi-paragraph answer with a pipe table for a one-line question. The runtime validator app/agents/chat_contract.freeform_contract_violations encodes the same rules (over_length > 200 words, table, multiple_lists, list_too_long, multiple_questions).",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-08-22",
+  "difficulty": "easy",
+  "notes": "Engineering seed (2026-08-22) distilled from Brock's freeform field test \u2014 a machine-authored case for Brock to review/re-author; the schema's author enum has no engineering value."
+}
