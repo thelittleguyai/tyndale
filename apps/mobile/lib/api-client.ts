@@ -92,6 +92,13 @@ export interface FindingOut {
    */
   source_line: string;
   has_source: boolean;
+  /**
+   * B5 (Brock 2026-08-18) — the [A]/[B] split, SERVER-derived (never computed here):
+   * 'fact' = arithmetic / direct observation → no citation chip; 'rule_based' = rests on a
+   * law / regulation / plan provision → chip required (the server already swapped an
+   * uncited one to the no-source line). Defaults to 'fact' for older payloads.
+   */
+  tier?: 'fact' | 'rule_based';
 }
 
 /** Deterministic disclosure tier (DL-85): 0 grounded · 1 note · 2 disclose · 3 chase. */

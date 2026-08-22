@@ -1066,9 +1066,11 @@ def _with_source_line(f: FindingOut) -> FindingOut:
     render a claim without either its source or the explicit no-source state. Also the X5
     error_type annotation seam (same one-chokepoint reasoning; see sources/error_types)."""
     f.source_line, f.has_source = finding_source_line(f)
+    # B5: the [A]/[B] split + chip enforcement, at the same one chokepoint.
+    from app.agents.grounding import apply_finding_tier
     from app.sources.error_types import annotate_error_type
 
-    return annotate_error_type(f)
+    return annotate_error_type(apply_finding_tier(f))
 
 
 def not_a_bill_message(filenames: list[str], documents=None) -> str:

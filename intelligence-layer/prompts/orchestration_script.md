@@ -341,13 +341,14 @@ Additional variables his strings use, not in the §0 dictionary (flagged for him
 ## §12 · External-program handoff
 
 ## handoff.generic_program
-<!-- §12.1 -->
-[A] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
+<!-- §12.1 — [B] per Brock 2026-08-18 B5: {program_source} IS the citation; absent → the
+     degradation variant, never a sourceless program claim. -->
+[B] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
 
 ## handoff.pace
 <!-- §12.1 — BORROWED: his script authors one program-handoff string; PACE is the named instance
      ({program_name} = PACE). Brock: author PACE-specific copy if you want it distinct. -->
-[A] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
+[B] "Honestly, the strongest move here isn't with me — it's **{program_name}**, which exists exactly for this ({program_source}). Here's how to reach them and what to ask. I'll keep your case open on my side so nothing slips while you do."
 
 ## §E · Engineering-owned keys (NOT Brock's voice)
 

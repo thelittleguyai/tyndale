@@ -60,3 +60,41 @@ describe('FindingCard grounding line', () => {
     }
   });
 });
+
+/**
+ * B5 (Brock 2026-08-18) — the [A]/[B] split decides the CHIP. `tier` is server-derived.
+ * fact → the source renders as plain text, no chip (chips on arithmetic teach users to
+ * ignore chips). rule_based + cited → the citation chip. rule_based uncited → the server
+ * already swapped the line to the no-source state; the card renders that, never a chip.
+ */
+describe('FindingCard B5 tier rendering', () => {
+  it('fact findings render their source WITHOUT a chip', () => {
+    const { queryByTestId, getByText } = render(
+      <FindingCard finding={finding({ tier: 'fact' })} {...props} />,
+    );
+    expect(queryByTestId('citation-chip')).toBeNull();
+    expect(queryByTestId('fact-source-line')).toBeTruthy();
+    expect(getByText('source: your plan documents · published rates')).toBeTruthy();
+  });
+
+  it('rule-based findings with a source render the citation chip', () => {
+    const { getByTestId } = render(
+      <FindingCard
+        finding={finding({ tier: 'rule_based', source_line: 'source: No Surprises Act §2799A-1' })}
+        {...props}
+      />,
+    );
+    expect(getByTestId('citation-chip')).toBeTruthy();
+  });
+
+  it('an uncited rule-based finding renders the degraded no-source line, never a chip', () => {
+    const { queryByTestId, getByTestId } = render(
+      <FindingCard
+        finding={finding({ tier: 'rule_based', has_source: false, source_line: 'no source yet' })}
+        {...props}
+      />,
+    );
+    expect(queryByTestId('citation-chip')).toBeNull();
+    expect(getByTestId('no-source-line')).toBeTruthy();
+  });
+});

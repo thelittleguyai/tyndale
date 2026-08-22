@@ -60,6 +60,33 @@ def resolve_source(finding: Any) -> str | None:
     return None
 
 
+def finding_tier(finding: Any) -> str:
+    """B5 (Brock 2026-08-18): 'rule_based' when the finding rests on a law / regulation /
+    plan provision — it carries a legal_claim with substance or any citation — else 'fact'
+    (arithmetic, direct observation). Server-derived; the client only renders it."""
+    if getattr(finding, "citations", None):
+        return "rule_based"
+    lc = getattr(finding, "legal_claim", None)
+    if isinstance(lc, dict) and any(
+        isinstance(v, str) and v.strip() for k, v in lc.items() if k != "citations"
+    ):
+        return "rule_based"
+    return "fact"
+
+
+def apply_finding_tier(finding: Any) -> Any:
+    """Stamp the tier and enforce the chip rule. An UNCITED rule-based finding is the
+    never-a-bare-legal-claim case: the source line becomes the honest no-source state
+    (the existing [B] degradation path) and a doctrine violation is counted. Never a crash."""
+    from app.agents.context_loader import DOCTRINE_VIOLATIONS
+
+    finding.tier = finding_tier(finding)
+    if finding.tier == "rule_based" and not getattr(finding, "has_source", False):
+        DOCTRINE_VIOLATIONS[f"rule_based_uncited:{getattr(finding, 'category', '?')}"] += 1
+        finding.source_line, finding.has_source = orchestration_step("finding_no_source"), False
+    return finding
+
+
 def finding_source_line(finding: Any) -> tuple[str, bool]:
     """``(line, has_source)`` — ALWAYS a renderable line.
 

@@ -399,10 +399,15 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     handoff = (case.regime_detection or {}).get("handoff")
     if handoff:
         key = "handoff.pace" if handoff == "pace" else "handoff.generic_program"
+        # B5 (Brock 2026-08-18): §12.1 is [B] — the program's source IS the citation. With
+        # one, the string renders with its chip; without, orchestration_step's [B]
+        # degradation path renders instead and the violation is counted.
+        source = _program_source(handoff)
         text = orchestration_step(
             key,
+            citation={"source": source} if source else None,
             program_name=(handoff.upper() if handoff else None),
-            program_source=_program_source(handoff),
+            program_source=source,
         )
         marker = f"handoff:{handoff}"
         first_time = marker not in have  # emit once, not on every reconcile

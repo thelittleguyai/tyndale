@@ -131,16 +131,24 @@ export function FindingCard({
         </Text>
       ) : null}
 
-      {/* E4/H3 — THE GROUNDING LINE. Always one of two states, never nothing: a citation chip
-          in the citation blue when a real source resolved, or the honest no-source admission.
-          This is the visible half of the grounding doctrine — a claim the user can't trace is
-          a claim we shouldn't be making look identical to one they can. */}
-      {finding.has_source ? (
-        <View className="mb-2 self-start rounded-chip bg-citation-tint px-2.5 py-1">
+      {/* E4/H3 — THE GROUNDING LINE. Always one of two states, never nothing. B5 (Brock
+          2026-08-18) decides the CHIP: a rule-based finding (law / regulation / plan
+          provision) renders its source as a citation chip in the citation blue — chip
+          REQUIRED, and the server already swapped an uncited one to the no-source line —
+          while a fact finding (arithmetic, direct observation) renders its source as plain
+          text with NO chip: chips on arithmetic teach users to ignore chips. */}
+      {finding.has_source && finding.tier === 'rule_based' ? (
+        <View className="mb-2 self-start rounded-chip bg-citation-tint px-2.5 py-1" testID="citation-chip">
           <Text className="text-micro text-citation-on-tint">{finding.source_line}</Text>
         </View>
+      ) : finding.has_source ? (
+        <Text className="mb-2 text-micro leading-4 text-secondary" testID="fact-source-line">
+          {finding.source_line}
+        </Text>
       ) : (
-        <Text className="mb-2 text-micro italic leading-4 text-faint">{finding.source_line}</Text>
+        <Text className="mb-2 text-micro italic leading-4 text-faint" testID="no-source-line">
+          {finding.source_line}
+        </Text>
       )}
 
       {factEntries.length > 0 ? (

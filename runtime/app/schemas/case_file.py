@@ -61,6 +61,13 @@ class FindingOut(BaseModel):
     legal_claim: dict | None = None
     recommendation: dict | None = None
     citations: list[Citation] = Field(default_factory=list)
+    # B5 (Brock 2026-08-18) — the [A]/[B] finding split, derived SERVER-SIDE in
+    # grounding.finding_tier and never by a client: 'rule_based' when the finding rests on
+    # a law / regulation / plan provision (a legal_claim or citations), 'fact' for
+    # arithmetic and direct-observation findings. Rendering rule: fact → NO citation chip
+    # (chips on arithmetic teach users to ignore chips); rule_based → chip REQUIRED —
+    # cited renders the chip, uncited renders the [B] degradation line and is counted.
+    tier: str = "fact"
     # E4/H3 — the VISIBLE half of the grounding doctrine. Always populated: either the
     # resolved "source: …" line or the explicit no-source state, never nothing. A client
     # therefore cannot render a bare claim even by omission.
