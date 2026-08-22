@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { getSurfaceCopy } from '../../lib/api-client';
 
@@ -27,11 +28,16 @@ export function splitChips(value: string | null | undefined): string[] {
 export function FreeformOpener({
   onChip,
   copy,
+  conversationId,
 }: {
   onChip: (text: string) => void;
   /** Inject copy (tests); omitted → fetched from the 'chat' surface with fallbacks. */
   copy?: { opener?: string | null; opener_chips?: string | null };
+  /** When given, a quiet "upload it" link under the chips opens a new case with the
+   *  conversation preserved — one tap from the first screen, no second chip row. */
+  conversationId?: string;
 }) {
+  const router = useRouter();
   const [fetched, setFetched] = useState<{ opener?: string | null; opener_chips?: string | null }>({});
   useEffect(() => {
     if (copy) return;
@@ -64,6 +70,18 @@ export function FreeformOpener({
           </Pressable>
         ))}
       </View>
+      {conversationId ? (
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/upload', params: { fromConversation: conversationId } })
+          }
+          accessibilityRole="button"
+          testID="opener-upload"
+          className="ml-1 mt-3 min-h-[44px] justify-center self-start active:opacity-70"
+        >
+          <Text className="text-sm font-semibold text-accent">Have a bill ready? Upload it →</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -18,6 +18,9 @@ import {
 
 export interface UseChatStream {
   messages: Message[];
+  /** The conversation's case id (per-case mode) — null in freeform. Drives the composer's
+   *  attach affordance: per-case attaches to this case, freeform opens a new case. */
+  caseId: string | null;
   streaming: boolean;
   activeTools: ToolCall[];
   error: string | null;
@@ -32,6 +35,7 @@ function nowIso(): string {
 
 export function useChatStream(conversationId: string): UseChatStream {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [caseId, setCaseId] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [activeTools, setActiveTools] = useState<ToolCall[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +46,7 @@ export function useChatStream(conversationId: string): UseChatStream {
     try {
       const d = await getConversation(conversationId);
       setMessages(d.messages);
+      setCaseId(d.case_id ?? null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -180,5 +185,5 @@ export function useChatStream(conversationId: string): UseChatStream {
     );
   }, [conversationId]);
 
-  return { messages, streaming, activeTools, error, send, stop, reload };
+  return { messages, caseId, streaming, activeTools, error, send, stop, reload };
 }

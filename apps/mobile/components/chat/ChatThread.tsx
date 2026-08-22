@@ -3,6 +3,7 @@
 
 import { useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import type { ChatCitation, Message } from '@tyndale/shared';
 
@@ -21,9 +22,19 @@ export function ChatThread({
   // A node, or a render-fn that receives `send` so empty-state suggestion chips are tappable.
   emptyState?: React.ReactNode | ((onSuggest: (text: string) => void) => React.ReactNode);
 }) {
-  const { messages, streaming, activeTools, error, send, stop } = useChatStream(conversationId);
+  const { messages, caseId, streaming, activeTools, error, send, stop } =
+    useChatStream(conversationId);
   const [citation, setCitation] = useState<ChatCitation | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const router = useRouter();
+
+  // Upload a bill anytime (2026-08-22). Freeform → a NEW case, preserving the conversation
+  // exactly like CreateCaseCta; per-case → the documents attach to THIS case (the upload
+  // screen already takes caseId).
+  const onAttach = () =>
+    caseId
+      ? router.push({ pathname: '/upload', params: { caseId } })
+      : router.push({ pathname: '/upload', params: { fromConversation: conversationId } });
 
   // Item 3 (2026-08-22): chips hang off the NEWEST assistant turn only, once it's complete.
   const last = messages[messages.length - 1];
@@ -72,7 +83,7 @@ export function ChatThread({
           {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
         </View>
       </ScrollView>
-      <ChatComposer onSend={send} onStop={stop} streaming={streaming} />
+      <ChatComposer onSend={send} onStop={stop} streaming={streaming} onAttach={onAttach} />
       <CitationDetailModal citation={citation} onClose={() => setCitation(null)} />
     </View>
   );

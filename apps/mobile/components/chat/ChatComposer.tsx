@@ -4,7 +4,7 @@
  *  newline, and we draw our own focus ring (the browser default clashes with the
  *  dark theme). Centered max-width column. */
 
-import { Send, Square } from 'lucide-react-native';
+import { Paperclip, Send, Square } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   NativeSyntheticEvent,
@@ -33,11 +33,15 @@ export function ChatComposer({
   onStop,
   streaming,
   disabled,
+  onAttach,
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
   disabled?: boolean;
+  /** Upload-a-bill affordance (2026-08-22): a paperclip left of the input. The thread
+   *  decides where it goes — a new case (freeform) or the conversation's case (per-case). */
+  onAttach?: () => void;
 }) {
   const c = useThemeColors();
   const [text, setText] = useState('');
@@ -73,6 +77,17 @@ export function ChatComposer({
   return (
     <View className="border-t border-hairline bg-surface px-3 py-3">
       <View className="w-full max-w-3xl flex-row items-end gap-2 self-center">
+        {onAttach ? (
+          <PressableScale
+            onPress={onAttach}
+            accessibilityRole="button"
+            accessibilityLabel="Upload a bill"
+            testID="composer-attach"
+            className="h-11 w-11 items-center justify-center rounded-full bg-inset hover:bg-accent-tint"
+          >
+            <Paperclip size={18} color={c.text.secondary} />
+          </PressableScale>
+        ) : null}
         <View
           className={`flex-1 rounded-2xl border bg-page px-4 py-2.5 ${
             focused ? 'border-accent' : 'border-hairline'

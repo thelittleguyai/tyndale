@@ -38,7 +38,7 @@ export default function ConversationScreen() {
           state. Client-rendered; the first tap/typed line becomes the first user turn. */}
       <ChatThread
         conversationId={id}
-        emptyState={(onSuggest) => <FreeformOpener onChip={onSuggest} />}
+        emptyState={(onSuggest) => <FreeformOpener onChip={onSuggest} conversationId={id} />}
       />
     </View>
   );
