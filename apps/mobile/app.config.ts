@@ -20,6 +20,9 @@ const config: ExpoConfig = {
   web: {
     bundler: 'metro',
     output: 'static',
+    // Tab + home-screen icon (generated from the shared logo SVG into public/). The static
+    // HTML root (app/+html.tsx) links the full icon set; this is Expo's own favicon hook.
+    favicon: './public/favicon-32.png',
   },
   plugins: [
     'expo-router',

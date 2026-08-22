@@ -1,5 +1,6 @@
 import '../global.css';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Text, View } from 'react-native';
 import {
@@ -36,6 +37,11 @@ export default function RootLayout() {
 
   return (
     <View className="flex-1 bg-page">
+      {/* The browser tab: a real title (the export used to emit an empty managed <title>, so
+          tabs showed the bare URL). Route screens can override with their own <Head>. */}
+      <Head>
+        <title>Tyndale</title>
+      </Head>
       <Stack
         screenOptions={{
           headerShown: false,
