@@ -14,8 +14,16 @@
  * from global.css (:focus-visible → accent outline), never the browser default blue.
  */
 
-import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 import { logoSvg } from '@tyndale/shared';
@@ -27,14 +35,38 @@ import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
 import { useThemeColors } from '../../theme/useThemeColors';
 
+/**
+ * Google consent-URL prefetch (2026-08-22, item 2). SAFE per runtime/app/routes/auth.py:
+ * POST /v1/auth/login mints a state + sets the state cookie with max_age=600; the state is
+ * only COMPARED at the callback (constant-time) and deleted there — never consumed at mint —
+ * and a second /auth/login simply overwrites the cookie. So a URL fetched on mount stays
+ * valid for 10 minutes; we treat it as fresh for 9 and re-fetch past that (or if the
+ * prefetch failed), always using the MOST RECENT url so it matches the current cookie.
+ */
+const PREFETCH_FRESH_MS = 9 * 60 * 1000;
+
+type Prefetched = { url: string; at: number };
+
+/** One automatic retry on a failed URL fetch (cold start, flaky network), then throw. */
+async function fetchAuthUrlWithRetry(): Promise<string> {
+  try {
+    return await getGoogleAuthUrl();
+  } catch {
+    return await getGoogleAuthUrl();
+  }
+}
+
 export default function SignInScreen() {
   const c = useThemeColors();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [focused, setFocused] = useState(false);
+  const prefetchRef = useRef<Prefetched | null>(null);
+  const inflightRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -42,18 +74,55 @@ export default function SignInScreen() {
     return () => clearTimeout(t);
   }, [cooldown]);
 
+  // Prefetch on mount so the click is a pure redirect. A failure here is silent — the
+  // click path re-fetches (with its own retry) and reports errors on its own.
+  const prefetch = useCallback(() => {
+    const p = fetchAuthUrlWithRetry()
+      .then((url) => {
+        prefetchRef.current = { url, at: Date.now() };
+        return url;
+      })
+      .finally(() => {
+        if (inflightRef.current === p) inflightRef.current = null;
+      });
+    inflightRef.current = p;
+    p.catch(() => undefined);
+    return p;
+  }, []);
+
+  useEffect(() => {
+    prefetch();
+  }, [prefetch]);
+
+  const resolveAuthUrl = async (): Promise<string> => {
+    const cached = prefetchRef.current;
+    if (cached && Date.now() - cached.at < PREFETCH_FRESH_MS) return cached.url;
+    if (inflightRef.current) return inflightRef.current; // a (re)fetch is already running
+    return prefetch(); // expired, or the prefetch failed → re-fetch (with retry)
+  };
+
   const onGoogle = async () => {
+    if (googleBusy) return;
     track('signin_clicked', { method: 'google' });
     setError(null);
+    setGoogleBusy(true); // instant feedback, before any network
     try {
-      const url = await getGoogleAuthUrl();
+      const url = await resolveAuthUrl();
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.location.assign(url);
+        // Stay busy — the page is navigating away.
       } else {
         await Linking.openURL(url);
+        setGoogleBusy(false);
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Could not start Google sign-in.');
+      prefetchRef.current = null;
+      setGoogleBusy(false);
+      setError(
+        e?.message
+          ? `Could not start Google sign-in (${e.message}). Tap to try again.`
+          : 'Could not start Google sign-in. Tap to try again.',
+      );
     }
   };
 
@@ -90,11 +159,18 @@ export default function SignInScreen() {
         <View className="mt-8 w-full rounded-2xl border border-hairline bg-surface p-5 shadow-card">
           <PressableScale
             accessibilityRole="button"
+            accessibilityState={{ busy: googleBusy, disabled: googleBusy }}
             onPress={onGoogle}
+            disabled={googleBusy}
             testID="google-signin"
             className="min-h-[48px] w-full flex-row items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-5 py-3 hover:bg-inset"
           >
-            <Text className="text-base font-semibold text-primary">Continue with Google</Text>
+            {googleBusy ? (
+              <ActivityIndicator size="small" color={c.accent} testID="google-spinner" />
+            ) : null}
+            <Text className="text-base font-semibold text-primary">
+              {googleBusy ? 'Opening Google…' : 'Continue with Google'}
+            </Text>
           </PressableScale>
 
           <View className="my-5 flex-row items-center gap-3">
