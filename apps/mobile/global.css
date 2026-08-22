@@ -111,3 +111,24 @@ body {
     opacity 0.15s ease,
     transform 0.15s ease;
 }
+
+/* ── Focus rings (design pass 2026-08-22) ──
+   The browser's default blue ring is off-system. Keep focus VISIBLE for keyboard users
+   (a11y) but draw it with the accent token, and only for :focus-visible so pointer clicks
+   on buttons don't leave a ring behind. Inputs get the ring too — the wrapper-border
+   pattern (ChatComposer) stays valid for components that draw their own. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+input:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible),
+[role='button']:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
