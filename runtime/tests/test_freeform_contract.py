@@ -65,3 +65,23 @@ def test_item5_cited_tier_b_stat_is_allowed_and_qualitative_tier_a_passes():
     # A percentage with NO error claim (a coinsurance rate) is fine in tier A.
     rate = [{"tier": "A", "text": "Coinsurance of 20% means you pay a fifth of the allowed amount."}]
     assert unsubstantiated_stat_in_tier_a(rate) == []
+
+
+# ── item 3 (2026-08-22): the failure copy is banned, any tier ──────────────────────────
+from app.agents.chat_contract import freeform_banned_phrase_hits  # noqa: E402
+
+_FIELD_TEST_FAILURE = (
+    "I'm currently in freeform chat mode and can't create a case for you directly. "
+    "You'll need to use the case creation flow to upload your documents."
+)
+
+
+def test_field_test_failure_copy_is_banned():
+    hits = freeform_banned_phrase_hits(_FIELD_TEST_FAILURE)
+    assert "freeform chat mode" in hits
+    assert any("create a case" in h for h in hits)
+    assert any("case creation flow" in h for h in hits)
+
+
+def test_the_right_reply_is_clean():
+    assert freeform_banned_phrase_hits("Let's get your case started — tap below to upload your bill.") == []

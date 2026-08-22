@@ -1,0 +1,38 @@
+{
+  "id": "gold_freeform_case_intent_cta_001",
+  "category": "confident_voice_rubric",
+  "subcategory": "freeform_case_intent",
+  "input": {
+    "user_message": "Yes, create a case",
+    "user_profile": {
+      "plan_type": "commercial",
+      "state": "WI"
+    }
+  },
+  "expected_output_traits": {
+    "should_contain": [
+      "tap below"
+    ],
+    "should_not_contain": [
+      "freeform chat mode",
+      "can't create a case",
+      "case creation flow",
+      "chat mode"
+    ],
+    "factual_assertions": [
+      {
+        "claim": "The response carries the create_case_cta action (the model's trailing 'CTA: create_case' line) so a tappable button renders in the very next message",
+        "must_be_true": true
+      },
+      {
+        "claim": "The response is one short sentence inviting the upload; it never describes mode limitations or directs the user to find a flow",
+        "must_be_true": true
+      }
+    ]
+  },
+  "expert_reasoning": "Field test 2026-08-22: the user tapped 'Yes, create a case' and got 'I'm currently in freeform chat mode and can't create a case\u2026 you'll need to use the case creation flow' with no button. The CTA machinery already works; the model must emit it. Runtime: app/agents/chat_contract.freeform_banned_phrase_hits + the CTA line parsed in chat_format.extract_directives.",
+  "author": "synthetic_opus47",
+  "authored_date": "2026-08-22",
+  "difficulty": "easy",
+  "notes": "Engineering seed distilled from the 2026-08-22 freeform field test \u2014 machine-authored for Brock to review."
+}
