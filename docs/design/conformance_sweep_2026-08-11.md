@@ -7,7 +7,13 @@ Strict reading: "close enough" is a FAIL. **N-A-YET** = not built, with the owni
 **after the round-2 landing port (2026-08-12): 42 PASS · 3 FAIL · 1 DEFERRED · 2 PARTIAL · 22 N-A-YET** →
 **after B4 + N1 + the audit-ready email (2026-08-12): 45 PASS · 4 FAIL · 0 DEFERRED · 2 PARTIAL · 21 N-A-YET** →
 **current (2026-08-17, recounted over all 74 rows after H6/G6 corrections): 63 PASS · 4 FAIL (A8 · F2 · F8 · G3 — every one Brock-owned) · 1 PARTIAL (C5, edge detection deliberately not built) · 6 N-A-YET (E6–E8, I1–I3 — all billing-dark)** →
-**current (2026-08-17 evening, after A8 + delta application): 64 PASS · 3 FAIL (F2 · F8 · G3 — all Brock-owned) · 1 PARTIAL (C5) · 6 N-A-YET (billing-dark)**
+**current (2026-08-17 evening, after A8 + delta application): 64 PASS · 3 FAIL (F2 · F8 · G3 — all Brock-owned) · 1 PARTIAL (C5) · 6 N-A-YET (billing-dark)** →
+**current (2026-08-22, Brock's 2026-08-18 answers applied): 66 PASS · 1 FAIL (F8 — §10.2 no-base-rate variant still his) · 1 PARTIAL (C5) · 6 N-A-YET (billing-dark)**
+
+**Inbound from Brock (pending his ≤1-day file review, nothing wired yet):** the A4 four-branch
+wrong-document strings and the D5 clean-bill / negotiation copy. Also inbound: A1–A7 file
+review, A6 + §3.10, the §3.8 nudge-split confirmation, priors tranche 1, C1/C2 citations,
+the 50-state seed, and the corpora.
 
 Rows fixed in that session are marked **PASS (2026-08-11)**. Everything still failing is either
 awaiting a Brock decision, blocked on a data-model addition, or (A8) a change deliberately not
@@ -39,9 +45,9 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 
 | # | Verdict | Evidence |
 |---|---|---|
-| B1 headline | **PASS** | exact string in `web-marketing/src/app/page.tsx` |
+| B1 headline | **PASS** (Brock 2026-08-18, B3) | headline is now his verbatim "Medical bills have more errors than you think. Tyndale finds them, and knows exactly how to resolve them" — checklist B1's older string superseded by his answer |
 | B2 three-number card | **PASS** | `$2,347.18` / `$1,184.60` / `$612.40` all present, matching the app |
-| B3 CTA "Check my bill" | **PASS** (2026-08-12) | now the prototype's evolved "Check my bill — free" — delta flagged for Brock |
+| B3 CTA "Check my bill" | **PASS** (Brock 2026-08-18, C3 confirmed) | "Check my bill — free" confirmed; the tips band now reroutes its CTA to it (no dead buttons while billing is dark), playbook labeled "included with Core" |
 | B4 `$504,100` savings band | **PASS** (2026-08-12) | savings band shipped; verified live on dev. **Substantiation still owed** — a public number for a pre-launch product (Brock ask #1) |
 | B5 "Not a chatbot" band | **PASS** | present |
 | B6 grounding two-card band | **PASS** (2026-08-12) | two proof cards (real rulebook / remembers your case), copy verbatim from the round-2 prototype |
@@ -95,7 +101,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 | # | Verdict | Evidence |
 |---|---|---|
 | F1 attest 7-option menu | **PASS** (this session) | `RELATIONSHIPS` now Brock's 7; no "self", no escape hatch; decline path built |
-| F2 attest edge prompts | **PARTIAL → FAIL** [unowned] | teen + deceased authored & wired; **SUD prompt is in the checklist but NOT in his script §3** — needs his call |
+| F2 attest edge prompts | **PASS** (Brock 2026-08-18, A5 — amended) | script governs: §3 authors teen + deceased only; the SUD prompt is removed from the product and checklist F2 is amended to conform |
 | F3 illegible/partial | **PASS** (2026-08-11) | `data_quality.partial_read()` fires on the mixed case only, names the unreadable file, and discards partial figures (`never_approximate`) |
 | F4 summary-vs-itemized | **PASS** (2026-08-11) | `looks_like_summary_bill()` needs evidence on both sides; harness scenario `summary_bill_only` |
 | F5 wrong document typed | **PASS** | 4-branch router + §5.3 copy naming `{detected_doc_type}` |
@@ -110,7 +116,7 @@ Legend for FAILs: **[queued]** = already covered by an accepted prompt/workstrea
 |---|---|---|
 | G1 verbatim | **PASS** | `test_script_drift.py` fails CI on any drift, naming the key |
 | G2 variables / missing → §5 | **PASS** | single-brace interpolation; unfilled slot → §5.1 degradation + counter |
-| G3 `[B]` with citation chip | **PARTIAL → FAIL** [unowned] | renderer enforces it and `citation` colour now exists, but **zero keys are tagged `[B]`** — his 4 `[B]` marks are dual `[A]/[B]` on §6.3/§12.1, which we render `[A]`. Needs his call |
+| G3 `[B]` with citation chip | **PASS** (Brock 2026-08-18, B5 — enforcement ON) | findings split server-side into `fact` (no chip — chips on arithmetic teach users to ignore chips) / `rule_based` (chip REQUIRED; uncited → the [B] degradation line + `DOCTRINE_VIOLATIONS`); §12.1 handoff tagged `[B]` with `{program_source}` as its citation, absent → degradation variant. Tests: fact-no-chip, rule-with-chip, rule-uncited-degrades, handoff-cited |
 | G4 `[C]` no prediction | **PASS** | 5 `[C]` keys; load-time assert + forbidden-language test |
 | G5 close-the-loop | **PASS** | X1 contract in CI; §8.3 close line authored |
 | G6 +3d/+14d email | **PASS** (2026-08-17) | **PASS** (2026-08-17) — with a correction to this row's own earlier fix. Reading §11.5 showed his plus_3d/plus_14d are FOLLOW-THROUGH copy ("ready to make that first call"), not document-chase copy, so wiring them into the chase email — what this row previously prescribed — would have been wrong. The cron is now two nudges: the chase keeps its engineering body (it must name the missing document; email chrome per the magic-link precedent), and a new check-in nudge renders his §11.5 verbatim on its real premise (audit done + gameplan + nothing reported), +3d/+14d, email-only, deadline-aware ({deadline_date} from persisted rows only, degrading to the no-variable string when absent), suppressed once the user reports a call. Chase wins when both premises hold. Split flagged for Brock to confirm |
@@ -153,8 +159,8 @@ C1/C5 (camera-first) · E6–E8 + I1–I3 (billing dark) · G6 (email wiring).
    them**. Cheap to wire; needs a home.
 4. **E3, E4/H3** — gap callout, and the **source line on finding cards** (E4 is a grounding-
    doctrine item, not cosmetic).
-5. **F2** — his checklist says SUD edge prompt; his script doesn't author one. Contradiction.
+5. ~~**F2**~~ — resolved 2026-08-18 (A5): script governs; F2 amended.
 6. **F3, F4** — §5.1/§5.2 copy exists; no detection wires to it.
 7. **F8** — §10.2 needs a no-cited-base-rate variant or it degrades at launch.
-8. **G3** — no key is tagged `[B]`; his dual `[A]/[B]` marks need resolving per-key.
+8. ~~**G3**~~ — resolved 2026-08-18 (B5): `fact`/`rule_based` split; §12.1 tagged `[B]`; enforcement on.
 9. **H4, H6** — case-page banner; call mode's tap-to-dial + pinned strip + full-screen.
