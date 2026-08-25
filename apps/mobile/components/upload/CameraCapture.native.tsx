@@ -13,6 +13,7 @@
  */
 import { useCallback, useRef, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Camera, RotateCcw, X } from 'lucide-react-native';
 
@@ -39,7 +40,7 @@ const WARNING_TEXT: Record<string, string> = {
 const FALLBACK = {
   looks_good: 'Use this photo',
   retake: 'Retake',
-  add_page: 'Take the next page',
+  add_page: 'Take another picture',
 } as const;
 
 type Pending = { uri: string; assessment: CaptureAssessment };
@@ -99,6 +100,8 @@ export function CameraCapture({
     setPending(null);
     if (!allowMultiPage) finishWith(uris);
   }, [allowMultiPage, finishWith, pending]);
+
+  const insets = useSafeAreaInsets();
 
   if (!permission) return null; // permission state still loading — nothing to claim yet
   if (!permission.granted) {
@@ -168,18 +171,13 @@ export function CameraCapture({
         ) : null}
       </View>
 
-      <View className="gap-2 px-5 pb-10 pt-4">
+      {/* One fixed button ROW below the preview (Brock 2026-08-22); safe-area aware. */}
+      <View className="px-5 pt-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
         {pending ? (
-          <>
-            <Button
-              variant="primary"
-              label={copy.capture_looks_good || FALLBACK.looks_good}
-              onPress={keep}
-              testID="capture-keep"
-            />
+          <View className="flex-row gap-3">
             <Pressable
               onPress={() => setPending(null)}
-              className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-control border border-hairline px-4"
+              className="min-h-[48px] flex-1 flex-row items-center justify-center gap-2 rounded-control border border-hairline bg-surface px-4"
               testID="capture-retake"
             >
               <RotateCcw size={17} color="var(--c-text-secondary)" />
@@ -187,14 +185,32 @@ export function CameraCapture({
                 {copy.capture_retake || FALLBACK.retake}
               </Text>
             </Pressable>
-          </>
+            <View className="flex-1">
+              <Button
+                variant="primary"
+                label={copy.capture_looks_good || FALLBACK.looks_good}
+                onPress={keep}
+                testID="capture-keep"
+              />
+            </View>
+          </View>
         ) : (
-          <>
+          <View className="flex-row gap-3">
+            {pages.length > 0 ? (
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label={`Done — ${pages.length} page${pages.length === 1 ? '' : 's'}`}
+                  onPress={() => finishWith(urisRef.current)}
+                  testID="capture-done"
+                />
+              </View>
+            ) : null}
             <Pressable
               onPress={() => void shoot()}
               accessibilityRole="button"
               accessibilityLabel="Take photo"
-              className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-control bg-accent px-4"
+              className="min-h-[56px] flex-1 flex-row items-center justify-center gap-2 rounded-control bg-accent px-4"
               testID="capture-shutter"
             >
               <Camera size={18} color="var(--c-on-accent)" />
@@ -202,15 +218,7 @@ export function CameraCapture({
                 {pages.length > 0 ? copy.capture_add_page || FALLBACK.add_page : 'Take photo'}
               </Text>
             </Pressable>
-            {pages.length > 0 ? (
-              <Button
-                variant="secondary"
-                label={`Done — ${pages.length} page${pages.length === 1 ? '' : 's'}`}
-                onPress={() => finishWith(urisRef.current)}
-                testID="capture-done"
-              />
-            ) : null}
-          </>
+          </View>
         )}
       </View>
     </View>

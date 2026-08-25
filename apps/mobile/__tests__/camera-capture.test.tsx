@@ -8,6 +8,12 @@
  * permission-denied hands off to the picker without nagging, and nothing calls onDone without
  * a capture.
  */
+
+// CameraCapture.native reads safe-area insets for the button row's bottom padding; jest has no
+// SafeAreaProvider, so supply inert insets.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
 import { fireEvent, render } from '@testing-library/react-native';
 import { useCameraPermissions } from 'expo-camera';
 

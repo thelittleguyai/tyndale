@@ -64,7 +64,7 @@ const WARNING_TEXT: Record<string, string> = {
 const FALLBACK = {
   looks_good: 'Use this photo',
   retake: 'Retake',
-  add_page: 'Take the next page',
+  add_page: 'Take another picture',
 } as const;
 
 export function CameraCapture({
@@ -298,18 +298,14 @@ export function CameraCapture({
         ) : null}
       </View>
 
-      <View className="gap-2 px-5 pb-10 pt-4">
+      {/* One fixed button ROW below the preview (Brock 2026-08-22): actions sit side by
+          side — secondary left, primary right — never hovering over the viewfinder. */}
+      <View className="px-5 pb-10 pt-4">
         {phase === 'review' ? (
-          <>
-            <Button
-              variant="primary"
-              label={copy.capture_looks_good || FALLBACK.looks_good}
-              onPress={keep}
-              testID="capture-keep"
-            />
+          <View className="flex-row gap-3">
             <Pressable
               onPress={retake}
-              className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-xl border border-hairline px-4"
+              className="min-h-[48px] flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-4"
               testID="capture-retake"
             >
               <RotateCcw size={17} color="var(--c-text-secondary)" />
@@ -317,15 +313,33 @@ export function CameraCapture({
                 {copy.capture_retake || FALLBACK.retake}
               </Text>
             </Pressable>
-          </>
+            <View className="flex-1">
+              <Button
+                variant="primary"
+                label={copy.capture_looks_good || FALLBACK.looks_good}
+                onPress={keep}
+                testID="capture-keep"
+              />
+            </View>
+          </View>
         ) : (
-          <>
+          <View className="flex-row gap-3">
+            {pages.length > 0 ? (
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label={`Done — ${pages.length} page${pages.length === 1 ? '' : 's'}`}
+                  onPress={finish}
+                  testID="capture-done"
+                />
+              </View>
+            ) : null}
             <Pressable
               onPress={shoot}
               disabled={phase !== 'live'}
               accessibilityRole="button"
               accessibilityLabel="Take photo"
-              className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4"
+              className="min-h-[56px] flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4"
               testID="capture-shutter"
             >
               <Camera size={18} color="var(--c-on-accent)" />
@@ -333,15 +347,7 @@ export function CameraCapture({
                 {pages.length > 0 ? copy.capture_add_page || FALLBACK.add_page : 'Take photo'}
               </Text>
             </Pressable>
-            {pages.length > 0 ? (
-              <Button
-                variant="secondary"
-                label={`Done — ${pages.length} page${pages.length === 1 ? '' : 's'}`}
-                onPress={finish}
-                testID="capture-done"
-              />
-            ) : null}
-          </>
+          </View>
         )}
       </View>
     </View>
