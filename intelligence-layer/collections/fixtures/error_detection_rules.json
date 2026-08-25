@@ -3,26 +3,302 @@
     "fixture": true,
     "collection": "error_detection_rules",
     "created": "2026-05-27",
-    "note": "Local-dev fixtures only. Policy text is PARAPHRASED, not verbatim. NCCI/MUE tabular lookups live in Postgres; only the narrative reasoning is embedded here."
+    "note": "Local-dev fixtures only. Policy text is PARAPHRASED, not verbatim. NCCI/MUE tabular lookups live in Postgres; only the narrative reasoning is embedded here. 2026-08-22: rule_class/responsible_party backfilled \u2014 coding rules provider_coding/provider; the three aca_preventive rules are legal_protection/payer (their narratives describe payer cost-sharing errors \u2014 the noted exceptions to the blanket default)."
   },
   "records": [
-    { "rule_id": "ncci_ptp_45378_45380", "rule_type": "ncci_ptp", "applicable_codes": ["45378", "45380"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "When a screening colonoscopy (base code 45378) becomes a biopsy/diagnostic colonoscopy (45380) during the same session, only the more extensive service is separately reportable. Billing both for the same encounter without an appropriate modifier is a procedure-to-procedure conflict.", "structured_rule_id": "ncci:ptp:45378:45380" },
-    { "rule_id": "ncci_ptp_11402_12031", "rule_type": "ncci_ptp", "applicable_codes": ["11402", "12031"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Simple closure is included in a benign lesion excision and is not separately reportable. Intermediate (layered) closure may be separately reportable, but billing the excision and the closure for the same wound without distinct documentation is a bundling conflict.", "structured_rule_id": "ncci:ptp:11402:12031" },
-    { "rule_id": "ncci_ptp_80053_85025", "rule_type": "ncci_ptp", "applicable_codes": ["80053", "85025"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A comprehensive metabolic panel and a CBC are generally separately reportable, but a metabolic panel billed alongside its own overlapping component panel on the same day is a procedure-to-procedure conflict; the overlapping component is denied absent a clinically appropriate modifier.", "structured_rule_id": "ncci:ptp:80053:85025" },
-    { "rule_id": "ncci_ptp_71046_71250", "rule_type": "ncci_ptp", "applicable_codes": ["71046", "71250"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A 2-view chest X-ray performed as part of, and on the same day as, a chest CT is typically not separately payable when the X-ray is a precursor to the CT. Separate reporting requires a distinct clinical indication and documentation.", "structured_rule_id": "ncci:ptp:71046:71250" },
-    { "rule_id": "mue_85025_units", "rule_type": "mue", "applicable_codes": ["85025"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A CBC with differential is expected at most once per day for a single patient. Units beyond the medically-unlikely threshold for the same date of service are denied unless documentation supports a clinically necessary repeat draw.", "structured_rule_id": "mue:85025" },
-    { "rule_id": "mue_80053_units", "rule_type": "mue", "applicable_codes": ["80053"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A comprehensive metabolic panel exceeding one unit per date of service is medically unlikely; quantities above the threshold are denied absent documentation of a separately necessary repeat panel.", "structured_rule_id": "mue:80053" },
-    { "rule_id": "mue_J3490_units", "rule_type": "mue", "applicable_codes": ["J3490"], "effective_date_start": "2024-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Unclassified drug code J3490 has no fixed unit definition; high unit counts are a red flag and require an itemized description (drug name, dose, NDC). Quantities without supporting documentation should be challenged.", "structured_rule_id": "mue:J3490" },
-    { "rule_id": "modifier_25_em_with_procedure", "rule_type": "modifier_validity", "applicable_codes": ["99213", "99214", "99285"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Modifier 25 indicates a significant, separately identifiable E/M service on the same day as a minor procedure. It is appropriate only when the E/M is above and beyond the usual pre- and post-procedure work; routine attachment of modifier 25 to every same-day E/M is an audit flag.", "structured_rule_id": null },
-    { "rule_id": "modifier_59_distinct_service", "rule_type": "modifier_validity", "applicable_codes": ["12031", "11402"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Modifier 59 designates a distinct procedural service (different session, site, or lesion) and may unbundle an NCCI pair. It must not be used to bypass an edit when the services were performed on the same lesion/site; misuse is a common overpayment driver.", "structured_rule_id": null },
-    { "rule_id": "modifier_51_multiple_procedures", "rule_type": "modifier_validity", "applicable_codes": ["27447", "45380"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Modifier 51 indicates multiple procedures performed at the same session and typically triggers multiple-procedure payment reduction on the lower-valued codes. Absence of expected reductions when multiple procedures are billed is a red flag.", "structured_rule_id": null },
-    { "rule_id": "aca_2713_screening_colonoscopy", "rule_type": "aca_preventive", "applicable_codes": ["45378", "45380"], "effective_date_start": "2010-09-23", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Under ACA preventive-services rules, a screening colonoscopy for an average-risk patient is covered with zero cost-sharing in-network. If a polyp is removed during a screening, the service remains preventive and cost-sharing should still not apply; charging coinsurance because the code shifted to diagnostic is a common payer error.", "structured_rule_id": null },
-    { "rule_id": "aca_2713_flu_vaccine", "rule_type": "aca_preventive", "applicable_codes": ["G0008"], "effective_date_start": "2010-09-23", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Administration of a recommended influenza vaccine is a covered preventive service with no cost-sharing for in-network patients. A copay or deductible applied to flu-vaccine administration is a likely cost-sharing error.", "structured_rule_id": null },
-    { "rule_id": "aca_2713_annual_wellness", "rule_type": "aca_preventive", "applicable_codes": ["G0438", "99395"], "effective_date_start": "2011-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "An annual wellness visit / age-appropriate preventive visit is covered with no cost-sharing in-network. When additional problem-oriented E/M is performed and separately billed (modifier 25), only that portion may carry cost-sharing — the preventive component should not.", "structured_rule_id": null },
-    { "rule_id": "upcode_em_99285_documentation", "rule_type": "upcoding_pattern", "applicable_codes": ["99285"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A level-5 ER visit (99285) requires high-complexity medical decision making. A short, uncomplicated visit billed at 99285 — no significant workup, single self-limited problem — is a classic upcoding pattern. Ask whether the visit truly involved an extensive evaluation.", "structured_rule_id": null },
-    { "rule_id": "upcode_em_99214_mdm", "rule_type": "upcoding_pattern", "applicable_codes": ["99214"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A 99214 requires moderate-complexity decision making or 30-39 minutes. A routine, stable, single-problem follow-up billed at 99214 without supporting MDM or time documentation is a frequent upcoding pattern relative to 99213.", "structured_rule_id": null },
-    { "rule_id": "upcode_em_time_mismatch", "rule_type": "upcoding_pattern", "applicable_codes": ["99213", "99214"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "When an E/M level is selected by time, the documented total time on the date of service must support the level billed. A code chosen by time that exceeds the time actually recorded is an upcoding indicator.", "structured_rule_id": null },
-    { "rule_id": "phantom_lab_not_drawn", "rule_type": "phantom_charge", "applicable_codes": ["80053", "85025"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "A laboratory test billed when no specimen was collected, or results never reported, is a phantom charge. If the patient has no recollection of a blood draw and no results exist, the line item should be challenged.", "structured_rule_id": null },
-    { "rule_id": "phantom_supply_not_used", "rule_type": "phantom_charge", "applicable_codes": ["A4253"], "effective_date_start": "2023-01-01", "effective_date_end": null, "payer": null, "authority": "CMS", "narrative_text": "Supplies billed that the patient never received (e.g., test strips listed but not dispensed) are phantom charges. Confirm with the patient whether the supply was actually provided before treating the line item as legitimate.", "structured_rule_id": null }
+    {
+      "rule_id": "ncci_ptp_45378_45380",
+      "rule_type": "ncci_ptp",
+      "applicable_codes": [
+        "45378",
+        "45380"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "When a screening colonoscopy (base code 45378) becomes a biopsy/diagnostic colonoscopy (45380) during the same session, only the more extensive service is separately reportable. Billing both for the same encounter without an appropriate modifier is a procedure-to-procedure conflict.",
+      "structured_rule_id": "ncci:ptp:45378:45380",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "ncci_ptp_11402_12031",
+      "rule_type": "ncci_ptp",
+      "applicable_codes": [
+        "11402",
+        "12031"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Simple closure is included in a benign lesion excision and is not separately reportable. Intermediate (layered) closure may be separately reportable, but billing the excision and the closure for the same wound without distinct documentation is a bundling conflict.",
+      "structured_rule_id": "ncci:ptp:11402:12031",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "ncci_ptp_80053_85025",
+      "rule_type": "ncci_ptp",
+      "applicable_codes": [
+        "80053",
+        "85025"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A comprehensive metabolic panel and a CBC are generally separately reportable, but a metabolic panel billed alongside its own overlapping component panel on the same day is a procedure-to-procedure conflict; the overlapping component is denied absent a clinically appropriate modifier.",
+      "structured_rule_id": "ncci:ptp:80053:85025",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "ncci_ptp_71046_71250",
+      "rule_type": "ncci_ptp",
+      "applicable_codes": [
+        "71046",
+        "71250"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A 2-view chest X-ray performed as part of, and on the same day as, a chest CT is typically not separately payable when the X-ray is a precursor to the CT. Separate reporting requires a distinct clinical indication and documentation.",
+      "structured_rule_id": "ncci:ptp:71046:71250",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "mue_85025_units",
+      "rule_type": "mue",
+      "applicable_codes": [
+        "85025"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A CBC with differential is expected at most once per day for a single patient. Units beyond the medically-unlikely threshold for the same date of service are denied unless documentation supports a clinically necessary repeat draw.",
+      "structured_rule_id": "mue:85025",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "mue_80053_units",
+      "rule_type": "mue",
+      "applicable_codes": [
+        "80053"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A comprehensive metabolic panel exceeding one unit per date of service is medically unlikely; quantities above the threshold are denied absent documentation of a separately necessary repeat panel.",
+      "structured_rule_id": "mue:80053",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "mue_J3490_units",
+      "rule_type": "mue",
+      "applicable_codes": [
+        "J3490"
+      ],
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Unclassified drug code J3490 has no fixed unit definition; high unit counts are a red flag and require an itemized description (drug name, dose, NDC). Quantities without supporting documentation should be challenged.",
+      "structured_rule_id": "mue:J3490",
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "modifier_25_em_with_procedure",
+      "rule_type": "modifier_validity",
+      "applicable_codes": [
+        "99213",
+        "99214",
+        "99285"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Modifier 25 indicates a significant, separately identifiable E/M service on the same day as a minor procedure. It is appropriate only when the E/M is above and beyond the usual pre- and post-procedure work; routine attachment of modifier 25 to every same-day E/M is an audit flag.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "modifier_59_distinct_service",
+      "rule_type": "modifier_validity",
+      "applicable_codes": [
+        "12031",
+        "11402"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Modifier 59 designates a distinct procedural service (different session, site, or lesion) and may unbundle an NCCI pair. It must not be used to bypass an edit when the services were performed on the same lesion/site; misuse is a common overpayment driver.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "modifier_51_multiple_procedures",
+      "rule_type": "modifier_validity",
+      "applicable_codes": [
+        "27447",
+        "45380"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Modifier 51 indicates multiple procedures performed at the same session and typically triggers multiple-procedure payment reduction on the lower-valued codes. Absence of expected reductions when multiple procedures are billed is a red flag.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "aca_2713_screening_colonoscopy",
+      "rule_type": "aca_preventive",
+      "applicable_codes": [
+        "45378",
+        "45380"
+      ],
+      "effective_date_start": "2010-09-23",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Under ACA preventive-services rules, a screening colonoscopy for an average-risk patient is covered with zero cost-sharing in-network. If a polyp is removed during a screening, the service remains preventive and cost-sharing should still not apply; charging coinsurance because the code shifted to diagnostic is a common payer error.",
+      "structured_rule_id": null,
+      "rule_class": "legal_protection",
+      "responsible_party": "payer"
+    },
+    {
+      "rule_id": "aca_2713_flu_vaccine",
+      "rule_type": "aca_preventive",
+      "applicable_codes": [
+        "G0008"
+      ],
+      "effective_date_start": "2010-09-23",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Administration of a recommended influenza vaccine is a covered preventive service with no cost-sharing for in-network patients. A copay or deductible applied to flu-vaccine administration is a likely cost-sharing error.",
+      "structured_rule_id": null,
+      "rule_class": "legal_protection",
+      "responsible_party": "payer"
+    },
+    {
+      "rule_id": "aca_2713_annual_wellness",
+      "rule_type": "aca_preventive",
+      "applicable_codes": [
+        "G0438",
+        "99395"
+      ],
+      "effective_date_start": "2011-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "An annual wellness visit / age-appropriate preventive visit is covered with no cost-sharing in-network. When additional problem-oriented E/M is performed and separately billed (modifier 25), only that portion may carry cost-sharing \u2014 the preventive component should not.",
+      "structured_rule_id": null,
+      "rule_class": "legal_protection",
+      "responsible_party": "payer"
+    },
+    {
+      "rule_id": "upcode_em_99285_documentation",
+      "rule_type": "upcoding_pattern",
+      "applicable_codes": [
+        "99285"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A level-5 ER visit (99285) requires high-complexity medical decision making. A short, uncomplicated visit billed at 99285 \u2014 no significant workup, single self-limited problem \u2014 is a classic upcoding pattern. Ask whether the visit truly involved an extensive evaluation.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "upcode_em_99214_mdm",
+      "rule_type": "upcoding_pattern",
+      "applicable_codes": [
+        "99214"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A 99214 requires moderate-complexity decision making or 30-39 minutes. A routine, stable, single-problem follow-up billed at 99214 without supporting MDM or time documentation is a frequent upcoding pattern relative to 99213.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "upcode_em_time_mismatch",
+      "rule_type": "upcoding_pattern",
+      "applicable_codes": [
+        "99213",
+        "99214"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "When an E/M level is selected by time, the documented total time on the date of service must support the level billed. A code chosen by time that exceeds the time actually recorded is an upcoding indicator.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "phantom_lab_not_drawn",
+      "rule_type": "phantom_charge",
+      "applicable_codes": [
+        "80053",
+        "85025"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "A laboratory test billed when no specimen was collected, or results never reported, is a phantom charge. If the patient has no recollection of a blood draw and no results exist, the line item should be challenged.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "phantom_supply_not_used",
+      "rule_type": "phantom_charge",
+      "applicable_codes": [
+        "A4253"
+      ],
+      "effective_date_start": "2023-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "Supplies billed that the patient never received (e.g., test strips listed but not dispensed) are phantom charges. Confirm with the patient whether the supply was actually provided before treating the line item as legitimate.",
+      "structured_rule_id": null,
+      "rule_class": "provider_coding",
+      "responsible_party": "provider"
+    },
+    {
+      "rule_id": "payer_deductible_misapplication_v1",
+      "rule_type": "deductible_misapplication",
+      "rule_class": "payer_adjudication",
+      "responsible_party": "payer",
+      "effective_date_start": "2024-01-01",
+      "effective_date_end": null,
+      "payer": null,
+      "authority": "CMS",
+      "narrative_text": "When the EOB applies a deductible to a service after the member's accumulated deductible has already been met for the plan year, the member responsibility is overstated. Compare the EOB's applied-deductible amount against the member's year-to-date accumulator position; a deductible charge that exceeds the remaining deductible is an adjudication error and the claim should be reprocessed.",
+      "structured_rule_id": null
+    }
   ]
 }

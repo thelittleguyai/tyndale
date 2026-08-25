@@ -57,6 +57,18 @@ Contract shape (from X1): *what must be true · what fails · one worked failing
 
 **FAILS when:** `error_type` null/free-text · zero line-item refs · impact absent without a typed reason.
 
+> **Mapping note (2026-08-22, the §3 `error_detection_rules` extension — one taxonomy, two enums, NOT merged):**
+> the collection's new payer-side `rule_type`s feed these `error_type`s when a rule produces a finding:
+> `deductible_misapplication` → `deductible_misapplied` · `oop_max_ignored` → `stale_accumulator` ·
+> `coinsurance_rate_error` → `cost_sharing_math_error` · `cob_misordering` → `cob_misordered` ·
+> (`aca_preventive`, now rule_class `legal_protection`) → `preventive_cost_shared`.
+> **Three payer rule_types have NO error_type today** — `network_status_misapplied`,
+> `auth_on_file_ignored`, `allowed_amount_above_contract` — they route through
+> `other_billing_error` + sub-label until you either extend this enum or rename; your call
+> (flagged in the 2026-08-22 debrief). `extreme_markup` deliberately does NOT map to
+> `allowed_amount_above_contract` — one is a self-pay benchmark claim (B4), the other a
+> contract-adjudication error.
+
 **Worked failing example:**
 > "Something looks wrong with the charges on this bill — worth asking your provider about."
 > → FAIL X5: reasons `error_type_missing`, `no_line_item_ref`, `impact_missing_untyped`. *(Also fails X2.)*
