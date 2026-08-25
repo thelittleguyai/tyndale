@@ -63,11 +63,17 @@ def disclosure_tier(
     *,
     missing_inputs: Iterable[str] = (),
     cross_validation_material: bool = False,
+    benchmark_substitution: bool = False,
 ) -> int:
     """Deterministic 0–3 disclosure tier. Inputs are the computed result's range width vs
     the USER_CHASE/AUDIT_FLAG thresholds, whether required inputs are missing, and whether
     cross-validation disagreed materially. Pure — the audit's confidence is a function of
-    the data, never the model's self-report."""
+    the data, never the model's self-report.
+
+    ``benchmark_substitution`` (Brock 2026-08-22, §2.5): ANY benchmark substitution in the
+    basis forces Tier 3 — full pattern, range only, never a point — regardless of width."""
+    if benchmark_substitution:
+        return 3
     has_missing = bool(list(missing_inputs))
     audit = is_material(range_width, base, AUDIT_FLAG)
     chase = is_material(range_width, base, USER_CHASE)
