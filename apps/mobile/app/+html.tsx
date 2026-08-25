@@ -11,6 +11,8 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+import { brand } from '@tyndale/shared';
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -20,7 +22,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="application-name" content="Tyndale" />
         <meta name="apple-mobile-web-app-title" content="Tyndale" />
-        <meta name="theme-color" content="#3E5C57" />
+        <meta name="theme-color" content={brand.teal} />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
