@@ -126,9 +126,8 @@ def test_fixture_file_conforms_and_carries_the_backfill():
 # ── retrieval: payer rules are found WITHOUT any code filter ────────────────────────
 @pytest.mark.asyncio
 async def test_golden_payer_rule_round_trips_without_code_filter(monkeypatch):
-    from qdrant_client import models
+    from qdrant_client import AsyncQdrantClient, models
 
-    from app.knowledge import client as client_mod
     from app.knowledge import search as search_mod
 
     async def fake_embed(text: str, model: str, dim: int = 1024) -> list[float]:
@@ -136,7 +135,12 @@ async def test_golden_payer_rule_round_trips_without_code_filter(monkeypatch):
         return [1.0, 0.0, 0.0, 0.0]
 
     monkeypatch.setattr(search_mod, "embed", fake_embed)
-    client = client_mod.get_client()
+    # IN-MEMORY qdrant, never the settings URL: CI has no server at localhost:6333 (the
+    # 30e7e6c Runtime CI failure). The round-trip is about payload + filter semantics,
+    # which :memory: implements identically. search() binds get_client into its own
+    # namespace at import, so that binding is what gets patched.
+    client = AsyncQdrantClient(location=":memory:")
+    monkeypatch.setattr(search_mod, "get_client", lambda: client)
     name = "error_detection_rules"
     if await client.collection_exists(name):
         await client.delete_collection(name)
