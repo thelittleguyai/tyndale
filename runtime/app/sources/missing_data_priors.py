@@ -72,6 +72,10 @@ MISSING_DATA_PRIORS: dict[str, InputPrior] = {
         low=20.0, base=50.0, high=100.0, unit="usd",
         source="placeholder", note="specialist visit copay",
     ),
+    "copay_pcp": InputPrior(
+        low=0.0, base=27.0, high=75.0, unit="usd",
+        source="placeholder", note="primary-care visit copay",
+    ),
     "copay_er": InputPrior(
         low=150.0, base=350.0, high=700.0, unit="usd",
         source="placeholder", note="emergency-room copay",
@@ -160,3 +164,86 @@ def missing_cost_share_inputs(coverage: dict | None) -> list[str]:
     """The REQUIRED_COST_SHARE_INPUTS absent from a coverage blob (value is None/missing)."""
     cov = coverage or {}
     return [k for k in REQUIRED_COST_SHARE_INPUTS if cov.get(k) is None]
+
+
+# ── Benchmark substitutions (Brock 2026-08-22, 38_content_program §2.1) ─────────────────
+# A DIFFERENT ANIMAL from coverage-term priors: these substitute a market benchmark
+# (a multiple of the Medicare rate) for an unknown negotiated price. Tier 3 by contract —
+# a RANGE only, NEVER a point estimate (materiality.disclosure_tier forces tier 3 whenever
+# one of these is in the basis). Tombstoned entries are permanently dark: no honest
+# aggregate exists, and the accessors refuse them.
+
+
+@dataclass(frozen=True)
+class BenchmarkSubstitution:
+    """One benchmark multiple (× the Medicare rate). ``tombstone`` set → the entry is
+    PERMANENTLY dark: it never activates and never yields a number, whatever a future
+    tranche says — the tombstone text records why."""
+
+    low: float
+    base: float
+    high: float
+    unit: str  # "x_medicare"
+    source: str
+    as_of: str
+    note: str = ""
+    tier3_only: bool = True  # rendering contract: range only, never a point
+    active: bool = False
+    tombstone: str | None = None
+
+
+BENCHMARK_SUBSTITUTIONS: dict[str, BenchmarkSubstitution] = {
+    "hospital_outpatient_pct_medicare": BenchmarkSubstitution(
+        low=1.65, base=2.79, high=3.00, unit="x_medicare",
+        source="RAND Hospital Price Transparency Round 5.1 (Dec 2024, 2022 data)",
+        as_of="2024-12", active=True,
+    ),
+    "hospital_inpatient_pct_medicare": BenchmarkSubstitution(
+        low=1.65, base=2.54, high=3.00, unit="x_medicare",
+        source="RAND Hospital Price Transparency Round 5.1 (Dec 2024, 2022 data)",
+        as_of="2024-12", active=True,
+    ),
+    "physician_pct_medicare": BenchmarkSubstitution(
+        low=1.18, base=1.40, high=1.79, unit="x_medicare",
+        source="MedPAC March 2025 Report, Ch. 4", as_of="2025-03", active=True,
+    ),
+    "imaging_pct_medicare": BenchmarkSubstitution(
+        low=1.50, base=1.55, high=1.60, unit="x_medicare",
+        source="Single-study 2025", as_of="2025",
+        note="LOW confidence — activate with Tier-3 language only.", active=True,
+    ),
+    "lab_pct_medicare": BenchmarkSubstitution(
+        low=0.0, base=0.0, high=0.0, unit="x_medicare", source="—", as_of="—", active=False,
+        tombstone=(
+            "No aggregate multiple exists — DO NOT ACTIVATE. Never quote a lab multiple; "
+            "the Medicare rate is floor-only framing."
+        ),
+    ),
+    "regional_average_substitution": BenchmarkSubstitution(
+        low=0.0, base=0.0, high=0.0, unit="x_medicare",
+        source="HCCI", as_of="2025", active=False,
+        tombstone=(
+            "HCCI within-market spread averages 2.7x low-to-high, outliers 6-10x — a point "
+            "estimate is dishonest by this spread alone. Ranges only, and this entry stays dark."
+        ),
+    ),
+}
+
+
+def benchmark_range(key: str) -> tuple[float, float, BenchmarkSubstitution] | None:
+    """The ONLY read path for a benchmark substitution: (low, high, meta) — a RANGE.
+    None for unknown, inactive, or tombstoned entries: a dark benchmark yields no number
+    at all, ever. There is deliberately no point accessor; see benchmark_point."""
+    entry = BENCHMARK_SUBSTITUTIONS.get(key)
+    if entry is None or entry.tombstone is not None or not entry.active:
+        return None
+    return (entry.low, entry.high, entry)
+
+
+def benchmark_point(key: str) -> float:
+    """Refused by contract (Brock §2.1/§2.5): a benchmark substitution is Tier 3 and
+    renders as a range, never a point. This exists so the refusal is explicit and
+    testable rather than an accident of missing code."""
+    raise TypeError(
+        f"benchmark substitution {key!r} is Tier 3 — range only, never a point estimate"
+    )

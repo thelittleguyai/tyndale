@@ -1,0 +1,46 @@
+{
+  "source": "38_content_program_tranche1.md \u00a72.2 \u2014 KFF Employer Health Benefits Survey 2025",
+  "as_of": "2025-10",
+  "entries": {
+    "deductible_amount": {
+      "low": 0,
+      "base": 1886,
+      "high": 2000,
+      "unit": "usd",
+      "placeholder": false,
+      "note": "Brock's deductible_single. 12% have $0; 34% have >=$2,000 \u2014 the distribution matters more than the mean. His high is an open-ended floor ('$2,000+'); the prior shape cannot express open-endedness, so 2000 stands with this caveat (do not invent a higher cap)."
+    },
+    "oop_max_amount": {
+      "low": 2000,
+      "base": 4000,
+      "high": 6000,
+      "unit": "usd",
+      "placeholder": false,
+      "note": "Brock's oop_max. 12% <=$2k; 21% >$6k; matters only near the cap. High is an open-ended floor ('$6,000+') \u2014 same caveat as the deductible."
+    },
+    "coinsurance_percent": {
+      "low": 0.19,
+      "base": 0.2,
+      "high": 0.2,
+      "unit": "fraction",
+      "placeholder": false,
+      "note": "Brock's coinsurance_rate \u2014 19% office, 20% hospital. Tight prior (Tier 1)."
+    },
+    "copay_pcp": {
+      "low": 0,
+      "base": 27,
+      "high": 75,
+      "unit": "usd",
+      "placeholder": false,
+      "note": "Primary-care visit copay."
+    },
+    "copay_specialist": {
+      "low": 0,
+      "base": 45,
+      "high": 75,
+      "unit": "usd",
+      "placeholder": false,
+      "note": "Specialist visit copay."
+    }
+  }
+}

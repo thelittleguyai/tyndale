@@ -87,9 +87,28 @@ def test_anchor_precedence_allowed_over_billed_over_lines():
 
 
 # ── the priors gate (Phil, 2026-08-18): placeholder priors suppress the visible range ─────
-def test_placeholder_priors_suppress_the_visible_range():
-    """Every prior is placeholder-flagged today, so a range built on them must not render —
-    the figure ships point-form until Brock's researched values land."""
+def test_tranche1_priors_render_the_visible_range():
+    """Tranche 1 (Brock 2026-08-22) activated the deductible + coinsurance priors, so a
+    coverage-less case now RENDERS its range — the activation this gate existed for."""
+    out = _rung2_three_numbers(_case(documents=[_eob_doc()]))
+    assert out is not None
+    assert out["tyndale_computed_low"] is not None and out["tyndale_computed_high"] is not None
+    assert 0.0 <= out["tyndale_computed_low"] <= out["tyndale_computed_high"] <= 1800.0
+
+
+def test_placeholder_priors_still_suppress_the_visible_range(monkeypatch):
+    """The gate itself is unchanged: a range built on any still-dark prior must not render
+    (proven with a placeholder table, since the shipped one is now live)."""
+    from app.sources import cost_share_model
+    from app.sources.missing_data_priors import InputPrior
+
+    dark = {
+        "deductible_amount": InputPrior(low=500.0, base=2000.0, high=8000.0, unit="usd",
+                                        source="placeholder"),
+        "coinsurance_percent": InputPrior(low=0.10, base=0.20, high=0.40, unit="fraction",
+                                          source="placeholder"),
+    }
+    monkeypatch.setattr(cost_share_model, "MISSING_DATA_PRIORS", dark)
     out = _rung2_three_numbers(_case(documents=[_eob_doc()]))
     assert out is not None
     assert out["tyndale_computed_low"] is None and out["tyndale_computed_high"] is None

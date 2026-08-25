@@ -13,7 +13,12 @@ from app.sources.cost_share_model import rung2_range
 
 
 def _fresh_table() -> dict[str, mdp.InputPrior]:
-    return {k: replace(v) for k, v in mdp.MISSING_DATA_PRIORS.items()}
+    """A PRISTINE all-placeholder table. The live dict has Tranche 1 merged at import, so
+    copying it would leak activated entries into merge tests that assume a dark base."""
+    return {
+        k: replace(v, placeholder=True, source="placeholder", as_of=None)
+        for k, v in mdp.MISSING_DATA_PRIORS.items()
+    }
 
 
 def test_partial_tranche_merges_one_entry_with_provenance(tmp_path, monkeypatch):
@@ -36,7 +41,7 @@ def test_partial_tranche_merges_one_entry_with_provenance(tmp_path, monkeypatch)
     # Siblings untouched: still placeholders, still the engineering values, no provenance.
     assert table["coinsurance_percent"].placeholder is True
     assert table["coinsurance_percent"].as_of is None
-    assert table["oop_max_amount"] == mdp.MISSING_DATA_PRIORS["oop_max_amount"]
+    assert table["oop_max_amount"].placeholder is True  # untouched sibling stays dark
     assert "not_a_real_input" not in table
 
 
@@ -80,7 +85,38 @@ def test_no_tranche_dir_means_everything_stays_dark(tmp_path, monkeypatch):
     assert all(p.placeholder for p in table.values())
 
 
-@pytest.mark.parametrize("key", list(mdp.MISSING_DATA_PRIORS))
-def test_live_table_is_still_all_placeholder_until_brocks_first_tranche(key):
-    # The repo ships no tranche yet — nothing activates by accident.
+# Tranche 1 (Brock 2026-08-22, 38_content_program §2.2): these five are LIVE in the
+# shipped repo; everything else stays dark until its own tranche.
+TRANCHE1_ACTIVE = {
+    "deductible_amount", "oop_max_amount", "coinsurance_percent", "copay_pcp", "copay_specialist",
+}
+
+
+@pytest.mark.parametrize("key", sorted(TRANCHE1_ACTIVE))
+def test_tranche1_entries_are_live_with_kff_provenance(key):
+    prior = mdp.MISSING_DATA_PRIORS[key]
+    assert prior.placeholder is False
+    assert "KFF" in prior.source and prior.as_of == "2025-10"
+
+
+def test_tranche1_values_are_brocks_verbatim():
+    t = mdp.MISSING_DATA_PRIORS
+    assert (t["deductible_amount"].low, t["deductible_amount"].base, t["deductible_amount"].high) == (0.0, 1886.0, 2000.0)
+    assert (t["oop_max_amount"].low, t["oop_max_amount"].base, t["oop_max_amount"].high) == (2000.0, 4000.0, 6000.0)
+    assert (t["coinsurance_percent"].low, t["coinsurance_percent"].base, t["coinsurance_percent"].high) == (0.19, 0.20, 0.20)
+    assert (t["copay_pcp"].low, t["copay_pcp"].base, t["copay_pcp"].high) == (0.0, 27.0, 75.0)
+    assert (t["copay_specialist"].base, t["copay_specialist"].high) == (45.0, 75.0)
+    assert "open-ended floor" in t["deductible_amount"].note  # the $2,000+ caveat is preserved
+
+
+@pytest.mark.parametrize("key", sorted(set(mdp.MISSING_DATA_PRIORS) - TRANCHE1_ACTIVE))
+def test_untranched_entries_stay_dark(key):
     assert mdp.MISSING_DATA_PRIORS[key].placeholder is True
+
+
+def test_no_prior_exists_for_the_per_case_unknowns():
+    # §2.2: deductible_met_ytd has NO prior — the engine sweeps plausible values per case
+    # (rung2's deductible candidates always include 0.0); family_deductible_structure is
+    # ask-when-triggered, not a prior. Neither may ever appear in the table.
+    for absent in ("deductible_met_ytd", "deductible_met", "family_deductible_structure"):
+        assert absent not in mdp.MISSING_DATA_PRIORS
