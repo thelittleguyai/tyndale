@@ -512,6 +512,13 @@ resource "azurerm_container_app_job" "runtime_seed" {
     key_vault_secret_id = azurerm_key_vault_secret.voyage_api_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Phase 3.3 gave qdrant auth and wired the runtime app, but this job was missed — the
+  # first post-outage seed died on 401 (2026-08-25). Same KV ref + identity as the app.
+  secret {
+    name                = "qdrant-api-key"
+    key_vault_secret_id = azurerm_key_vault_secret.qdrant_api_key.versionless_id
+    identity            = azurerm_user_assigned_identity.runtime.id
+  }
 
   template {
     container {
@@ -532,6 +539,10 @@ resource "azurerm_container_app_job" "runtime_seed" {
       env {
         name        = "VOYAGE_API_KEY"
         secret_name = "voyage-api-key"
+      }
+      env {
+        name        = "QDRANT_API_KEY"
+        secret_name = "qdrant-api-key"
       }
       env {
         name = "QDRANT_URL"
