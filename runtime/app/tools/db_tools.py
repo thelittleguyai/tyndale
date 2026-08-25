@@ -117,7 +117,9 @@ register_tool(
     {
         "description": (
             "Persist a finding to the case file. finding_type ∈ {payer_side, provider_side, "
-            "encounter_mismatch}. voice_tier ∈ {A, B, C}. facts is a Tier A structured dict. "
+            "encounter_mismatch}. voice_tier ∈ {A, B, C}. facts is a Tier A structured dict "
+            "(when the finding rests on a retrieved rule, carry the rule's responsible_party "
+            "into facts.responsible_party: provider | payer | either). "
             "legal_claim is the Tier B claim object (include citations as a list inside it). "
             "recommendation is the Tier C scripted next-action."
         ),

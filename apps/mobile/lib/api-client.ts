@@ -99,6 +99,9 @@ export interface FindingOut {
    * uncited one to the no-source line). Defaults to 'fact' for older payloads.
    */
   tier?: 'fact' | 'rule_based';
+  /** Attribution (Brock 38 §3, 2026-08-22): who the finding implicates. SERVER-derived —
+   *  a matched rule's responsible_party (via facts) or the finding_type mapping. */
+  responsible_party?: 'provider' | 'payer' | 'either';
 }
 
 /** Deterministic disclosure tier (DL-85): 0 grounded · 1 note · 2 disclose · 3 chase. */

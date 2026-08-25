@@ -74,6 +74,21 @@ def finding_tier(finding: Any) -> str:
     return "fact"
 
 
+_RESPONSIBLE_PARTIES = ("provider", "payer", "either")
+_PARTY_BY_FINDING_TYPE = {"payer_side": "payer", "provider_side": "provider"}
+
+
+def derive_responsible_party(finding: Any) -> str:
+    """Attribution (Brock 38 §3): an explicit facts.responsible_party — the value a matched
+    rule carried — wins when valid; otherwise the finding_type maps (payer_side → payer,
+    provider_side → provider, anything else → either). Server-derived, never the client."""
+    facts = getattr(finding, "facts", None) or {}
+    explicit = facts.get("responsible_party") if isinstance(facts, dict) else None
+    if isinstance(explicit, str) and explicit in _RESPONSIBLE_PARTIES:
+        return explicit
+    return _PARTY_BY_FINDING_TYPE.get(getattr(finding, "finding_type", ""), "either")
+
+
 def apply_finding_tier(finding: Any) -> Any:
     """Stamp the tier and enforce the chip rule. An UNCITED rule-based finding is the
     never-a-bare-legal-claim case: the source line becomes the honest no-source state
@@ -81,6 +96,7 @@ def apply_finding_tier(finding: Any) -> Any:
     from app.agents.context_loader import DOCTRINE_VIOLATIONS
 
     finding.tier = finding_tier(finding)
+    finding.responsible_party = derive_responsible_party(finding)
     if finding.tier == "rule_based" and not getattr(finding, "has_source", False):
         DOCTRINE_VIOLATIONS[f"rule_based_uncited:{getattr(finding, 'category', '?')}"] += 1
         finding.source_line, finding.has_source = orchestration_step("finding_no_source"), False

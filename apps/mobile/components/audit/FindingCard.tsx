@@ -83,7 +83,18 @@ export function FindingCard({
   const isRose = finding.finding_type === 'provider_side';
   const borderClass = isRose ? 'border-danger' : 'border-warning';
 
-  const typeLabel = TYPE_LABELS[finding.finding_type] ?? 'Something worth a closer look';
+  // Attribution (Brock 38 §3): the server-derived responsible_party decides the header —
+  // a payer-adjudication rule's finding says "insurer" even if typed provider_side, and
+  // 'either' gets the both-parties line (engineering copy, flagged for Brock's pass).
+  const ATTRIBUTION_LABELS: Record<string, string> = {
+    payer: TYPE_LABELS.payer_side,
+    provider: TYPE_LABELS.provider_side,
+    either: 'Worth checking with both your provider and insurer',
+  };
+  const typeLabel =
+    (finding.responsible_party ? ATTRIBUTION_LABELS[finding.responsible_party] : undefined) ??
+    TYPE_LABELS[finding.finding_type] ??
+    'Something worth a closer look';
   const tierLabel = TIER_LABELS[finding.voice_tier] ?? 'Worth asking about';
 
   return (

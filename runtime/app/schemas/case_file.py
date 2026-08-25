@@ -68,6 +68,11 @@ class FindingOut(BaseModel):
     # (chips on arithmetic teach users to ignore chips); rule_based → chip REQUIRED —
     # cited renders the chip, uncited renders the [B] degradation line and is counted.
     tier: str = "fact"
+    # Finding attribution (Brock 38 §3, 2026-08-22): who this finding implicates —
+    # 'provider' | 'payer' | 'either'. Derived SERVER-side (grounding.derive_responsible_
+    # party): an explicit facts.responsible_party (e.g. carried from a matched rule's
+    # responsible_party) wins; else mapped from finding_type. Never client-derived.
+    responsible_party: str = "either"
     # E4/H3 — the VISIBLE half of the grounding doctrine. Always populated: either the
     # resolved "source: …" line or the explicit no-source state, never nothing. A client
     # therefore cannot render a bare claim even by omission.

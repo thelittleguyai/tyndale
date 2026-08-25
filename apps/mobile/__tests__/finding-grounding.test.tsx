@@ -98,3 +98,26 @@ describe('FindingCard B5 tier rendering', () => {
     expect(getByTestId('no-source-line')).toBeTruthy();
   });
 });
+
+/**
+ * Attribution (Brock 38 §3, 2026-08-22): responsible_party decides the header — a
+ * payer-adjudication rule's finding attributes to the insurer regardless of finding_type;
+ * 'either' renders the both-parties line; absent falls back to the finding_type label.
+ */
+describe('FindingCard attribution', () => {
+  it('payer responsible_party renders the insurer header', () => {
+    const { getByText } = render(
+      <FindingCard finding={finding({ finding_type: 'provider_side', responsible_party: 'payer' })} {...props} />,
+    );
+    expect(getByText('Your insurer may have miscalculated')).toBeTruthy();
+  });
+
+  it("'either' renders the both-parties line; absent falls back to finding_type", () => {
+    const { getByText } = render(
+      <FindingCard finding={finding({ responsible_party: 'either' })} {...props} />,
+    );
+    expect(getByText('Worth checking with both your provider and insurer')).toBeTruthy();
+    const fallback = render(<FindingCard finding={finding()} {...props} />);
+    expect(fallback.getByText('Your insurer may have miscalculated')).toBeTruthy();
+  });
+});
