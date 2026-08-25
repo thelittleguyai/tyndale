@@ -34,6 +34,7 @@ from app.db.models.case_files import CaseFile
 from app.db.models.conversations import Conversation
 from app.db.models.messages import Message
 from app.schemas.case_file import as_dict
+from app.sources.extraction import plausible_extracted_name
 
 log = structlog.get_logger(__name__)
 
@@ -341,7 +342,9 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     if attest_needed:
         intro = orchestration_step(
             "attest.intro",
-            patient_name=case.patient_name,
+            patient_name=(
+                case.patient_name if plausible_extracted_name(case.patient_name) else None
+            ),
             first_name=(getattr(attest_user, "first_name", None) or "there"),
         )
         await ensure(

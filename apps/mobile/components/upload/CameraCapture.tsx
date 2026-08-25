@@ -256,7 +256,7 @@ export function CameraCapture({
       </View>
 
       <View className="flex-1 px-5">
-        <View className="relative aspect-[3/4] w-full max-w-xl self-center overflow-hidden rounded-2xl bg-navy">
+        <View className="relative w-full max-w-xl flex-1 self-center overflow-hidden rounded-2xl bg-navy">
           {/* The viewfinder. Hidden (not unmounted) during review so the stream keeps running —
               tearing the track down and back up between pages is slow and flickers. */}
           <video
@@ -305,11 +305,11 @@ export function CameraCapture({
           <View className="flex-row gap-3">
             <Pressable
               onPress={retake}
-              className="min-h-[48px] flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-4"
+              className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-4"
               testID="capture-retake"
             >
               <RotateCcw size={17} color="var(--c-text-secondary)" />
-              <Text className="text-body font-semibold text-secondary">
+              <Text numberOfLines={1} className="text-body font-semibold text-secondary">
                 {copy.capture_retake || FALLBACK.retake}
               </Text>
             </Pressable>
@@ -317,6 +317,7 @@ export function CameraCapture({
               <Button
                 variant="primary"
                 label={copy.capture_looks_good || FALLBACK.looks_good}
+                className="min-h-[48px]"
                 onPress={keep}
                 testID="capture-keep"
               />
@@ -325,10 +326,13 @@ export function CameraCapture({
         ) : (
           <View className="flex-row gap-3">
             {pages.length > 0 ? (
-              <View className="flex-1">
+              <View>
+                {/* Just "Done" — the banked count lives in the "Page N" header, and the count
+                    suffix is what made this row truncate 'Take another picture' at 390pt. */}
                 <Button
                   variant="secondary"
-                  label={`Done — ${pages.length} page${pages.length === 1 ? '' : 's'}`}
+                  label="Done"
+                  className="min-h-[56px]"
                   onPress={finish}
                   testID="capture-done"
                 />
@@ -342,8 +346,10 @@ export function CameraCapture({
               className="min-h-[56px] flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4"
               testID="capture-shutter"
             >
-              <Camera size={18} color="var(--c-on-accent)" />
-              <Text className="text-base font-bold text-on-accent">
+              {/* pages>0: the label carries the meaning and the row is width-tight — the
+                  glyph is what makes 'Take another picture' truncate at 390pt. */}
+              {pages.length === 0 ? <Camera size={18} color="var(--c-on-accent)" /> : null}
+              <Text numberOfLines={1} className="text-base font-bold text-on-accent">
                 {pages.length > 0 ? copy.capture_add_page || FALLBACK.add_page : 'Take photo'}
               </Text>
             </Pressable>

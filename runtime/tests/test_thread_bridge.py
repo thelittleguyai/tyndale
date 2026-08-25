@@ -216,3 +216,22 @@ def test_status_card_paused_only_when_awaiting_user_input():
     for status in ("open", "in_progress", "audit_running", "audit_complete", "resolved"):
         assert thread_bridge.status_card_payload(status)["paused"] is False
 
+async def test_ledger_furniture_patient_name_never_reaches_copy(client: AsyncClient, chat_first_on):
+    """A pre-gate persisted junk patient_name ("Payments (since last statements)", the
+    2026-08-22 UMC field test) is unknowable: it never triggers attest, never interpolates
+    into any rendered copy, and verification proceeds normally."""
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id,
+        status="encounter_verification_pending",
+        patient_name="Payments (since last statements)",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    joined = " ".join(m.content or "" for m in msgs) + " ".join(
+        str(m.payload) for m in msgs if m.payload
+    )
+    assert "Payments (since last statements)" not in joined
+    assert not any((m.payload or {}).get("marker") == "attest:intro" for m in msgs)
+    assert any(m.kind == "verification_request" for m in msgs)

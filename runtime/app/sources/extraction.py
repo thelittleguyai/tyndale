@@ -189,6 +189,38 @@ _SECOND_FIELD_RE = re.compile(
 )
 
 
+# Bill-form FURNITURE (Brock's 2026-08-22 field test): the UMC El Paso statement put its
+# account-summary ledger label on the line after the PATIENT anchor, and "Payments (since
+# last statements)" reached the attest copy as a person. A value matching statement-ledger
+# vocabulary, ending like a field label, or wrapped in a ledger qualifier is NOT a name —
+# per the conservative-matcher philosophy, no value beats a wrong value.
+_LEDGER_FURNITURE_RE = re.compile(
+    r"\b(?:payments?|balance|amount\s+due|since\s+last\s+statements?|sub\s*total|total|"
+    r"account\s+(?:number|no|#|summary)|statement|charges?|credits?|adjustments?|"
+    r"previous\s+balance|new\s+balance|due\s+date|minimum\s+due|pay\s+this\s+amount|"
+    r"page\s+\d+\s+of\s+\d+|invoice|remit|billing\s+period)\b",
+    re.IGNORECASE,
+)
+
+
+def plausible_extracted_name(value: object) -> bool:
+    """True when an extracted string is plausible as a person/organisation NAME for
+    user-facing copy. Rejects bill-form furniture (ledger labels), field-label shapes
+    (trailing colon), values that are only a parenthetical, and empty/overlong strings.
+    Callers degrade to the honest generic form on False — never build a question around a
+    value you don't trust."""
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    if not (3 <= len(v) <= 80) or not re.search(r"[A-Za-z]{2,}", v):
+        return False
+    if v.endswith(":") or v.startswith("("):
+        return False
+    if _LEDGER_FURNITURE_RE.search(v):
+        return False
+    return True
+
+
 def _grep_anchored_name(text: str, anchors: tuple[str, ...]) -> str | None:
     """Best-effort TYPED name from OCR text — matched CASE-INSENSITIVELY on a known anchor but
     returned in the ORIGINAL case ("Maple Grove Family Medicine"). Conservative: a line that
@@ -209,7 +241,7 @@ def _grep_anchored_name(text: str, anchors: tuple[str, ...]) -> str | None:
         line = re.split(r"\s{2,}|\t", line)[0].strip()
         line = _SECOND_FIELD_RE.split(line)[0].strip()
         # Name sanity: has letters, reasonable length, not mostly digits/punctuation/dates.
-        if line and 3 <= len(line) <= 80 and re.search(r"[A-Za-z]{2,}", line) and not _DATE_RE.search(line):
+        if line and not _DATE_RE.search(line) and plausible_extracted_name(line):
             letters = sum(c.isalpha() for c in line)
             if letters >= max(3, len(line) // 2):
                 return line

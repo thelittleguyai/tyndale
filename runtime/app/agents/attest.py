@@ -96,7 +96,13 @@ def evaluate_attest_state(case: CaseFile, user: User) -> bool:
     Mutates the ORM instance only; committing is the caller's job."""
     if case.attest_status in ("attested", "declined"):
         return False
+    from app.sources.extraction import plausible_extracted_name
+
     patient = derive_patient_name(case)
+    if not plausible_extracted_name(patient):
+        # Bill-form furniture persisted before the extraction gate (the 2026-08-22 UMC
+        # statement) is not a person — unknowable, and unknowable NEVER triggers attest.
+        patient = None
     if patient and not case.patient_name:
         case.patient_name = patient  # persist the typed derivation (DL-39)
     match = names_match(patient, profile_name(user))

@@ -228,13 +228,17 @@ def _row_provider(case) -> str | None:
     """The Record row TITLE — the provider, not the status (the status is the trailing chip).
     Fallback chain: the TYPED provider_name (persisted at extraction) → any provider name in the
     structured EOB/document artifacts → the primary document's classified type as a '<type> visit'
-    (properly cased) → None (the client renders a neutral 'Bill review')."""
-    if getattr(case, "provider_name", None):
+    (properly cased) → None (the client renders a neutral 'Bill review'). Every extracted slot
+    passes the plausibility gate — statement-ledger furniture never becomes a row title
+    (Brock 2026-08-22)."""
+    from app.sources.extraction import plausible_extracted_name
+
+    if plausible_extracted_name(getattr(case, "provider_name", None)):
         return case.provider_name
     name = _first(case.eobs, "provider", "provider_name") or _first(
         case.documents, "provider", "provider_name"
     )
-    if name:
+    if plausible_extracted_name(name):
         return name
     for d in case.documents or []:
         if isinstance(d, dict):
