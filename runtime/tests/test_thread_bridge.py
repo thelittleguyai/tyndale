@@ -151,3 +151,68 @@ async def test_extraction_failed_terminal_message(client: AsyncClient, chat_firs
     assert term.payload["tone"] == "error"
     card = next(m for m in msgs if m.kind == "status_card_update")
     assert card.payload["stages"][0]["state"] == "failed" and card.payload["terminal"]
+
+
+# ── Brock 2026-08-22: while the machine works, the thread renders ONLY the status card ──
+
+# A UMC-El-Paso-shaped page-1 statement: summary-only (no CPT rows, ledger labels, money),
+# with the ledger label sitting on the PATIENT anchor line — the exact misextraction shape.
+_UMC_SUMMARY_DOC = {
+    "document_id": "doc-umc-1",
+    "document_type": "bill",
+    "extraction_status": "extracted",
+    "ocr_text_chars": 400,
+    "filename": "umc_statement.pdf",
+    "ocr_text_preview": (
+        "UNIVERSITY MEDICAL CENTER OF EL PASO    Page 1 of 4\n"
+        "PATIENT: Payments (since last statements)\n"
+        "STATEMENT SUMMARY\n"
+        "Previous Balance    $2,480.00\n"
+        "Payments (since last statements)    -$500.00\n"
+        "New Balance    $1,980.00\n"
+        "AMOUNT DUE    $1,980.00\n"
+        "PLEASE PAY THIS AMOUNT\n"
+        "Account Number 4471982\n"
+    ),
+}
+
+
+async def test_machine_working_renders_only_the_status_card(client: AsyncClient, chat_first_on):
+    """While the run is in-flight, content (dataquality notices, verification cards, handoff)
+    queues — nothing renders alongside a spinning status card. It all appears on the first
+    reconcile after the run pauses for input, with the card flagged paused."""
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id,
+        status="audit_running",
+        line_items=[_li("99213"), _li("85025")],
+        documents=[_UMC_SUMMARY_DOC],
+        regime_detection={"handoff": "pace"},
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    assert not any(m.kind == "verification_request" for m in msgs)
+    assert not any((m.payload or {}).get("data_quality") for m in msgs)
+    assert not any((m.payload or {}).get("handoff") for m in msgs)
+    card = next(m for m in msgs if m.kind == "status_card_update")
+    assert card.payload["paused"] is False  # working, not waiting on the user
+
+    # the run pauses for input → the queued content renders beneath a static (paused) card
+    await _set_case(case_id, status="encounter_verification_pending")
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    assert any(m.kind == "verification_request" for m in msgs)
+    assert any(
+        (m.payload or {}).get("data_quality", {}).get("kind") == "summary_bill" for m in msgs
+    )
+    assert any((m.payload or {}).get("handoff") for m in msgs)
+    card = next(m for m in msgs if m.kind == "status_card_update")
+    assert card.payload["paused"] is True
+
+
+def test_status_card_paused_only_when_awaiting_user_input():
+    for status in ("encounter_verification_pending", "awaiting_eob_confirmation"):
+        assert thread_bridge.status_card_payload(status)["paused"] is True
+    for status in ("open", "in_progress", "audit_running", "audit_complete", "resolved"):
+        assert thread_bridge.status_card_payload(status)["paused"] is False
+

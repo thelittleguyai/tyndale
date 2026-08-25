@@ -22,7 +22,10 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
   // stages are done. A failed/incomplete terminal gets NO header — the rows carry that truth,
   // and inventing a third header state here would be copy nobody wrote.
   const allDone = payload.stages.length > 0 && payload.stages.every((s) => s.state === 'done');
-  const anyActive = payload.stages.some((s) => s.state === 'active');
+  // Paused = waiting on the USER (verification / EOB confirm). A spinner would claim machine
+  // work that isn't happening, so paused suppresses the working header and every
+  // ActivityIndicator — same words, still no third header state (Brock 2026-08-22).
+  const anyActive = !payload.paused && payload.stages.some((s) => s.state === 'active');
   return (
     <View className="my-2 w-full rounded-card border border-hairline bg-surface p-4">
       {allDone ? (
@@ -44,7 +47,7 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
             >
               {s.label}
             </Text>
-            {s.state === 'active' ? (
+            {s.state === 'active' && !payload.paused ? (
               <ActivityIndicator size="small" color="var(--c-accent)" />
             ) : s.state === 'done' ? (
               <Text className="text-xs font-bold text-accent">✓</Text>

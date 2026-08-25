@@ -48,6 +48,9 @@ export interface ThreadStage {
 }
 /** payload for kind='status_card_update' — ONE card updated in place (D2). */
 export interface StatusCardPayload {
+  /** True while the run is paused awaiting USER input (verification / EOB confirm):
+   *  the card renders statically — no working header, no spinners (Brock 2026-08-22). */
+  paused?: boolean;
   stages: ThreadStage[]; // exactly the four flow stages, in order
   terminal: boolean; // true once the audit reached a terminal state
 }

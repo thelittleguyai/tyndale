@@ -31,9 +31,9 @@ from app.agents.context_loader import orchestration_step
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
-from app.schemas.case_file import as_dict
 from app.db.models.conversations import Conversation
 from app.db.models.messages import Message
+from app.schemas.case_file import as_dict
 
 log = structlog.get_logger(__name__)
 
@@ -108,6 +108,15 @@ _AUDIT_DONE = {"audit_complete", "audit_incomplete", "resolved", "archived"}
 _DONE_AT = {"extraction": _POST_TRANSLATE, "translate": _POST_TRANSLATE,
             "encounter": _POST_ENCOUNTER, "audit": _AUDIT_DONE}
 _EXTRACTION_FAILED = {"extraction_failed", "not_a_bill"}
+# Brock 2026-08-22: while the machine is WORKING, the thread renders ONLY the status card —
+# analysis bubbles, degradation notices and verification cards queue (the reconcile simply
+# doesn't insert them yet) and appear when the run completes or pauses for input. Strictly
+# presentation ordering; no content is lost — the next reconcile after the transition
+# inserts everything from the same DB state.
+_MACHINE_WORKING = {"open", "in_progress", "encounter_verified", "audit_running"}
+# Paused-for-input statuses: the status card stops spinning (paused flag) and the input
+# cards (verification, etc.) render beneath it.
+_AWAITING_INPUT = {"encounter_verification_pending", "awaiting_eob_confirmation"}
 _TERMINAL = {"audit_complete", "audit_incomplete", "extraction_failed", "not_a_bill",
              "resolved", "archived", "attest_declined"}
 
@@ -140,7 +149,9 @@ def status_card_payload(status: str) -> dict:
         else:
             state = "pending"
         stages.append({"key": key, "label": orchestration_step(_STAGE_LABEL_KEY[key]), "state": state})
-    return {"stages": stages, "terminal": terminal}
+    # paused = waiting on the USER (verification / EOB confirmation): the card shows its
+    # state statically — no spinner implies no machine work while we wait (Brock 2026-08-22).
+    return {"stages": stages, "terminal": terminal, "paused": status in _AWAITING_INPUT}
 
 
 def _payer_of(case) -> str | None:
@@ -352,12 +363,17 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await ensure("terminal:attest_declined", "system_message", {"text": text, "tone": "neutral"}, text)
         return  # closed gracefully — nothing downstream renders
 
+    # Brock 2026-08-22: everything below this line is CONTENT (analysis, degradation,
+    # verification, handoff) — none of it renders while the machine is working; it queues
+    # and the first reconcile after the run completes or pauses inserts it.
+    machine_working = status in _MACHINE_WORKING
+
     # F3 §5.1 — a PARTIAL read: run what's readable, name the unreadable part, ask for the one
     # fix. Never a guessed number (data_quality.never_approximate documents that rule).
     from app.sources.data_quality import looks_like_summary_bill, partial_read
 
     docs = [d for d in (case.documents or []) if isinstance(d, dict)]
-    partial = partial_read(docs)
+    partial = partial_read(docs) if not machine_working else None
     if partial:
         text = orchestration_step("dataquality_partial_illegible", line_desc=partial["unreadable_label"])
         await ensure(
@@ -370,7 +386,7 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     # F4 §5.2 — a summary statement rather than an itemised bill: coach the request instead of
     # auditing a total. {itemized_request_script} has no authored value yet, so the string
     # degrades rather than inventing a script (flagged for Brock).
-    if any(looks_like_summary_bill(d) for d in docs):
+    if not machine_working and any(looks_like_summary_bill(d) for d in docs):
         text = orchestration_step("dataquality_summary_not_itemized")
         await ensure(
             "dataquality:summary_bill", "system_message",
@@ -379,7 +395,11 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         )
 
     # verification cards — once line items exist, ≤3 per group (D3); held behind attest
-    line_items = [] if attest_needed else (list(case.line_items) if case.line_items else [])
+    line_items = (
+        []
+        if (attest_needed or machine_working)
+        else (list(case.line_items) if case.line_items else [])
+    )
     if line_items:
         intro = orchestration_step("verification_intro")
         nudge = orchestration_step("verification_nudge")
@@ -396,7 +416,7 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     # PACE to a handoff seam; this is the user-facing beat. Warm, with the program's own
     # contact path — and the case STAYS OPEN ("I'm still here for the billing side"), which is
     # what keeps this X1-compliant rather than a hand-off-and-drop.
-    handoff = (case.regime_detection or {}).get("handoff")
+    handoff = None if machine_working else (case.regime_detection or {}).get("handoff")
     if handoff:
         key = "handoff.pace" if handoff == "pace" else "handoff.generic_program"
         # B5 (Brock 2026-08-18): §12.1 is [B] — the program's source IS the citation. With
