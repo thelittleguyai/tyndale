@@ -743,6 +743,22 @@ def main() -> int:
                 for f in body.get("findings") or []:
                     log(f"  finding: category={f.get('category')} finding_type={f.get('finding_type')}"
                         f" error_type={f.get('error_type')} has_impact={bool((f.get('facts') or {}).get('impact'))}")
+                # Marker triage: when a sweep says a FIXTURE MARKER leaked, this names the
+                # exact JSON path — synthetic e2e data, so snippets are safe to print.
+                def _walk(node, path):
+                    if isinstance(node, dict):
+                        for k, v in node.items():
+                            yield from _walk(v, f"{path}.{k}")
+                    elif isinstance(node, list):
+                        for i, v in enumerate(node):
+                            yield from _walk(v, f"{path}[{i}]")
+                    elif isinstance(node, str):
+                        yield path, node
+                for path, text in _walk(body, "$"):
+                    for m in FIXTURE_MARKERS:
+                        if m in text:
+                            at = text.find(m)
+                            log(f"  MARKER {m} at {path}: …{text[max(0, at - 60) : at + 70]}…")
         return 0
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
