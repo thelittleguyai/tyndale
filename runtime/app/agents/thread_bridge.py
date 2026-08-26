@@ -84,8 +84,33 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         # chosen dynamically at the call site, so both branches must exist
         "handoff.pace", "handoff.generic_program",
         "verification_map_fallback", "verification_map_partial_fallback",
+        # checklist "What is this?" explainers (image-3 item 3; interim seeds, PROPOSED)
+        "explainer_eob", "explainer_itemized_bill", "explainer_sbc", "explainer_deductible",
+        "explainer_deductible_met", "explainer_oop_max", "explainer_oop_met",
+        "explainer_visit_confirm",
     }
 )
+
+# checklist item key -> its "What is this?" explainer registry key (image-3 item 3)
+_EXPLAINER_KEYS = {
+    "eob": "explainer_eob",
+    "itemized_bill": "explainer_itemized_bill",
+    "sbc": "explainer_sbc",
+    "deductible_amount": "explainer_deductible",
+    "deductible_met": "explainer_deductible_met",
+    "oop_max_amount": "explainer_oop_max",
+    "oop_max_met": "explainer_oop_met",
+    "visit_confirm": "explainer_visit_confirm",
+}
+
+
+def _with_explainers(items: list[dict]) -> list[dict]:
+    return [
+        {**i, "explainer": orchestration_step(_EXPLAINER_KEYS[i["key"]])}
+        if i.get("key") in _EXPLAINER_KEYS
+        else i
+        for i in items
+    ]
 
 _STAGE_ORDER = ("extraction", "translate", "encounter", "audit")
 _STAGE_LABEL_KEY = {
@@ -742,11 +767,11 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
         {"text": intro, "tone": "neutral",
          "unlock_more": {
              "intro": intro, "item_hint": hint,
-             "items": [
+             "items": _with_explainers([
                  {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
                  for d in needs
-             ],
-             "coverage_items": coverage_checklist_items(case),
+             ]),
+             "coverage_items": _with_explainers(coverage_checklist_items(case)),
          }},
         intro,
     )
@@ -758,10 +783,10 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
     from app.sources.plan_docs import plan_sbc_state
 
     plan_sbc, _ = await plan_sbc_state(session, case.user_id)
-    items = [
+    items = _with_explainers([
         {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
         for d in _documents_needed(case, plan_sbc=plan_sbc)
-    ]
+    ])
     intro = orchestration_step("needs_documents_intro")  # §8.1 (no variables)
     # UPSERTED, not ensured: the card is the case's completion hub — item state (have flags,
     # coverage values, visit confirmation) re-renders in the ONE existing card.
@@ -770,7 +795,7 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
         {"text": intro, "tone": "neutral",
          "needs_documents": {
              "intro": intro, "items": items,
-             "coverage_items": coverage_checklist_items(case),
+             "coverage_items": _with_explainers(coverage_checklist_items(case)),
          }},
         intro,
     )

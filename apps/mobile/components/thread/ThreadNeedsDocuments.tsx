@@ -12,6 +12,29 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { CoverageChecklistItem, NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
 import { saveCoverageInput } from '../../lib/api-client';
 
+/** "What is this?" (image-3 item 3): a tap-to-expand explainer under any checklist item.
+ *  Copy is registry-authored and server-rendered into the payload — nothing engineering-voiced. */
+function Explainer({ text, itemKey }: { text?: string; itemKey: string }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <View className="ml-6">
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        className="min-h-[44px] flex-row items-center self-start"
+        testID={`explainer-toggle-${itemKey}`}
+      >
+        <Text className="text-caption text-secondary underline">What is this?</Text>
+      </Pressable>
+      {open ? (
+        <Text className="mb-1 text-body leading-6 text-secondary" testID={`explainer-text-${itemKey}`}>
+          {text}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 const money = (v: number) =>
   `$${v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
@@ -77,6 +100,7 @@ function CoverageItemRow({ item, caseFileId }: { item: CoverageChecklistItem; ca
       {typeof value === 'string' && value ? (
         <Text className="ml-6 text-body text-secondary">{value}</Text>
       ) : null}
+      {!done ? <Explainer text={item.explainer} itemKey={item.key} /> : null}
       {open && !done ? (
         <View className="ml-6 mt-2">
           {item.kind === 'visit_confirm' ? (
@@ -171,6 +195,7 @@ export function ThreadNeedsDocuments({
                 <Plus size={15} color="var(--c-accent)" />
                 <Text className="text-body font-semibold text-accent">Add</Text>
               </Pressable>
+              <Explainer text={d.explainer} itemKey={d.key} />
             </>
           )}
         </View>

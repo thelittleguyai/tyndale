@@ -102,6 +102,8 @@ export interface NeedsDocumentsItem {
   label: string;
   how_to_get: string;
   have: boolean; // TRUE have/need state (per-item API, DL-90)
+  /** "What is this?" explainer copy (registry-authored, server-rendered). */
+  explainer?: string;
 }
 /** payload for kind='system_message' when it carries the needs_documents checklist. */
 /** One coverage-number (or visit-confirm) checklist item (Brock image-3 item 2). The list

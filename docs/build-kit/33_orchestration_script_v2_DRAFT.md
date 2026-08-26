@@ -105,6 +105,23 @@ verbatim as the user's first message:
 *Open for Brock: the four labels, the separator convention, and whether "Something else"
 should instead route to a typed prompt.*
 
+## Checklist "What is this?" explainers — PROPOSED, interim engineering seed (2026-08-22)
+
+*Status: INTERIM. Eight keys LIVE in the registry as shippable seed copy (not
+`[PLACEHOLDER-eng]`) for the checklist explainer affordance (image-3 item 3). Each follows
+your asked pattern — what the thing is, where to find it, one concrete example — voice
+`[A]`, no invented user-specific numbers (the $2,000 in `explainer_deductible` is a generic
+illustrative example). Marked UNMAPPED in the registry until you approve or re-author.*
+
+Keys: `explainer_eob` · `explainer_itemized_bill` · `explainer_sbc` · `explainer_deductible`
+· `explainer_deductible_met` · `explainer_oop_max` · `explainer_oop_met` ·
+`explainer_visit_confirm` — full seed texts in
+`intelligence-layer/prompts/orchestration_script.md`.
+
+*Open for Brock: the deductible/OOP explainers may carry your tier-1 style example ("your
+share moves about $X per $1,000") once the researched figure exists — the seeds deliberately
+stop short of one.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

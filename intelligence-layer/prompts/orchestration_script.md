@@ -505,3 +505,39 @@ drift guard (nothing to compare against).
      separated by " · "; the client splits on that separator. Each chip is sent verbatim as the
      user's first message. Same interim/PROPOSED status as freeform_opener. -->
 [A] "Understand a bill · Check if a bill is correct · Think I'm overcharged · Something else"
+
+## explainer_eob
+<!-- UNMAPPED — checklist "What is this?" explainers (Brock image-3 item 3, 2026-08-22).
+     INTERIM engineering seed; PROPOSED for Brock in 33_orchestration_script_v2_DRAFT.md.
+     Pattern per his ask: what the thing is, where to find it, one concrete example. -->
+[A] "An Explanation of Benefits is the statement your insurer sends after processing a claim — it's not a bill. It shows what the provider charged, what your plan allowed and paid, and what it says you owe. Find it in your insurance portal under Claims, usually a week or two after the visit."
+
+## explainer_itemized_bill
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
+[A] "An itemized bill lists every individual charge with its procedure (CPT) code — not just a total. Providers are required to give you one when you ask. For example: instead of one line saying 'Hospital services — $1,200', it shows each test and service on its own line."
+
+## explainer_sbc
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
+[A] "The Summary of Benefits and Coverage is the standard document that describes what your plan covers — your deductible, out-of-pocket max, and copays. Every plan is required to publish one. Find it in your insurance portal under Plan Documents, or ask your HR team or insurer."
+
+## explainer_deductible
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. The dollar figure is a GENERIC
+     illustrative example (his one-concrete-example pattern), never a user-specific number. -->
+[A] "Your deductible is the amount you pay out of pocket each plan year before your plan starts sharing costs. It's on your SBC, and usually on your insurance portal's summary page. For example: with a $2,000 deductible, you pay the first $2,000 of allowed charges each year."
+
+## explainer_deductible_met
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. Generic educational form only —
+     no invented user-specific numbers (tier-1 style rule). -->
+[A] "This is how much of your deductible you had already paid this plan year before this visit. Your insurance portal shows it as a running total — often labeled 'deductible met' or 'year to date'. This one usually moves your number the most: every dollar already met comes off what you can be asked to pay first."
+
+## explainer_oop_max
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
+[A] "Your out-of-pocket maximum is the most you can be required to pay for covered care in a plan year — once you reach it, your plan pays 100% of covered charges. It's listed on your SBC right next to the deductible."
+
+## explainer_oop_met
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
+[A] "This is how much you had already paid toward your out-of-pocket maximum this plan year before this visit. Your portal shows it as a running total. If you're close to the max, that caps what this visit can cost you."
+
+## explainer_visit_confirm
+<!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
+[A] "Confirming what the visit was for helps me check the charges against what actually happened. Tap the option that matches, or describe it in your own words — plain language is fine; you don't need medical terms."

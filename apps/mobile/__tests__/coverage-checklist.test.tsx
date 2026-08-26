@@ -17,7 +17,7 @@ const payload = {
     { key: 'eob', label: 'Explanation of Benefits (EOB)', how_to_get: 'ask your insurer', have: false },
   ],
   coverage_items: [
-    { key: 'deductible_met', kind: 'number' as const, label: 'Amount spent toward deductible before this visit', value: null, not_sure: false },
+    { key: 'deductible_met', kind: 'number' as const, label: 'Amount spent toward deductible before this visit', value: null, not_sure: false, explainer: 'How much of your deductible you had already paid.' },
     { key: 'oop_max_amount', kind: 'number' as const, label: 'Out-of-pocket max amount', value: 6000, not_sure: false },
     {
       key: 'visit_confirm', kind: 'visit_confirm' as const, label: 'Confirm what your visit was for',
@@ -60,5 +60,16 @@ it('visit-confirm chips save the tapped candidate', async () => {
   fireEvent.press(getByTestId('visit-candidate-MRI of the brain'));
   await waitFor(() =>
     expect(mockSave).toHaveBeenCalledWith('c1', 'visit_confirm', 'MRI of the brain', false),
+  );
+});
+
+it('"What is this?" expands the registry-authored explainer', () => {
+  const { getByTestId, queryByTestId } = render(
+    <ThreadNeedsDocuments payload={payload} caseFileId="c1" />,
+  );
+  expect(queryByTestId('explainer-text-deductible_met')).toBeNull();
+  fireEvent.press(getByTestId('explainer-toggle-deductible_met'));
+  expect(getByTestId('explainer-text-deductible_met').props.children).toBe(
+    'How much of your deductible you had already paid.',
   );
 });

@@ -158,3 +158,28 @@ async def test_saved_numbers_tighten_the_rung2_range_on_read(
     a2 = (await client.get(f"/v1/audit/{case_id}")).json()["audit"]
     spread2 = a2["tyndale_computed_high"] - a2["tyndale_computed_low"]
     assert spread2 < spread1  # met deductible → the deductible-first ceiling is gone
+
+
+# ── explainers (item 3): registry-authored, server-rendered into every checklist item ───
+def test_all_explainer_keys_render_from_the_registry():
+    from app.agents.context_loader import orchestration_step
+    from app.agents.thread_bridge import _EXPLAINER_KEYS, RENDER_PATH_KEYS
+
+    for key in _EXPLAINER_KEYS.values():
+        assert key in RENDER_PATH_KEYS  # the staging boot gate covers them
+        text = orchestration_step(key)
+        assert "MISSING-script" not in text and "PLACEHOLDER" not in text, key
+        assert len(text) > 40  # real copy: what it is / where to find it / an example
+
+
+@pytest.mark.asyncio
+async def test_card_payload_carries_explainers(client: AsyncClient, chat_first_on):  # noqa: F811
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    payload = await _coverage_payload(conv_id)
+    assert all(i.get("explainer") for i in payload["items"])
+    assert all(i.get("explainer") for i in payload["coverage_items"])
