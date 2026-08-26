@@ -485,6 +485,8 @@ const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 function Header({ firstName, lastName }: { firstName: string; lastName: string | null }) {
   const router = useRouter();
   const signOut = useSignOut();
+  // Phones: logo-only + avatar-only pill so '+ Check a bill' and Sign Out always fit.
+  const { isPhone } = useBreakpoint();
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -516,7 +518,7 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
     <View className="flex-row items-center justify-between bg-surface px-5 py-3">
       <View className="flex-row items-center gap-2">
         <SvgXml xml={logoSvg} width={28} height={28} />
-        <Text className="text-base font-bold text-primary">Tyndale</Text>
+        {isPhone ? null : <Text className="text-base font-bold text-primary">Tyndale</Text>}
       </View>
       <View className="flex-row items-center gap-2">
         {isAdmin ? (
@@ -555,9 +557,11 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
               {firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text className="text-xs font-medium text-primary">
-            {lastName ? `${firstName} ${lastName}` : firstName}
-          </Text>
+          {isPhone ? null : (
+            <Text className="text-xs font-medium text-primary">
+              {lastName ? `${firstName} ${lastName}` : firstName}
+            </Text>
+          )}
         </Pressable>
         <Pressable
           onPress={onSignOut}
