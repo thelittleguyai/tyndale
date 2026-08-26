@@ -6,7 +6,7 @@
  */
 import { CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import type { CoverageChecklistItem, NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
@@ -41,9 +41,27 @@ const money = (v: number) =>
 /** One coverage-number / visit-confirm row. Tap opens the inline input (currency keyboard)
  *  or the candidate chips; SAVE is the only state change (D4(b)); "Not sure" is the honest
  *  opt-out. Saved state renders like the document items — check + strikethrough. */
-function CoverageItemRow({ item, caseFileId }: { item: CoverageChecklistItem; caseFileId: string }) {
+function CoverageItemRow({
+  item,
+  caseFileId,
+  suggested,
+  onSaved,
+}: {
+  item: CoverageChecklistItem;
+  caseFileId: string;
+  /** A mapped free-text value (image-3 item 4): opens the row pre-filled — the Save tap
+   *  is the confirming state change; the mapping itself never wrote anything. */
+  suggested?: number | string | null;
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
+  useEffect(() => {
+    if (suggested != null && item.value == null) {
+      setOpen(true);
+      setText(String(suggested));
+    }
+  }, [suggested, item.value]);
   const [savedValue, setSavedValue] = useState<number | string | null>(null);
   const [savedNotSure, setSavedNotSure] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,6 +77,7 @@ function CoverageItemRow({ item, caseFileId }: { item: CoverageChecklistItem; ca
       if (asNotSure) setSavedNotSure(true);
       else if (v != null) setSavedValue(v);
       setOpen(false);
+      onSaved?.();
     } catch {
       // The card re-renders from the server on the next thread refresh; a failed save
       // simply leaves the row open — no optimistic state to unwind.
@@ -152,12 +171,16 @@ export function ThreadNeedsDocuments({
   payload,
   caseFileId,
   unlock = false,
+  suggestion,
+  onCoverageSaved,
 }: {
   payload: NeedsDocumentsPayload | UnlockMorePayload;
   caseFileId: string;
   /** Rung-2 unlock-more framing: the audit is DONE; these items deepen it. Same have/need
    *  component — only the surrounding voice differs (the intro/hint come from the server). */
   unlock?: boolean;
+  suggestion?: { field: string; value: number | string } | null;
+  onCoverageSaved?: () => void;
 }) {
   const router = useRouter();
   const hint = unlock && 'item_hint' in payload ? payload.item_hint : null;
@@ -201,7 +224,13 @@ export function ThreadNeedsDocuments({
         </View>
       ))}
       {(payload.coverage_items ?? []).map((c) => (
-        <CoverageItemRow key={c.key} item={c} caseFileId={caseFileId} />
+        <CoverageItemRow
+          key={c.key}
+          item={c}
+          caseFileId={caseFileId}
+          suggested={suggestion && suggestion.field === c.key ? suggestion.value : null}
+          onSaved={onCoverageSaved}
+        />
       ))}
       {/* Overall fallback — the per-item Add buttons above are the primary path (each opens
           the upload flow pre-tagged with the document type it should satisfy). */}

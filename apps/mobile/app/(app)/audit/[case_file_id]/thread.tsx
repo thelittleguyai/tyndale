@@ -29,6 +29,8 @@ import {
   getConversation,
   listConversations,
   submitConfirmations,
+  coverageText,
+  streamMessage,
   verifyText,
 } from '../../../../lib/api-client';
 import { ThreadEntry } from '../../../../components/thread/ThreadEntry';
@@ -42,6 +44,10 @@ export default function CaseThreadScreen() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
   const [composer, setComposer] = useState('');
+  const [coverageSuggestion, setCoverageSuggestion] = useState<{
+    field: string;
+    value: number | string;
+  } | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const extractKicked = useRef(false);
@@ -95,6 +101,16 @@ export default function CaseThreadScreen() {
     return out;
   }, [verificationMsgs]);
   const pendingVerification = allLineItems.length > 0 && !submitted.current;
+  // image-3 item 4: the checklist card on screen keeps the composer visible and usable —
+  // pending = any coverage-number item still unanswered on the needs/unlock card.
+  const coveragePending = messages.some((m) => {
+    const p = m.payload as {
+      needs_documents?: { coverage_items?: { value: unknown; not_sure?: boolean }[] };
+      unlock_more?: { coverage_items?: { value: unknown; not_sure?: boolean }[] };
+    } | null;
+    const card = p?.needs_documents ?? p?.unlock_more;
+    return (card?.coverage_items ?? []).some((c) => c.value == null && !c.not_sure);
+  });
 
   // Apply the latest suggestion's pre-selection (D4b). New suggestions supersede old ones — the
   // prior pre-selection is cleared before the new one applies (no stacking of stale suggestions).
@@ -146,8 +162,23 @@ export default function CaseThreadScreen() {
     appliedSuggestion.current = null;
     setSending(true);
     try {
-      // Structured verification is pending → map the free text; otherwise it's ordinary chat.
-      if (pendingVerification) await verifyText(case_file_id, text);
+      // Structured verification is pending → map the free text; a pending checklist maps
+      // coverage numbers (typed input takes precedence over chips — the mapping only
+      // PRE-SELECTS; the confirming tap saves); anything unmapped is ordinary chat.
+      if (pendingVerification) {
+        await verifyText(case_file_id, text);
+      } else if (coveragePending) {
+        const r = await coverageText(case_file_id, text);
+        if (r.mapped && r.field && r.value != null) {
+          setCoverageSuggestion({ field: r.field, value: r.value });
+        } else if (r.result === 'ok' && !r.mapped) {
+          await new Promise<void>((resolve) =>
+            streamMessage(conversationId, text, (ev) => {
+              if (ev.event === 'done') resolve();
+            }),
+          );
+        }
+      }
       await refresh(conversationId);
     } catch {
       // swallow — the thread poll reflects whatever the server recorded
@@ -207,11 +238,16 @@ export default function CaseThreadScreen() {
               onNote={onNote}
               activeSuggestionId={activeSuggestionId}
               onConfirmSuggestion={onConfirmSuggestion}
+              coverageSuggestion={coverageSuggestion}
+              onCoverageSaved={() => {
+                setCoverageSuggestion(null);
+                if (conversationId) void refresh(conversationId);
+              }}
             />
           ))}
         </View>
       </ScrollView>
-      {pendingVerification ? (
+      {pendingVerification || coveragePending ? (
         <View className="w-full max-w-2xl flex-row items-end gap-2 self-center border-t border-hairline bg-page px-4 py-3">
           <TextInput
             value={composer}

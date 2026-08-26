@@ -306,3 +306,51 @@ def summarize_mappings(mappings: list[Mapping], cards: list[Card]) -> str:
     if len(parts) == 1:
         return parts[0]
     return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+# --- coverage-number mapping (Brock image-3 item 4: checklist <-> chat) ------------
+# The same D4(b) philosophy as the card mapper: DETERMINISTIC and precision-first, maps a
+# typed value ("my deductible is $2,000") to a pending checklist field so the UI can
+# PRE-SELECT the item + confirm chip. It never writes state — the confirming tap does.
+# Anything ambiguous (two amounts, two candidate fields, a field that isn't pending)
+# degrades to None and the utterance flows to ordinary chat instead.
+
+_COVERAGE_AMOUNT_RE = re.compile(r"\$?\d[\d,]*(?:\.\d{1,2})?")
+_MET_CTX_RE = re.compile(
+    r"\b(?:met|already|so far|to date|ytd|year[- ]to[- ]date|before this|spent|paid|put)\b",
+    re.IGNORECASE,
+)
+_DED_RE = re.compile(r"\bdeductible\b", re.IGNORECASE)
+_OOP_RE = re.compile(r"out[- ]of[- ]pocket|\boop\b|\bmoop\b", re.IGNORECASE)
+
+
+@dataclass
+class CoverageMapping:
+    field: str
+    value: float
+    confidence: float
+
+
+def map_coverage_number(utterance: str, pending_fields: list[str]) -> CoverageMapping | None:
+    """Map free text to ONE pending coverage-number field + amount, or None."""
+    amounts = _COVERAGE_AMOUNT_RE.findall(utterance or "")
+    if len(amounts) != 1:
+        return None  # zero or several amounts -> ambiguous, never a half-right guess
+    try:
+        value = float(amounts[0].lstrip("$").replace(",", ""))
+    except ValueError:
+        return None
+    if not (0 <= value <= 10_000_000):
+        return None
+    has_ded, has_oop = bool(_DED_RE.search(utterance)), bool(_OOP_RE.search(utterance))
+    if has_ded == has_oop:
+        return None  # neither named, or both named -> ambiguous
+    met = bool(_MET_CTX_RE.search(utterance))
+    field = (
+        ("deductible_met" if met else "deductible_amount")
+        if has_ded
+        else ("oop_max_met" if met else "oop_max_amount")
+    )
+    if field not in pending_fields:
+        return None  # that field isn't being asked for -> don't guess a sibling
+    return CoverageMapping(field=field, value=value, confidence=CONF_HIGH)

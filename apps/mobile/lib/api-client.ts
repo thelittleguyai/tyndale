@@ -380,6 +380,31 @@ export async function saveCoverageInput(
   if (!res.ok) throw new Error(`saveCoverageInput ${res.status}`);
 }
 
+/** POST /v1/audit/{id}/coverage-text — D4b free-text → checklist mapping. mapped=true means
+ *  the utterance was posted and the client should PRE-SELECT the named item (the confirming
+ *  tap saves); mapped=false with result='ok' means ordinary conversation — nothing posted. */
+export interface CoverageTextResult {
+  mapped: boolean;
+  field?: string | null;
+  value?: number | null;
+  label?: string | null;
+  result: string;
+  conversation_id?: string | null;
+}
+export async function coverageText(
+  caseFileId: string,
+  utterance: string,
+): Promise<CoverageTextResult> {
+  const res = await cfetch(`${BASE_URL}/v1/audit/${encodeURIComponent(caseFileId)}/coverage-text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ utterance }),
+  });
+  if (!res.ok) throw new Error(`coverageText ${res.status}`);
+  return (await res.json()) as CoverageTextResult;
+}
+
 export async function verifyText(caseFileId: string, utterance: string): Promise<VerifyTextResult> {
   const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(caseFileId)}/verify-text`,

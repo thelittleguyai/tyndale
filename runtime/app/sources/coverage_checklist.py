@@ -33,6 +33,12 @@ COVERAGE_INPUT_FIELDS: frozenset[str] = frozenset(
 _MAX_CANDIDATES = 4
 
 
+def label_for(field: str) -> str:
+    if field == VISIT_CONFIRM_KEY:
+        return VISIT_CONFIRM_LABEL
+    return dict(COVERAGE_NUMBER_ITEMS).get(field, field)
+
+
 def _visit_candidates(case) -> list[str]:
     """Tap-to-confirm service descriptions from the bill's own line items — plain-language
     translation first, raw description second. Every candidate passes the extracted-string

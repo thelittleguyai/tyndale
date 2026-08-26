@@ -183,3 +183,92 @@ async def test_card_payload_carries_explainers(client: AsyncClient, chat_first_o
     payload = await _coverage_payload(conv_id)
     assert all(i.get("explainer") for i in payload["items"])
     assert all(i.get("explainer") for i in payload["coverage_items"])
+
+
+# ── item 4: checklist ⇄ chat ────────────────────────────────────────────────────────
+def test_coverage_number_mapper_matrix():
+    from app.agents.verification_mapper import map_coverage_number
+
+    pending = ["deductible_amount", "deductible_met", "oop_max_amount", "oop_max_met"]
+    cases = [
+        ("my deductible is $2,000", "deductible_amount", 2000.0),
+        ("I've paid $1,500 toward my deductible so far", "deductible_met", 1500.0),
+        ("out of pocket max is 8000", "oop_max_amount", 8000.0),
+        ("ive already spent 3,200.50 of my out-of-pocket", "oop_max_met", 3200.5),
+    ]
+    for utterance, field, value in cases:
+        r = map_coverage_number(utterance, pending)
+        assert r and r.field == field and r.value == value, utterance
+    # ambiguity degrades to None — never a half-right guess (D4b)
+    assert map_coverage_number("deductible 2000 and oop 8000", pending) is None
+    assert map_coverage_number("thanks so much!", pending) is None
+    # a field that isn't pending is never guessed at
+    assert map_coverage_number("my deductible is $2,000", ["oop_max_amount"]) is None
+
+
+@pytest.mark.asyncio
+async def test_free_text_run_maps_confirms_and_acks(client: AsyncClient, chat_first_on):  # noqa: F811
+    """The prompt's second harness run: enter deductible-met via FREE TEXT — the mapper
+    pre-selects (writing nothing), the confirming tap saves with user-entered provenance,
+    and the thread acknowledges in one line."""
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+
+    r = await client.post(
+        f"/v1/audit/{case_id}/coverage-text",
+        json={"utterance": "I have paid $1,500 toward my deductible so far"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["mapped"] is True and body["field"] == "deductible_met" and body["value"] == 1500.0
+
+    # mapping wrote NOTHING (D4b: the tap is the only state change)
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        assert (cf.coverage or {}).get("deductible_met") is None
+    msgs = await _messages(conv_id)
+    assert any(m.role == "user" and "1,500" in (m.content or "") for m in msgs)  # utterance posted
+
+    # the confirming tap
+    r = await client.post(
+        f"/v1/audit/{case_id}/coverage-input", json={"field": "deductible_met", "value": 1500}
+    )
+    assert r.status_code == 200
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        assert cf.coverage["deductible_met"] == 1500.0
+        assert cf.coverage["user_input_provenance"]["deductible_met"]["source"] == "user-entered"
+
+    # one-line ack in the thread, no fanfare
+    msgs = await _messages(conv_id)
+    acks = [m for m in msgs if "saved" in (m.content or "") and "deductible" in (m.content or "").lower()]
+    assert len(acks) == 1
+    payload = await _coverage_payload(conv_id)  # still ONE card, updated
+    assert next(i for i in payload["coverage_items"] if i["key"] == "deductible_met")["value"] == 1500.0
+
+
+@pytest.mark.asyncio
+async def test_ordinary_conversation_is_not_mapped_and_not_posted(
+    client: AsyncClient, chat_first_on  # noqa: F811
+):
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    before = len(await _messages(conv_id))
+    r = await client.post(
+        f"/v1/audit/{case_id}/coverage-text", json={"utterance": "thanks, this is helpful!"}
+    )
+    assert r.status_code == 200
+    assert r.json()["mapped"] is False
+    assert len(await _messages(conv_id)) == before  # nothing posted — ordinary chat takes it

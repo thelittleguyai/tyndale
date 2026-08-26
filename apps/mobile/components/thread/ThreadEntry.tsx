@@ -45,6 +45,8 @@ export function ThreadEntry({
   onNote,
   activeSuggestionId,
   onConfirmSuggestion,
+  coverageSuggestion,
+  onCoverageSaved,
 }: {
   message: Message;
   caseFileId: string;
@@ -53,6 +55,9 @@ export function ThreadEntry({
   onRespond: (lineItemId: string, r: LineItemResponse) => void;
   onNote: (lineItemId: string, n: string) => void;
   activeSuggestionId?: string | null;
+  /** image-3 item 4: a mapped free-text value pre-selects its checklist item (tap confirms). */
+  coverageSuggestion?: { field: string; value: number | string } | null;
+  onCoverageSaved?: () => void;
   onConfirmSuggestion?: () => void;
 }) {
   const kind = message.kind ?? 'message';
@@ -90,12 +95,27 @@ export function ThreadEntry({
         unlock_more?: UnlockMorePayload;
       };
       if (p.needs_documents) {
-        return <ThreadNeedsDocuments payload={p.needs_documents} caseFileId={caseFileId} />;
+        return (
+          <ThreadNeedsDocuments
+            payload={p.needs_documents}
+            caseFileId={caseFileId}
+            suggestion={coverageSuggestion}
+            onCoverageSaved={onCoverageSaved}
+          />
+        );
       }
       if (p.unlock_more) {
         // Rung-2 (2026-08-18): the audit COMPLETED with inputs missing — the same have/need
         // component under unlock framing. Deepens the audit; never reads as unfinished.
-        return <ThreadNeedsDocuments payload={p.unlock_more} caseFileId={caseFileId} unlock />;
+        return (
+          <ThreadNeedsDocuments
+            payload={p.unlock_more}
+            caseFileId={caseFileId}
+            unlock
+            suggestion={coverageSuggestion}
+            onCoverageSaved={onCoverageSaved}
+          />
+        );
       }
       {
         // N2 (round-2) — typed branch states get card presentation with an inline action.

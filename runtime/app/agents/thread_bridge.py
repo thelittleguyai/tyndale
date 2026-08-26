@@ -84,6 +84,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         # chosen dynamically at the call site, so both branches must exist
         "handoff.pace", "handoff.generic_program",
         "verification_map_fallback", "verification_map_partial_fallback",
+        # checklist item completion ack (image-3 item 4; interim seed, PROPOSED)
+        "checklist_item_ack",
         # checklist "What is this?" explainers (image-3 item 3; interim seeds, PROPOSED)
         "explainer_eob", "explainer_itemized_bill", "explainer_sbc", "explainer_deductible",
         "explainer_deductible_met", "explainer_oop_max", "explainer_oop_met",
@@ -933,6 +935,14 @@ async def post_verification_nudge(case_file_id: str, *, partial: bool) -> str | 
         case_file_id, role="system", kind="system_message",
         payload={"text": text, "tone": "neutral"}, content=text,
     )
+
+
+async def post_checklist_ack(case_file_id: str, item_label: str) -> str | None:
+    """One-line checklist acknowledgment (image-3 item 4): the conversation reflects
+    checklist progress — one line, no fanfare, posted as an event (an ack is a moment,
+    not derivable state, so it is not part of the idempotent projection)."""
+    text = orchestration_step("checklist_item_ack", item_label=item_label)
+    return await post_system_line(case_file_id, text)
 
 
 async def post_system_line(case_file_id: str, text: str, *, tone: str = "neutral") -> str | None:

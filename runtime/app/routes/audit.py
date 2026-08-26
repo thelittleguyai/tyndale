@@ -127,7 +127,82 @@ async def coverage_input(
     from app.agents import thread_bridge
 
     await thread_bridge.bridge_case_state(case_file_id)
+    if not req.not_sure:
+        # image-3 item 4: the conversation reflects checklist progress — one line, no fanfare.
+        from app.sources.coverage_checklist import label_for
+
+        await thread_bridge.post_checklist_ack(case_file_id, label_for(req.field))
     return {"saved": req.field, "not_sure": bool(req.not_sure)}
+
+
+class CoverageTextRequest(BaseModel):
+    utterance: str
+
+
+class CoverageTextResult(BaseModel):
+    """D4(b) contract: mapping never writes state — the client PRE-SELECTS the checklist
+    item + confirm chip and the confirming tap saves (POST coverage-input). mapped=False
+    means the utterance is ordinary conversation: nothing was posted here, the client
+    falls through to the normal chat send."""
+
+    mapped: bool
+    field: str | None = None
+    value: float | None = None
+    label: str | None = None
+    result: str = "ok"  # ok | crisis | blocked
+    conversation_id: str | None = None
+
+
+@router.post("/audit/{case_file_id}/coverage-text", response_model=CoverageTextResult)
+async def coverage_text(
+    case_file_id: str,
+    body: CoverageTextRequest,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CoverageTextResult:
+    """Free-text → checklist mapping (image-3 item 4): "my deductible is $2,000" pre-selects
+    the matching coverage item. Same screen order as verify-text: crisis first (DL-04),
+    then injection, then the deterministic mapper over the case's PENDING fields only."""
+    from app.agents import thread_bridge
+    from app.agents.verification_mapper import map_coverage_number
+    from app.hooks.contracts import CrisisClassifierInput, UserPromptSubmitInput
+    from app.hooks.crisis_classifier import crisis_classifier_async
+    from app.hooks.user_prompt_submit import user_prompt_submit_hook
+    from app.sources.coverage_checklist import coverage_checklist_items, label_for
+
+    case = await require_case_owner(case_file_id, user, session)
+
+    if (
+        await crisis_classifier_async(CrisisClassifierInput(raw_message=body.utterance))
+    ).crisis_detected:
+        from app.agents.chat import _CRISIS_DECLINE
+
+        await thread_bridge.post_user_utterance(case_file_id, body.utterance)
+        cid = await thread_bridge.post_system_line(case_file_id, _CRISIS_DECLINE, tone="error")
+        return CoverageTextResult(mapped=False, result="crisis", conversation_id=cid)
+
+    ups = user_prompt_submit_hook(
+        UserPromptSubmitInput(
+            user_id=str(user.user_id), case_file_id=case_file_id,
+            raw_message=body.utterance, attached_documents=[],
+        )
+    )
+    if ups.block:
+        cid = await thread_bridge.post_user_utterance(case_file_id, body.utterance)
+        return CoverageTextResult(mapped=False, result="blocked", conversation_id=cid)
+
+    pending = [
+        i["key"] for i in coverage_checklist_items(case)
+        if i["kind"] == "number" and i["value"] is None
+    ]
+    mapping = map_coverage_number(ups.scrubbed_message, pending)
+    if mapping is None:
+        return CoverageTextResult(mapped=False)  # ordinary chat — the client sends it there
+    cid = await thread_bridge.post_user_utterance(case_file_id, ups.scrubbed_message)
+    return CoverageTextResult(
+        mapped=True, field=mapping.field, value=mapping.value,
+        label=label_for(mapping.field), conversation_id=cid,
+    )
 
 
 @router.post("/audit/{case_file_id}/eob-completeness/confirm", response_model=EobCompletenessOut)

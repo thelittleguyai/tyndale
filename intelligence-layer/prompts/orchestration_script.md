@@ -541,3 +541,9 @@ drift guard (nothing to compare against).
 ## explainer_visit_confirm
 <!-- UNMAPPED — same interim/PROPOSED status as explainer_eob. -->
 [A] "Confirming what the visit was for helps me check the charges against what actually happened. Tap the option that matches, or describe it in your own words — plain language is fine; you don't need medical terms."
+
+## checklist_item_ack
+<!-- UNMAPPED — one-line checklist completion acknowledgment (Brock image-3 item 4,
+     2026-08-22): the conversation reflects checklist progress. Deliberately no fanfare.
+     Same interim/PROPOSED status as the explainer keys. -->
+[A] "Got it — {item_label} saved."

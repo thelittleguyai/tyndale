@@ -73,3 +73,18 @@ it('"What is this?" expands the registry-authored explainer', () => {
     'How much of your deductible you had already paid.',
   );
 });
+
+it('a mapped free-text value pre-selects the row — Save is the confirming tap', async () => {
+  const { getByTestId } = render(
+    <ThreadNeedsDocuments
+      payload={payload}
+      caseFileId="c1"
+      suggestion={{ field: 'deductible_met', value: 1500 }}
+    />,
+  );
+  // the row opened itself, pre-filled — but NOTHING was written by the mapping
+  expect(getByTestId('coverage-input-deductible_met').props.value).toBe('1500');
+  expect(mockSave).not.toHaveBeenCalled();
+  fireEvent.press(getByTestId('coverage-save-deductible_met'));
+  await waitFor(() => expect(mockSave).toHaveBeenCalledWith('c1', 'deductible_met', 1500, false));
+});
