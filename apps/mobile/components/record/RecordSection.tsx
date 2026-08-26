@@ -38,11 +38,27 @@ const STATE_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
   in_progress: { label: 'In progress', bg: 'bg-inset', fg: 'text-secondary' },
 };
 
-function Chip({ state }: { state: string }) {
-  const c = STATE_CHIP[state] ?? STATE_CHIP.in_progress;
+function Chip({ state, status }: { state: string; status?: string }) {
+  // 'resolved' shares the results STATE but is its own pill (mockup item 4) — still an
+  // existing case status, no new states invented.
+  const c =
+    status === 'resolved'
+      ? { label: 'Resolved', bg: 'bg-accent-tint', fg: 'text-accent' }
+      : (STATE_CHIP[state] ?? STATE_CHIP.in_progress);
   return (
-    <View className={`self-start rounded-full px-2.5 py-1 ${c.bg}`}>
+    <View className={`self-start rounded-full px-2.5 py-1 ${c.bg}`} testID={`pill-${status === 'resolved' ? 'resolved' : state}`}>
       <Text className={`text-caption font-medium ${c.fg}`}>{c.label}</Text>
+    </View>
+  );
+}
+
+/** Deadline pill — ONLY when a real dated deadline exists in the case data (mockup item 4). */
+function DeadlinePill({ row }: { row: SubCaseRow }) {
+  const due = row.next_deadline?.due_date ? shortDate(row.next_deadline.due_date) : null;
+  if (!due) return null;
+  return (
+    <View className="self-start rounded-full bg-warning-tint px-2.5 py-1" testID="pill-deadline">
+      <Text className="text-caption font-medium text-warning-on-tint">by {due}</Text>
     </View>
   );
 }
@@ -57,6 +73,14 @@ const STATE_LINE: Record<string, string> = {
 
 function Subtitle({ row }: { row: SubCaseRow }) {
   const date = shortDate(row.service_date);
+  if (row.status === 'resolved' && row.recovered_so_far > 0) {
+    return (
+      <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
+        {date ? `${date} visit · ` : ''}recovered{' '}
+        <Text className="font-medium text-accent">{money(row.recovered_so_far)}</Text>
+      </Text>
+    );
+  }
   if (row.state === 'results' && row.three_number) {
     return (
       <Text className="mt-0.5 text-caption text-faint" numberOfLines={2}>
@@ -113,7 +137,8 @@ function RecordRow({
         <Subtitle row={row} />
       </View>
       <View className="flex-row items-center gap-1">
-        <Chip state={row.state} />
+        <DeadlinePill row={row} />
+        <Chip state={row.state} status={row.status} />
         {onRemoved && isCaseRemovable(row.status) ? (
           <CaseRemoveButton caseId={row.case_file_id} label={row.provider || 'Bill review'} onDone={onRemoved} />
         ) : null}
