@@ -136,6 +136,15 @@ watched, numbers re-checked" claims proactive monitoring (B8) that is not built;
 suite bans those phrases from this surface until B8 exists. Rewrite freely within
 what the computed state can truthfully say.*
 
+## Dashboard check-in chips — PROPOSED, interim engineering seed (2026-08-22)
+
+*Status: INTERIM, your mockup's own words. Three keys LIVE as seeds — `checkin.fixing_it`
+("They're fixing it") / `checkin.pushed_back` ("They pushed back") / `checkin.left_message`
+("I left a message"). Doctrine note: these are CALL ROUTES, not outcomes — a tap defers the
+real "did it get resolved?" question by the follow-up window rather than retiring it (none
+of the three is a resolution; "they said they'd fix it" is a claim by the party we audit).
+"Yes, resolved" and "Skip for now" remain the outcome path.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

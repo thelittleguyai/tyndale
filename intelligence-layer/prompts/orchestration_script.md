@@ -568,3 +568,18 @@ drift guard (nothing to compare against).
 ## home.banner_subline_quiet
 <!-- UNMAPPED — open cases, none blocked on the user. Same status + constraint. -->
 [A] "{cases_phrase} — nothing needs you right now."
+
+## checkin.fixing_it
+<!-- UNMAPPED — dashboard check-in chips (Brock mockups 2026-08-22 item 5). These three are
+     CALL ROUTES, not outcomes ("they said they'd fix it" is a claim by the party we audit) —
+     a tap defers the real outcome question by the follow-up window, per the H6 doctrine.
+     INTERIM engineering seeds in Brock's own mockup words; PROPOSED in the v2 draft. -->
+[A] "They're fixing it"
+
+## checkin.pushed_back
+<!-- UNMAPPED — same status as checkin.fixing_it. -->
+[A] "They pushed back"
+
+## checkin.left_message
+<!-- UNMAPPED — same status as checkin.fixing_it. -->
+[A] "I left a message"

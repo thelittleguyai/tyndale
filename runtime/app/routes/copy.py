@@ -32,6 +32,13 @@ _SURFACES: dict[str, dict[str, str]] = {
         "capture_retake": "capture.retake",
         "capture_add_page": "capture.add_page",
     },
+    # Dashboard check-in chips (Brock mockups item 5) — client-rendered on the follow-up
+    # card; the three route chips are Brock's own mockup words, seeded + PROPOSED.
+    "home": {
+        "checkin_fixing_it": "checkin.fixing_it",
+        "checkin_pushed_back": "checkin.pushed_back",
+        "checkin_left_message": "checkin.left_message",
+    },
     "status": {
         "leave_and_return": "status_leave_and_return",  # §2.2  (D3)
         "long_wait": "long_wait",  # §2.3
