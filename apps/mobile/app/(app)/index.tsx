@@ -32,13 +32,11 @@ import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import {
   AlertCircle,
-  Calendar,
   CheckCircle2,
   Clock,
   FileText,
   MessageSquare,
   Plus,
-  Search,
   Settings,
   ShieldCheck,
 } from 'lucide-react-native';
@@ -46,6 +44,9 @@ import {
 import {
   createConversation,
   getDashboard,
+  getSurfaceCopy,
+  recordCallOutcome,
+  type SurfaceCopy,
   getRecord,
   getProfileState,
   getUserProfile,
@@ -88,6 +89,11 @@ export default function DashboardScreen() {
     first: null,
     last: null,
   });
+  const [homeCopy, setHomeCopy] = useState<SurfaceCopy>({});
+
+  useEffect(() => {
+    getSurfaceCopy('home').then(setHomeCopy).catch(() => setHomeCopy({}));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -167,7 +173,7 @@ export default function DashboardScreen() {
             thing a returning user with an open loop sees, above the metrics. The advocate asks
             about YOUR fight before showing its dashboards. */}
         {(data?.outcome_prompts ?? []).length > 0 ? (
-          <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
+          <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} copy={homeCopy} onDone={load} />
         ) : null}
 
         {/* Stat cards (mockup item 3): CONFIRMED recovered only — a neutral empty state
@@ -180,40 +186,39 @@ export default function DashboardScreen() {
           loading={loading && !data}
         />
 
+        {/* Quick actions (mockup item 6) — BUILT features only. The mockup's Estimate
+            Costs / Find a Doctor / Plan a Visit are §5 expanded-scope, not started: dead
+            buttons are worse than absent ones, so they are gone, not "coming soon". */}
         <Text className="mb-3 mt-6 text-xs text-faint">
           Quick Actions
         </Text>
         <View className="flex-row flex-wrap gap-3">
           <QuickActionTile
             title="Check a Bill"
-            subtitle="Review and manage your recent statements and payments."
+            subtitle="Upload a bill or EOB and I'll audit every charge."
             Icon={FileText}
             onPress={() => router.push('/upload')}
           />
           <QuickActionTile
-            title="Plan a Visit"
-            subtitle="Schedule appointments and manage your upcoming care."
-            Icon={Calendar}
-            comingSoon
-            onPress={() => router.push('/plan-a-visit-placeholder')}
+            title="Chat with Tyndale"
+            subtitle="Ask anything about a bill, a denial, or your coverage."
+            Icon={MessageSquare}
+            onPress={openChat}
           />
-          <QuickActionTile
-            title="Find a Doctor"
-            subtitle="Search in-network providers and specialists near you."
-            Icon={Search}
-            comingSoon
-            onPress={() => router.push('/find-a-doctor-placeholder')}
-          />
-          <QuickActionTile
-            title="Estimate Costs"
-            subtitle="Get transparent pricing and coverage estimates before care."
-            Icon={Clock}
-            comingSoon
-            onPress={() => router.push('/estimate-costs-placeholder')}
-          />
+          {data?.coverage_connection_enabled ? (
+            <QuickActionTile
+              title="Connect your plan"
+              subtitle="Link your insurance so audits use your real coverage terms."
+              Icon={ShieldCheck}
+              onPress={() => router.push('/settings')}
+            />
+          ) : null}
         </View>
 
-        <ChatCTA onPress={openChat} />
+        {/* Benefit bars (mockup, conditional): ONLY real attested/extracted values — a
+            missing meter renders nothing (never a bar from a prior), and each bar names
+            its source honestly. */}
+        <BenefitBars coverage={data?.coverage ?? null} />
 
         {/* Your record — below Quick Actions + chat banner per the 2026-07-15 review. */}
         {data?.record_enabled ? (
@@ -248,15 +253,27 @@ export default function DashboardScreen() {
   );
 }
 
-// ─── Outcome follow-up (Phase 2J) ────────────────────────────────────────────
+// ─── Outcome follow-up (Phase 2J · mockup item 5) ────────────────────────────
+// The three route chips are CALL ROUTES, not outcomes (H6 doctrine): a tap records the route
+// and defers the real "did it get resolved?" by the follow-up window — never retires it.
+// "Yes, resolved" and "Skip for now" remain the outcome_report path.
+const CHECKIN_FALLBACK = {
+  fixing_it: "They're fixing it",
+  pushed_back: 'They pushed back',
+  left_message: 'I left a message',
+} as const;
+
 function OutcomeFollowupCard({
   prompt,
+  copy = {},
   onDone,
 }: {
   prompt: { case_file_id: string; days_since_recommendation: number; finding_summary: string };
+  copy?: SurfaceCopy;
   onDone: () => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  const [remind, setRemind] = useState(false);
 
   const answer = async (resolved: ResolvedValue) => {
     if (submitting) return;
@@ -275,19 +292,12 @@ function OutcomeFollowupCard({
     }
   };
 
-  const skip = async () => {
+  const route = async (r: 'fixing_it' | 'pushed_back' | 'left_message') => {
     if (submitting) return;
     setSubmitting(true);
-    // "Skip for now" still stamps last_outcome_check_at via an outcome_report
-    // with resolved='pending' so the card stops nagging this cycle.
     try {
-      await submitFeedback(
-        makeFeedbackEvent({
-          case_file_id: prompt.case_file_id,
-          feedback_type: 'outcome_report',
-          outcome: { resolved: 'pending' },
-        }),
-      );
+      // Records the route + stamps the recency clock (defers, never resolves — H6).
+      await recordCallOutcome(prompt.case_file_id, 'dashboard-checkin', r);
       onDone();
     } catch {
       setSubmitting(false);
@@ -295,23 +305,44 @@ function OutcomeFollowupCard({
   };
 
   return (
-    <View className="mt-6 rounded-2xl border border-warning bg-surface p-5 shadow-card">
+    <View className="mt-6 rounded-2xl border border-warning bg-surface p-5 shadow-card" testID="checkin-card">
       <View className="mb-2 flex-row items-center gap-3">
         <View className="h-9 w-9 items-center justify-center rounded-md bg-warning-tint">
           <Clock size={18} color="var(--c-warning)" />
         </View>
         <Text className="text-base font-bold text-primary">Quick check-in: how did it go?</Text>
       </View>
-      <Text className="mb-4 text-body leading-6 text-secondary">
-        {prompt.days_since_recommendation} days ago I helped you with {prompt.finding_summary}. Did
-        it get resolved?
-      </Text>
       <View className="flex-row flex-wrap gap-2">
         <OutcomeButton label="Yes, resolved" tone="sage" onPress={() => answer('yes')} />
-        <OutcomeButton label="Partially" tone="amber" onPress={() => answer('partial')} />
-        <OutcomeButton label="No / not yet" tone="rose" onPress={() => answer('no')} />
-        <OutcomeButton label="Skip for now" tone="ink" onPress={skip} />
+        <OutcomeButton
+          label={copy.checkin_fixing_it || CHECKIN_FALLBACK.fixing_it}
+          tone="amber"
+          onPress={() => route('fixing_it')}
+        />
+        <OutcomeButton
+          label={copy.checkin_pushed_back || CHECKIN_FALLBACK.pushed_back}
+          tone="rose"
+          onPress={() => route('pushed_back')}
+        />
+        <OutcomeButton
+          label={copy.checkin_left_message || CHECKIN_FALLBACK.left_message}
+          tone="ink"
+          onPress={() => route('left_message')}
+        />
+        <OutcomeButton label="Skip for now" tone="ink" onPress={() => answer('pending')} />
       </View>
+      <Pressable
+        onPress={() => setRemind((r) => !r)}
+        className="mt-3 min-h-[44px] justify-center self-start"
+        testID="checkin-remind"
+      >
+        <Text className="text-caption text-secondary underline">Remind me what this was about</Text>
+      </Pressable>
+      {remind ? (
+        <Text className="text-body leading-6 text-secondary" testID="checkin-context">
+          {prompt.days_since_recommendation} days ago I helped you with {prompt.finding_summary}.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -607,15 +638,11 @@ function QuickActionTile({
   subtitle,
   Icon,
   onPress,
-  comingSoon = false,
 }: {
   title: string;
   subtitle: string;
   Icon: any;
   onPress: () => void;
-  // Full-V1 placeholders (Plan a Visit / Find a Doctor / Estimate Costs) tag a
-  // subtle "Coming soon" pill so users know they're not yet functional.
-  comingSoon?: boolean;
 }) {
   const { isPhone } = useBreakpoint();
   return (
@@ -625,11 +652,6 @@ function QuickActionTile({
         isPhone ? 'w-full' : 'min-w-[260px] flex-1'
       }`}
     >
-      {comingSoon ? (
-        <View className="absolute right-3 top-3 rounded-full bg-inset px-2 py-0.5">
-          <Text className="text-[10px] font-semibold text-faint">Coming soon</Text>
-        </View>
-      ) : null}
       <View className="h-9 w-9 items-center justify-center rounded-md bg-inset">
         <Icon size={18} color="var(--c-text-primary)" />
       </View>
@@ -639,27 +661,42 @@ function QuickActionTile({
   );
 }
 
-// ─── Chat CTA ──────────────────────────────────────────────────────────────
-function ChatCTA({ onPress }: { onPress: () => void }) {
+// ─── Benefit bars (mockup, honest conditional) ─────────────────────────────
+function BenefitBars({ coverage }: { coverage: DashboardPayload['coverage'] | null }) {
+  const sourceLabel = (s?: string | null) =>
+    s === 'entries' ? 'from your entries' : 'from your SBC';
+  const bars = [
+    coverage?.deductible
+      ? { key: 'deductible', label: 'Deductible', meter: coverage.deductible, source: coverage.deductible_source, tone: 'success' as const }
+      : null,
+    coverage?.oop_max
+      ? { key: 'oop', label: 'Out-of-pocket max', meter: coverage.oop_max, source: coverage.oop_max_source, tone: 'warning' as const }
+      : null,
+  ].filter(Boolean) as {
+    key: string;
+    label: string;
+    meter: { total: number; met: number };
+    source?: string | null;
+    tone: 'success' | 'warning';
+  }[];
+  if (bars.length === 0) return null;
+  const pct = (m: { total: number; met: number }) =>
+    m.total > 0 ? Math.max(0, Math.min(1, m.met / m.total)) : 0;
   return (
-    <PressableScale
-      onPress={onPress}
-      className="mt-6 flex-row items-center gap-4 rounded-2xl bg-surface-raised p-5 shadow-card hover:bg-surface-raised"
-    >
-      <View className="h-10 w-10 items-center justify-center rounded-md bg-inset">
-        <MessageSquare size={20} color="var(--c-text-primary)" />
-      </View>
-      <View className="flex-1">
-        <Text className="text-base font-bold text-primary">Chat with AI Assistant</Text>
-        <Text className="text-xs text-secondary">
-          Ask anything about your health, coverage, or care options
-        </Text>
-      </View>
-      <View className="flex-row items-center gap-1.5 rounded-full bg-inset px-2.5 py-1">
-        <View className="h-1.5 w-1.5 rounded-full bg-accent" />
-        <Text className="text-[10px] font-semibold text-secondary">Available now</Text>
-      </View>
-    </PressableScale>
+    <View className="mt-6 flex-row flex-wrap gap-3" testID="benefit-bars">
+      {bars.map((b) => (
+        <View key={b.key} className="min-w-[150px] flex-1">
+          <MetricCard
+            label={b.label}
+            value={formatUSD(b.meter.met)}
+            sub={` / ${formatUSD(b.meter.total)}`}
+            progress={pct(b.meter)}
+            tone={b.tone}
+            qualifier={sourceLabel(b.source)}
+          />
+        </View>
+      ))}
+    </View>
   );
 }
 
