@@ -170,12 +170,13 @@ export default function DashboardScreen() {
           <OutcomeFollowupCard prompt={data!.outcome_prompts[0]} onDone={load} />
         ) : null}
 
-        {/* Four uniform MetricCards (redesign §3) — recovered / identified / deductible / OOP. */}
-        <CoverageMetrics
-          recovered={record?.aggregates.total_recovered ?? data?.amount_saved_ytd ?? 0}
-          identified={record?.aggregates.total_identified ?? 0}
-          deductible={data?.coverage.deductible ?? null}
-          oopMax={data?.coverage.oop_max ?? null}
+        {/* Stat cards (mockup item 3): CONFIRMED recovered only — a neutral empty state
+            when nothing is confirmed yet, never $0.00 as a sad zero — and open cases with
+            the needs-you count. */}
+        <StatCards
+          recovered={data?.recovered_to_date ?? 0}
+          openCount={data?.open_count ?? 0}
+          needsYou={data?.needs_you_count ?? 0}
           loading={loading && !data}
         />
 
@@ -541,57 +542,59 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
   );
 }
 
-// ─── Hero ───────────────────────────────────────────────────────────────────
-// ─── Coverage metrics — 4 uniform MetricCards (redesign §3) ────────────────
-// recovered (confirmed) / identified (estimate) / deductible + track / OOP + track.
-function CoverageMetrics({
+// ─── Stat cards (mockup item 3) ─────────────────────────────────────────────
+// Recovered = CONFIRMED outcome money only; a neutral empty state below $1 (never a sad
+// $0.00). Open cases carries the needs-you count from the server's user-actionable set.
+function StatCards({
   recovered,
-  identified,
-  deductible,
-  oopMax,
+  openCount,
+  needsYou,
   loading,
 }: {
   recovered: number;
-  identified: number;
-  deductible: { total: number; met: number; remaining: number } | null;
-  oopMax: { total: number; met: number; remaining: number } | null;
+  openCount: number;
+  needsYou: number;
   loading: boolean;
 }) {
   if (loading) {
     return (
       <View className="mb-2 flex-row flex-wrap gap-3">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1].map((i) => (
           <SkeletonTile key={i} className="h-24 min-w-[150px] flex-1" />
         ))}
       </View>
     );
   }
-  const pct = (m: { total: number; met: number } | null) =>
-    m && m.total > 0 ? Math.max(0, Math.min(1, m.met / m.total)) : 0;
   return (
     <View className="mb-2 flex-row flex-wrap gap-3">
-      <View className="min-w-[150px] flex-1">
-        <MetricCard label="Recovered so far" value={formatUSD(recovered)} qualifier="confirmed" valueTone="accent" />
+      <View className="min-w-[150px] flex-1" testID="stat-recovered">
+        {recovered > 0 ? (
+          <MetricCard
+            label="Recovered to date"
+            value={formatUSD(recovered)}
+            qualifier="confirmed"
+            valueTone="accent"
+          />
+        ) : (
+          <MetricCard
+            label="Recovered to date"
+            value="—"
+            qualifier="your confirmed wins land here"
+          />
+        )}
       </View>
-      <View className="min-w-[150px] flex-1">
-        <MetricCard label="Identified" value={formatUSD(identified)} qualifier="estimated" />
-      </View>
-      <View className="min-w-[150px] flex-1">
+      <View className="min-w-[150px] flex-1" testID="stat-open-cases">
         <MetricCard
-          label="Deductible"
-          value={deductible ? formatUSD(deductible.met) : 'Not set'}
-          sub={deductible ? ` / ${formatUSD(deductible.total)}` : undefined}
-          progress={deductible ? pct(deductible) : undefined}
-          tone="success"
-        />
-      </View>
-      <View className="min-w-[150px] flex-1">
-        <MetricCard
-          label="Out-of-pocket max"
-          value={oopMax ? formatUSD(oopMax.met) : 'Not set'}
-          sub={oopMax ? ` / ${formatUSD(oopMax.total)}` : undefined}
-          progress={oopMax ? pct(oopMax) : undefined}
-          tone="warning"
+          label="Open cases"
+          value={String(openCount)}
+          qualifier={
+            needsYou > 0
+              ? `${needsYou} need${needsYou === 1 ? 's' : ''} you`
+              : openCount > 0
+                ? 'all moving'
+                : 'none yet'
+          }
+          valueTone={needsYou > 0 ? 'warning' : undefined}
         />
       </View>
     </View>

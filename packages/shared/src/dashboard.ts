@@ -67,6 +67,9 @@ export interface DashboardPayload {
   coverage: CoverageSummary;
   banner?: { title: string; subline: string } | null;
   amount_saved_ytd: number;
+  recovered_to_date?: number;
+  open_count?: number;
+  needs_you_count?: number;
   /** Phase CO-1A — drives the intake gate. 'complete' → dashboard; else wizard. */
   intake_status: string;
   intake_current_step: string | null;

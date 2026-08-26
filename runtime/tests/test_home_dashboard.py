@@ -70,3 +70,12 @@ async def test_dashboard_serves_a_registry_banner(client: AsyncClient):
     assert b and b["title"].startswith("Welcome back") and b["subline"]
     assert "MISSING-script" not in b["title"] + b["subline"]
     _assert_honest(b["title"] + " " + b["subline"])
+
+
+@pytest.mark.asyncio
+async def test_stat_fields_present_and_confirmed_only(client: AsyncClient):
+    r = await client.get("/v1/dashboard")
+    d = r.json()
+    assert "recovered_to_date" in d and "open_count" in d and "needs_you_count" in d
+    assert d["needs_you_count"] <= d["open_count"]
+    assert d["recovered_to_date"] >= 0.0

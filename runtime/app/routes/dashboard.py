@@ -414,6 +414,17 @@ async def get_dashboard(
         for f in followups
     ]
 
+    # Stat cards (mockups item 3): CONFIRMED recovered only (outcome reports — never the
+    # payer-gap proxy), and the open/needs-you counts from the same set the banner uses.
+    from app.sources.record import confirmed_recovered_by_case
+
+    recovered_map = await confirmed_recovered_by_case(
+        session, [c.case_file_id for c in cases]
+    )
+    recovered_to_date = round(sum(recovered_map.values()), 2)
+    open_cases_all = [c for c in cases if c.status not in ("resolved", "archived")]
+    needs_you_count = sum(1 for c in open_cases_all if _needs_you(c))
+
     # Banner name: the profile's REAL first name when set (CO-17), else the email-derived one.
     urow = (
         await session.execute(select(User).where(User.user_id == user.user_id))
@@ -423,6 +434,9 @@ async def get_dashboard(
     return DashboardPayload(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
         banner=HomeBanner(**_compose_banner(banner_name, cases)),
+        recovered_to_date=recovered_to_date,
+        open_count=len(open_cases_all),
+        needs_you_count=needs_you_count,
         coverage=coverage_summary,
         amount_saved_ytd=amount_saved,
         intake_status=intake_status,

@@ -91,6 +91,12 @@ class DashboardPayload(BaseModel):
     banner: HomeBanner | None = None
     coverage: CoverageSummary
     amount_saved_ytd: float
+    # Brock mockups item 3 — the two honest stat cards. recovered_to_date sums CONFIRMED
+    # recovered amounts from outcome reports (never the payer-gap proxy above); the client
+    # renders a neutral empty state when it is 0 — never "$0.00" as a sad zero.
+    recovered_to_date: float = 0.0
+    open_count: int = 0
+    needs_you_count: int = 0
     # Phase CO-1A — drives the intake gate. 'complete' users see the dashboard;
     # others are routed into the wizard (resuming at intake_current_step).
     intake_status: str = "complete"
