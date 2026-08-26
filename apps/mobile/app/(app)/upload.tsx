@@ -50,7 +50,7 @@ export default function UploadScreen() {
   const router = useRouter();
   // When present, attach to an existing case (e.g. "Add a document" from the needs_documents
   // checklist) instead of opening a new one.
-  const { caseId } = useLocalSearchParams<{ caseId?: string }>();
+  const { caseId, expect } = useLocalSearchParams<{ caseId?: string; expect?: string }>();
   const [queue, setQueue] = useState<Queued[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export default function UploadScreen() {
     setUploading(true);
     setProgress(`Uploading ${queue.length} document${queue.length === 1 ? '' : 's'}…`);
     try {
-      const res = await uploadDocuments(queue.map((q) => q.file), caseId);
+      const res = await uploadDocuments(queue.map((q) => q.file), caseId, expect);
       if (caseId) {
         // Adding to an existing case (needs_documents checklist): the server re-runs the audit if
         // this completes the set. Return to the case's results screen — it polls the new status.

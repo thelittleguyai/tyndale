@@ -156,6 +156,7 @@ export interface AuditResult {
 export async function uploadDocuments(
   files: UploadFilePart[],
   caseFileId?: string,
+  expectedType?: string,
 ): Promise<MultiUploadResponse> {
   const form = new FormData();
   for (const f of files) {
@@ -170,6 +171,7 @@ export async function uploadDocuments(
     }
   }
   if (caseFileId) form.append('case_file_id', caseFileId);
+  if (expectedType) form.append('expected_type', expectedType);
   const res = await cfetch(`${BASE_URL}/v1/upload`, { method: 'POST', body: form });
   if (!res.ok) {
     throw new Error(`upload failed: ${res.status} ${await res.text()}`);

@@ -93,6 +93,11 @@ REGISTRY: dict[str, EventSpec] = {
     "upload_started": EventSpec({"file_count": num_prop()}),
     "documents_accepted": EventSpec({"doc_count": num_prop()}),
     "extraction_succeeded": EventSpec({"doc_type": enum_prop(*_DOC_TYPES)}),
+    # Checklist per-item Add (2026-08-22): the classifier's verdict disagreed with the
+    # document type the user's Add action expected. Measured, never messaged (A4 pending).
+    "expected_document_mismatch": EventSpec(
+        {"expected": enum_prop("eob", "itemized_bill", "sbc"), "got_count": num_prop()}
+    ),
     "extraction_failed": EventSpec(
         {"doc_type": enum_prop(*_DOC_TYPES), "reason": enum_prop("unreadable", "wrong_type", "empty", "other")}
     ),

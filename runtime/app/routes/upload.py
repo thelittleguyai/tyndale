@@ -167,6 +167,15 @@ def _sniff_upload_type(content: bytes) -> str | None:
     return None
 
 
+# The checklist keys an expectation can name → the classifier families that satisfy it
+# (mirrors orchestrator's family sets; the checklist's have-flags use the same grouping).
+_EXPECTED_FAMILIES: dict[str, set[str]] = {
+    "eob": {"eob", "ma_eob", "msn", "tricare_eob"},
+    "itemized_bill": {"bill", "gfe", "itemized_bill"},
+    "sbc": {"plan_summary", "insurance_card"},
+}
+
+
 async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], UploadedDoc]:
     """Persist + classify one file. Returns (case-file document entry, API doc)."""
     settings = get_settings()
@@ -246,6 +255,11 @@ async def upload(
     files: list[UploadFile] = File(default=[]),
     file: UploadFile | None = File(default=None),  # deprecated singular form (14-day compat)
     case_file_id: str | None = Form(default=None),
+    # Checklist per-item Add (Brock image-3, 2026-08-22): the client names the document TYPE
+    # it expects this upload to satisfy (eob | itemized_bill | sbc) so the classifier's
+    # verdict can be compared against the user's intent — a mismatch is measured (analytics)
+    # rather than silently absorbed. Optional; plain uploads carry no expectation.
+    expected_type: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ):
@@ -277,6 +291,8 @@ async def upload(
     for f in incoming:
         content = await f.read()
         entry, api_doc = await _process_one(content, f.filename or "upload")
+        if expected_type in _EXPECTED_FAMILIES:
+            entry["expected_type"] = expected_type
         documents.append(entry)
         uploaded.append(api_doc)
 
@@ -360,6 +376,18 @@ async def upload(
         dt = coerce_enum("extraction_succeeded", "doc_type", d.document_type or "unclassified")
         await emit("extraction_succeeded", user_id=user.user_id, case_file_id=cf_uuid,
                    properties={"doc_type": dt})
+    if expected_type in _EXPECTED_FAMILIES:
+        family = _EXPECTED_FAMILIES[expected_type]
+        mismatched = [d for d in uploaded if (d.document_type or "unclassified") not in family]
+        if mismatched:
+            # Measured, not messaged: the wrongdoc VOICE for a per-item mismatch is Brock's
+            # (A4 strings pending) — until then the expectation mismatch is an analytics
+            # fact, and the checklist simply doesn't check the item off (have= derives from
+            # the classifier's verdict, never the user's intent).
+            await emit(
+                "expected_document_mismatch", user_id=user.user_id, case_file_id=cf_uuid,
+                properties={"expected": expected_type, "got_count": len(mismatched)},
+            )
 
     if reaudit:
         # All missing documents provided → re-run the audit (finalize_audit sets audit_running,

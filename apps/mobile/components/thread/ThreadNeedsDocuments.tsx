@@ -4,7 +4,7 @@
  * checked; once all are satisfied the upload route auto-re-runs the audit (wired in the
  * needs-documents UX fix) and the bridge renders the re-run in the thread.
  */
-import { CheckCircle2, Circle } from 'lucide-react-native';
+import { CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -45,10 +45,24 @@ export function ThreadNeedsDocuments({
             </Text>
           </View>
           {d.have ? null : (
-            <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>
+            <>
+              <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: '/upload', params: { caseId: caseFileId, expect: d.key } })
+                }
+                className="ml-6 mt-2 min-h-[44px] flex-row items-center gap-1.5 self-start rounded-xl border border-accent px-4"
+                testID={`needs-add-${d.key}`}
+              >
+                <Plus size={15} color="var(--c-accent)" />
+                <Text className="text-body font-semibold text-accent">Add</Text>
+              </Pressable>
+            </>
           )}
         </View>
       ))}
+      {/* Overall fallback — the per-item Add buttons above are the primary path (each opens
+          the upload flow pre-tagged with the document type it should satisfy). */}
       <Pressable
         onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}
         className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
