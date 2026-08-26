@@ -243,6 +243,32 @@ async def _insert(
     return m
 
 
+async def _upsert_by_marker(
+    session: AsyncSession, conv: Conversation, kind: str, marker: str, payload: dict,
+    content: str | None,
+) -> None:
+    """ONE entry per marker, payload updated in place — the checklist card re-renders with
+    fresh have/coverage state instead of stacking duplicates (Brock image-3 item 4)."""
+    existing = (
+        await session.execute(
+            select(Message)
+            .where(Message.conversation_id == conv.conversation_id)
+            .where(Message.kind == kind)
+            .where(Message.payload["marker"].astext == marker)
+            .order_by(Message.sequence_number)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        merged = {**payload, "marker": marker}
+        if existing.payload != merged:
+            existing.payload = merged
+            conv.updated_at = func.now()
+            await session.flush()
+    else:
+        await _insert(session, conv, kind, {**payload, "marker": marker}, content)
+
+
 async def _upsert_status_card(session: AsyncSession, conv: Conversation, payload: dict) -> None:
     """ONE status card per thread, updated in place (D2)."""
     existing = (
@@ -707,10 +733,12 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
     needs = _documents_needed(case, plan_sbc=plan_sbc)
     if all(d.have for d in needs):
         return  # everything's on file — nothing to unlock
+    from app.sources.coverage_checklist import coverage_checklist_items
+
     intro = orchestration_step("unlock_more.intro")
     hint = orchestration_step("unlock_more.item_hint")
-    await ensure(
-        "unlock_more", "system_message",
+    await _upsert_by_marker(
+        session, conv, "system_message", "unlock_more",
         {"text": intro, "tone": "neutral",
          "unlock_more": {
              "intro": intro, "item_hint": hint,
@@ -718,6 +746,7 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
                  {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
                  for d in needs
              ],
+             "coverage_items": coverage_checklist_items(case),
          }},
         intro,
     )
@@ -725,6 +754,7 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
 
 async def _ensure_needs_documents(session, conv, case, ensure) -> None:
     from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
+    from app.sources.coverage_checklist import coverage_checklist_items
     from app.sources.plan_docs import plan_sbc_state
 
     plan_sbc, _ = await plan_sbc_state(session, case.user_id)
@@ -733,9 +763,15 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
         for d in _documents_needed(case, plan_sbc=plan_sbc)
     ]
     intro = orchestration_step("needs_documents_intro")  # §8.1 (no variables)
-    await ensure(
-        "needs_documents", "system_message",
-        {"text": intro, "tone": "neutral", "needs_documents": {"intro": intro, "items": items}},
+    # UPSERTED, not ensured: the card is the case's completion hub — item state (have flags,
+    # coverage values, visit confirmation) re-renders in the ONE existing card.
+    await _upsert_by_marker(
+        session, conv, "system_message", "needs_documents",
+        {"text": intro, "tone": "neutral",
+         "needs_documents": {
+             "intro": intro, "items": items,
+             "coverage_items": coverage_checklist_items(case),
+         }},
         intro,
     )
 

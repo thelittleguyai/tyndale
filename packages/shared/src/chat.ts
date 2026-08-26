@@ -104,9 +104,24 @@ export interface NeedsDocumentsItem {
   have: boolean; // TRUE have/need state (per-item API, DL-90)
 }
 /** payload for kind='system_message' when it carries the needs_documents checklist. */
+/** One coverage-number (or visit-confirm) checklist item (Brock image-3 item 2). The list
+ *  is computed server-side from the case's missing-input set — document-supplied values are
+ *  omitted, user-entered ones render completed, "not sure" is acknowledged, never nagged. */
+export interface CoverageChecklistItem {
+  key: string;
+  kind: 'number' | 'visit_confirm';
+  label: string;
+  value: number | string | null;
+  not_sure: boolean;
+  /** visit_confirm only: tap-to-confirm service descriptions (plausibility-gated). */
+  candidates?: string[];
+  /** "What is this?" explainer copy (registry-authored, server-rendered). */
+  explainer?: string;
+}
 export interface NeedsDocumentsPayload {
   intro: string;
   items: NeedsDocumentsItem[];
+  coverage_items?: CoverageChecklistItem[];
 }
 /** Rung-2 unlock-more (2026-08-18): the same have/need items on a COMPLETED audit,
  *  framed as deepening the finished audit — an unlock, never a gate. */
@@ -114,6 +129,7 @@ export interface UnlockMorePayload {
   intro: string;
   item_hint: string;
   items: NeedsDocumentsItem[];
+  coverage_items?: CoverageChecklistItem[];
 }
 /** payload for kind='system_message' — a plain rendered script line. */
 export interface SystemMessagePayload {

@@ -15,8 +15,12 @@ fix: previously unauthenticated, exposing any case by UUID — IDOR).
 
 from __future__ import annotations
 
+import datetime
+
+from pydantic import BaseModel
+
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import _assemble_result, run_audit
@@ -64,6 +68,66 @@ async def get_eob_completeness(
     await require_case_owner(case_file_id, user, session)
     eobs, coverage = await load_case_eobs_coverage(case_file_id)
     return EobCompletenessOut(**summarize_eob_completeness(eobs, coverage).to_dict())
+
+
+class CoverageInputRequest(BaseModel):
+    """One checklist answer. ``field`` names a coverage number (deductible_amount,
+    deductible_met, oop_max_amount, oop_max_met) or ``visit_confirm``; ``not_sure`` is the
+    honest opt-out (acknowledged, never nagged, writes NO value)."""
+
+    field: str
+    value: float | str | None = None
+    not_sure: bool = False
+
+
+@router.post("/audit/{case_file_id}/coverage-input")
+async def coverage_input(
+    case_file_id: str,
+    req: CoverageInputRequest,
+    user: CurrentUser = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Checklist item save (Brock image-3 item 2). The value is a USER-ATTESTED fact:
+    written into the case's coverage context with provenance (user-entered, timestamp) —
+    the same blob the rung-2 sweep and the accumulator cross-validation read, so the
+    audit's ranges tighten on the next derivation (rung-2 numbers are derived on read,
+    never persisted). A later document that contradicts a user-entered value is the
+    existing reconcile ladder's job."""
+    from app.sources.coverage_checklist import COVERAGE_INPUT_FIELDS, VISIT_CONFIRM_KEY
+
+    case = await require_case_owner(case_file_id, user, session)
+    if req.field not in COVERAGE_INPUT_FIELDS:
+        raise HTTPException(status_code=422, detail=f"unknown checklist field {req.field!r}")
+
+    cov = dict(case.coverage or {})
+    prov = dict(cov.get("user_input_provenance") or {})
+    if not req.not_sure:
+        if req.field == VISIT_CONFIRM_KEY:
+            text = str(req.value or "").strip()
+            if not (1 <= len(text) <= 200):
+                raise HTTPException(status_code=422, detail="visit description must be 1–200 characters")
+            cov["user_visit_description"] = text
+        else:
+            try:
+                v = float(req.value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=422, detail="value must be a number") from None
+            if not (0 <= v <= 10_000_000):
+                raise HTTPException(status_code=422, detail="value out of range")
+            cov[req.field] = round(v, 2)
+    prov[req.field] = {
+        "source": "user-entered",
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "not_sure": bool(req.not_sure),
+    }
+    cov["user_input_provenance"] = prov
+    case.coverage = cov
+    await session.commit()
+    # Re-render the checklist card in place (single card, updated state — DL-91 projection).
+    from app.agents import thread_bridge
+
+    await thread_bridge.bridge_case_state(case_file_id)
+    return {"saved": req.field, "not_sure": bool(req.not_sure)}
 
 
 @router.post("/audit/{case_file_id}/eob-completeness/confirm", response_model=EobCompletenessOut)

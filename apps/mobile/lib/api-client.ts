@@ -363,6 +363,23 @@ export interface VerifyTextResult {
  * POST /v1/audit/{id}/verify-text — chat-first D4b. Maps a free-text verification reply to a
  * pre-selectable suggestion (rendered from the thread). NEVER commits — the confirming tap does.
  */
+/** POST /v1/audit/{id}/coverage-input — save one checklist answer (a user-attested fact;
+ *  the server records user-entered provenance and re-renders the checklist card). */
+export async function saveCoverageInput(
+  caseFileId: string,
+  field: string,
+  value?: number | string,
+  notSure = false,
+): Promise<void> {
+  const res = await cfetch(`${BASE_URL}/v1/audit/${encodeURIComponent(caseFileId)}/coverage-input`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ field, value, not_sure: notSure }),
+  });
+  if (!res.ok) throw new Error(`saveCoverageInput ${res.status}`);
+}
+
 export async function verifyText(caseFileId: string, utterance: string): Promise<VerifyTextResult> {
   const res = await cfetch(
     `${BASE_URL}/v1/audit/${encodeURIComponent(caseFileId)}/verify-text`,

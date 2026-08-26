@@ -67,13 +67,25 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
 
     stated_ded = cov.get("deductible_amount")
     if stated_ded is not None:
-        ded_candidates = [0.0, float(stated_ded)]
-        ded_base = float(stated_ded)
+        ded_amounts = [float(stated_ded)]
+        ded_base_amount = float(stated_ded)
     else:
         prior = MISSING_DATA_PRIORS["deductible_amount"]
-        ded_candidates = [0.0, *prior.plausible_values()]
-        ded_base = prior.base
+        ded_amounts = list(prior.plausible_values())
+        ded_base_amount = prior.base
         placeholder_basis = placeholder_basis or prior.placeholder
+    # deductible_met (checklist item 2, Brock image-3): the classic load-bearing unknown.
+    # Stated → ded_remaining is EXACT per amount candidate (amount − met, floored at 0) and
+    # the "maybe already met" 0.0 guess drops out — this is what collapses the spread.
+    # Unstated → 0.0 stays in the sweep (a mid-year reality no document in hand disproves).
+    stated_met = cov.get("deductible_met")
+    if stated_met is not None:
+        met = max(float(stated_met), 0.0)
+        ded_candidates = sorted({max(0.0, a - met) for a in ded_amounts})
+        ded_base = max(0.0, ded_base_amount - met)
+    else:
+        ded_candidates = [0.0, *ded_amounts]
+        ded_base = ded_base_amount
 
     stated_coins = cov.get("coinsurance_percent")
     if stated_coins is not None:
@@ -85,12 +97,30 @@ def rung2_range(anchor: float, coverage: dict | None, *, anchor_kind: str) -> Ru
         coins_base = prior.base
         placeholder_basis = placeholder_basis or prior.placeholder
 
+    # A STATED out-of-pocket max caps every evaluation: member owes at most what remains of
+    # the cap (max − met when met is stated, the full max when it isn't — met ≥ 0 always).
+    # Never swept from priors: the cap only tightens on real data, per the tier contract.
+    oop_cap: float | None = None
+    stated_oop = cov.get("oop_max_amount")
+    if stated_oop is not None:
+        stated_oop_met = cov.get("oop_max_met")
+        oop_cap = (
+            max(0.0, float(stated_oop) - max(float(stated_oop_met), 0.0))
+            if stated_oop_met is not None
+            else float(stated_oop)
+        )
+
+    def _capped(value: float) -> float:
+        return round(min(value, oop_cap), 2) if oop_cap is not None else value
+
     results = sorted(
-        member_cost_share(anchor, d, c) for d in ded_candidates for c in coins_candidates
+        _capped(member_cost_share(anchor, d, c))
+        for d in ded_candidates
+        for c in coins_candidates
     )
     return Rung2Range(
         low=results[0],
-        base=member_cost_share(anchor, ded_base, coins_base),
+        base=_capped(member_cost_share(anchor, ded_base, coins_base)),
         high=results[-1],
         anchor=round(float(anchor), 2),
         anchor_kind=anchor_kind,

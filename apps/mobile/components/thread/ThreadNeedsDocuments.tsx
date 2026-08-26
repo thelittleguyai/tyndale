@@ -6,9 +6,123 @@
  */
 import { CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
-import type { NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
+import type { CoverageChecklistItem, NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
+import { saveCoverageInput } from '../../lib/api-client';
+
+const money = (v: number) =>
+  `$${v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+/** One coverage-number / visit-confirm row. Tap opens the inline input (currency keyboard)
+ *  or the candidate chips; SAVE is the only state change (D4(b)); "Not sure" is the honest
+ *  opt-out. Saved state renders like the document items — check + strikethrough. */
+function CoverageItemRow({ item, caseFileId }: { item: CoverageChecklistItem; caseFileId: string }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [savedValue, setSavedValue] = useState<number | string | null>(null);
+  const [savedNotSure, setSavedNotSure] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const value = savedValue ?? item.value;
+  const notSure = savedNotSure || (item.not_sure && value == null);
+  const done = value != null;
+
+  const save = async (v?: number | string, asNotSure = false) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await saveCoverageInput(caseFileId, item.key, v, asNotSure);
+      if (asNotSure) setSavedNotSure(true);
+      else if (v != null) setSavedValue(v);
+      setOpen(false);
+    } catch {
+      // The card re-renders from the server on the next thread refresh; a failed save
+      // simply leaves the row open — no optimistic state to unwind.
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveNumber = () => {
+    const v = Number(text.replace(/[$,\s]/g, ''));
+    if (Number.isFinite(v) && v >= 0) void save(Math.round(v * 100) / 100);
+  };
+
+  return (
+    <View className="mt-3 border-t border-hairline pt-3">
+      <Pressable
+        onPress={() => (done ? null : setOpen((o) => !o))}
+        className="min-h-[44px] flex-row items-center gap-2"
+        testID={`coverage-item-${item.key}`}
+      >
+        {done ? (
+          <CheckCircle2 size={18} color="var(--c-accent)" />
+        ) : (
+          <Circle size={18} color="var(--c-text-faint)" />
+        )}
+        <Text
+          className={`flex-1 text-base font-bold ${done ? 'text-faint line-through' : 'text-primary'}`}
+        >
+          {item.label}
+        </Text>
+        {done ? (
+          <Text className="text-body font-semibold text-secondary" testID={`coverage-value-${item.key}`}>
+            {typeof value === 'number' ? money(value) : ''}
+          </Text>
+        ) : notSure ? (
+          <Text className="text-caption text-faint">Not sure</Text>
+        ) : null}
+      </Pressable>
+      {typeof value === 'string' && value ? (
+        <Text className="ml-6 text-body text-secondary">{value}</Text>
+      ) : null}
+      {open && !done ? (
+        <View className="ml-6 mt-2">
+          {item.kind === 'visit_confirm' ? (
+            <View className="mb-2 flex-row flex-wrap gap-2">
+              {(item.candidates ?? []).map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => void save(c)}
+                  className="min-h-[44px] justify-center rounded-full border border-accent px-4"
+                  testID={`visit-candidate-${c}`}
+                >
+                  <Text className="text-body font-semibold text-accent">{c}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          <View className="flex-row items-center gap-2">
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={item.kind === 'number' ? '$0' : 'Something else — describe it'}
+              inputMode={item.kind === 'number' ? 'decimal' : 'text'}
+              className="min-h-[44px] flex-1 rounded-xl border border-hairline bg-surface px-3 text-body text-primary"
+              testID={`coverage-input-${item.key}`}
+            />
+            <Pressable
+              onPress={() => (item.kind === 'number' ? saveNumber() : text.trim() && void save(text.trim()))}
+              disabled={busy}
+              className="min-h-[44px] justify-center rounded-xl bg-accent px-4"
+              testID={`coverage-save-${item.key}`}
+            >
+              <Text className="text-body font-bold text-on-accent">Save</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => void save(undefined, true)}
+            className="mt-1 min-h-[44px] justify-center self-start px-1"
+            testID={`coverage-notsure-${item.key}`}
+          >
+            <Text className="text-body text-secondary underline">I'm not sure</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export function ThreadNeedsDocuments({
   payload,
@@ -60,6 +174,9 @@ export function ThreadNeedsDocuments({
             </>
           )}
         </View>
+      ))}
+      {(payload.coverage_items ?? []).map((c) => (
+        <CoverageItemRow key={c.key} item={c} caseFileId={caseFileId} />
       ))}
       {/* Overall fallback — the per-item Add buttons above are the primary path (each opens
           the upload flow pre-tagged with the document type it should satisfy). */}
