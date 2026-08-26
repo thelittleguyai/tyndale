@@ -37,9 +37,10 @@ import {
   Clock,
   FileText,
   MessageSquare,
+  Plus,
   Search,
+  Settings,
   ShieldCheck,
-  X,
 } from 'lucide-react-native';
 
 import {
@@ -138,9 +139,10 @@ export default function DashboardScreen() {
   const greetingName = profileName.first ?? data?.user.first_name ?? 'there';
 
   return (
+    <View className="flex-1 bg-page">
     <ScrollView
       className="flex-1 bg-page"
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: 96 }}
     >
       <Header firstName={greetingName} lastName={profileName.last} />
 
@@ -227,6 +229,18 @@ export default function DashboardScreen() {
         </Text>
       </ScreenView>
     </ScrollView>
+    {/* Persistent chat entry (mockup item 1): floats above the scroll, routes to freeform. */}
+    <PressableScale
+      onPress={openChat}
+      accessibilityRole="button"
+      accessibilityLabel="Chat with Tyndale"
+      className="absolute bottom-6 right-5 min-h-[52px] flex-row items-center gap-2 rounded-full bg-accent px-5 py-3 shadow-card"
+      testID="floating-chat"
+    >
+      <MessageSquare size={18} color="var(--c-on-accent)" />
+      <Text className="text-body font-bold text-on-accent">Chat with Tyndale</Text>
+    </PressableScale>
+    </View>
   );
 }
 
@@ -483,11 +497,24 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
             <Text className="text-xs font-semibold text-secondary">Admin</Text>
           </Pressable>
         ) : null}
+        <PressableScale
+          onPress={() => router.push('/upload')}
+          accessibilityRole="button"
+          accessibilityLabel="Check a bill"
+          className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-accent px-3.5 py-1.5"
+          testID="header-check-bill"
+        >
+          <Plus size={14} color="var(--c-on-accent)" />
+          <Text className="text-xs font-bold text-on-accent">Check a bill</Text>
+        </PressableScale>
         <Pressable
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
+          accessibilityLabel="Settings"
           className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-2.5 py-1.5 hover:bg-inset active:opacity-80"
+          testID="header-settings"
         >
+          <Settings size={15} color="var(--c-text-secondary)" />
           <View className="h-5 w-5 items-center justify-center rounded-full bg-accent-tint">
             <Text className="text-[10px] font-bold text-accent">
               {firstName.charAt(0).toUpperCase()}
