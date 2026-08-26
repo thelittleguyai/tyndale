@@ -150,7 +150,7 @@ export default function DashboardScreen() {
       className="flex-1 bg-page"
       contentContainerStyle={{ paddingBottom: 96 }}
     >
-      <Header firstName={greetingName} lastName={profileName.last} />
+      <Header />
 
       <ScreenView wide className="px-5 pt-3">
         {/* Welcome banner (mockup item 2) — registry copy whose subline states only REAL
@@ -482,10 +482,10 @@ function ActiveCasesSection({
 // The separate admin console (CO-9) lives at its own IP-allowlisted subdomain.
 const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 
-function Header({ firstName, lastName }: { firstName: string; lastName: string | null }) {
+function Header() {
   const router = useRouter();
   const signOut = useSignOut();
-  // Phones: logo-only + avatar-only pill so '+ Check a bill' and Sign Out always fit.
+  // Phones: logo-only so '+ Check a bill' and Sign Out always fit.
   const { isPhone } = useBreakpoint();
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -548,20 +548,10 @@ function Header({ firstName, lastName }: { firstName: string; lastName: string |
           onPress={() => router.push('/settings')}
           accessibilityRole="button"
           accessibilityLabel="Settings"
-          className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-2.5 py-1.5 hover:bg-inset active:opacity-80"
+          className="min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-hairline bg-inset hover:bg-inset active:opacity-80"
           testID="header-settings"
         >
-          <Settings size={15} color="var(--c-text-secondary)" />
-          <View className="h-5 w-5 items-center justify-center rounded-full bg-accent-tint">
-            <Text className="text-[10px] font-bold text-accent">
-              {firstName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          {isPhone ? null : (
-            <Text className="text-xs font-medium text-primary">
-              {lastName ? `${firstName} ${lastName}` : firstName}
-            </Text>
-          )}
+          <Settings size={17} color="var(--c-text-secondary)" />
         </Pressable>
         <Pressable
           onPress={onSignOut}
