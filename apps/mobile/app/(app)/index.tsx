@@ -76,6 +76,7 @@ const formatUSD = (n: number) =>
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { width } = useBreakpoint();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [record, setRecord] = useState<RecordPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -239,15 +240,21 @@ export default function DashboardScreen() {
       </ScreenView>
     </ScrollView>
     {/* Persistent chat entry (mockup item 1): floats above the scroll, routes to freeform. */}
+    {/* <480 the pill compacts to an icon bubble: the labeled quick-action card is right
+        there, and the full pill overlays content at phone widths (viewport sweep note). */}
     <PressableScale
       onPress={openChat}
       accessibilityRole="button"
       accessibilityLabel="Chat with Tyndale"
-      className="absolute bottom-6 right-5 min-h-[52px] flex-row items-center gap-2 rounded-full bg-accent px-5 py-3 shadow-card"
+      className={`absolute bottom-6 right-5 flex-row items-center justify-center rounded-full bg-accent shadow-card ${
+        width < 480 ? 'h-[52px] w-[52px]' : 'min-h-[52px] gap-2 px-5 py-3'
+      }`}
       testID="floating-chat"
     >
       <MessageSquare size={18} color="var(--c-on-accent)" />
-      <Text className="text-body font-bold text-on-accent">Chat with Tyndale</Text>
+      {width < 480 ? null : (
+        <Text className="text-body font-bold text-on-accent">Chat with Tyndale</Text>
+      )}
     </PressableScale>
     </View>
   );
@@ -485,8 +492,11 @@ const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 function Header() {
   const router = useRouter();
   const signOut = useSignOut();
-  // Phones: logo-only so '+ Check a bill' and Sign Out always fit.
-  const { isPhone } = useBreakpoint();
+  // Phones (<640): logo-only. Narrow (<480, down to 320): Sign Out and the Admin chip
+  // collapse into Settings (both exist there), and the primary compacts to '+ Check' —
+  // nothing ever clips (2026-08-26 viewport sweep).
+  const { isPhone, width } = useBreakpoint();
+  const narrow = width < 480;
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -521,7 +531,7 @@ function Header() {
         {isPhone ? null : <Text className="text-base font-bold text-primary">Tyndale</Text>}
       </View>
       <View className="flex-row items-center gap-2">
-        {isAdmin ? (
+        {isAdmin && !narrow ? (
           <Pressable
             onPress={() => {
               Linking.openURL(ADMIN_CONSOLE_URL).catch(() => {});
@@ -542,7 +552,7 @@ function Header() {
           testID="header-check-bill"
         >
           <Plus size={14} color="var(--c-on-accent)" />
-          <Text className="text-xs font-bold text-on-accent">Check a bill</Text>
+          <Text className="text-xs font-bold text-on-accent">{narrow ? 'Check' : 'Check a bill'}</Text>
         </PressableScale>
         <Pressable
           onPress={() => router.push('/settings')}
@@ -553,15 +563,17 @@ function Header() {
         >
           <Settings size={17} color="var(--c-text-secondary)" />
         </Pressable>
-        <Pressable
-          onPress={onSignOut}
-          disabled={signingOut}
-          className="min-h-[44px] items-center justify-center rounded-full bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
-        >
-          <Text className="text-xs font-semibold text-secondary">
-            {signingOut ? 'Signing out…' : 'Sign Out'}
-          </Text>
-        </Pressable>
+        {narrow ? null : (
+          <Pressable
+            onPress={onSignOut}
+            disabled={signingOut}
+            className="min-h-[44px] items-center justify-center rounded-full bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
+          >
+            <Text className="text-xs font-semibold text-secondary">
+              {signingOut ? 'Signing out…' : 'Sign Out'}
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -581,6 +593,9 @@ function StatCards({
   needsYou: number;
   loading: boolean;
 }) {
+  // <400 the two-up grid squeezes the empty-state copy into awkward wraps — stack.
+  const { width } = useBreakpoint();
+  const stack = width < 400;
   if (loading) {
     return (
       <View className="mb-2 flex-row flex-wrap gap-3">
@@ -591,7 +606,7 @@ function StatCards({
     );
   }
   return (
-    <View className="mb-2 flex-row flex-wrap gap-3">
+    <View className={`mb-2 gap-3 ${stack ? '' : 'flex-row flex-wrap'}`}>
       <View className="min-w-[150px] flex-1" testID="stat-recovered">
         {recovered > 0 ? (
           <MetricCard

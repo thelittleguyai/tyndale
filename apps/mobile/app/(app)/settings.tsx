@@ -681,6 +681,15 @@ export default function SettingsScreen() {
 
       {/* 5. Account */}
       <Section title="Account">
+        {profile?.user_type === 'admin' ? (
+          // Mirrors the header's Admin jump-off; on narrow widths the header collapses
+          // Admin + Sign Out into here (2026-08-26 viewport sweep). DL-60: non-admins
+          // never see this row.
+          <LinkRow
+            label="Admin console"
+            onPress={() => Linking.openURL('https://admin.tyndaleapp.net').catch(() => {})}
+          />
+        ) : null}
         <LinkRow label={signingOut ? 'Signing out…' : 'Sign Out'} onPress={onSignOut} />
         <LinkRow label="Delete Account" tone="rose" onPress={() => setDeleteModal(true)} />
       </Section>
