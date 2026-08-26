@@ -40,6 +40,10 @@ CoverageExtractionStatus = Literal["extracted", "pending", "missing"]
 class CoverageSummary(BaseModel):
     deductible: CoverageMeter | None = None
     oop_max: CoverageMeter | None = None
+    # Where each meter's values came from: 'entries' (user-attested via the checklist) or
+    # 'documents' (SBC/card extraction). None when the meter is absent. Never a prior.
+    deductible_source: str | None = None
+    oop_max_source: str | None = None
     copays: CoverageCopays | None = None
     extraction_status: CoverageExtractionStatus = "missing"
 
@@ -95,6 +99,9 @@ class DashboardPayload(BaseModel):
     # recovered amounts from outcome reports (never the payer-gap proxy above); the client
     # renders a neutral empty state when it is 0 — never "$0.00" as a sad zero.
     recovered_to_date: float = 0.0
+    # Quick-actions gate (mockups item 6): 'Connect your plan' renders ONLY when the
+    # coverage-connection seam is actually on in this env — flag-driven, never a dead button.
+    coverage_connection_enabled: bool = False
     open_count: int = 0
     needs_you_count: int = 0
     # Phase CO-1A — drives the intake gate. 'complete' users see the dashboard;

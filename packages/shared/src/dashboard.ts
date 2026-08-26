@@ -34,6 +34,8 @@ export interface CoverageSummary {
   oop_max: CoverageMeter | null;
   copays: CoverageCopays | null;
   extraction_status: CoverageExtractionStatus;
+  deductible_source?: string | null;
+  oop_max_source?: string | null;
 }
 
 export interface OpenCase {
@@ -68,6 +70,7 @@ export interface DashboardPayload {
   banner?: { title: string; subline: string } | null;
   amount_saved_ytd: number;
   recovered_to_date?: number;
+  coverage_connection_enabled?: boolean;
   open_count?: number;
   needs_you_count?: number;
   /** Phase CO-1A — drives the intake gate. 'complete' → dashboard; else wizard. */

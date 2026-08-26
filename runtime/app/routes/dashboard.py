@@ -91,6 +91,17 @@ def _coverage_summary_from_jsonb(coverage_jsonb: dict | None) -> CoverageSummary
     deductible = _coverage_meter(coverage_jsonb, "deductible_amount", "deductible_met")
     oop_max = _coverage_meter(coverage_jsonb, "oop_max_amount", "oop_max_met")
 
+    # Benefit-bar source labels (mockups, honest subset): "entries" when any contributing
+    # value is user-attested (checklist saves carry user-entered provenance), else
+    # "documents" (SBC / card extraction). Meters only ever read STATED values — a prior
+    # can never become a bar.
+    prov = coverage_jsonb.get("user_input_provenance") or {}
+
+    def _source(*keys: str) -> str:
+        return "entries" if any(
+            (prov.get(k) or {}).get("source") == "user-entered" for k in keys
+        ) else "documents"
+
     copays = None
     pcp = coverage_jsonb.get("copay_pcp")
     er = coverage_jsonb.get("copay_er")
@@ -107,6 +118,8 @@ def _coverage_summary_from_jsonb(coverage_jsonb: dict | None) -> CoverageSummary
     return CoverageSummary(
         deductible=deductible,
         oop_max=oop_max,
+        deductible_source=_source("deductible_amount", "deductible_met") if deductible else None,
+        oop_max_source=_source("oop_max_amount", "oop_max_met") if oop_max else None,
         copays=copays,
         extraction_status=status,
     )
@@ -447,4 +460,5 @@ async def get_dashboard(
         outcome_prompts=outcome_prompts,
         status_forward_greeting=greeting,
         record_enabled=get_settings().enable_record_view,
+        coverage_connection_enabled=bool(get_settings().enable_coverage_connection),
     )
