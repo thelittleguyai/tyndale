@@ -77,9 +77,18 @@ class ActiveCase(BaseModel):
     next_deadline_label: str | None = None
 
 
+class HomeBanner(BaseModel):
+    """Welcome banner (Brock mockups, honest subset): registry-authored copy whose subline
+    is derived ONLY from real computed case state — never an unbuilt-feature claim (B8)."""
+
+    title: str
+    subline: str
+
+
 # --- Top-level payloads ------------------------------------------------------
 class DashboardPayload(BaseModel):
     user: UserBrief
+    banner: HomeBanner | None = None
     coverage: CoverageSummary
     amount_saved_ytd: float
     # Phase CO-1A — drives the intake gate. 'complete' users see the dashboard;

@@ -65,6 +65,7 @@ export interface OutcomePromptInline {
 export interface DashboardPayload {
   user: UserBrief;
   coverage: CoverageSummary;
+  banner?: { title: string; subline: string } | null;
   amount_saved_ytd: number;
   /** Phase CO-1A — drives the intake gate. 'complete' → dashboard; else wizard. */
   intake_status: string;

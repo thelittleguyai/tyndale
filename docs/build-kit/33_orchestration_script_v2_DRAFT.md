@@ -126,6 +126,16 @@ stop short of one.*
 thread when a checklist item is saved (image-3 item 4, "no fanfare"):
 > "Got it — {item_label} saved."
 
+## Homescreen banner — PROPOSED, interim engineering seed (2026-08-22)
+
+*Status: INTERIM, from your homescreen mockups. Four keys LIVE as shippable seeds:
+`home.banner_title` ("Welcome back, {name}.") + three sublines picked by REAL case state —
+`home.banner_subline_empty` / `_active` ("{cases_phrase} — {needs_phrase}.") / `_quiet`.
+HONESTY CONSTRAINT on any rewrite: your mockup line "I'm still on your cases — deadlines
+watched, numbers re-checked" claims proactive monitoring (B8) that is not built; the test
+suite bans those phrases from this surface until B8 exists. Rewrite freely within
+what the computed state can truthfully say.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

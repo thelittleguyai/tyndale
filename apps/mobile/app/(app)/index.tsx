@@ -147,11 +147,14 @@ export default function DashboardScreen() {
       <Header firstName={greetingName} lastName={profileName.last} />
 
       <ScreenView wide className="px-5 pt-3">
-        {/* Greeting + one status line (redesign §3) — existing copy, new type/layout. */}
+        {/* Welcome banner (mockup item 2) — registry copy whose subline states only REAL
+            computed case state; the mockup's proactive-monitoring line is B8, unbuilt. */}
         <View className="mb-5 mt-1">
-          <Text className="text-title text-primary">Welcome back, {greetingName}.</Text>
-          <Text className="mt-1 text-body text-secondary">
-            {data?.status_forward_greeting ??
+          <Text className="text-title text-primary" testID="banner-title">
+            {data?.banner?.title ?? `Welcome back, ${greetingName}.`}
+          </Text>
+          <Text className="mt-1 text-body text-secondary" testID="banner-subline">
+            {data?.banner?.subline ??
               (loading && !data ? 'Loading your dashboard…' : 'What would you like to do today?')}
           </Text>
         </View>

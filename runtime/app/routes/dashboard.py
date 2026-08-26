@@ -31,6 +31,7 @@ from app.db.session import get_session
 from app.schemas.case_file import as_dict
 from app.schemas.dashboard import (
     ActiveCase,
+    HomeBanner,
     CopayAmount,
     CoverageCopays,
     CoverageMeter,
@@ -292,6 +293,47 @@ async def _amount_saved_ytd(s: AsyncSession, cases: list[CaseFile]) -> float:
     return round(total, 2)
 
 
+# Statuses genuinely blocked on the USER — the banner's "N need(s) something from you" and
+# the stat card's "needs you" count both derive from this one set (no new states).
+_NEEDS_YOU_STATUSES = {
+    "encounter_verification_pending", "awaiting_eob_confirmation",
+    "extraction_failed", "not_a_bill",
+}
+
+
+def _needs_you(case: CaseFile) -> bool:
+    if case.status in _NEEDS_YOU_STATUSES:
+        return True
+    return case.status == "audit_incomplete" and case.audit_incomplete_reason == "needs_documents"
+
+
+def _compose_banner(name: str, cases: list[CaseFile]) -> dict:
+    """Registry-authored banner from REAL state only (honest subset of Brock's mockup — the
+    proactive-monitoring line is B8, unbuilt, and test-banned from this surface)."""
+    from app.agents.context_loader import orchestration_step
+
+    open_cases = [c for c in cases if c.status not in ("resolved", "archived")]
+    n_open, n_needs = len(open_cases), sum(1 for c in open_cases if _needs_you(c))
+    title = orchestration_step("home.banner_title", name=name)
+    if n_open == 0:
+        subline = orchestration_step("home.banner_subline_empty")
+    else:
+        cases_phrase = f"{n_open} open case{'' if n_open == 1 else 's'}"
+        if n_needs:
+            needs_phrase = (
+                f"{n_needs} need{'s' if n_needs == 1 else ''} something from you"
+            )
+            subline = orchestration_step(
+                "home.banner_subline_active",
+                cases_phrase=cases_phrase, needs_phrase=needs_phrase,
+            )
+        else:
+            subline = orchestration_step(
+                "home.banner_subline_quiet", cases_phrase=cases_phrase
+            )
+    return {"title": title, "subline": subline}
+
+
 # --- Route -------------------------------------------------------------------
 def _welcome_state_hash(case_states: list[dict]) -> str:
     """Stable hash of the case-state snapshot the welcome summary is composed from — status +
@@ -372,8 +414,15 @@ async def get_dashboard(
         for f in followups
     ]
 
+    # Banner name: the profile's REAL first name when set (CO-17), else the email-derived one.
+    urow = (
+        await session.execute(select(User).where(User.user_id == user.user_id))
+    ).scalar_one_or_none()
+    banner_name = ((urow.first_name or "").strip() if urow else "") or user.first_name or "there"
+
     return DashboardPayload(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
+        banner=HomeBanner(**_compose_banner(banner_name, cases)),
         coverage=coverage_summary,
         amount_saved_ytd=amount_saved,
         intake_status=intake_status,

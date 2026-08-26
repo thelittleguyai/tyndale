@@ -547,3 +547,24 @@ drift guard (nothing to compare against).
      2026-08-22): the conversation reflects checklist progress. Deliberately no fanfare.
      Same interim/PROPOSED status as the explainer keys. -->
 [A] "Got it — {item_label} saved."
+
+## home.banner_title
+<!-- UNMAPPED — homescreen welcome banner (Brock mockups 2026-08-22, honest subset).
+     INTERIM engineering seed; PROPOSED in 33_orchestration_script_v2_DRAFT.md.
+     HONESTY CONSTRAINT for any rewrite: the subline keys below may only describe REAL,
+     computed case state. Proactive-monitoring claims ("deadlines watched", "numbers
+     re-checked") are B8 — NOT BUILT — and are test-banned until that machinery exists. -->
+[A] "Welcome back, {name}."
+
+## home.banner_subline_empty
+<!-- UNMAPPED — zero open cases. Same interim/PROPOSED status + honesty constraint. -->
+[A] "Ready when you are — check a bill and I'll take it from there."
+
+## home.banner_subline_active
+<!-- UNMAPPED — open cases, some need the user. {cases_phrase} e.g. "2 open cases";
+     {needs_phrase} e.g. "1 needs something from you". Computed, always true. -->
+[A] "{cases_phrase} — {needs_phrase}."
+
+## home.banner_subline_quiet
+<!-- UNMAPPED — open cases, none blocked on the user. Same status + constraint. -->
+[A] "{cases_phrase} — nothing needs you right now."
