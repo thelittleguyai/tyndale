@@ -190,3 +190,31 @@ def test_no_css_variables_as_native_color_props():
             if "placeholderTextColor=\"rgba" in line or "placeholderTextColor={'rgba" in line:
                 offenders.append(f"{path.relative_to(REPO)}:{i} hardcoded rgba placeholder")
     assert offenders == [], "\n".join(offenders)
+
+
+def test_admin_and_marketing_palettes_stay_in_sync():
+    """Audit 2026-08-27 item 3: apps/admin and apps/web-marketing each hardcode a parallel
+    palette with a 'keep in sync' comment doing the enforcement. This test does it instead:
+    the two colors blocks must carry the IDENTICAL hex set, and the brand anchors (teal,
+    cream) must match @tyndale/shared — so a one-sided edit fails here instead of drifting."""
+    import re
+
+    def hexes(path: pathlib.Path) -> set[str]:
+        text = path.read_text(encoding="utf-8")
+        m = re.search(r"colors: \{(.*?)\n      \}", text, re.S)
+        assert m, f"colors block not found in {path}"
+        return set(h.upper() for h in re.findall(r"#[0-9A-Fa-f]{6}", m.group(1)))
+
+    admin = hexes(REPO / "apps/admin/tailwind.config.ts")
+    marketing = hexes(REPO / "apps/web-marketing/tailwind.config.ts")
+    assert admin == marketing, (
+        f"palettes drifted — only in admin: {sorted(admin - marketing)}; "
+        f"only in marketing: {sorted(marketing - admin)}"
+    )
+    shared = (REPO / "packages/shared/src/design-tokens.ts").read_text(encoding="utf-8")
+    import re as _re
+
+    teal = _re.search(r"teal: '(#[0-9A-Fa-f]{6})'", shared)
+    cream = _re.search(r"cream: '(#[0-9A-Fa-f]{6})'", shared)
+    assert teal and teal.group(1).upper() in admin, "brand.teal missing from the app palettes"
+    assert cream and cream.group(1).upper() in admin, "brand.cream missing from the app palettes"

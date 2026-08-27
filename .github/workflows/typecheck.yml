@@ -10,6 +10,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - '.github/workflows/typecheck.yml'
   push:
     branches: [main]
     paths:

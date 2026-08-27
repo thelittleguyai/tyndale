@@ -97,3 +97,14 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --query "sort_by([], &properties.createdTime)[-3:].{name:name, active:properties.active, replicas:properties.replicas, image:properties.template.containers[0].image, created:properties.createdTime}" \
             -o table
+
+      # Audit 2026-08-27 item 3: the route matrix (written for the /chat slash-less hang)
+      # now runs against the LIVE host after every roll. Routes are enumerated from the
+      # exact dist the image serves — extracted from the image we just pushed.
+      - name: Route matrix against the deployed host
+        run: |
+          docker create --name dist-probe "$IMAGE:${{ github.sha }}"
+          docker cp dist-probe:/usr/share/nginx/html ./dist-deployed
+          docker rm dist-probe
+          sleep 30  # let the new revision take traffic
+          node apps/mobile/scripts/check-route-matrix.mjs https://app.tyndaleapp.net ./dist-deployed

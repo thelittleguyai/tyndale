@@ -40,7 +40,13 @@ env:
   RESOURCE_GROUP: tyndale-dev-rg
 
 jobs:
+  # Audit 2026-08-27 item 3: deploy used to RACE Runtime CI (both fired on push; a red
+  # suite still deployed and migrated). The same reusable CI workflow now gates the roll.
+  ci:
+    uses: ./.github/workflows/runtime-ci.yml
+
   deploy:
+    needs: ci
     runs-on: ubuntu-latest
     environment: dev   # scopes secrets to the GitHub `dev` environment and makes
                        # the OIDC subject claim repo:OWNER/REPO:environment:dev

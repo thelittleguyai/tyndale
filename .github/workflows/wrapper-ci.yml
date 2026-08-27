@@ -10,6 +10,12 @@ on:
     paths:
       - "api-wrapper/**"
       - ".github/workflows/wrapper-ci.yml"
+  # Audit 2026-08-27 item 3: pushes straight to main previously skipped this gate.
+  push:
+    branches: [main]
+    paths:
+      - "api-wrapper/**"
+      - ".github/workflows/wrapper-ci.yml"
 
 permissions:
   contents: read

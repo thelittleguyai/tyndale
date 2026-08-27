@@ -10,16 +10,33 @@ name: Runtime CI
 #                 from scratch) + `alembic check` (proves the SQLAlchemy models
 #                 match the migrations — no schema drift). DL-77.
 
+# Audit 2026-08-27 item 3: runtime/tests holds REPO-WIDE guards (design-token scans over
+# apps/*, flag/env wiring over infra/, script drift over docs/build-kit) — but the triggers
+# only watched runtime/**, so a change in any scanned tree skipped the guards entirely.
+# Triggers EXTENDED rather than splitting the guards into their own workflow: the guards
+# share the suite's uv + Postgres harness, and a second copy of that setup would drift.
 on:
   pull_request:
     paths:
       - 'runtime/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'infra/**'
+      - 'docs/build-kit/**'
+      - 'intelligence-layer/**'
       - '.github/workflows/runtime-ci.yml'
   push:
     branches: [main]
     paths:
       - 'runtime/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'infra/**'
+      - 'docs/build-kit/**'
+      - 'intelligence-layer/**'
       - '.github/workflows/runtime-ci.yml'
+  # Reusable (audit item 3): deploy-runtime gates on this exact suite instead of racing it.
+  workflow_call:
 
 permissions:
   contents: read
