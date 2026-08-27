@@ -16,6 +16,7 @@ recommended action produces no step (it still appears in the findings list).
 from __future__ import annotations
 
 from app.agents.context_loader import orchestration_step
+from app.agents.grounding import derive_responsible_party
 from app.db.models.findings import Finding
 from app.schemas.case_file import as_dict
 from app.schemas.case_summary import CallScript, GameplanStep
@@ -23,11 +24,26 @@ from app.sources.call_identifiers import CallIdentifiers, for_party, script_vari
 
 # finding_type -> (party token, plain-language who-to-call). encounter_mismatch is a provider
 # billing error (charged for something that didn't happen), so it routes to the provider too.
+# FALLBACK ONLY (audit 2026-08-27 item 2): the finding's derived responsible_party — which a
+# matched rule's attribution feeds — routes first; this map covers 'either' and legacy rows.
 _PARTY: dict[str, tuple[str, str]] = {
     "payer_side": ("payer", "your insurance company"),
     "provider_side": ("provider", "the provider's billing office"),
     "encounter_mismatch": ("provider", "the provider's billing office"),
 }
+_PARTY_LABELS = {"payer": "your insurance company", "provider": "the provider's billing office"}
+
+
+def _party_for(f) -> tuple[str, str, str]:
+    """(party token, label, attribution). Attribution comes from the finding's derived
+    responsible_party — a payer-adjudication rule match must never send the user to the
+    provider's billing office. 'either' keeps the finding_type routing but is carried
+    through so the script context can say so."""
+    rp = derive_responsible_party(f)
+    if rp in _PARTY_LABELS:
+        return rp, _PARTY_LABELS[rp], rp
+    party, label = _PARTY.get(f.finding_type, ("provider", "the provider's billing office"))
+    return party, label, "either"
 
 # Humanized step titles for the categories the audit emits; unknown categories title-case cleanly.
 _CATEGORY_TITLE: dict[str, str] = {
@@ -90,10 +106,13 @@ def build_gameplan(
 
     steps: list[GameplanStep] = []
     for i, f in enumerate(actionable, start=1):
-        party, party_label = _PARTY.get(f.finding_type, ("provider", "the provider's billing office"))
+        party, party_label, attribution = _party_for(f)
         opener_key = "call_script_opener_payer" if party == "payer" else "call_script_opener_provider"
         ref = for_party(ids, party)
         variables = script_variables(ids)
+        # attribution reaches the script context so an authored opener CAN acknowledge the
+        # 'either' case; unused slots are ignored, so this is inert until Brock uses it.
+        variables = {**variables, "attribution": attribution}
         steps.append(
             GameplanStep(
                 index=i,
@@ -101,6 +120,7 @@ def build_gameplan(
                 title=humanize_category(f.category),
                 party=party,
                 party_label=party_label,
+                responsible_party=attribution,
                 dollar_impact=_dollar_of(f),
                 reference_kind=ref.reference_kind if ref.reference_number else None,
                 reference_number=ref.reference_number,

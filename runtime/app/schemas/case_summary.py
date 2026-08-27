@@ -28,6 +28,9 @@ class FindingBrief(BaseModel):
     claim: str | None = None  # Tier-B claim (agent-authored)
     dollar_impact: float | None = None  # facts['gap'] — an ESTIMATE, labeled in the view
     recommendation: str | None = None  # Tier-C action (agent-authored)
+    # Server-derived attribution (audit 2026-08-27 item 2): provider | payer | either.
+    responsible_party: str = "either"
+
 
 
 class CallScript(BaseModel):
@@ -45,8 +48,12 @@ class GameplanStep(BaseModel):
     index: int  # 1-based, biggest-dollar-first
     finding_id: str
     title: str
-    party: str  # 'payer' | 'provider' — who to call
+    party: str  # 'payer' | 'provider' — who to call (attribution-first, type-map fallback)
     party_label: str  # plain-language ("your insurance company")
+    # The finding's derived attribution — 'either' means the type-map routed the call and
+    # the client/script may say the other party could be involved too.
+    responsible_party: str = "either"
+
     dollar_impact: float | None = None  # ESTIMATE for this item
     script: CallScript
     # What this call needs on hand (B4), chosen by WHO is being called: a payer call quotes the

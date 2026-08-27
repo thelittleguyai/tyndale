@@ -16,6 +16,7 @@ export interface FindingBrief {
   claim: string | null; // Tier-B claim (agent-authored)
   dollar_impact: number | null; // facts['gap'] — an ESTIMATE, labeled in the view
   recommendation: string | null; // Tier-C action (agent-authored)
+  responsible_party?: string;
 }
 
 /** One phone call's four beats. pick_up/in_writing/push_back are connective copy (D1); the
@@ -43,6 +44,7 @@ export interface GameplanStep {
   reference_kind: 'claim' | 'account' | null;
   reference_number: string | null;
   phone: string | null; // as printed on that party's document — never guessed or looked up
+  responsible_party?: string;
 }
 
 export interface CaseSummaryPayload {
