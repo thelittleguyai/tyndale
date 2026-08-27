@@ -1,5 +1,11 @@
 # Tyndale — Project State (2026-08-17)
 
+> **Scoreboard re-counted 2026-08-27** (audit group 6): §1's figures and §6.3's checker
+> status are current as of `ce1531b`. The NARRATIVE sections still describe the 08-17
+> snapshot — ten days of work (capture/progress/identity fixes, the checklist completion
+> hub, the homescreen, three audit sweeps) landed since; see `git log e34bfbf..` and the
+> two reply_to_brock docs for what moved.
+
 **What this is:** the current-state deep dive for the next Cowork planning session, written
 against the tree at `e34bfbf` and verified against the deployed dev environment — not
 recalled from prior session notes. Where a number appears, it was counted today. Companion
@@ -14,16 +20,16 @@ root) whose 7 findings + 3 nits are **all closed as of today**.
 
 ## 1 · The scoreboard
 
-| Measure | Value |
+| Measure | Value *(re-counted 2026-08-27)* |
 |---|---|
-| Repo | 267 commits on main; 29 since 2026-08-11 (the current push) |
-| Runtime | FastAPI monolith · 23 route modules · 40 agent/source modules · 39 migrations (0001–0039), every one up-and-down verified on a fresh DB |
-| Tests | Runtime: **889 passed / 5 skipped** across 109 files · Mobile: **93 tests / 20 jest suites**, typecheck clean · E2E harness: 22 synthetic scenarios |
-| Copy registry | 95 keys (90 `[A]`, 5 `[C]`, zero `[B]`-tagged — G3, his call), zero placeholders, drift-guarded against his authored file |
-| Conformance | **63 PASS · 4 FAIL · 1 PARTIAL · 6 N-A-YET** over 74 rows — every FAIL is Brock-owned, every N-A-YET is billing-dark |
-| Decisions | DL-01 – DL-92 canonical in `docs/decision-log.md` |
-| CI | 10 workflows; all green on HEAD, including the new `unit-tests` job (mobile jest now gates) |
-| Dev environment | All services healthy on `*.tyndaleapp.net`; 8 of 9 registered crons scheduled (noop is manual-by-design); first-ever `analytics_rollup` runs tonight 04:00 UTC |
+| Repo | 396 commits on main; 130 since 2026-08-17 |
+| Runtime | FastAPI monolith · 23 route modules · 48 agent/source modules · 47 migrations (0001–0047), chain verified from empty in CI |
+| Tests | Runtime: **1,118 collected** (1,110+ passing / 5 skipped) · Mobile: **135 tests / 29 jest suites**, typecheck clean · E2E harness: 22 synthetic scenarios + the record-aggregates check |
+| Copy registry | 136 key sections (120 tier-tagged values: 112 `[A]` · 6 `[C]` · 2 `[B]` — the PACE/program handoffs), zero placeholders, drift-guarded; 40 keys boot-gated via RENDER_PATH_KEYS |
+| Conformance | 08-11 sweep stands (63 PASS · 4 FAIL · 1 PARTIAL · 6 N-A-YET); B1/B3/C1/C5 checklist rows amended to the 08-18 rulings on 2026-08-27 |
+| Decisions | DL-01 – DL-92+ canonical in `docs/decision-log.md` (Cowork numbers new entries as they land) |
+| CI | 11 workflows; deploy-runtime now GATES on the reusable Runtime CI suite (2026-08-27); Runtime CI triggers cover the repo-wide guard scans |
+| Dev environment | All services healthy on `*.tyndaleapp.net`; 10 Container App Jobs green; qdrant seeded with 19 error-detection rules incl. the golden payer rule |
 
 ## 2 · What the product does today (deployed, dev)
 
@@ -145,9 +151,12 @@ OFF (deliberate): `use_real_presidio` (Phase-4 security cutover), `enable_nsa_ch
    source imports worklets** — removal is very likely the whole unblock (~2–4h if it holds,
    an SDK upgrade if not) but needs a verified `npm install` on Phil's machine.
    `isCaptureSupported()` is the single seam.
-3. **X2/X3/X5 checkers** — typed stubs that raise. Cowork's `37_x_rules_contracts_DRAFT.md`
-   is implementable as written; blocked purely on Brock's sign-off (esp. the X5 `error_type`
-   enum, a 14-type proposal + escape hatch).
+3. **X2/X3/X5 checkers** — ~~typed stubs that raise~~ **IMPLEMENTED (status refresh
+   2026-08-27)**: X3's disclosure tiers are the deterministic `materiality.disclosure_tier`
+   ladder in production; X5's error-type derivation runs at the finding READ seam in
+   production (`annotate_error_type`, upstream-asserted or derived_draft); X2's
+   informational typing renders via the doctrine-config category maps. Still open for
+   Brock: the X5 enum blessing + the 3 unmapped payer rule_types (37 draft).
 4. **Billing** (E6–E8, I1–I3): dark scaffold by design until the pricing memo.
 5. **A8** — mobile body text is 14px against a ≥16px requirement; reflows every screen;
    deliberately not done blind (his call, packet item).
