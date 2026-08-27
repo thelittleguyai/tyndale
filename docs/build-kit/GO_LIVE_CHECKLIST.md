@@ -26,7 +26,9 @@ Nothing here creates or touches staging/production infrastructure.
 
 ## Data activation
 
-- [ ] Priors tranche 1 received (`intelligence-layer/reference/priors/`) — ranges activate
-      per entry as `placeholder: false` lands; until then figures render point-form.
+- [x] Priors tranche 1 received (`intelligence-layer/reference/priors/`) — *2026-08-27:
+      5/7 entries LIVE (deductible_amount, oop_max_amount, coinsurance_percent, copay_pcp,
+      copay_specialist); copay_er + household_income remain dark BY DESIGN (no defensible
+      prior yet — the tranche says so explicitly and the loader keeps them point-form).*
 - [ ] 50-state NSA seed + rules/laws corpora content (Brock's program) — balance-billing
       check + retrieval quality.
