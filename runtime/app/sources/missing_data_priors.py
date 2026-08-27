@@ -2,11 +2,12 @@
 
 When a required input is missing, the audit computes the answer across this input's
 plausible range (see ``materiality.compute_range``) and discloses the resulting spread
-rather than dead-ending. The numbers here are PLACEHOLDERS structured so Brock's researched
-priors drop in as a data-only change.
-
-TODO(brock-content: missing_data_spectrum_2026-07-03.md) — replace the low/base/high values
-below with the researched priors; do not change the shape or the keys.
+rather than dead-ending. The table below holds engineering SEED values; Brock's researched
+tranches (``intelligence-layer/…/tranche_*.json``) overlay them at import via
+``load_priors`` as a data-only change. As of tranche_001 (2026-08-22), FIVE entries are
+LIVE researched priors — deductible_amount, oop_max_amount, coinsurance_percent,
+copay_pcp, copay_specialist — and TWO remain placeholder-dark: copay_er and
+household_income (their user-visible ranges stay suppressed until researched values land).
 """
 
 from __future__ import annotations
@@ -54,7 +55,9 @@ class InputPrior:
         return round(self.high - self.low, 2) if self.unit == "usd" else 0.0
 
 
-# PLACEHOLDER priors. TODO(brock-content: missing_data_spectrum_2026-07-03.md).
+# SEED values, overlaid by researched tranches at import (load_priors). Live after
+# tranche_001: deductible_amount, oop_max_amount, coinsurance_percent, copay_pcp,
+# copay_specialist. Still placeholder-dark: copay_er, household_income.
 MISSING_DATA_PRIORS: dict[str, InputPrior] = {
     "deductible_amount": InputPrior(
         low=500.0, base=2000.0, high=8000.0, unit="usd",
@@ -114,7 +117,9 @@ def _merge_entry(current: InputPrior, patch: dict, *, source: str, as_of: str | 
         fields["unit"] = patch["unit"]
     if "note" in patch:
         fields["note"] = str(patch["note"])
-    fields["placeholder"] = bool(patch.get("placeholder", True))
+    # Default to the CURRENT entry's flag (audit 2026-08-27 item 3): a tranche that only
+    # fixes a note must not re-darken a live entry. Activation is an explicit act.
+    fields["placeholder"] = bool(patch.get("placeholder", current.placeholder))
     fields["source"] = str(patch.get("source") or source)
     fields["as_of"] = patch.get("as_of") or as_of
     merged = replace(current, **fields)
@@ -124,9 +129,14 @@ def _merge_entry(current: InputPrior, patch: dict, *, source: str, as_of: str | 
 
 
 def load_priors(target: dict[str, InputPrior] | None = None) -> dict[str, InputPrior]:
-    """Merge every tranche file (sorted by name) into ``target`` (default: the live table),
-    per entry, in place. Unknown keys are logged and skipped; a malformed file is logged and
-    skipped — the placeholders stay dark rather than the runtime failing to import."""
+    """Merge every tranche file (sorted by name) into ``target`` (default: the live table).
+
+    ATOMIC PER FILE (audit 2026-08-27 item 3): the whole file is validated into a staging
+    dict first and applied only if every entry merges cleanly — a bad entry mid-file
+    rejects its file by NAME with the failing entry named, applying nothing from it (the
+    previous loop partially applied everything before the bad entry). Unknown keys are
+    logged and skipped; a malformed file is logged and skipped — priors stay at their
+    prior values rather than the runtime failing to import."""
     table = MISSING_DATA_PRIORS if target is None else target
     directory = _priors_dir()
     if not directory.is_dir():
@@ -136,15 +146,23 @@ def load_priors(target: dict[str, InputPrior] | None = None) -> dict[str, InputP
             tranche = json.loads(path.read_text(encoding="utf-8"))
             source = str(tranche.get("source") or path.name)
             as_of = tranche.get("as_of")
+            staged: dict[str, InputPrior] = {}
             for key, patch in (tranche.get("entries") or {}).items():
                 if key not in table:
                     log.warning("priors.unknown_entry", file=path.name, key=key)
                     continue
                 if not isinstance(patch, dict):
                     continue
-                table[key] = _merge_entry(table[key], patch, source=source, as_of=as_of)
+                try:
+                    staged[key] = _merge_entry(
+                        staged.get(key, table[key]), patch, source=source, as_of=as_of
+                    )
+                except Exception as exc:
+                    raise ValueError(f"entry {key!r}: {exc}") from exc
         except Exception as exc:  # noqa: BLE001 — a bad tranche never breaks the runtime
             log.error("priors.tranche_rejected", file=path.name, error=str(exc))
+            continue
+        table.update(staged)  # every entry validated — apply the file as one unit
     return table
 
 
