@@ -7,7 +7,7 @@ Matches the actual ORM models in ``app/db/models/`` (case_files PK is
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -194,7 +194,7 @@ async def _pg_list_due(args: dict[str, Any]) -> dict[str, Any]:
     within_days = int(args.get("within_days", 30))
     from datetime import timedelta
 
-    cutoff = datetime.utcnow().date() + timedelta(days=within_days)
+    cutoff = datetime.now(timezone.utc).date() + timedelta(days=within_days)
     async with AsyncSessionLocal() as s:
         q = select(Deadline).order_by(Deadline.deadline_date.asc())
         if case_file_id:
