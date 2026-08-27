@@ -5,8 +5,8 @@ description: |
   (Brock 2026-07-10, DL-91). The runtime renders these values VERBATIM — engineering never
   copy-edits them. Authoring is Brock's side; engineering owns only the loader + this key
   registry + the source mapping.
-version: 1.0.0
-source: docs/build-kit/33_orchestration_script.md (v1, 2026-07-16)
+version: 1.1.0
+source: docs/build-kit/33_orchestration_script.md (v1.1, 2026-08-18 — §8.4–8.5 unlock-more added, §10.5 amended per Brock's response)
 ---
 
 # Orchestration script — chat-first audit thread
