@@ -116,3 +116,40 @@ def test_the_three_flags_this_test_was_written_for_are_wired():
     env = _tf_env_names()
     for flag in ("ENABLE_AUDIT_READY_EMAIL", "USE_REAL_CRISIS_CLASSIFIER", "ALLOW_FIXTURE_FALLBACK"):
         assert flag in env, f"{flag} lost its env wiring"
+
+
+# ── audit 2026-08-27 item 4: the CRON jobs' env, per container block ────────────────
+CRONS_TF = REPO / "infra/envs/dev/crons.tf"
+
+
+def _cron_env_names() -> set[str]:
+    """Env names inside crons.tf's job CONTAINER block specifically — a whole-file regex
+    would false-pass names wired anywhere in the file (the failure mode this test's
+    compute.tf sibling narrowly avoids by that file being single-purpose)."""
+    text = CRONS_TF.read_text(encoding="utf-8")
+    start = text.index("container {")
+    # crude but structural: the container block ends at the template close; envs only
+    # appear inside it in this file.
+    block = text[start:]
+    return set(re.findall(r'name\s*=\s*"([A-Z][A-Z0-9_]*)"', block))
+
+
+def test_cron_jobs_carry_what_the_crons_actually_read():
+    """The nudge cron read enable_nudge_emails + the SendGrid pair from Settings while the
+    job env carried none of them — every send silently skipped (third life of this bug).
+    The set here is audited from app/crons/* + app/notify/*: extend it when a cron gains
+    a Settings read."""
+    needed = {
+        "DATABASE_URL",
+        "QDRANT_URL",
+        "QDRANT_API_KEY",
+        "AZURE_STORAGE_CONNECTION_STRING",
+        "AUDIT_LOG_ENC_KEY",
+        "ENABLE_NUDGE_EMAILS",
+        "ENABLE_AUDIT_READY_EMAIL",
+        "SENDGRID_FROM_EMAIL",
+        "SENDGRID_API_KEY",
+        "AUTH_SUCCESS_REDIRECT",
+    }
+    missing = needed - _cron_env_names()
+    assert missing == set(), f"cron job env missing: {sorted(missing)}"

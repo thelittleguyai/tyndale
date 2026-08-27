@@ -82,6 +82,18 @@ resource "azurerm_container_app_job" "cron" {
     key_vault_secret_id = azurerm_key_vault_secret.audit_log_enc_key.versionless_id
     identity            = azurerm_user_assigned_identity.runtime.id
   }
+  # Audit 2026-08-27 item 4 (third life of this bug): the nudge cron read
+  # enable_nudge_emails + the SendGrid pair from Settings, but the job env never carried
+  # them — every send silently skipped while tfvars said true. Same conditional as
+  # compute.tf's runtime app.
+  dynamic "secret" {
+    for_each = var.sendgrid_api_key != "" ? [1] : []
+    content {
+      name                = "sendgrid-api-key"
+      key_vault_secret_id = azurerm_key_vault_secret.sendgrid_api_key[0].versionless_id
+      identity            = azurerm_user_assigned_identity.runtime.id
+    }
+  }
 
   template {
     container {
@@ -124,6 +136,29 @@ resource "azurerm_container_app_job" "cron" {
       env {
         name  = "AUDIT_LOG_KEY_VERSION"
         value = tostring(var.audit_log_key_version)
+      }
+      env {
+        name  = "ENABLE_NUDGE_EMAILS"
+        value = tostring(var.enable_nudge_emails)
+      }
+      env {
+        name  = "ENABLE_AUDIT_READY_EMAIL"
+        value = tostring(var.enable_audit_ready_email)
+      }
+      env {
+        name  = "SENDGRID_FROM_EMAIL"
+        value = var.sendgrid_from_email
+      }
+      dynamic "env" {
+        for_each = var.sendgrid_api_key != "" ? [1] : []
+        content {
+          name        = "SENDGRID_API_KEY"
+          secret_name = "sendgrid-api-key"
+        }
+      }
+      env {
+        name  = "AUTH_SUCCESS_REDIRECT"
+        value = "https://app.${var.dns_zone_name}"
       }
     }
   }
