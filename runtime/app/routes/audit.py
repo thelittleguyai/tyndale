@@ -112,9 +112,15 @@ async def coverage_input(
                 v = float(req.value)  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 raise HTTPException(status_code=422, detail="value must be a number") from None
-            if not (0 <= v <= 10_000_000):
-                raise HTTPException(status_code=422, detail="value out of range")
-            cov[req.field] = round(v, 2)
+            if req.field == "coinsurance_percent":
+                # Entered as a PERCENT; stored as the fraction the model and priors use.
+                if not (0 <= v <= 100):
+                    raise HTTPException(status_code=422, detail="coinsurance must be 0–100")
+                cov[req.field] = round(v / 100.0, 4)
+            else:
+                if not (0 <= v <= 10_000_000):
+                    raise HTTPException(status_code=422, detail="value out of range")
+                cov[req.field] = round(v, 2)
     prov[req.field] = {
         "source": "user-entered",
         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),

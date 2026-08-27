@@ -119,6 +119,8 @@ export interface CoverageChecklistItem {
   candidates?: string[];
   /** "What is this?" explainer copy (registry-authored, server-rendered). */
   explainer?: string;
+  /** Input/display unit: 'usd' (default) or 'percent' (stored as a fraction server-side). */
+  unit?: 'usd' | 'percent';
 }
 export interface NeedsDocumentsPayload {
   intro: string;

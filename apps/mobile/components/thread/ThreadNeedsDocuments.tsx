@@ -87,8 +87,10 @@ function CoverageItemRow({
   };
 
   const saveNumber = () => {
-    const v = Number(text.replace(/[$,\s]/g, ''));
-    if (Number.isFinite(v) && v >= 0) void save(Math.round(v * 100) / 100);
+    const v = Number(text.replace(/[$,%\s]/g, ''));
+    if (!Number.isFinite(v) || v < 0) return;
+    if (item.unit === 'percent' && v > 100) return; // server enforces too
+    void save(Math.round(v * 100) / 100);
   };
 
   return (
@@ -110,7 +112,11 @@ function CoverageItemRow({
         </Text>
         {done ? (
           <Text className="text-body font-semibold text-secondary" testID={`coverage-value-${item.key}`}>
-            {typeof value === 'number' ? money(value) : ''}
+            {typeof value === 'number'
+              ? item.unit === 'percent'
+                ? `${Math.round(value * 100)}%`
+                : money(value)
+              : ''}
           </Text>
         ) : notSure ? (
           <Text className="text-caption text-faint">Not sure</Text>
@@ -140,7 +146,9 @@ function CoverageItemRow({
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder={item.kind === 'number' ? '$0' : 'Something else — describe it'}
+              placeholder={
+                item.kind !== 'number' ? 'Something else — describe it' : item.unit === 'percent' ? '0–100 %' : '$0'
+              }
               inputMode={item.kind === 'number' ? 'decimal' : 'text'}
               className="min-h-[44px] flex-1 rounded-xl border border-hairline bg-surface px-3 text-body text-primary"
               testID={`coverage-input-${item.key}`}

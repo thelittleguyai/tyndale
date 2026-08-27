@@ -115,7 +115,8 @@ illustrative example). Marked UNMAPPED in the registry until you approve or re-a
 
 Keys: `explainer_eob` · `explainer_itemized_bill` · `explainer_sbc` · `explainer_deductible`
 · `explainer_deductible_met` · `explainer_oop_max` · `explainer_oop_met` ·
-`explainer_visit_confirm` — full seed texts in
+`explainer_visit_confirm` · `explainer_coinsurance` (added 2026-08-27; the coinsurance
+checklist item was missing) — full seed texts in
 `intelligence-layer/prompts/orchestration_script.md`.
 
 *Open for Brock: the deductible/OOP explainers may carry your tier-1 style example ("your

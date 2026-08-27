@@ -583,3 +583,8 @@ drift guard (nothing to compare against).
 ## checkin.left_message
 <!-- UNMAPPED — same status as checkin.fixing_it. -->
 [A] "I left a message"
+
+## explainer_coinsurance
+<!-- UNMAPPED — checklist explainer for the coinsurance item (audit 2026-08-27 item 4).
+     Same interim/PROPOSED status and what/where/example pattern as the other explainers. -->
+[A] "Coinsurance is the percentage of each covered charge you pay after your deductible is met — your plan pays the rest. It's on your SBC next to the deductible. For example: with 20% coinsurance, a $100 allowed charge costs you $20 once the deductible is met."

@@ -89,7 +89,7 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         # checklist "What is this?" explainers (image-3 item 3; interim seeds, PROPOSED)
         "explainer_eob", "explainer_itemized_bill", "explainer_sbc", "explainer_deductible",
         "explainer_deductible_met", "explainer_oop_max", "explainer_oop_met",
-        "explainer_visit_confirm",
+        "explainer_visit_confirm", "explainer_coinsurance",
     }
 )
 
@@ -102,6 +102,7 @@ _EXPLAINER_KEYS = {
     "deductible_met": "explainer_deductible_met",
     "oop_max_amount": "explainer_oop_max",
     "oop_max_met": "explainer_oop_met",
+    "coinsurance_percent": "explainer_coinsurance",
     "visit_confirm": "explainer_visit_confirm",
 }
 
@@ -756,7 +757,7 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
     from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
     from app.sources.plan_docs import plan_sbc_state
 
-    plan_sbc, _ = await plan_sbc_state(session, case.user_id)
+    plan_sbc, plan_cov = await plan_sbc_state(session, case.user_id)
     needs = _documents_needed(case, plan_sbc=plan_sbc)
     if all(d.have for d in needs):
         return  # everything's on file — nothing to unlock
@@ -773,7 +774,7 @@ async def _ensure_unlock_more(session, conv, case, ensure) -> None:
                  {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
                  for d in needs
              ]),
-             "coverage_items": _with_explainers(coverage_checklist_items(case)),
+             "coverage_items": _with_explainers(coverage_checklist_items(case, plan_coverage=plan_cov)),
          }},
         intro,
     )
@@ -784,7 +785,7 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
     from app.sources.coverage_checklist import coverage_checklist_items
     from app.sources.plan_docs import plan_sbc_state
 
-    plan_sbc, _ = await plan_sbc_state(session, case.user_id)
+    plan_sbc, plan_cov = await plan_sbc_state(session, case.user_id)
     items = _with_explainers([
         {"key": d.key, "label": d.label, "how_to_get": d.how_to_get, "have": d.have}
         for d in _documents_needed(case, plan_sbc=plan_sbc)
@@ -797,7 +798,7 @@ async def _ensure_needs_documents(session, conv, case, ensure) -> None:
         {"text": intro, "tone": "neutral",
          "needs_documents": {
              "intro": intro, "items": items,
-             "coverage_items": _with_explainers(coverage_checklist_items(case)),
+             "coverage_items": _with_explainers(coverage_checklist_items(case, plan_coverage=plan_cov)),
          }},
         intro,
     )

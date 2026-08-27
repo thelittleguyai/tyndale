@@ -25,11 +25,12 @@ def _case(coverage=None, line_items=None, confirmations=None):
     )
 
 
-def test_bill_only_case_asks_for_all_four_numbers_plus_visit():
+def test_bill_only_case_asks_for_all_five_numbers_plus_visit():
     items = coverage_checklist_items(_case())
     keys = [i["key"] for i in items]
     assert keys == [
-        "deductible_amount", "deductible_met", "oop_max_amount", "oop_max_met", "visit_confirm",
+        "deductible_amount", "deductible_met", "oop_max_amount", "oop_max_met",
+        "coinsurance_percent", "visit_confirm",
     ]
     assert all(i["value"] is None and not i["not_sure"] for i in items)
 
@@ -272,3 +273,57 @@ async def test_ordinary_conversation_is_not_mapped_and_not_posted(
     assert r.status_code == 200
     assert r.json()["mapped"] is False
     assert len(await _messages(conv_id)) == before  # nothing posted — ordinary chat takes it
+
+
+# ── audit 2026-08-27 item 4: SBC-merged reads + the coinsurance gate ────────────────
+def test_sbc_supplied_deductible_is_not_asked_for():
+    """The checklist sees the SAME effective coverage the audit computes with: a
+    plan-level SBC deductible means the item is omitted, exactly like a case value."""
+    items = coverage_checklist_items(_case(), plan_coverage={"deductible_amount": 2000.0})
+    assert "deductible_amount" not in [i["key"] for i in items]
+    # the case's own value still wins per-field over the plan's
+    cov = {"deductible_amount": 1000.0}
+    assert "deductible_amount" not in [
+        i["key"]
+        for i in coverage_checklist_items(_case(coverage=cov), plan_coverage={"deductible_amount": 2000.0})
+    ]
+
+
+def test_coinsurance_item_carries_the_percent_unit():
+    item = next(
+        i for i in coverage_checklist_items(_case()) if i["key"] == "coinsurance_percent"
+    )
+    assert item["unit"] == "percent"
+    assert next(
+        i for i in coverage_checklist_items(_case()) if i["key"] == "deductible_amount"
+    )["unit"] == "usd"
+
+
+@pytest.mark.asyncio
+async def test_coinsurance_entry_closes_the_disclosure_gate(client: AsyncClient, chat_first_on):  # noqa: F811
+    """Entered as a percent, stored as the fraction the model uses — and when it's the
+    last missing REQUIRED_COST_SHARE_INPUT, the missing-inputs set empties."""
+    from app.sources.missing_data_priors import missing_cost_share_inputs
+
+    case_id, _ = await _upload_new_case(client)
+    for field, value in (("deductible_amount", 2000), ("oop_max_amount", 6000)):
+        assert (
+            await client.post(
+                f"/v1/audit/{case_id}/coverage-input", json={"field": field, "value": value}
+            )
+        ).status_code == 200
+    r = await client.post(
+        f"/v1/audit/{case_id}/coverage-input", json={"field": "coinsurance_percent", "value": 20}
+    )
+    assert r.status_code == 200
+    async with AsyncSessionLocal() as s:
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        assert cf.coverage["coinsurance_percent"] == 0.2  # percent in, fraction stored
+        assert missing_cost_share_inputs(cf.coverage) == []  # the gate closes
+    # out-of-range percent is refused
+    r = await client.post(
+        f"/v1/audit/{case_id}/coverage-input", json={"field": "coinsurance_percent", "value": 150}
+    )
+    assert r.status_code == 422

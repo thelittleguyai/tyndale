@@ -24,7 +24,14 @@ COVERAGE_NUMBER_ITEMS: tuple[tuple[str, str], ...] = (
     ("deductible_met", "Amount spent toward deductible before this visit"),
     ("oop_max_amount", "Out-of-pocket max amount"),
     ("oop_max_met", "Amount spent toward out-of-pocket max before this visit"),
+    # audit 2026-08-27 item 4: in REQUIRED_COST_SHARE_INPUTS but previously had no item,
+    # so a user entry could never close the disclosure gate. Entered as a PERCENT (0–100),
+    # STORED as a fraction (the unit the model and priors use).
+    ("coinsurance_percent", "Coinsurance — your share after the deductible"),
 )
+# Display/input unit per item; values are stored in model units (usd, or fraction for
+# coinsurance) — the save path converts percent → fraction at the boundary.
+COVERAGE_ITEM_UNITS: dict[str, str] = {"coinsurance_percent": "percent"}
 VISIT_CONFIRM_KEY = "visit_confirm"
 VISIT_CONFIRM_LABEL = "Confirm what your visit was for"
 COVERAGE_INPUT_FIELDS: frozenset[str] = frozenset(
@@ -62,13 +69,21 @@ def _visit_candidates(case) -> list[str]:
     return out
 
 
-def coverage_checklist_items(case) -> list[dict]:
-    """The coverage items this case actually needs, with completed/not-sure state."""
+def coverage_checklist_items(case, plan_coverage: dict | None = None) -> list[dict]:
+    """The coverage items this case actually needs, with completed/not-sure state.
+
+    ``plan_coverage`` (audit 2026-08-27 item 4): the checklist must see the SAME effective
+    coverage the audit computes with — case coverage merged over the plan-level SBC — or
+    users get asked for numbers their SBC already supplied. Provenance still reads from
+    the case blob (only user entries carry it)."""
+    from app.sources.plan_docs import merge_case_coverage
+
     cov = getattr(case, "coverage", None) or {}
+    effective = merge_case_coverage(cov, plan_coverage) or {}
     prov = cov.get("user_input_provenance") or {}
     items: list[dict] = []
     for key, label in COVERAGE_NUMBER_ITEMS:
-        value = cov.get(key)
+        value = effective.get(key)
         p = prov.get(key) or {}
         user_entered = p.get("source") == "user-entered"
         not_sure = bool(p.get("not_sure"))
@@ -79,6 +94,7 @@ def coverage_checklist_items(case) -> list[dict]:
                 "key": key,
                 "kind": "number",
                 "label": label,
+                "unit": COVERAGE_ITEM_UNITS.get(key, "usd"),
                 "value": float(value) if value is not None else None,
                 "not_sure": not_sure and value is None,
             }
