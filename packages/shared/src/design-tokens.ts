@@ -117,7 +117,7 @@ export type SemanticColors = {
   success: { base: string; tint: string; onTint: string };
   warning: { base: string; tint: string; onTint: string };
   danger: { base: string; tint: string; onTint: string };
-  moment: { bg: string; border: string; emphasis: string; text: string; textFaint: string };
+  moment: { bg: string; border: string; emphasis: string; text: string; textFaint: string; inset: string };
 };
 
 /** Light — "Clear day" (default). Page background is Brock's A7 cream. */
@@ -146,6 +146,7 @@ export const light: SemanticColors = {
     emphasis: '#7FC9B4',
     text: '#E8F0EE',
     textFaint: '#A9CFC5',
+    inset: 'rgba(255,255,255,0.07)', // the headline well on the always-dark card
   },
 };
 
@@ -174,6 +175,8 @@ export const dark: SemanticColors = {
     emphasis: '#5DCAA5',
     text: '#DFF5EC',
     textFaint: '#9FE1CB',
+  
+    inset: 'rgba(255,255,255,0.07)',
   },
 };
 

@@ -848,6 +848,7 @@ function EditField({
   placeholder?: string;
   error?: string | null;
 }) {
+  const tc = useThemeColors();
   return (
     <View className="mb-3">
       <Text className="mb-1 text-sm text-secondary">{label}</Text>
@@ -855,7 +856,7 @@ function EditField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.3)"
+        placeholderTextColor={tc.text.faint}
         className="min-h-[44px] rounded-lg border border-hairline bg-inset px-3 py-2.5 text-base text-primary"
       />
       {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}

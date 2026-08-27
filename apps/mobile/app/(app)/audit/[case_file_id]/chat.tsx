@@ -8,8 +8,10 @@ import { ChevronLeft } from 'lucide-react-native';
 
 import { ChatThread } from '../../../../components/chat/ChatThread';
 import { createConversation, listConversations } from '../../../../lib/api-client';
+import { useThemeColors } from '../../../../theme/useThemeColors';
 
 export default function CaseChatScreen() {
+  const tc = useThemeColors();
   const params = useLocalSearchParams<{ case_file_id: string }>();
   const caseId = String(params.case_file_id);
   const [convId, setConvId] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function CaseChatScreen() {
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href={`/audit/${caseId}`} asChild>
           <Pressable className="flex-row items-center gap-1">
-            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary">Case</Text>
           </Pressable>
         </Link>
@@ -52,7 +54,7 @@ export default function CaseChatScreen() {
         </View>
       ) : !convId ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="var(--c-text-primary)" />
+          <ActivityIndicator color={tc.text.primary} />
         </View>
       ) : (
         <ChatThread

@@ -13,6 +13,7 @@ import { getProfileState, patchProfile } from '../lib/api-client';
 import { CardUpload, formatPhone, validateDob } from '../lib/profile-ui';
 import { useBreakpoint } from '../components/ui/use-breakpoint';
 import { useCurrentUser } from '../lib/auth';
+import { useThemeColors } from '../theme/useThemeColors';
 
 const TERMS_SUMMARY =
   'Tyndale helps you understand and question your medical bills. It provides billing and ' +
@@ -32,6 +33,7 @@ function Field({
   placeholder?: string;
   error?: string | null;
 }) {
+  const tc = useThemeColors();
   return (
     <View className="mb-3">
       <Text className="mb-1 text-sm text-secondary">{label}</Text>
@@ -39,7 +41,7 @@ function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.3)"
+        placeholderTextColor={tc.text.faint}
         className="min-h-[44px] rounded-lg border border-hairline bg-inset px-3 py-2.5 text-base text-primary"
       />
       {error ? <Text className="mt-1 text-xs text-danger">{error}</Text> : null}
@@ -48,6 +50,7 @@ function Field({
 }
 
 export default function Onboarding() {
+  const tc = useThemeColors();
   const { isPhone } = useBreakpoint();
   const { user, loading: authLoading } = useCurrentUser();
   const [firstName, setFirstName] = useState('');
@@ -105,7 +108,7 @@ export default function Onboarding() {
   if (authLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-page">
-        <ActivityIndicator color="var(--c-accent)" />
+        <ActivityIndicator color={tc.accent} />
       </View>
     );
   }

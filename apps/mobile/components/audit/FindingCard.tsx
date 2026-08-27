@@ -13,6 +13,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import type { FindingOut, ThumbsValue } from '../../lib/api-client';
 import { displayEnum } from '../../lib/enum-display';
 import { ThumbsRating } from '../thumbs-rating';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const TYPE_LABELS: Record<FindingOut['finding_type'], string> = {
   payer_side: 'Your insurer may have miscalculated',
@@ -70,6 +71,7 @@ export function FindingCard({
   caseFileId: string;
   existingRating: ThumbsValue | null;
 }) {
+  const tc = useThemeColors();
   const [showDetails, setShowDetails] = useState(false);
 
   const lc = (finding.legal_claim ?? {}) as Record<string, unknown>;
@@ -170,9 +172,9 @@ export function FindingCard({
             accessibilityRole="button"
           >
             {showDetails ? (
-              <ChevronDown size={13} color="var(--c-text-faint)" />
+              <ChevronDown size={13} color={tc.text.faint} />
             ) : (
-              <ChevronRight size={13} color="var(--c-text-faint)" />
+              <ChevronRight size={13} color={tc.text.faint} />
             )}
             <Text className="text-xs font-semibold text-faint">Details</Text>
           </Pressable>

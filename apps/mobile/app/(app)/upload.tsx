@@ -37,6 +37,7 @@ import { CameraCapture, isCaptureSupported } from '../../components/upload/Camer
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { Button, ListRow } from '../../components/ui';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 type Queued = { id: string; file: CapturedUpload; name: string; size: number };
 
@@ -47,6 +48,7 @@ function prettyBytes(n: number): string {
 }
 
 export default function UploadScreen() {
+  const tc = useThemeColors();
   const router = useRouter();
   // When present, attach to an existing case (e.g. "Add a document" from the needs_documents
   // checklist) instead of opening a new one.
@@ -184,7 +186,7 @@ export default function UploadScreen() {
                   className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-4"
                   testID="upload-take-photo"
                 >
-                  <CameraIcon size={20} color="var(--c-on-accent)" />
+                  <CameraIcon size={20} color={tc.onAccent} />
                   <Text className="text-base font-bold text-on-accent">Take a photo of your bill</Text>
                 </PressableScale>
               ) : null}
@@ -192,7 +194,7 @@ export default function UploadScreen() {
                 onPress={pickFiles}
                 className="items-center rounded-2xl border-2 border-dashed border-hairline bg-surface p-8 shadow-card hover:border-accent"
               >
-                <Plus size={24} color="var(--c-accent)" />
+                <Plus size={24} color={tc.accent} />
                 <Text className="mt-2 text-base font-semibold text-primary">
                   {cameraOffered ? 'Or upload a document' : 'Add documents'}
                 </Text>
@@ -206,7 +208,7 @@ export default function UploadScreen() {
                   key={q.id}
                   leading={
                     <View className="h-9 w-9 items-center justify-center rounded-control bg-inset">
-                      <FileText size={18} color="var(--c-text-primary)" />
+                      <FileText size={18} color={tc.text.primary} />
                     </View>
                   }
                   title={q.name}
@@ -218,7 +220,7 @@ export default function UploadScreen() {
                       accessibilityLabel={`Remove ${q.name}`}
                       className="h-8 w-8 items-center justify-center rounded-full bg-inset"
                     >
-                      <X size={16} color="var(--c-text-secondary)" />
+                      <X size={16} color={tc.text.secondary} />
                     </PressableScale>
                   }
                 />
@@ -230,7 +232,7 @@ export default function UploadScreen() {
                     className="min-h-[44px] flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
                     testID="upload-take-another-photo"
                   >
-                    <CameraIcon size={16} color="var(--c-accent)" />
+                    <CameraIcon size={16} color={tc.accent} />
                     <Text className="text-body font-medium text-accent">Take a photo</Text>
                   </PressableScale>
                 ) : null}
@@ -238,7 +240,7 @@ export default function UploadScreen() {
                   onPress={pickFiles}
                   className="min-h-[44px] flex-row items-center gap-2 self-start rounded-control bg-inset px-3 py-2"
                 >
-                  <Plus size={16} color="var(--c-accent)" />
+                  <Plus size={16} color={tc.accent} />
                   <Text className="text-body font-medium text-accent">Add another</Text>
                 </PressableScale>
               </View>
@@ -248,7 +250,7 @@ export default function UploadScreen() {
           {/* C4 · script §1.2 — trust microcopy, lock icon, directly under the control. */}
           {copy.trust_microcopy ? (
             <View className="mt-3 flex-row items-center gap-1.5">
-              <Lock size={13} color="var(--c-text-faint)" />
+              <Lock size={13} color={tc.text.faint} />
               <Text className="text-xs text-faint">{copy.trust_microcopy}</Text>
             </View>
           ) : null}
@@ -270,7 +272,7 @@ export default function UploadScreen() {
             className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-4"
             testID="upload-take-photo"
           >
-            <CameraIcon size={20} color="var(--c-on-accent)" />
+            <CameraIcon size={20} color={tc.onAccent} />
             <Text className="text-base font-bold text-on-accent">Take a photo of your bill</Text>
           </PressableScale>
           {queue.length > 0 ? (

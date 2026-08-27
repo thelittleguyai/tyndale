@@ -3,6 +3,7 @@
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import type { ToolCall } from '@tyndale/shared';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const ACTION: Record<string, string> = {
   pg_case_file_get: 'reading your case file',
@@ -19,6 +20,7 @@ function phrase(tool: string): string {
 }
 
 export function ToolCallIndicator({ tools }: { tools: ToolCall[] }) {
+  const tc = useThemeColors();
   if (!tools.length) return null;
   return (
     <View className="mb-2 gap-1.5">
@@ -27,7 +29,7 @@ export function ToolCallIndicator({ tools }: { tools: ToolCall[] }) {
           key={`${t.tool_name}-${i}`}
           className="flex-row items-center gap-2 self-start rounded-full bg-inset px-3 py-1.5"
         >
-          <ActivityIndicator size="small" color="var(--c-accent)" />
+          <ActivityIndicator size="small" color={tc.accent} />
           <Text className="text-xs text-secondary">
             {t.subagent || 'Tyndale'} is {phrase(t.tool_name)}…
           </Text>

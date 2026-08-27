@@ -17,10 +17,12 @@ import { useCurrentUser } from '../../lib/auth';
 import { isIntakeDeferred } from '../../lib/intake-deferred';
 import { isCaseWorkRoute, shouldRedirectToWizard } from '../../lib/intake-gate';
 import { themeColors } from '../../theme/useThemeColors';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 type IntakeGate = { status: string; step: string | null; hasCases: boolean };
 
 export default function AppLayout() {
+  const tc = useThemeColors();
   const { user, loading } = useCurrentUser();
   const pathname = usePathname();
   const [intake, setIntake] = useState<IntakeGate | null>(null);
@@ -60,7 +62,7 @@ export default function AppLayout() {
   if (loading || (user && intakeLoading)) {
     return (
       <View className="flex-1 items-center justify-center bg-page">
-        <ActivityIndicator color="var(--c-text-primary)" />
+        <ActivityIndicator color={tc.text.primary} />
       </View>
     );
   }

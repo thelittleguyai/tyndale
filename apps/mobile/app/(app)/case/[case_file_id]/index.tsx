@@ -15,12 +15,14 @@ import { CaseSummaryPayload, getCaseSummary, recordCallOutcome } from '../../../
 import { displayEnum } from '../../../../lib/enum-display';
 import { Gameplan } from '../../../../components/record/Gameplan';
 import { MomentCard } from '../../../../components/ui';
+import { useThemeColors } from '../../../../theme/useThemeColors';
 
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 export default function CaseSummaryScreen() {
+  const tc = useThemeColors();
   const params = useLocalSearchParams<{ case_file_id: string }>();
   const caseFileId = String(params.case_file_id);
   const router = useRouter();
@@ -76,7 +78,7 @@ export default function CaseSummaryScreen() {
             onPress={() => router.push(`/audit/${caseFileId}/thread` as never)}
             className="min-h-[44px] flex-row items-center gap-1.5"
           >
-            <MessageSquare size={13} color="var(--c-text-secondary)" />
+            <MessageSquare size={13} color={tc.text.secondary} />
             <Text className="text-xs font-semibold text-secondary">Chat</Text>
           </Pressable>
         </View>
@@ -133,9 +135,9 @@ export default function CaseSummaryScreen() {
               <View key={d.key} className={i > 0 ? 'mt-4 border-t border-hairline pt-4' : ''}>
                 <View className="mb-1 flex-row items-start gap-2">
                   {d.have ? (
-                    <CheckCircle2 size={18} color="var(--c-accent)" />
+                    <CheckCircle2 size={18} color={tc.accent} />
                   ) : (
-                    <Circle size={18} color="var(--c-text-faint)" />
+                    <Circle size={18} color={tc.text.faint} />
                   )}
                   <Text className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}>
                     {d.label}
@@ -198,7 +200,7 @@ export default function CaseSummaryScreen() {
         {/* Next check-in (nudge) */}
         {summary.next_check_in_date ? (
           <View className="mb-6 flex-row items-center gap-2 rounded-2xl border border-hairline bg-surface p-4">
-            <CalendarClock size={16} color="var(--c-text-secondary)" />
+            <CalendarClock size={16} color={tc.text.secondary} />
             <Text className="text-body text-secondary">
               Next check-in <Text className="font-semibold text-primary">{summary.next_check_in_date}</Text> —
               I&rsquo;ll nudge you if there&rsquo;s no update.
@@ -223,6 +225,7 @@ export default function CaseSummaryScreen() {
  * Every value is real or the row is omitted — no placeholder dates, no "0 items" filler.
  */
 function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
+  const tc = useThemeColors();
   const b = summary.status_banner;
   const dl = b.response_deadline;
   const openNeeded = summary.open_items.filter((d) => !d.have);
@@ -232,7 +235,7 @@ function StatusBanner({ summary }: { summary: CaseSummaryPayload }) {
 
       {dl?.due_date ? (
         <View className="mt-3 flex-row items-center gap-2">
-          <CalendarClock size={15} color="var(--c-moment-emphasis)" />
+          <CalendarClock size={15} color={tc.moment.emphasis} />
           <Text className="text-caption text-moment-text-faint">
             {dl.label} — respond by{' '}
             <Text className="font-medium text-moment-text">{dl.due_date}</Text>

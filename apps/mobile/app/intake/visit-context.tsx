@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { setVisitContext } from '../../lib/api-client';
+import { useThemeColors } from '../../theme/useThemeColors';
 import {
   SAVE_ERROR_MESSAGE,
   WizardLoading,
@@ -13,6 +14,7 @@ import {
 const MAX = 500;
 
 export default function VisitContextStep() {
+  const tc = useThemeColors();
   const { caseId, state, loading, error } = useWizard();
   const [text, setText] = useState(state?.captured_data.visit_context ?? '');
   const [busy, setBusy] = useState(false);
@@ -50,7 +52,7 @@ export default function VisitContextStep() {
           value={text}
           onChangeText={(t) => setText(t.slice(0, MAX))}
           placeholder="Tell me what happened…"
-          placeholderTextColor="rgba(255,255,255,0.3)"
+          placeholderTextColor={tc.text.faint}
           multiline
           numberOfLines={5}
           className="min-h-[120px] rounded-xl border border-hairline bg-inset p-3 text-base leading-6 text-primary"

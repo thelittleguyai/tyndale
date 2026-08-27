@@ -10,6 +10,7 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { ChevronDown, ChevronUp, Phone, X } from 'lucide-react-native';
 
 import type { GameplanStep } from '../../lib/api-client';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -67,6 +68,7 @@ function Beat({ label, body, accent }: { label: string; body: string; accent?: b
 }
 
 function StepCard({ step, open, onToggle }: { step: GameplanStep; open: boolean; onToggle: () => void }) {
+  const tc = useThemeColors();
   return (
     <View className="mb-3 overflow-hidden rounded-2xl border border-hairline bg-surface">
       <Pressable onPress={onToggle} className="min-h-[44px] flex-row items-center gap-3 p-4">
@@ -81,9 +83,9 @@ function StepCard({ step, open, onToggle }: { step: GameplanStep; open: boolean;
           </Text>
         </View>
         {open ? (
-          <ChevronUp size={18} color="var(--c-text-faint)" />
+          <ChevronUp size={18} color={tc.text.faint} />
         ) : (
-          <ChevronDown size={18} color="var(--c-text-faint)" />
+          <ChevronDown size={18} color={tc.text.faint} />
         )}
       </Pressable>
       {open ? (
@@ -108,6 +110,7 @@ export function Gameplan({
    *  nowhere — which is what they did until the 2026-08-13 review caught it. */
   onOutcome?: (findingId: string, outcome: CallOutcome) => void;
 }) {
+  const tc = useThemeColors();
   const [openId, setOpenId] = useState<string | null>(null);
   const [callMode, setCallMode] = useState(false);
   if (steps.length === 0) return null;
@@ -130,7 +133,7 @@ export function Gameplan({
         onPress={() => setCallMode(true)}
         className="mt-1 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 hover:bg-accent"
       >
-        <Phone size={16} color="var(--c-on-accent)" />
+        <Phone size={16} color={tc.onAccent} />
         <Text className="text-base font-bold text-on-accent">Walk me through the calls</Text>
       </Pressable>
       {callMode ? (
@@ -163,6 +166,7 @@ export function CallMode({
   /** Fired when the user picks one of the three routes; the caller records the outcome. */
   onOutcome?: (findingId: string, outcome: CallOutcome) => void;
 }) {
+  const tc = useThemeColors();
   // page 0 = intro (if any); 1..N = each call; N+1 = outro. With no intro we start at the first call.
   const hasIntro = intro.trim().length > 0;
   const hasOutro = outro.trim().length > 0;
@@ -189,7 +193,7 @@ export function CallMode({
           {step ? `Call ${step.index} of ${steps.length}` : onOutro ? 'After the call' : 'Get ready'}
         </Text>
         <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="call-mode-close">
-          <X size={22} color="var(--c-text-secondary)" />
+          <X size={22} color={tc.text.secondary} />
         </Pressable>
       </View>
 
@@ -233,7 +237,7 @@ export function CallMode({
                   className="mb-5 min-h-[44px] flex-row items-center justify-center gap-2 rounded-control bg-accent px-4 py-3"
                   testID="call-mode-dial"
                 >
-                  <Phone size={17} color="var(--c-on-accent)" />
+                  <Phone size={17} color={tc.onAccent} />
                   <Text className="text-body font-medium text-on-accent">Call {step.party_label}</Text>
                 </Pressable>
               ) : null}

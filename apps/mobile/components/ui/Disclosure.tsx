@@ -6,6 +6,7 @@
 import { type ReactNode, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 export function Disclosure({
   summary,
@@ -17,6 +18,7 @@ export function Disclosure({
   children: ReactNode;
   defaultOpen?: boolean;
 }) {
+  const tc = useThemeColors();
   const [open, setOpen] = useState(defaultOpen);
   return (
     <View>
@@ -27,9 +29,9 @@ export function Disclosure({
       >
         <Text className="text-caption font-medium text-accent">{summary}</Text>
         {open ? (
-          <ChevronUp size={14} color="var(--c-accent)" />
+          <ChevronUp size={14} color={tc.accent} />
         ) : (
-          <ChevronDown size={14} color="var(--c-accent)" />
+          <ChevronDown size={14} color={tc.accent} />
         )}
       </Pressable>
       {open ? <View className="pb-1 pt-1">{children}</View> : null}

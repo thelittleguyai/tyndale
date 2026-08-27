@@ -140,6 +140,7 @@ export function Field({
   placeholder?: string;
   keyboardType?: 'default' | 'numeric';
 }) {
+  const tc = useThemeColors();
   return (
     <View className="mb-3">
       <Text className="mb-1 text-sm text-white/70">{label}</Text>
@@ -147,7 +148,7 @@ export function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.3)"
+        placeholderTextColor={tc.text.faint}
         keyboardType={keyboardType ?? 'default'}
         className="rounded-lg border border-white/15 bg-black/20 px-3 py-2.5 text-base text-white"
       />

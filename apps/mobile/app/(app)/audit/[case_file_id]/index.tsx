@@ -30,6 +30,7 @@ import { recordDeepLinkTarget } from '../../../../lib/record-nav';
 import { ThumbsRating } from '../../../../components/thumbs-rating';
 import { AuditProgress } from '../../../../components/audit/AuditProgress';
 import { FindingCard } from '../../../../components/audit/FindingCard';
+import { useThemeColors } from '../../../../theme/useThemeColors';
 
 const POLL_INTERVAL_MS = 3000;
 // Stop polling after this long + show a "taking longer than expected" notice (Phase 3.4).
@@ -44,6 +45,7 @@ function dollars(n: number): string {
 }
 
 export default function AuditResultScreen() {
+  const tc = useThemeColors();
   const params = useLocalSearchParams<{ case_file_id: string }>();
   const case_file_id = String(params.case_file_id);
 
@@ -194,7 +196,7 @@ export default function AuditResultScreen() {
           </View>
           <Link href={`/audit/${case_file_id}/chat`} asChild>
             <Pressable className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-hairline px-4 py-1.5">
-              <MessageSquare size={13} color="var(--c-text-secondary)" />
+              <MessageSquare size={13} color={tc.text.secondary} />
               <Text className="text-xs font-semibold text-secondary">Chat</Text>
             </Pressable>
           </Link>
@@ -386,6 +388,7 @@ function ChaseCard({ disclosure }: { disclosure?: Disclosure | null }) {
  * blocked on missing inputs. POSITIVE framing — what we found so far + the document checklist to
  * finish. No failure language, no "team has been notified". */
 export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; caseFileId: string }) {
+  const tc = useThemeColors();
   const router = useRouter();
   const docs = result.documents_needed ?? [];
   const remaining = docs.filter((d) => !d.have).length;
@@ -413,9 +416,9 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
               <View key={d.key} className={i > 0 ? 'mt-4 border-t border-hairline pt-4' : ''}>
                 <View className="mb-1 flex-row items-start gap-2">
                   {d.have ? (
-                    <CheckCircle2 size={18} color="var(--c-accent)" />
+                    <CheckCircle2 size={18} color={tc.accent} />
                   ) : (
-                    <Circle size={18} color="var(--c-text-faint)" />
+                    <Circle size={18} color={tc.text.faint} />
                   )}
                   <Text
                     className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}

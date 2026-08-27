@@ -4,6 +4,7 @@ import { BookOpen } from 'lucide-react-native';
 import { Pressable, Text } from 'react-native';
 
 import type { ChatCitation } from '@tyndale/shared';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 function label(c: ChatCitation): string {
   const raw = c.title || c.source_id || c.url || 'Source';
@@ -17,6 +18,7 @@ export function CitationChip({
   citation: ChatCitation;
   onPress: (c: ChatCitation) => void;
 }) {
+  const tc = useThemeColors();
   return (
     <Pressable
       onPress={() => onPress(citation)}
@@ -24,7 +26,7 @@ export function CitationChip({
       hitSlop={10}
       className="flex-row items-center gap-1 rounded-full border border-accent bg-accent-tint px-2 py-1"
     >
-      <BookOpen size={11} color="var(--c-accent)" />
+      <BookOpen size={11} color={tc.accent} />
       <Text className="text-[11px] text-accent">{label(citation)}</Text>
     </Pressable>
   );

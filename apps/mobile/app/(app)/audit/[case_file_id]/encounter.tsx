@@ -28,6 +28,7 @@ import {
   getLineItems,
   submitConfirmations,
 } from '../../../../lib/api-client';
+import { useThemeColors } from '../../../../theme/useThemeColors';
 
 // `suggested` (D4b): the answer was pre-selected by the free-text mapper and is awaiting a
 // confirming tap — a UI hint only, never committed until confirmed.
@@ -254,6 +255,7 @@ export function LineItemCard({
   onNote: (n: string) => void;
   suggested?: boolean;
 }) {
+  const tc = useThemeColors();
   const answered = draft.response !== null;
   return (
     <View
@@ -316,7 +318,7 @@ export function LineItemCard({
             value={draft.user_note}
             onChangeText={onNote}
             placeholder="Optional — helps us understand the mismatch"
-            placeholderTextColor="var(--c-text-faint)"
+            placeholderTextColor={tc.text.faint}
             className="rounded-control border border-hairline bg-inset px-3 py-2 text-body text-primary"
           />
         </View>
@@ -338,6 +340,7 @@ function OptionButton({
   answered: boolean;
   onPress: () => void;
 }) {
+  const tc = useThemeColors();
   const base =
     variant === 'primary'
       ? 'bg-accent'
@@ -349,7 +352,7 @@ function OptionButton({
   const grow = variant === 'tertiary' ? 'self-stretch' : 'flex-1';
   // L5 (round-2) — an icon beside each label so the three answers scan without reading.
   const iconColor =
-    variant === 'primary' ? 'var(--c-on-accent)' : variant === 'tertiary' ? 'var(--c-text-secondary)' : 'var(--c-text-primary)';
+    variant === 'primary' ? tc.onAccent : variant === 'tertiary' ? tc.text.secondary : tc.text.primary;
   const Icon = variant === 'primary' ? Check : variant === 'secondary' ? XIcon : CircleHelp;
   return (
     <Pressable

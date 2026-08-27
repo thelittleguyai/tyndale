@@ -11,8 +11,10 @@ import { createConversation, getSurfaceCopy, listConversations } from '../../../
 import { OPENER_FALLBACK } from '../../../components/chat/FreeformOpener';
 import { PressableScale } from '../../../components/ui/PressableScale';
 import { ScreenView } from '../../../components/ui/Screen';
+import { useThemeColors } from '../../../theme/useThemeColors';
 
 export default function ChatListScreen() {
+  const tc = useThemeColors();
   const router = useRouter();
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function ChatListScreen() {
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/" asChild>
           <Pressable className="min-h-[44px] flex-row items-center gap-1 active:opacity-70">
-            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary hover:text-primary">Home</Text>
           </Pressable>
         </Link>
@@ -55,14 +57,14 @@ export default function ChatListScreen() {
           onPress={start}
           className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-accent px-3 py-1.5 hover:bg-accent"
         >
-          <Plus size={14} color="var(--c-on-accent)" />
+          <Plus size={14} color={tc.onAccent} />
           <Text className="text-xs font-bold text-on-accent">New</Text>
         </PressableScale>
       </View>
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingVertical: 16 }}>
         <ScreenView>
-          {loading ? <ActivityIndicator color="var(--c-text-primary)" className="mt-8" /> : null}
+          {loading ? <ActivityIndicator color={tc.text.primary} className="mt-8" /> : null}
 
           {!loading && items.length === 0 ? (
             <View className="mt-6 rounded-2xl border border-hairline bg-surface p-5 shadow-card">
@@ -79,7 +81,7 @@ export default function ChatListScreen() {
           {items.map((c) => (
             <Link key={c.conversation_id} href={`/chat/${c.conversation_id}`} asChild>
               <PressableScale className="mb-2 flex-row items-center gap-3 rounded-xl border border-hairline bg-surface p-4 hover:border-hairline">
-                <MessageSquare size={16} color="var(--c-text-faint)" />
+                <MessageSquare size={16} color={tc.text.faint} />
                 <View className="flex-1">
                   <Text className="text-body font-semibold text-primary" numberOfLines={1}>
                     {c.title || 'Untitled conversation'}

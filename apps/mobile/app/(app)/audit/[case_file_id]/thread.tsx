@@ -35,8 +35,10 @@ import {
 } from '../../../../lib/api-client';
 import { ThreadEntry } from '../../../../components/thread/ThreadEntry';
 import type { Draft } from './encounter';
+import { useThemeColors } from '../../../../theme/useThemeColors';
 
 export default function CaseThreadScreen() {
+  const tc = useThemeColors();
   const { case_file_id } = useLocalSearchParams<{ case_file_id: string }>();
   const router = useRouter();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export default function CaseThreadScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-page">
-        <ActivityIndicator color="var(--c-accent)" />
+        <ActivityIndicator color={tc.accent} />
       </View>
     );
   }
@@ -253,7 +255,7 @@ export default function CaseThreadScreen() {
             value={composer}
             onChangeText={setComposer}
             placeholder="Answer in your own words, or tap the cards…"
-            placeholderTextColor="rgba(255,255,255,0.4)"
+            placeholderTextColor={tc.text.faint}
             multiline
             className="max-h-24 flex-1 rounded-2xl bg-surface px-4 py-2.5 text-[15px] text-primary"
             onSubmitEditing={sendText}

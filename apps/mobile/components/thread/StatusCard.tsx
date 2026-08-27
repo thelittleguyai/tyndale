@@ -7,6 +7,7 @@
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import type { StatusCardPayload, ThreadStageState } from '@tyndale/shared';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 function Bar({ state }: { state: ThreadStageState }) {
   // A bar fills (accent) only when its stage is genuinely done/failed — no fabricated progress
@@ -17,6 +18,7 @@ function Bar({ state }: { state: ThreadStageState }) {
 }
 
 export function StatusCard({ payload }: { payload: StatusCardPayload }) {
+  const tc = useThemeColors();
   // L1 (round-2) — a state header over the bars. Only the two states the prototype authors:
   // "Working on your audit" while anything is genuinely active, "Audit ready" when all four
   // stages are done. A failed/incomplete terminal gets NO header — the rows carry that truth,
@@ -36,7 +38,7 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
       ) : anyActive ? (
         <View className="mb-3 flex-row items-center justify-between">
           <Text className="text-body font-semibold text-primary">Working on your audit</Text>
-          <ActivityIndicator size="small" color="var(--c-accent)" />
+          <ActivityIndicator size="small" color={tc.accent} />
         </View>
       ) : null}
       {payload.stages.map((s) => (
@@ -48,7 +50,7 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
               {s.label}
             </Text>
             {s.state === 'active' && !payload.paused ? (
-              <ActivityIndicator size="small" color="var(--c-accent)" />
+              <ActivityIndicator size="small" color={tc.accent} />
             ) : s.state === 'done' ? (
               <Text className="text-xs font-bold text-accent">✓</Text>
             ) : s.state === 'failed' ? (

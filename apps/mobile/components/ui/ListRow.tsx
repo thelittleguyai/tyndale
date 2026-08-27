@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 export function ListRow({
   leading,
@@ -26,6 +27,7 @@ export function ListRow({
   onPress?: () => void;
   showChevron?: boolean;
 }) {
+  const tc = useThemeColors();
   const Wrapper: typeof Pressable | typeof View = onPress ? Pressable : View;
   return (
     <Wrapper
@@ -50,7 +52,7 @@ export function ListRow({
         ) : null}
       </View>
       {trailing}
-      {showChevron ? <ChevronRight size={18} color="var(--c-text-faint)" /> : null}
+      {showChevron ? <ChevronRight size={18} color={tc.text.faint} /> : null}
     </Wrapper>
   );
 }

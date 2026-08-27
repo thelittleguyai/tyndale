@@ -9,6 +9,7 @@ import type { ChatCitation, ContentChunk, Message } from '@tyndale/shared';
 import { CitationChip } from './CitationChip';
 import { CreateCaseCta } from './CreateCaseCta';
 import { ChatMarkdown } from './Markdown';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 // The SUGGESTED convention (tap-to-reply chips) is parsed + stripped server-side at
 // completion; while tokens are still streaming the raw trailing line would flash, so the
@@ -70,6 +71,7 @@ export function ChatMessage({
   onCitation: (c: ChatCitation) => void;
   onRetry?: (m: Message) => void;
 }) {
+  const tc = useThemeColors();
   if (message.role === 'user') {
     return (
       <View className="mb-3 items-end">
@@ -115,7 +117,7 @@ export function ChatMessage({
 
         {failed ? (
           <View className="mt-2 flex-row flex-wrap items-center gap-2">
-            <AlertTriangle size={13} color="var(--c-danger)" />
+            <AlertTriangle size={13} color={tc.danger.base} />
             <Text className="text-xs text-danger">
               {message.error_message || 'Something went wrong.'}
             </Text>
@@ -125,7 +127,7 @@ export function ChatMessage({
                 hitSlop={10}
                 className="flex-row items-center gap-1 rounded-md border border-hairline px-2 py-1"
               >
-                <RotateCcw size={11} color="var(--c-text-secondary)" />
+                <RotateCcw size={11} color={tc.text.secondary} />
                 <Text className="text-[11px] text-secondary">Retry</Text>
               </Pressable>
             ) : null}

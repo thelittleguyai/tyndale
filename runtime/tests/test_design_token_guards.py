@@ -172,3 +172,21 @@ def test_money_figure_regression_is_actually_fixed():
     2.90:1 — below AA on the most important number in the product."""
     assert contrast("#FFFFFF", "#3DAA7E") < 4.5  # the old value really did fail
     assert contrast("#FFFFFF", "#2E7D5B") >= 4.5  # …and the new one clears it
+
+
+def test_no_css_variables_as_native_color_props():
+    """Audit 2026-08-27 item 1: `var(--c-*)` resolves ONLY on web — as a React Native color
+    prop (icon color=, placeholderTextColor=) it renders black/absent on iOS/Android. 72
+    sites shipped that way. useThemeColors() is the native-safe path; this scan keeps the
+    class extinct, alongside the hardcoded-rgba placeholder pattern (the sign-in bug)."""
+    offenders: list[str] = []
+    for path in (REPO / "apps/mobile").rglob("*.tsx"):
+        if "node_modules" in path.parts or "dist" in str(path):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for i, line in enumerate(text.splitlines(), start=1):
+            if "var(--c-" in line:
+                offenders.append(f"{path.relative_to(REPO)}:{i} var(--c-*) as a prop value")
+            if "placeholderTextColor=\"rgba" in line or "placeholderTextColor={'rgba" in line:
+                offenders.append(f"{path.relative_to(REPO)}:{i} hardcoded rgba placeholder")
+    assert offenders == [], "\n".join(offenders)

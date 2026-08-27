@@ -28,6 +28,7 @@ import {
 } from '../../lib/api-client';
 import { Button } from '../../components/ui';
 import { Screen } from '../../components/ui/Screen';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const REQUEST_TYPES: { key: AccessRequestBody['request_type']; label: string }[] = [
   { key: 'access', label: 'Show me what you hold' },
@@ -175,13 +176,14 @@ function Field({
   autoCapitalize?: 'none' | 'sentences';
   testID?: string;
 }) {
+  const tc = useThemeColors();
   return (
     <View className="mt-5">
       <Text className="mb-2 text-caption text-faint">{label}</Text>
       <TextInput
         {...rest}
         multiline={multiline}
-        placeholderTextColor="var(--c-text-faint)"
+        placeholderTextColor={tc.text.faint}
         className={`rounded-control border border-hairline bg-surface px-4 py-3 text-body text-primary ${
           multiline ? 'min-h-[88px]' : 'min-h-[44px]'
         }`}

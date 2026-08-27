@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { STRUCTURED_REASON_LABELS, StructuredReason } from '@tyndale/shared';
+import { useThemeColors } from '../theme/useThemeColors';
 
 export function ThumbsDownModal({
   visible,
@@ -19,6 +20,7 @@ export function ThumbsDownModal({
   onSkip: () => void;
   onSubmit: (reasons: StructuredReason[], freeText: string | null) => void;
 }) {
+  const tc = useThemeColors();
   const [selected, setSelected] = useState<StructuredReason[]>([]);
   const [text, setText] = useState('');
 
@@ -71,7 +73,7 @@ export function ThumbsDownModal({
               value={text}
               onChangeText={(t) => setText(t.slice(0, 500))}
               placeholder="Tell us more (optional)"
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={tc.text.faint}
               multiline
               className="mt-4 min-h-[72px] rounded-lg border border-hairline bg-inset px-3 py-2 text-body text-primary"
             />

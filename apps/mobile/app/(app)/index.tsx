@@ -75,6 +75,7 @@ const formatUSD = (n: number) =>
   '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 export default function DashboardScreen() {
+  const tc = useThemeColors();
   const router = useRouter();
   const { width } = useBreakpoint();
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -251,7 +252,7 @@ export default function DashboardScreen() {
       }`}
       testID="floating-chat"
     >
-      <MessageSquare size={18} color="var(--c-on-accent)" />
+      <MessageSquare size={18} color={tc.onAccent} />
       {width < 480 ? null : (
         <Text className="text-body font-bold text-on-accent">Chat with Tyndale</Text>
       )}
@@ -279,6 +280,7 @@ function OutcomeFollowupCard({
   copy?: SurfaceCopy;
   onDone: () => void;
 }) {
+  const tc = useThemeColors();
   const [submitting, setSubmitting] = useState(false);
   const [remind, setRemind] = useState(false);
 
@@ -315,7 +317,7 @@ function OutcomeFollowupCard({
     <View className="mt-6 rounded-2xl border border-warning bg-surface p-5 shadow-card" testID="checkin-card">
       <View className="mb-2 flex-row items-center gap-3">
         <View className="h-9 w-9 items-center justify-center rounded-md bg-warning-tint">
-          <Clock size={18} color="var(--c-warning)" />
+          <Clock size={18} color={tc.warning.base} />
         </View>
         <Text className="text-base font-bold text-primary">Quick check-in: how did it go?</Text>
       </View>
@@ -385,6 +387,7 @@ function OutcomeButton({
 // ─── Finish-setup resume card (Save & exit follow-up) ───────────────────────
 // Shown when the user deferred intake mid-wizard: a gentle path back in.
 function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
+  const tc = useThemeColors();
   const router = useRouter();
   const target =
     currentStep && currentStep !== 'welcome' && currentStep !== 'complete'
@@ -393,7 +396,7 @@ function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
   return (
     <View className="mt-4 flex-row items-center gap-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card">
       <View className="h-9 w-9 items-center justify-center rounded-md bg-accent-tint">
-        <CheckCircle2 size={18} color="var(--c-accent)" />
+        <CheckCircle2 size={18} color={tc.accent} />
       </View>
       <View className="flex-1">
         <Text className="text-body font-bold text-primary">Finish setting up</Text>
@@ -490,6 +493,7 @@ function ActiveCasesSection({
 const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 
 function Header() {
+  const tc = useThemeColors();
   const router = useRouter();
   const signOut = useSignOut();
   // Phones (<640): logo-only. Narrow (<480, down to 320): Sign Out and the Admin chip
@@ -540,7 +544,7 @@ function Header() {
             accessibilityHint="Opens the Tyndale admin console in a new tab"
             className="min-h-[44px] flex-row items-center gap-1.5 rounded-full border border-hairline bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
           >
-            <ShieldCheck size={14} color="var(--c-text-secondary)" />
+            <ShieldCheck size={14} color={tc.text.secondary} />
             <Text className="text-xs font-semibold text-secondary">Admin</Text>
           </Pressable>
         ) : null}
@@ -551,7 +555,7 @@ function Header() {
           className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-accent px-3.5 py-1.5"
           testID="header-check-bill"
         >
-          <Plus size={14} color="var(--c-on-accent)" />
+          <Plus size={14} color={tc.onAccent} />
           <Text className="text-xs font-bold text-on-accent">{narrow ? 'Check' : 'Check a bill'}</Text>
         </PressableScale>
         <Pressable
@@ -561,7 +565,7 @@ function Header() {
           className="min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-hairline bg-inset hover:bg-inset active:opacity-80"
           testID="header-settings"
         >
-          <Settings size={17} color="var(--c-text-secondary)" />
+          <Settings size={17} color={tc.text.secondary} />
         </Pressable>
         {narrow ? null : (
           <Pressable
@@ -653,6 +657,7 @@ function QuickActionTile({
   Icon: any;
   onPress: () => void;
 }) {
+  const tc = useThemeColors();
   const { isPhone } = useBreakpoint();
   return (
     <PressableScale
@@ -662,7 +667,7 @@ function QuickActionTile({
       }`}
     >
       <View className="h-9 w-9 items-center justify-center rounded-md bg-inset">
-        <Icon size={18} color="var(--c-text-primary)" />
+        <Icon size={18} color={tc.text.primary} />
       </View>
       <Text className="mt-4 text-base font-bold text-primary">{title}</Text>
       <Text className="mt-1 text-xs leading-5 text-faint">{subtitle}</Text>
@@ -711,10 +716,11 @@ function BenefitBars({ coverage }: { coverage: DashboardPayload['coverage'] | nu
 
 // ─── Skeleton ──────────────────────────────────────────────────────────────
 function SkeletonTile({ className }: { className?: string }) {
+  const tc = useThemeColors();
   return (
     <View className={`rounded-xl bg-inset ${className ?? ''}`} >
       <ActivityIndicator
-        color="var(--c-text-faint)"
+        color={tc.text.faint}
         style={{ flex: 1 }}
       />
     </View>

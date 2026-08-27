@@ -6,6 +6,7 @@ import { ExternalLink, X } from 'lucide-react-native';
 import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ChatCitation } from '@tyndale/shared';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -23,6 +24,7 @@ export function CitationDetailModal({
   citation: ChatCitation | null;
   onClose: () => void;
 }) {
+  const tc = useThemeColors();
   const c = citation;
   return (
     <Modal visible={!!c} transparent animationType="fade" onRequestClose={onClose}>
@@ -40,7 +42,7 @@ export function CitationDetailModal({
                 {c.title || 'Source'}
               </Text>
               <Pressable onPress={onClose} hitSlop={8}>
-                <X size={18} color="var(--c-text-secondary)" />
+                <X size={18} color={tc.text.secondary} />
               </Pressable>
             </View>
             <ScrollView>
@@ -58,7 +60,7 @@ export function CitationDetailModal({
                   onPress={() => Linking.openURL(c.url as string).catch(() => undefined)}
                   className="mt-1 flex-row items-center gap-2 self-start rounded-lg border border-hairline px-3 py-2"
                 >
-                  <ExternalLink size={14} color="var(--c-accent)" />
+                  <ExternalLink size={14} color={tc.accent} />
                   <Text className="text-xs font-semibold text-accent">Open source in browser</Text>
                 </Pressable>
               ) : null}

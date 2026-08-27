@@ -25,6 +25,7 @@ import {
 } from '../../lib/capture';
 import { Button } from '../ui';
 import type { CapturedUpload } from './capture-types';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 /** Native builds support capture whenever expo-camera is present (it is, since DL-44 fell).
  *  Permission is asked in-flow — the component owns the denied state, same as web. */
@@ -58,6 +59,7 @@ export function CameraCapture({
   onClose: () => void;
   allowMultiPage?: boolean;
 }) {
+  const tc = useThemeColors();
   const prompt = (label === 'card' ? copy.capture_prompt_card : copy.capture_prompt_bill) ?? null;
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
@@ -144,7 +146,7 @@ export function CameraCapture({
           {pages.length > 0 ? `Page ${pages.length + (pending ? 1 : 0)}` : 'Add your bill'}
         </Text>
         <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="capture-close">
-          <X size={22} color="var(--c-text-secondary)" />
+          <X size={22} color={tc.text.secondary} />
         </Pressable>
       </View>
 
@@ -180,7 +182,7 @@ export function CameraCapture({
               className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-control border border-hairline bg-surface px-4"
               testID="capture-retake"
             >
-              <RotateCcw size={17} color="var(--c-text-secondary)" />
+              <RotateCcw size={17} color={tc.text.secondary} />
               <Text numberOfLines={1} className="text-body font-semibold text-secondary">
                 {copy.capture_retake || FALLBACK.retake}
               </Text>
@@ -219,7 +221,7 @@ export function CameraCapture({
             >
               {/* pages>0: the label carries the meaning and the row is width-tight — the
                   glyph is what makes 'Take another picture' truncate at 390pt. */}
-              {pages.length === 0 ? <Camera size={18} color="var(--c-on-accent)" /> : null}
+              {pages.length === 0 ? <Camera size={18} color={tc.onAccent} /> : null}
               <Text numberOfLines={1} className="text-base font-bold text-on-accent">
                 {pages.length > 0 ? copy.capture_add_page || FALLBACK.add_page : 'Take photo'}
               </Text>

@@ -11,6 +11,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import type { CoverageChecklistItem, NeedsDocumentsPayload, UnlockMorePayload } from '@tyndale/shared';
 import { saveCoverageInput } from '../../lib/api-client';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 /** "What is this?" (image-3 item 3): a tap-to-expand explainer under any checklist item.
  *  Copy is registry-authored and server-rendered into the payload — nothing engineering-voiced. */
@@ -54,6 +55,7 @@ function CoverageItemRow({
   suggested?: number | string | null;
   onSaved?: () => void;
 }) {
+  const tc = useThemeColors();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   useEffect(() => {
@@ -101,9 +103,9 @@ function CoverageItemRow({
         testID={`coverage-item-${item.key}`}
       >
         {done ? (
-          <CheckCircle2 size={18} color="var(--c-accent)" />
+          <CheckCircle2 size={18} color={tc.accent} />
         ) : (
-          <Circle size={18} color="var(--c-text-faint)" />
+          <Circle size={18} color={tc.text.faint} />
         )}
         <Text
           className={`flex-1 text-base font-bold ${done ? 'text-faint line-through' : 'text-primary'}`}
@@ -190,6 +192,7 @@ export function ThreadNeedsDocuments({
   suggestion?: { field: string; value: number | string } | null;
   onCoverageSaved?: () => void;
 }) {
+  const tc = useThemeColors();
   const router = useRouter();
   const hint = unlock && 'item_hint' in payload ? payload.item_hint : null;
   return (
@@ -203,9 +206,9 @@ export function ThreadNeedsDocuments({
         <View key={d.key} className={i > 0 ? 'mt-3 border-t border-hairline pt-3' : ''}>
           <View className="mb-1 flex-row items-start gap-2">
             {d.have ? (
-              <CheckCircle2 size={18} color="var(--c-accent)" />
+              <CheckCircle2 size={18} color={tc.accent} />
             ) : (
-              <Circle size={18} color="var(--c-text-faint)" />
+              <Circle size={18} color={tc.text.faint} />
             )}
             <Text
               className={`flex-1 text-base font-bold ${d.have ? 'text-faint line-through' : 'text-primary'}`}
@@ -223,7 +226,7 @@ export function ThreadNeedsDocuments({
                 className="ml-6 mt-2 min-h-[44px] flex-row items-center gap-1.5 self-start rounded-xl border border-accent px-4"
                 testID={`needs-add-${d.key}`}
               >
-                <Plus size={15} color="var(--c-accent)" />
+                <Plus size={15} color={tc.accent} />
                 <Text className="text-body font-semibold text-accent">Add</Text>
               </Pressable>
               <Explainer text={d.explainer} itemKey={d.key} />

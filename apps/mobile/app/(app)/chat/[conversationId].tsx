@@ -8,8 +8,10 @@ import { ChevronLeft } from 'lucide-react-native';
 import { ChatThread } from '../../../components/chat/ChatThread';
 import { FreeformOpener } from '../../../components/chat/FreeformOpener';
 import { getConversation } from '../../../lib/api-client';
+import { useThemeColors } from '../../../theme/useThemeColors';
 
 export default function ConversationScreen() {
+  const tc = useThemeColors();
   const params = useLocalSearchParams<{ conversationId: string }>();
   const id = String(params.conversationId);
   const [title, setTitle] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function ConversationScreen() {
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/chat" asChild>
           <Pressable className="flex-row items-center gap-1">
-            <ChevronLeft size={18} color="var(--c-text-secondary)" />
+            <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary">Chats</Text>
           </Pressable>
         </Link>

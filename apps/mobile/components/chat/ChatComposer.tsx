@@ -101,7 +101,7 @@ export function ChatComposer({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder="Ask about your bill, coverage, codes, appeals…"
-            placeholderTextColor="rgba(255,255,255,0.35)"
+            placeholderTextColor={c.text.faint}
             multiline
             maxLength={8000}
             editable={!streaming}

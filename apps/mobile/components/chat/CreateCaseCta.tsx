@@ -4,8 +4,10 @@
 import { useRouter } from 'expo-router';
 import { FilePlus2 } from 'lucide-react-native';
 import { Pressable, Text } from 'react-native';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 export function CreateCaseCta({ conversationId }: { conversationId: string }) {
+  const tc = useThemeColors();
   const router = useRouter();
   return (
     <Pressable
@@ -15,7 +17,7 @@ export function CreateCaseCta({ conversationId }: { conversationId: string }) {
       accessibilityRole="button"
       className="mt-3 flex-row items-center gap-2 self-start rounded-xl bg-accent px-4 py-2.5"
     >
-      <FilePlus2 size={16} color="var(--c-on-accent)" />
+      <FilePlus2 size={16} color={tc.onAccent} />
       <Text className="text-body font-bold text-on-accent">Upload documents &amp; create a case</Text>
     </Pressable>
   );

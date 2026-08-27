@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Platform, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
 
 import { removeCase } from '../../lib/api-client';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const NON_REMOVABLE_STATUSES = new Set(['audit_running', 'audit_complete', 'resolved']);
 
@@ -39,6 +40,7 @@ export function CaseRemoveButton({
   label: string;
   onDone: () => void;
 }) {
+  const tc = useThemeColors();
   const [busy, setBusy] = useState(false);
   const onPress = async (e?: any) => {
     e?.stopPropagation?.(); // don't also open the case (web bubbling; native captures the child)
@@ -64,9 +66,9 @@ export function CaseRemoveButton({
       className="ml-1 rounded-full p-1.5 hover:bg-inset"
     >
       {busy ? (
-        <ActivityIndicator size="small" color="var(--c-text-secondary)" />
+        <ActivityIndicator size="small" color={tc.text.secondary} />
       ) : (
-        <X size={16} color="var(--c-text-faint)" />
+        <X size={16} color={tc.text.faint} />
       )}
     </Pressable>
   );

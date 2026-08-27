@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 const STAGES = [
   'Reading your bill',
@@ -41,6 +42,7 @@ const FALLBACK_STAGE = 2;
 const SUMMARY_BUMP_MS = 12_000;
 
 export function AuditProgress({ status }: { status: string }) {
+  const tc = useThemeColors();
   const baseStage = STATUS_TO_STAGE[status] ?? FALLBACK_STAGE;
   const [bumped, setBumped] = useState(false);
 
@@ -72,10 +74,10 @@ export function AuditProgress({ status }: { status: string }) {
               <View className="mr-3 h-6 w-6 items-center justify-center">
                 {done ? (
                   <View className="h-6 w-6 items-center justify-center rounded-full bg-accent-tint">
-                    <Check size={14} color="var(--c-accent)" strokeWidth={3} />
+                    <Check size={14} color={tc.accent} strokeWidth={3} />
                   </View>
                 ) : active ? (
-                  <ActivityIndicator size="small" color="var(--c-accent)" />
+                  <ActivityIndicator size="small" color={tc.accent} />
                 ) : (
                   <View className="h-2 w-2 rounded-full bg-inset" />
                 )}

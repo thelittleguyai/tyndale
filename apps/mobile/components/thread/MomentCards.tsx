@@ -6,6 +6,7 @@ import { Text, View } from 'react-native';
 
 import type { ThreeNumberMomentPayload, UnlockMomentPayload } from '@tyndale/shared';
 import { MomentCard } from '../ui';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 function money(n: number | null | undefined): string {
   // Rung-2 completions can lack an anchor no document stated (bill-only: no EOB figure).
@@ -21,6 +22,7 @@ function money(n: number | null | undefined): string {
  * inset well. This is the fix for the "moments aren't moments" critique.
  */
 export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPayload }) {
+  const tc = useThemeColors();
   return (
     <MomentCard className="my-3">
       {/* L2 (round-2) — the service-context line: provider · payer, typed fields only. Absent
@@ -56,7 +58,7 @@ export function ThreeNumberMoment({ payload }: { payload: ThreeNumberMomentPaylo
         </Text>
       ) : null}
       {payload.headline ? (
-        <View className="mt-3 rounded-control px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
+        <View className="mt-3 rounded-control px-3 py-2" style={{ backgroundColor: tc.moment.inset }}>
           <Text className="text-caption leading-5 text-moment-text">{payload.headline}</Text>
         </View>
       ) : null}

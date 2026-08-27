@@ -10,13 +10,15 @@ import { Redirect, Stack } from 'expo-router';
 
 import { useCurrentUser } from '../../lib/auth';
 import { themeColors } from '../../theme/useThemeColors';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 export default function IntakeLayout() {
+  const tc = useThemeColors();
   const { user, loading } = useCurrentUser();
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-page">
-        <ActivityIndicator color="var(--c-accent)" />
+        <ActivityIndicator color={tc.accent} />
       </View>
     );
   }
