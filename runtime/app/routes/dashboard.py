@@ -155,16 +155,52 @@ def _intake_state(cases: list[CaseFile]) -> tuple[str, str | None]:
 
 
 # --- Open cases / deadlines / amount-saved ----------------------------------
+async def _latest_finding_by_case(s: AsyncSession, case_ids: list) -> dict[str, Finding]:
+    """Newest finding per case in ONE query (audit 2026-08-27 item 6 — the per-case
+    limit-1 loop was N+1)."""
+    if not case_ids:
+        return {}
+    rows = (
+        await s.execute(
+            select(Finding)
+            .where(Finding.case_file_id.in_(case_ids))
+            .order_by(Finding.created_at.desc())
+        )
+    ).scalars().all()
+    out: dict[str, Finding] = {}
+    for f in rows:  # desc order → first seen per case is the newest
+        out.setdefault(str(f.case_file_id), f)
+    return out
+
+
+async def _next_deadline_by_case(s: AsyncSession, case_ids: list) -> dict[str, Deadline]:
+    """Soonest pending deadline per case in ONE query."""
+    if not case_ids:
+        return {}
+    rows = (
+        await s.execute(
+            select(Deadline)
+            .where(Deadline.case_file_id.in_(case_ids))
+            .where(Deadline.status == "pending")
+            .order_by(Deadline.deadline_date.asc())
+        )
+    ).scalars().all()
+    out: dict[str, Deadline] = {}
+    for d in rows:  # asc order → first seen per case is the soonest
+        out.setdefault(str(d.case_file_id), d)
+    return out
+
 async def _open_cases_payload(
     s: AsyncSession, user_id: str, cases: list[CaseFile]
 ) -> list[OpenCase]:
     """Build the OpenCase list for cases in {open, in_progress}, with headline
     derived from the most recent finding's category, and the next pending
     deadline (if any) attached."""
+    eligible = [c for c in cases if c.status in ("open", "in_progress", "extraction_failed")]
+    latest_finding = await _latest_finding_by_case(s, [c.case_file_id for c in eligible])
+    next_deadline = await _next_deadline_by_case(s, [c.case_file_id for c in eligible])
     out: list[OpenCase] = []
-    for case in cases:
-        if case.status not in ("open", "in_progress", "extraction_failed"):
-            continue
+    for case in eligible:
 
         # A degraded extraction is an open, actionable issue — surface it honestly so the user
         # knows to re-upload, and never silently drop it off the dashboard.
@@ -182,21 +218,9 @@ async def _open_cases_payload(
             continue
 
         # Headline — first prefer the most recent finding's category;
-        # fall back to a doc-driven label.
-        findings = (
-            (
-                await s.execute(
-                    select(Finding)
-                    .where(Finding.case_file_id == case.case_file_id)
-                    .order_by(Finding.created_at.desc())
-                    .limit(1)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        if findings:
-            f = findings[0]
+        # fall back to a doc-driven label. (Prefetched in one query for all cases.)
+        f = latest_finding.get(str(case.case_file_id))
+        if f is not None:
             headline = orchestration_step(
                 "dashboard.headline_finding",
                 category_label=f.category.replace("_", " ").capitalize(),
@@ -215,8 +239,8 @@ async def _open_cases_payload(
         anchor = case.created_at or datetime.now(timezone.utc)
         days_open = max(0, (datetime.now(timezone.utc) - anchor).days)
 
-        # Next pending deadline
-        d = await _next_pending_deadline(s, case.case_file_id)
+        # Next pending deadline (prefetched)
+        d = next_deadline.get(str(case.case_file_id))
 
         out.append(
             OpenCase(
@@ -230,39 +254,22 @@ async def _open_cases_payload(
     return out
 
 
-async def _next_pending_deadline(s: AsyncSession, case_id) -> Deadline | None:
-    """The soonest still-pending deadline for a case, or None."""
-    return (
-        (
-            await s.execute(
-                select(Deadline)
-                .where(Deadline.case_file_id == case_id)
-                .where(Deadline.status == "pending")
-                .order_by(Deadline.deadline_date.asc())
-                .limit(1)
-            )
-        )
-        .scalars()
-        .first()
-    )
-
 
 async def _active_cases_payload(s: AsyncSession, cases: list[CaseFile]) -> list[ActiveCase]:
     """Status-aware, full-lifecycle resumable cases for the Open Cases card. Every case whose
     status is in _ACTIVE_CASE_STATUS (i.e. not resolved/archived) gets a card with a plain-
     language status and the screen that resumes it. Ordered most-recently-created first so the
     case a user is actively working sits on top."""
+    resumable = [c for c in cases if _ACTIVE_CASE_STATUS.get(c.status) is not None]
+    next_deadline = await _next_deadline_by_case(s, [c.case_file_id for c in resumable])
     out: list[ActiveCase] = []
-    for case in sorted(cases, key=lambda c: c.created_at or datetime.min, reverse=True):
-        mapped = _ACTIVE_CASE_STATUS.get(case.status)
-        if mapped is None:
-            continue  # terminal (resolved/archived) or unknown — not a resumable card
-        label, resume = mapped
+    for case in sorted(resumable, key=lambda c: c.created_at or datetime.min, reverse=True):
+        label, resume = _ACTIVE_CASE_STATUS[case.status]
         # HP-1: a document-blocked audit reads as an action, not a failure, on the dashboard too.
         if case.status == "audit_incomplete" and case.audit_incomplete_reason == "needs_documents":
             label = "Needs your documents"
         anchor = case.created_at or datetime.now(timezone.utc)
-        d = await _next_pending_deadline(s, case.case_file_id)
+        d = next_deadline.get(str(case.case_file_id))
         out.append(
             ActiveCase(
                 case_file_id=str(case.case_file_id),
@@ -363,14 +370,13 @@ def _welcome_state_hash(case_states: list[dict]) -> str:
 
 
 async def _cached_welcome_summary(
-    session: AsyncSession, user_id, case_states: list[dict]
+    session: AsyncSession, urow: User | None, case_states: list[dict]
 ) -> str | None:
     """Return the welcome summary, reusing the persisted one while the case-state hash is unchanged
-    and regenerating (+ re-storing) only when it changes — same words every load until state moves."""
+    and regenerating (+ re-storing) only when it changes — same words every load until state moves.
+    ``urow`` is the caller's already-loaded User row (audit 2026-08-27 item 6: this function
+    and the banner each fetched it)."""
     state_hash = _welcome_state_hash(case_states)
-    urow = (
-        await session.execute(select(User).where(User.user_id == user_id))
-    ).scalar_one_or_none()
     cache = (urow.welcome_summary_cache if urow else None) or {}
     if cache.get("hash") == state_hash:
         return cache.get("summary")
@@ -416,7 +422,10 @@ async def get_dashboard(
         }
         for c in cases
     ]
-    greeting = await _cached_welcome_summary(session, user.user_id, case_states)
+    urow = (
+        await session.execute(select(User).where(User.user_id == user.user_id))
+    ).scalar_one_or_none()
+    greeting = await _cached_welcome_summary(session, urow, case_states)
 
     # Phase 2J — inline the outcome follow-up prompts so the dashboard gets
     # them in one round trip.
@@ -441,10 +450,8 @@ async def get_dashboard(
     open_cases_all = [c for c in cases if c.status not in ("resolved", "archived")]
     needs_you_count = sum(1 for c in open_cases_all if _needs_you(c))
 
-    # Banner name: the profile's REAL first name when set (CO-17), else the email-derived one.
-    urow = (
-        await session.execute(select(User).where(User.user_id == user.user_id))
-    ).scalar_one_or_none()
+    # Banner name: the profile's REAL first name when set (CO-17), else the email-derived
+    # one. (urow loaded once above — audit item 6 dropped the duplicate fetch.)
     banner_name = ((urow.first_name or "").strip() if urow else "") or user.first_name or "there"
 
     return DashboardPayload(
