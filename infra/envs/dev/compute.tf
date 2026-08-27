@@ -592,8 +592,11 @@ resource "azurerm_container_app" "litellm" {
     max_replicas = 1
 
     container {
-      name   = "litellm"
-      image  = "ghcr.io/berriai/litellm:main-latest"
+      name = "litellm"
+      # Pinned by DIGEST (audit 2026-08-27 item 5 — main-latest contradicted the
+      # pin-everything doctrine). This is the digest main-latest resolved to on
+      # 2026-08-27; bump deliberately.
+      image  = "ghcr.io/berriai/litellm:main-latest@sha256:0f4dce575a6c33d737886fe0796a6b3022358b45c2068a5e1312293e28b35f0f"
       cpu    = 0.5
       memory = "1Gi"
       # config.yaml mounted via secret/volume in Phase 4

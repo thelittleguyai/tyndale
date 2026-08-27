@@ -117,13 +117,6 @@ resource "azurerm_key_vault_secret" "voyage_api_key" {
   depends_on   = [azurerm_role_assignment.kv_admin_deployer]
 }
 
-resource "azurerm_key_vault_secret" "google_oauth_client_id" {
-  name         = "GOOGLE-OAUTH-CLIENT-ID"
-  value        = var.google_oauth_client_id
-  key_vault_id = azurerm_key_vault.main.id
-  depends_on   = [azurerm_role_assignment.kv_admin_deployer]
-}
-
 resource "azurerm_key_vault_secret" "google_oauth_client_secret" {
   name         = "GOOGLE-OAUTH-CLIENT-SECRET"
   value        = var.google_oauth_client_secret

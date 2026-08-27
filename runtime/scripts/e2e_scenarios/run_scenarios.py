@@ -47,6 +47,13 @@ COOKIE_NAME = "tyndale_session"  # a session read-name on every env (bare name k
 # HP prompts have chased). NO scenario legitimately uses these.
 FIXTURE_MARKERS = ("70553", "A9579", "36000")
 
+
+def _marker_hits(marker: str, blob: str) -> bool:
+    """Token-boundary marker match (audit 2026-08-27 item 5): "36000" must not fire on an
+    innocent 3600.00 rendered unformatted (…360000…) or a 136000 anywhere in the JSON —
+    the canary only sings when the marker stands alone as a code-like token."""
+    return re.search(rf"(?<![0-9A-Za-z.]){re.escape(marker)}(?![0-9A-Za-z.])", blob, re.IGNORECASE) is not None
+
 POLL_TIMEOUT_S = 600
 POLL_INTERVAL_S = 4
 EXTRACT_TIMEOUT_S = 180
@@ -387,7 +394,7 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
     # (this is what the old unreadable_document assertion missed — it only checked the audit).
     eblob = json.dumps(extract).lower()
     for marker in FIXTURE_MARKERS:
-        if marker.lower() in eblob:
+        if _marker_hits(marker, eblob):
             fails.append(f"FIXTURE MARKER {marker!r} leaked into the extract result")
     if audit is not None:
         if exp.get("incomplete_reason", "unset") != "unset":
@@ -396,7 +403,7 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
                 fails.append(f"incomplete_reason={got!r} expected {exp['incomplete_reason']!r}")
         blob = json.dumps(audit).lower()
         for marker in FIXTURE_MARKERS:
-            if marker.lower() in blob:
+            if _marker_hits(marker, blob):
                 fails.append(f"FIXTURE MARKER {marker!r} leaked into the result")
         findings = audit.get("findings", [])
         # max_findings counts ERROR findings only: informational context (all-clear notes,
@@ -674,9 +681,17 @@ def run_scenario(
         fails = pre_fails + _check(scenario, terminal, extract, audit)
         if exp.get("ledgered_gap"):
             # A scenario asserting deliberately-gated behavior names its ledger entry so the
-            # gap stays VISIBLE in every run's output, never buried in a green row.
-            entry = _load_doctrine("doctrine_config").X_KNOWN_GAPS.get(exp["ledgered_gap"], "?")
-            log(f"  ledgered gap ({exp['ledgered_gap']}): {entry}")
+            # gap stays VISIBLE in every run's output, never buried in a green row. An
+            # UNKNOWN key FAILS (audit 2026-08-27 item 5): deleting a ledger entry is the
+            # design's way of turning enforcement back on — it must not log "?" and pass.
+            entry = _load_doctrine("doctrine_config").X_KNOWN_GAPS.get(exp["ledgered_gap"])
+            if entry is None:
+                fails.append(
+                    f"ledgered_gap {exp['ledgered_gap']!r} not in X_KNOWN_GAPS — the ledger "
+                    "entry was removed, so this scenario must assert the ENFORCED behavior now"
+                )
+            else:
+                log(f"  ledgered gap ({exp['ledgered_gap']}): {entry}")
         if chat_first and case_id:
             thread = _fetch_thread(client, base_url, case_id)
             fails = fails + _chat_first_checks(thread, terminal, no_placeholders)
