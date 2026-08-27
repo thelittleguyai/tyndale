@@ -11,11 +11,17 @@ from __future__ import annotations
 RULE_CLASSES = ("provider_coding", "payer_adjudication", "legal_protection", "pricing")
 RESPONSIBLE_PARTIES = ("provider", "payer", "either")
 PROVIDER_CODING_RULE_TYPES = (
-    "ncci_ptp", "mue", "modifier_validity", "aca_preventive", "upcoding_pattern",
+    "ncci_ptp", "mue", "modifier_validity", "upcoding_pattern",
     "phantom_charge",
 )
 # The 2026-08-22 payer-side extension — adjudication errors, not code conflicts.
+# aca_preventive moved here 2026-08-27 (audit item 6): the ACA preventive rules are
+# legal_protection / payer-attributed cost-sharing errors (the fixture backfill already
+# says so) — they were misfiled under provider coding. NOTE: the full
+# RULE_TYPE_TO_ERROR_TYPE map stays unbuilt pending Brock's sign-off; this fixes only
+# the misfile.
 PAYER_SIDE_RULE_TYPES = (
+    "aca_preventive",
     "deductible_misapplication",
     "oop_max_ignored",
     "network_status_misapplied",
