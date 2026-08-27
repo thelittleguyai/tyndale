@@ -132,7 +132,7 @@ async def get_record(
                     "due_date": d.deadline_date.isoformat() if d.deadline_date else None,
                     "source": rule.source if rule else d.deadline_type,
                 }
-    recovered = await confirmed_recovered_by_case(session, case_ids)
+    recovered = await confirmed_recovered_by_case(session, case_ids, user.user_id)
 
     rows: list[SubCaseRow] = []
     total_billed = total_recovered = total_identified = 0.0
@@ -301,7 +301,7 @@ async def get_case_summary(
 
     label, _resume = _label_and_resume(case.status)
     deadlines = await deadlines_for_case(session, case.case_file_id)
-    recovered = await confirmed_recovered_by_case(session, [case.case_file_id])
+    recovered = await confirmed_recovered_by_case(session, [case.case_file_id], user.user_id)
 
     tn = three_number_from_findings(findings)
     open_items: list = []

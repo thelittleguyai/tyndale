@@ -432,7 +432,7 @@ async def get_dashboard(
     from app.sources.record import confirmed_recovered_by_case
 
     recovered_map = await confirmed_recovered_by_case(
-        session, [c.case_file_id for c in cases]
+        session, [c.case_file_id for c in cases], user.user_id
     )
     recovered_to_date = round(sum(recovered_map.values()), 2)
     open_cases_all = [c for c in cases if c.status not in ("resolved", "archived")]

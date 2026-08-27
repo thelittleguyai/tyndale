@@ -39,20 +39,25 @@ def _outcome_amount(payload: dict) -> float | None:
 
 
 async def confirmed_recovered_by_case(
-    session: AsyncSession, case_ids: list
+    session: AsyncSession, case_ids: list, user_id=None
 ) -> dict[str, float]:
     """Confirmed recovered $ per case — the LATEST outcome_report only (a re-report can't inflate).
-    Cases with no confirmed recovery are absent (caller defaults to 0.0 / 'so far')."""
+    Cases with no confirmed recovery are absent (caller defaults to 0.0 / 'so far').
+
+    ``user_id`` (audit 2026-08-27 item 1, defense in depth): only the case owner's own
+    reports count — a row poisoned in before the feedback IDOR fix (or by any future write
+    path) can never reach the recovered tally."""
     if not case_ids:
         return {}
-    rows = (
-        await session.execute(
-            select(FeedbackEvent.case_file_id, FeedbackEvent.payload, FeedbackEvent.created_at)
-            .where(FeedbackEvent.case_file_id.in_(case_ids))
-            .where(FeedbackEvent.feedback_type == "outcome_report")
-            .order_by(FeedbackEvent.created_at.desc())
-        )
-    ).all()
+    q = (
+        select(FeedbackEvent.case_file_id, FeedbackEvent.payload, FeedbackEvent.created_at)
+        .where(FeedbackEvent.case_file_id.in_(case_ids))
+        .where(FeedbackEvent.feedback_type == "outcome_report")
+        .order_by(FeedbackEvent.created_at.desc())
+    )
+    if user_id is not None:
+        q = q.where(FeedbackEvent.user_id == user_id)
+    rows = (await session.execute(q)).all()
     out: dict[str, float] = {}
     for cid, payload, _created in rows:
         key = str(cid)

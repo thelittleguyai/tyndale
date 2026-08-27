@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser, current_user
+from app.routes.case_access import require_case_owner
 from app.crons.outcome_followup import scan_for_outcome_followups
 from app.db.models.feedback import FeedbackEvent, FeedbackTriageQueue
 from app.db.models.users import User
@@ -41,6 +42,12 @@ async def post_feedback(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> FeedbackAck:
+    # IDOR fix (audit 2026-08-27 item 1): the body-supplied case_file_id was trusted, so any
+    # authenticated user could write FeedbackEvents (incl. outcome_report amounts) against
+    # another user's case and bump its last_outcome_check_at. Ownership first — 404, never
+    # 403, per the anti-enumeration convention.
+    await require_case_owner(event.case_file_id, user, session)
+
     # Read the user's CURRENT consent from the DB — never trust the client.
     db_user = (await session.execute(
         select(User).where(User.user_id == user.user_id)
@@ -68,25 +75,16 @@ async def post_feedback(
     # they'd fix it" is a claim by the party we're auditing). Suppressing on the recency clock
     # defers the real question by the follow-up window; writing an outcome_report would delete
     # it. The user still gets asked whether it actually worked.
-    if event.call_outcome is not None:
+    # One stamp, two triggers: an outcome_report retires the follow-up question; a call-route
+    # tap only DEFERS it by the window (none of the three routes is an outcome — "they said
+    # they'd fix it" is a claim by the party we're auditing; the scan's outcome_report check
+    # is what makes retirement permanent, not this stamp).
+    if event.call_outcome is not None or event.feedback_type == "outcome_report":
         from datetime import datetime, timezone
 
         from sqlalchemy import update
 
         from app.db.models.case_files import CaseFile
-
-        await session.execute(
-            update(CaseFile)
-            .where(CaseFile.case_file_id == UUID(event.case_file_id))
-            .values(last_outcome_check_at=datetime.now(timezone.utc))
-        )
-
-    # If this is an outcome_report, stamp the case so the dashboard stops
-    # re-prompting.
-    if event.feedback_type == "outcome_report":
-        from app.db.models.case_files import CaseFile
-        from sqlalchemy import update
-        from datetime import datetime, timezone
 
         await session.execute(
             update(CaseFile)
