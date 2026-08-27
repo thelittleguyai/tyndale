@@ -79,3 +79,20 @@ async def test_stat_fields_present_and_confirmed_only(client: AsyncClient):
     assert "recovered_to_date" in d and "open_count" in d and "needs_you_count" in d
     assert d["needs_you_count"] <= d["open_count"]
     assert d["recovered_to_date"] >= 0.0
+
+
+def test_dashboard_headline_keys_render_from_the_registry():
+    """Audit 2026-08-27 item 6: the four open-case headlines are registry copy now."""
+    from app.agents.context_loader import orchestration_step
+
+    for key, kwargs in (
+        ("dashboard.headline_unreadable", {}),
+        ("dashboard.headline_finding", {"category_label": "Upcoding", "finding_type_label": "provider-side"}),
+        ("dashboard.headline_uploaded", {"doc_type": "bill"}),
+        ("dashboard.headline_open", {}),
+    ):
+        text = orchestration_step(key, **kwargs)
+        assert "MISSING-script" not in text and "PLACEHOLDER" not in text, key
+    assert orchestration_step("dashboard.headline_uploaded", doc_type="bill") == (
+        "Uploaded bill — audit pending"
+    )

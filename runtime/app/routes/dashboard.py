@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.context_loader import orchestration_step
 from app.agents.greeting import compose_status_greeting
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
@@ -172,7 +173,7 @@ async def _open_cases_payload(
             out.append(
                 OpenCase(
                     case_file_id=str(case.case_file_id),
-                    headline="We couldn't read your documents — try re-uploading a clearer copy",
+                    headline=orchestration_step("dashboard.headline_unreadable"),
                     days_open=max(0, (datetime.now(timezone.utc) - anchor).days),
                     next_deadline_date=None,
                     next_deadline_label=None,
@@ -196,17 +197,19 @@ async def _open_cases_payload(
         )
         if findings:
             f = findings[0]
-            headline = (
-                f"{f.category.replace('_', ' ').capitalize()} ({f.finding_type.replace('_', '-')})"
+            headline = orchestration_step(
+                "dashboard.headline_finding",
+                category_label=f.category.replace("_", " ").capitalize(),
+                finding_type_label=f.finding_type.replace("_", "-"),
             )
         elif case.documents:
             first_doc = (
                 case.documents[0] if isinstance(case.documents, list) and case.documents else {}
             )
             doc_type = (first_doc or {}).get("document_type") or "document"
-            headline = f"Uploaded {doc_type} — audit pending"
+            headline = orchestration_step("dashboard.headline_uploaded", doc_type=doc_type)
         else:
-            headline = "Case open — awaiting documents"
+            headline = orchestration_step("dashboard.headline_open")
 
         # Days open
         anchor = case.created_at or datetime.now(timezone.utc)

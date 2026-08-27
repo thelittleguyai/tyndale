@@ -588,3 +588,24 @@ drift guard (nothing to compare against).
 <!-- UNMAPPED — checklist explainer for the coinsurance item (audit 2026-08-27 item 4).
      Same interim/PROPOSED status and what/where/example pattern as the other explainers. -->
 [A] "Coinsurance is the percentage of each covered charge you pay after your deductible is met — your plan pays the rest. It's on your SBC next to the deductible. For example: with 20% coinsurance, a $100 allowed charge costs you $20 once the deductible is met."
+
+## dashboard.headline_unreadable
+<!-- UNMAPPED — open-case card headline, unreadable documents (audit 2026-08-27 item 6:
+     was hardcoded in the dashboard route). INTERIM engineering seed, PROPOSED in the v2
+     draft; same words as shipped, now drift-guarded like everything else. -->
+[A] "We couldn't read your documents — try re-uploading a clearer copy"
+
+## dashboard.headline_finding
+<!-- UNMAPPED — open-case card headline when the latest finding names the case.
+     {category_label} e.g. "Cost sharing miscalculation"; {finding_type_label} e.g.
+     "payer-side". Same interim/PROPOSED status. -->
+[A] "{category_label} ({finding_type_label})"
+
+## dashboard.headline_uploaded
+<!-- UNMAPPED — open-case card headline pre-audit. {doc_type} is the classified document
+     type. Same interim/PROPOSED status. -->
+[A] "Uploaded {doc_type} — audit pending"
+
+## dashboard.headline_open
+<!-- UNMAPPED — open-case card headline with no documents yet. Same status. -->
+[A] "Case open — awaiting documents"

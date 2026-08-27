@@ -146,6 +146,13 @@ real "did it get resolved?" question by the follow-up window rather than retirin
 of the three is a resolution; "they said they'd fix it" is a claim by the party we audit).
 "Yes, resolved" and "Skip for now" remain the outcome path.*
 
+## Dashboard open-case headlines — PROPOSED, interim engineering seed (2026-08-27)
+
+*Status: INTERIM. Four keys moved out of hardcoded route strings into the registry (audit
+item 6) with the shipped words as seeds: `dashboard.headline_unreadable` /
+`_finding` ("{category_label} ({finding_type_label})") / `_uploaded` ("Uploaded {doc_type}
+— audit pending") / `_open`. Rewrite freely.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.
