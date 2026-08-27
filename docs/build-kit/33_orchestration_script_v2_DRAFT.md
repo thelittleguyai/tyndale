@@ -6,7 +6,11 @@ Sections mirror v1 numbering. New keys carry their registry names. `[A]/[B]/[C]`
 
 ---
 
-## §3 addition — substance-use-program edge prompt (resolves F2 ↔ §3 conflict IF "author" wins)
+## ~~§3 addition — substance-use-program edge prompt~~ RESOLVED 2026-08-27: ruled OUT
+
+*Your 2026-08-18 response (v1.1 changelog A5) dropped the SUD case — `attest.edge_substance`
+was removed from the registry and a test asserts its absence. Kept struck for the record;
+this is a CLOSED question, not a re-ask.*
 
 **3.6 Elevated prompt — substance-use treatment program** `[A]` — key: `attest.edge_substance`
 > "One thing worth knowing: records from a substance-use treatment program carry extra privacy protection — often even from family. If this bill is from one, {patient_name} may need to be the one to bring it to me. Want to continue, or have them take it from here?"
@@ -16,9 +20,11 @@ Sections mirror v1 numbering. New keys carry their registry names. `[A]/[B]/[C]`
 ## §4 additions — verification support strings
 
 **4.5 Typed-instead-of-tapped nudge** `[A]` — key: `verification_nudge`
+*Renders today (interim): "Tap one of the buttons on a card above to answer — that's all I need here." — you're replacing shipped words, not filling a blank.*
 > "Either way works — tap the buttons, or tell me in your own words and I'll mark the card for you to confirm. The tap is what makes it official."
 
 **4.6 Partial-mapping fallback** `[A]` — key: `verification_map_partial_fallback`
+*Renders today (interim): "I caught part of that but want to be sure I don't guess — please tap the answer on each card above."*
 > "I've marked the ones I'm sure about. These I don't want to guess on — which did you mean?"
 
 *(Companion to your §4.3 low-confidence fallback; renders when SOME of a typed answer mapped and the rest didn't.)*
@@ -48,28 +54,34 @@ Sections mirror v1 numbering. New keys carry their registry names. `[A]/[B]/[C]`
 **9.6 Payer call opener** `[A]` — key: `call_script_opener_payer`
 > "Hi — I'm calling about claim {claim_number} for {patient_name}, date of service {service_date}. I'd like to walk through how this claim was processed — I have my EOB in front of me."
 
-*⚠️ Dependency: `{claim_number}` is not yet extracted/stored (delta B4). Until it is, this renders the degradation variant — approve the copy anyway and engineering wires the variable.*
+~~*⚠️ Dependency: `{claim_number}` is not yet extracted/stored (delta B4).*~~ *(struck 2026-08-27: B4 shipped — claim/account numbers are typed per-document fields and the slot resolves.)*
+*Renders today (interim): "When you reach {party}, give your name and member ID and say you're calling about a billing error you'd like corrected."*
 
 **9.7 Provider call opener** `[A]` — key: `call_script_opener_provider`
+*Renders today (interim): "When you reach {party}, give your name and account number and say you're calling about a charge you'd like corrected."*
 > "Hi — I'm calling about account {account_number} for {patient_name}, date of service {service_date}. I have a question about a charge before I pay anything."
 
 **9.8 Get it in writing** `[A]` — key: `call_script_get_it_in_writing`
+*Renders today (interim): "Before you hang up, ask them to email or mail you written confirmation of what they agreed to, plus a reference number for the call."*
 > "Before we hang up — could you send me that in writing? Email or a portal message is fine. And may I have your name and a reference number for this call?"
 
 **9.9 If they push back** `[C]` — key: `call_script_if_they_push_back`
+*Renders today (interim): "If they push back, stay calm and ask them to point you to the specific policy or code that justifies the charge — and if they can't, ask for a supervisor or how to start an appeal."*
 > "I understand — and you don't have to take my word for it. Could you mark the account as disputed while it's reviewed? I'll follow up in writing with exactly what I'm seeing."
 
 **9.10 Call-mode intro** `[A]` — key: `call_mode_intro`
+*Renders today (interim): "One call at a time. I'll walk you through exactly what to say — tap Next when you're ready for each step."*
 > "You've got this. Everything you need is pinned up top — the numbers, and your script. One step at a time; I'm right here."
 
 **9.11 Call-mode outro** `[A]` — key: `call_mode_outro`
+*Renders today (interim): "That's the call. When you hear back, tell me what they said and I'll take it from there."*
 > "That call's done — nice work. How did it go?"
 
 *(Flows into your §9.4 options.)*
 
 ## §10 additions
 
-**10.2-alt Guarantee decline, no cited base rate** `[C]` — key: `decline.guarantee_trio_no_rate` — **the launch-default path**
+**10.2-alt Guarantee decline, no cited base rate** `[C]` — key: `decline.guarantee_trio_no_rate` — **the launch-default path — SEEDED 2026-08-27** *(this exact text is LIVE in the registry and the decline caller renders it whenever no citable rate exists — previously the rated string degraded with a doctrine violation on every render; approve or rewrite)*
 > "I won't promise you'll win — nobody honest can, and I won't guess with your money. I also won't quote odds I don't have: there isn't yet an honest number for cases exactly like yours, and I'd rather tell you that than invent one. What I can tell you: your case rests on **{strength_of_basis}**, and the best next step is **{next_step}**."
 
 **10.1-continuation Fabrication reframe** `[A]` — key: `decline.fabrication_reframe`
@@ -139,6 +151,10 @@ what the computed state can truthfully say.*
 
 ## Dashboard check-in chips — PROPOSED, interim engineering seed (2026-08-22)
 
+*Note (2026-08-27): these chips are the homescreen TWINS of §9.4 `call_mode.how_did_it_go`
+— the same "how did the call go" moment on two surfaces. Author them together (or point
+both at one set), or the voices diverge silently.*
+
 *Status: INTERIM, your mockup's own words. Three keys LIVE as seeds — `checkin.fixing_it`
 ("They're fixing it") / `checkin.pushed_back` ("They pushed back") / `checkin.left_message`
 ("I left a message"). Doctrine note: these are CALL ROUTES, not outcomes — a tap defers the
@@ -165,6 +181,31 @@ phone script (`runtime/app/ingestion/bill_heuristics.py::ITEMIZED_REQUEST_SCRIPT
 > charges. Thank you."
 
 *Rewrite freely — this renders inside your §5.2 string today.*
+
+## Capture chrome — live keys previously documented nowhere (added 2026-08-27)
+
+Five registry keys ship the camera-capture flow; the label trio is deliberately WITHHELD by
+the copy route until you author it (engineering fallbacks render in the app):
+
+| key | state | renders today |
+|---|---|---|
+| `capture.prompt_bill` | unauthored — withheld; no prompt renders | — |
+| `capture.prompt_card` | unauthored — withheld; no prompt renders | — |
+| `capture.looks_good` | unauthored — client fallback | "Use this photo" |
+| `capture.retake` | unauthored — client fallback | "Retake" |
+| `capture.add_page` | unauthored — client fallback | "Take another picture" |
+
+*Design note recorded in the registry comment: the review step deliberately makes NO
+"looks readable" claim — we measure (size/blur) and warn on facts only, never a pass.*
+
+## Registry-only appendix — live keys absent from both script docs (added 2026-08-27)
+
+* `system_error_no_email` `[A]` — §10.4 minus the email-promise clause; renders wherever
+  `enable_audit_ready_email` is off (it is a RENDER_PATH boot-gate member).
+* `finding_no_source` `[A]` — the explicit no-source state on a finding card (E4/H3's
+  visible half; a card can never render a bare claim even by omission).
+* `reveal.gap_callout` `[A]` — the E3 gap framing on the three-number reveal; suppressed
+  server-side on clean/negative/unknown gaps.
 
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.

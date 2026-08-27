@@ -290,6 +290,13 @@ Additional variables his strings use, not in the §0 dictionary (flagged for him
 <!-- §10.2 -->
 [C] "I won't promise you'll win — nobody honest can, and I won't guess with your money. What I can tell you: cases like this succeed **{base_rate}** of the time ({base_rate_source}), yours rests on **{strength_of_basis}**, and the best next step is **{next_step}**."
 
+## decline.guarantee_trio_no_rate
+<!-- UNMAPPED — §10.2-alt, the LAUNCH-DEFAULT path while no citable {base_rate} exists
+     (audit 2026-08-27 group 4). SEEDED from the v2 draft's own proposed words (Brock's
+     trio scaffolding, minus the rate claim + an honest no-number line); PROPOSED for his
+     approval there. The caller picks this variant whenever base_rate is unavailable. -->
+[C] "I won't promise you'll win — nobody honest can, and I won't guess with your money. I also won't quote odds I don't have: there isn't yet an honest number for cases exactly like yours, and I'd rather tell you that than invent one. What I can tell you: your case rests on **{strength_of_basis}**, and the best next step is **{next_step}**."
+
 ## cap_collision
 <!-- §10.3 -->
 [A] "Give me a few minutes to focus on your audit — I'm at capacity for a moment. I'll email you the second it's ready; nothing you've done is lost."

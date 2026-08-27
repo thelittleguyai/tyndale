@@ -147,11 +147,22 @@ def guarantee_response(findings: list | None = None, *, base_rate: dict | None =
     from app.sources.gameplan import humanize_category
 
     best = _strongest_finding(findings or [])
-    # His §10.2 variables. base_rate/base_rate_source are None until the corpus carries a cited
-    # rate — which degrades (§5) rather than inventing a statistic, exactly per the doctrine.
+    # §10.2 vs §10.2-alt (audit 2026-08-27 group 4): with no citable rate, render the
+    # LAUNCH-DEFAULT no-rate variant — a complete honest string that says there is no
+    # number yet — instead of degrading the rated string (which counted a doctrine
+    # violation on every render).
+    rate = (base_rate or {}).get("rate")
+    if rate is None:
+        return orchestration_step(
+            "decline.guarantee_trio_no_rate",
+            strength_of_basis=(
+                humanize_category(getattr(best, "category", "") or "") if best is not None else None
+            ),
+            next_step="the next step in your gameplan",
+        )
     return orchestration_step(
         "decline.guarantee_trio",
-        base_rate=(base_rate or {}).get("rate"),
+        base_rate=rate,
         base_rate_source=(base_rate or {}).get("source"),
         strength_of_basis=(
             humanize_category(getattr(best, "category", "") or "") if best is not None else None
