@@ -117,14 +117,22 @@ async def test_welcome_summary_cache_hit_and_regenerates_on_change(client: Async
 
     monkeypatch.setattr(dashboard_mod, "compose_status_greeting", _fake_compose)
 
+    from app.db.models.users import User as UserModel
+
+    async def _call(states):
+        # the helper now takes the caller's loaded User row (audit 2026-08-27 item 6:
+        # get_dashboard fetches it once for the greeting cache AND the banner)
+        async with AsyncSessionLocal() as s:
+            urow = (
+                await s.execute(select(UserModel).where(UserModel.user_id == uid))
+            ).scalar_one()
+            return await dashboard_mod._cached_welcome_summary(s, urow, states)
+
     s1 = [{"status": "audit_incomplete", "next_deadline_date": None, "next_deadline_label": None}]
-    async with AsyncSessionLocal() as s:
-        first = await dashboard_mod._cached_welcome_summary(s, uid, s1)
-    async with AsyncSessionLocal() as s:
-        second = await dashboard_mod._cached_welcome_summary(s, uid, s1)
+    first = await _call(s1)
+    second = await _call(s1)
     assert first == second and calls["n"] == 1  # unchanged state → cache hit, no regeneration
 
     s2 = [{"status": "audit_complete", "next_deadline_date": None, "next_deadline_label": None}]
-    async with AsyncSessionLocal() as s:
-        third = await dashboard_mod._cached_welcome_summary(s, uid, s2)
+    third = await _call(s2)
     assert third != first and calls["n"] == 2  # changed state → regenerated

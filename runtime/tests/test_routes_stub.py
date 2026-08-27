@@ -33,10 +33,14 @@ async def test_feedback_accepts_event(client):
     """Phase 2J — feedback returns FeedbackAck {event_id, feedback_event_id,
     queued_for_deid}. The dev user's consent is false by default, so the event
     is stored but not queued for de-id."""
+    up = await client.post(
+        "/v1/upload", files=[("files", ("bill.pdf", b"%PDF-1.4 x", "application/pdf"))]
+    )
     event = {
         "event_id": str(uuid.uuid4()),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "case_file_id": str(uuid.uuid4()),
+        # an OWNED case — a random id is now the IDOR shape and 404s (audit 2026-08-27)
+        "case_file_id": up.json()["case_file_id"],
         "feedback_type": "thumbs",
         "thumbs": "up",
     }
@@ -52,10 +56,13 @@ async def test_feedback_consent_read_server_side_not_from_body(client):
     """Phase 2J / L05 — the client's claimed improvement_consent is IGNORED;
     the server reads the user's real consent. The dev user defaults to false,
     so even an event claiming consent=true does NOT queue for de-id."""
+    up = await client.post(
+        "/v1/upload", files=[("files", ("bill.pdf", b"%PDF-1.4 x", "application/pdf"))]
+    )
     event = {
         "event_id": str(uuid.uuid4()),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "case_file_id": str(uuid.uuid4()),
+        "case_file_id": up.json()["case_file_id"],
         "feedback_type": "structured_correction",
         "structured_reason": ["wrong_number"],
         "improvement_consent": True,  # client claim — must be ignored
