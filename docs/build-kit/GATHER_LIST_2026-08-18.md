@@ -45,7 +45,10 @@ tfvars if you want that scenario exercising; engineering will confirm the gating
 
 ## Brock — the copy and data only you can supply
 
-### 4. Two registry keys that BLOCK the staging boot (asks §3.11)
+### 4. ~~Two registry keys that BLOCK the staging boot (asks §3.11)~~ CLOSED 2026-08-27
+
+*Your v1.1 (2026-08-18) authored `unlock_more.intro` + `unlock_more.item_hint` verbatim;
+the placeholder set is empty and staging copy-gates pass. Kept for the record:*
 The audit now completes at the achievable rung; a completed audit with missing coverage
 terms shows the have/need checklist as an *unlock*, not a gate. That state has no authored
 voice yet — two keys render `[PLACEHOLDER-eng]`, and the **staging boot refuses to start

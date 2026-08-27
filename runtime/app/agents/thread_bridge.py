@@ -79,7 +79,7 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "three_number_reveal", "completion", "needs_documents_intro", "system_error",
         "system_error_no_email",  # §10.4 minus the email clause, while the flag is off
         "record_post_audit_keep_doing",
-        # rung-2 unlock-more (complete-with-missing-inputs; eng placeholders, asks §3.11)
+        # rung-2 unlock-more (complete-with-missing-inputs; Brock-authored in v1.1 — §3.11 closed)
         "unlock_more.intro", "unlock_more.item_hint",
         # chosen dynamically at the call site, so both branches must exist
         "handoff.pace", "handoff.generic_program",
@@ -771,8 +771,8 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
 async def _ensure_unlock_more(session, conv, case, ensure) -> None:
     """The unlock-more card on a COMPLETED audit with un-checked inputs: the same
     DocumentNeed items the needs-documents state uses, under copy that frames them as
-    sharpening the finished audit rather than finishing it. Both keys are engineering
-    placeholders pending Brock (asks §3.11) — a NEW voice state his script doesn't have."""
+    sharpening the finished audit rather than finishing it. Both keys are Brock-authored
+    (script v1.1, 2026-08-18 — the §3.11 ask is closed)."""
     from app.agents.orchestrator import _documents_needed  # lazy — avoids the import cycle
     from app.sources.plan_docs import plan_sbc_state
 
