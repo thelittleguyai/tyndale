@@ -27,6 +27,7 @@ from app.db.models.plan_documents import PlanDocument
 from app.db.models.plan_library import PlanLibraryEntry
 from app.db.models.transparency_rates import TransparencyRate, TransparencyRateStaging
 from app.db.models.users import User
+from app.db.models.processed_stripe_events import ProcessedStripeEvent  # noqa: F401
 
 __all__ = [
     "User",

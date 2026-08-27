@@ -97,10 +97,28 @@ async def webhook(request: Request, session: AsyncSession = Depends(get_session)
         event = json.loads(payload)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="invalid payload") from exc
+    # Idempotency (audit 2026-08-27 item 6): Stripe redelivers on any slow response —
+    # insert-or-skip on the event id makes a redelivery a logged no-op, never a
+    # re-applied state change. Events without an id (never real Stripe) process as before.
+    event_id = event.get("id")
+    if event_id:
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        from app.db.models.processed_stripe_events import ProcessedStripeEvent
+
+        claimed = await session.execute(
+            pg_insert(ProcessedStripeEvent)
+            .values(event_id=str(event_id))
+            .on_conflict_do_nothing(index_elements=["event_id"])
+        )
+        if claimed.rowcount == 0:
+            log.info("billing.webhook.duplicate_skipped", event_id=event_id)
+            return {"received": True}
     state = event_to_state(event)
     if state:
         await apply_subscription_state(session, **state)
-        await session.commit()
+    await session.commit()  # the idempotency claim persists even for ignored event types
+    if state:
         log.info("billing.webhook.applied", event_type=event.get("type"))
     return {"received": True}
 
