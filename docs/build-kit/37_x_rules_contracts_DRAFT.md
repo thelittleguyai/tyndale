@@ -58,6 +58,11 @@ Contract shape (from X1): *what must be true · what fails · one worked failing
 **FAILS when:** `error_type` null/free-text · zero line-item refs · impact absent without a typed reason.
 
 > **Mapping note (2026-08-22, the §3 `error_detection_rules` extension — one taxonomy, two enums, NOT merged):**
+> *(2026-08-27 note: this rule_type→error_type mapping is DOCUMENTED-NOT-YET-WIRED — the
+> code lands after your sign-off. The enums live in `runtime/app/knowledge/rule_schema.py`
+> + the collection JSON schema `intelligence-layer/collections/schemas/error_detection_rules.json`
+> — not collections.py.)*
+>
 > the collection's new payer-side `rule_type`s feed these `error_type`s when a rule produces a finding:
 > `deductible_misapplication` → `deductible_misapplied` · `oop_max_ignored` → `stale_accumulator` ·
 > `coinsurance_rate_error` → `cost_sharing_math_error` · `cob_misordering` → `cob_misordered` ·

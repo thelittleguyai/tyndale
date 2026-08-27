@@ -51,5 +51,5 @@ runs against dev using those repo secrets.
 
 ## Cost
 
-Each scenario runs a real audit on dev (multi-minute, real Claude tokens). ~12 audits per full
+Each scenario runs a real audit on dev (multi-minute, real Claude tokens). ~22 audits per full
 run. Trigger on demand, not on a schedule.

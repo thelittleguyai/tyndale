@@ -6,7 +6,7 @@
 
 ## New numbered build-kit files
 
-**`33_orchestration_script.md` — the D1 orchestration script.** Every system-authored string the chat thread renders, upload → resolution. Doctrine file: **render verbatim.** 238 lines, 12 sections, **zero placeholders**. This is the file the staging boot gate is waiting on.
+**`33_orchestration_script.md` — the D1 orchestration script.** Every system-authored string the chat thread renders, upload → resolution. Doctrine file: **render verbatim.** *(2026-08-27: v1.1, 245 lines — §8.4–8.5 unlock-more added, §10.5 amended per the 08-18 response. The staging boot gate is SATISFIED: zero placeholders and the §3.11 keys are authored.)*
 - `{variables}` are the only runtime substitution — all real computed/extracted values, never guessed.
 - Voice-tier tags `[A]/[B]/[C]` govern rendering and must not be stripped: `[B]` legal strings render **with their citation chip**; `[C]` strategy strings **never predict an outcome**.
 - Contains the five newer chat states, including **§3 attest-and-proceed** (relationship menu, confirm line, decline path, three elevated edge-case prompts) — the compliance state flagged as missing.
@@ -39,7 +39,7 @@ The sources cited by filename throughout the master handoff. Each is primary-sou
 *Known gap, flagged honestly: the approved v7 landing-page HTML mockup did not survive to disk. Its approved values are encoded as checklist §A–B items, which are the reference. Regenerable on request.*
 
 ## Still owed (lands here, in this order)
-1. **`37_x_rules_contracts.md`** — X-rules machine-readable contracts (X1/X2/X3/X5 CI + X4/X6 judge criteria)
+1. ~~**`37_x_rules_contracts.md`** — X-rules machine-readable contracts~~ *(struck 2026-08-27: the DRAFT landed 08-12; the X5 enum is implemented in doctrine_config with the derived_draft escape hatch — what remains owed is Brock's SIGN-OFF on the taxonomy, not the document)*
 2. B-series rules content — B4 extreme markup, B5 charity care, **B6 COB primary→secondary computation**
 3. 50-state seed, pass 1
 4. Judge rubric
