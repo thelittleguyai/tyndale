@@ -15,6 +15,9 @@ _CPT_RE = re.compile(r"\b\d{5}\b")  # CPT / 5-digit procedure code
 _HCPCS_RE = re.compile(r"\b[A-V]\d{4}\b")  # HCPCS Level II
 _DOLLAR_RE = re.compile(r"\$\s?([\d,]+(?:\.\d{2})?)")
 
+# INTERIM engineering copy for the registry's {itemized_request_script} slot
+# (dataquality_summary_not_itemized, §5.2) — wired 2026-08-27 (audit group 3) so the key
+# renders complete instead of degrading; PROPOSED for Brock's rewrite in the v2 draft.
 ITEMIZED_REQUEST_SCRIPT = (
     "Hi, I'm requesting a fully itemized bill for my account. The statement I received "
     "shows only a summary total. Please send an itemized statement that lists every "

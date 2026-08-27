@@ -450,7 +450,14 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     # auditing a total. {itemized_request_script} has no authored value yet, so the string
     # degrades rather than inventing a script (flagged for Brock).
     if not machine_working and any(looks_like_summary_bill(d) for d in docs):
-        text = orchestration_step("dataquality_summary_not_itemized")
+        from app.ingestion.bill_heuristics import ITEMIZED_REQUEST_SCRIPT
+
+        # {itemized_request_script} resolves to the INTERIM engineering script (audit
+        # 2026-08-27 group 3) — previously unresolvable, so the whole string degraded.
+        text = orchestration_step(
+            "dataquality_summary_not_itemized",
+            itemized_request_script=ITEMIZED_REQUEST_SCRIPT,
+        )
         await ensure(
             "dataquality:summary_bill", "system_message",
             {"text": text, "tone": "neutral", "data_quality": {"kind": "summary_bill"}},

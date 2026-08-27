@@ -16,7 +16,7 @@ All seeded live with interim copy in `33_orchestration_script_v2_DRAFT.md`: the 
 - **Banner honesty constraint**: the welcome line may only state true things about case status until proactive monitoring (B8) exists — "deadlines watched / numbers re-checked" is test-banned until then.
 - **Check-in chips are routes, not outcomes**: tapping "They're fixing it" routes the follow-up; it never marks the case resolved — resolution stays with the confirmation flow.
 
-Still open from before: the capture-screen labels, `{itemized_request_script}` (your UMC case now triggers the coaching path that wants this script — it's live with interim copy), the freeform opener pair, and the A4 wrongdoc strings.
+Still open from before: the capture-screen labels, `{itemized_request_script}` (your UMC case now triggers the coaching path that wants this script — it's live with interim copy; *2026-08-27 note: as of the audit sweep this is literally true — the slot resolves to the interim script and the full §5.2 string renders*), the freeform opener pair, and the A4 wrongdoc strings.
 
 ## 3 · Mockup elements held back, one line each
 

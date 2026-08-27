@@ -202,9 +202,12 @@ async def test_machine_working_renders_only_the_status_card(client: AsyncClient,
     await thread_bridge.bridge_case_state(case_id)
     msgs = await _messages(conv_id)
     assert any(m.kind == "verification_request" for m in msgs)
-    assert any(
-        (m.payload or {}).get("data_quality", {}).get("kind") == "summary_bill" for m in msgs
+    summary_msg = next(
+        m for m in msgs if (m.payload or {}).get("data_quality", {}).get("kind") == "summary_bill"
     )
+    # audit 2026-08-27 group 3: the {itemized_request_script} slot resolves — the full
+    # §5.2 string renders instead of degrading.
+    assert "itemized statement" in (summary_msg.content or "")
     assert any((m.payload or {}).get("handoff") for m in msgs)
     card = next(m for m in msgs if m.kind == "status_card_update")
     assert card.payload["paused"] is True

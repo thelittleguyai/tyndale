@@ -153,6 +153,19 @@ item 6) with the shipped words as seeds: `dashboard.headline_unreadable` /
 `_finding` ("{category_label} ({finding_type_label})") / `_uploaded` ("Uploaded {doc_type}
 — audit pending") / `_open`. Rewrite freely.*
 
+## {itemized_request_script} — PROPOSED, interim engineering seed (2026-08-27)
+
+*Status: INTERIM. The §5.2 slot now resolves (audit group 3) to an engineering-authored
+phone script (`runtime/app/ingestion/bill_heuristics.py::ITEMIZED_REQUEST_SCRIPT`):*
+
+> "Hi, I'm requesting a fully itemized bill for my account. The statement I received shows
+> only a summary total. Please send an itemized statement that lists every service
+> separately with its procedure code (CPT/HCPCS), the date of service, the charge for each
+> line, and any payments or adjustments applied. I need the line-level detail to review the
+> charges. Thank you."
+
+*Rewrite freely — this renders inside your §5.2 string today.*
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.
