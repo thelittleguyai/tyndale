@@ -327,3 +327,34 @@ async def test_coinsurance_entry_closes_the_disclosure_gate(client: AsyncClient,
         f"/v1/audit/{case_id}/coverage-input", json={"field": "coinsurance_percent", "value": 150}
     )
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_checklist_ack_is_deduped_per_field(client: AsyncClient, chat_first_on):  # noqa: F811
+    """Audit 2026-08-27 item 6: re-saving the same field never stacks acks — one line per
+    (case, field); a different field gets its own line."""
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    for value in (1500, 1600, 1700):  # three saves, same field
+        assert (
+            await client.post(
+                f"/v1/audit/{case_id}/coverage-input",
+                json={"field": "deductible_met", "value": value},
+            )
+        ).status_code == 200
+    assert (
+        await client.post(
+            f"/v1/audit/{case_id}/coverage-input", json={"field": "oop_max_amount", "value": 6000}
+        )
+    ).status_code == 200
+    msgs = await _messages(conv_id)
+    ack_markers = [
+        (m.payload or {}).get("marker")
+        for m in msgs
+        if str((m.payload or {}).get("marker", "")).startswith("checklist_ack:")
+    ]
+    assert sorted(ack_markers) == ["checklist_ack:deductible_met", "checklist_ack:oop_max_amount"]

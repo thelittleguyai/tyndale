@@ -137,7 +137,7 @@ async def coverage_input(
         # image-3 item 4: the conversation reflects checklist progress — one line, no fanfare.
         from app.sources.coverage_checklist import label_for
 
-        await thread_bridge.post_checklist_ack(case_file_id, label_for(req.field))
+        await thread_bridge.post_checklist_ack(case_file_id, label_for(req.field), req.field)
     return {"saved": req.field, "not_sure": bool(req.not_sure)}
 
 

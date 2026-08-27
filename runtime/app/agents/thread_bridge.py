@@ -957,12 +957,17 @@ async def post_verification_nudge(case_file_id: str, *, partial: bool) -> str | 
     )
 
 
-async def post_checklist_ack(case_file_id: str, item_label: str) -> str | None:
+async def post_checklist_ack(case_file_id: str, item_label: str, field: str) -> str | None:
     """One-line checklist acknowledgment (image-3 item 4): the conversation reflects
-    checklist progress — one line, no fanfare, posted as an event (an ack is a moment,
-    not derivable state, so it is not part of the idempotent projection)."""
+    checklist progress — one line, no fanfare. DEDUPED per (case, field) via the marker
+    machinery (audit 2026-08-27 item 6): re-saving the same field updates nothing — the
+    one ack stands — instead of stacking a line per save."""
     text = orchestration_step("checklist_item_ack", item_label=item_label)
-    return await post_system_line(case_file_id, text)
+    return await _post(
+        case_file_id, role="system", kind="system_message",
+        payload={"text": text, "tone": "neutral", "marker": f"checklist_ack:{field}"},
+        content=text,
+    )
 
 
 async def post_system_line(case_file_id: str, text: str, *, tone: str = "neutral") -> str | None:
