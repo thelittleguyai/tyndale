@@ -235,3 +235,26 @@ async def test_ledger_furniture_patient_name_never_reaches_copy(client: AsyncCli
     assert "Payments (since last statements)" not in joined
     assert not any((m.payload or {}).get("marker") == "attest:intro" for m in msgs)
     assert any(m.kind == "verification_request" for m in msgs)
+
+
+async def test_ledger_furniture_never_reaches_any_payload_or_slot(client: AsyncClient, chat_first_on):  # noqa: F811
+    """Audit 2026-08-27 item 5 — the three seams the first pass missed: the attest_request
+    PAYLOAD, the reconcile.last_resort provider slot, and the moment-card context line.
+    The UMC junk is persisted as BOTH names; nothing rendered may carry it."""
+    junk = "Payments (since last statements)"
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id,
+        status="audit_complete",
+        patient_name=junk,
+        provider_name=junk,
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    everything = " ".join((m.content or "") + " " + str(m.payload or {}) for m in msgs)
+    assert junk not in everything
+    # the moment card rendered (audit_complete + rung-2 anchor) — with no junk context
+    moment = next((m for m in msgs if m.kind == "moment_card"), None)
+    assert moment is not None
+    assert junk not in str(moment.payload)

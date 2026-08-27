@@ -406,7 +406,13 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
             "attest_request",
             {
                 "intro": intro,
-                "patient_name": case.patient_name,
+                # Gated like the intro (audit 2026-08-27 item 5): the client renders
+                # whatever the payload carries — ledger furniture must not ride along.
+                "patient_name": (
+                    case.patient_name
+                    if plausible_extracted_name(case.patient_name)
+                    else None
+                ),
                 "menu": [
                     {"key": k, "label": orchestration_step(f"attest.menu_{k}")}
                     for k in RELATIONSHIPS
@@ -643,7 +649,13 @@ async def _ensure_reconcile_state(session, conv, case, ensure) -> None:
         last = orchestration_step(
             "reconcile.last_resort",
             gap=_gap_text(plan),
-            provider=case.provider_name,
+            # implausible extracted name -> omitted slot -> the string's §5 degradation
+            # renders (never bill-form furniture as a provider).
+            provider=(
+                case.provider_name
+                if plausible_extracted_name(case.provider_name)
+                else None
+            ),
             payer=_payer_of(case),
         )
         await ensure(
@@ -727,7 +739,14 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
     qualifier = _x3_qualifier(a, result.disclosure)
     # L2 (round-2) — the service-context line: provider · payer from TYPED fields only.
     # Parts we don't know are dropped; both unknown -> no key, and the card renders no line.
-    context = " · ".join(x for x in (case.provider_name, _payer_of(case)) if x)
+    context = " · ".join(
+        x
+        for x in (
+            case.provider_name if plausible_extracted_name(case.provider_name) else None,
+            _payer_of(case),
+        )
+        if x
+    )
     await ensure(
         "moment:three_number", "moment_card",
         {"variant": "three_number", **({"context": context} if context else {}),
