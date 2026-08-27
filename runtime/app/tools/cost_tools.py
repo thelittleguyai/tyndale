@@ -222,14 +222,10 @@ async def _cost_estimate_trilliant(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-register_tool(
-    "cost_estimate_trilliant",
-    {
-        "description": "STUB — Trilliant procedure-price vendor (DL-50, contract pending). Not wired; use cost_estimate_combined.",
-        "input_schema": {"type": "object", "properties": {"code": {"type": "string"}}},
-    },
-    _cost_estimate_trilliant,
-)
+# NOT registered (audit 2026-08-27 item 6): a live tool whose only behavior is
+# NotImplementedError burns an agent turn to learn what the description already said.
+# The function stays; register it here when the Trilliant contract (DL-50) goes live.
+# register_tool("cost_estimate_trilliant", {...}, _cost_estimate_trilliant)
 
 
 async def _cost_estimate_fair_health(args: dict[str, Any]) -> dict[str, Any]:
