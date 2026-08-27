@@ -30,9 +30,9 @@
 
 | # | Check | Expected |
 |---|---|---|
-| B1 | Headline | "Medical bills are full of errors. Find what's hiding in yours." |
+| B1 | Headline | "Medical bills have more errors than you think. Tyndale finds them, and knows exactly how to resolve them" — *amended 2026-08-27 per Brock's 2026-08-18 ruling (B3 verbatim) + the conformance sweep rows; previous value: "Medical bills are full of errors. Find what's hiding in yours."* |
 | B2 | Three-number example card | billed **$2,347.18** · insurer says **$1,184.60** · should actually owe **$612.40** — same numbers as the live app |
-| B3 | Primary CTA | "Check my bill" |
+| B3 | Primary CTA | "Check my bill — free" — *amended 2026-08-27 per the 08-18 ruling + conformance sweep; previous value: "Check my bill".* |
 | B4 | Savings band | **$504,100** figure present |
 | B5 | Comparison band | "Not a chatbot with opinions" comparison present |
 | B6 | Grounding band | The two-card grounding treatment (every claim sourced) |
@@ -46,11 +46,11 @@
 
 | # | Check | Expected |
 |---|---|---|
-| C1 | Camera-first | "Snap a photo of your bill" + PDF upload |
+| C1 | Camera-first | "Take a photo of your bill" + PDF upload — *amended 2026-08-27 to the shipped label (conformance sweep).* |
 | C2 | Checklist chips | **Bill (required)** · EOB · Insurance card |
 | C3 | Just-the-bill line | "Just have the bill? That works — I'll tell you what each extra document unlocks." |
 | C4 | Trust microcopy | Lock icon + "Encrypted. Never sold. Used only for your audit." |
-| C5 | Capture state | Edge-detection framing + "looks good / retake" |
+| C5 | Capture state | STATIC framing guide + review with "Use this photo / Retake" — *rewritten 2026-08-27: edge-detection framing was DELIBERATELY dropped (we don't detect document edges; an animated "locking on" overlay would be a decoration pretending to be a capability, and the review step makes no "looks readable" claim — we measure size/blur and warn on facts only, per the `capture.looks_good` registry comment). Do NOT "fix" this row by building fake edge detection.* |
 | C6 | Record framing | Upload moment carries the "start of your file" copy (script §1.1) |
 
 ## D · Chat-first mechanics (D0–D7)
