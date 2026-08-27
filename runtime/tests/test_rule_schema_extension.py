@@ -225,3 +225,17 @@ async def test_finding_carries_responsible_party_through_the_api(client: AsyncCl
             if row is not None:
                 await s.delete(row)
             await s.commit()
+
+
+# ── audit 2026-08-27 item 6: invalid stored rules never reach the model ─────────────
+def test_invalid_stored_rule_is_skipped_at_the_retrieval_seam():
+    from types import SimpleNamespace
+
+    from app.tools.knowledge_tools import _valid_rule_hits
+
+    good = SimpleNamespace(id="1", score=0.9, payload=dict(GOLDEN_PAYER_RULE))
+    bad_payload = dict(GOLDEN_PAYER_RULE)
+    bad_payload.pop("responsible_party")
+    bad = SimpleNamespace(id="2", score=0.8, payload=bad_payload)
+    out = _valid_rule_hits([good, bad])
+    assert [h.id for h in out] == ["1"]  # the invalid rule is logged + skipped, never passed

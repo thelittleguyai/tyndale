@@ -57,13 +57,35 @@ register_tool(
 
 
 # --- qdrant_search_error_detection_rules ------------------------------------
+def _valid_rule_hits(hits) -> list:
+    """Contract gate at the retrieval seam (audit 2026-08-27 item 6): a stored rule that
+    violates the schema (e.g. missing responsible_party) is logged and SKIPPED — the
+    model never reasons from a rule the contract can't stand behind."""
+    from app.knowledge.rule_schema import validate_error_detection_rule
+
+    valid = []
+    for h in hits:
+        reasons = validate_error_detection_rule(h.payload or {})
+        if reasons:
+            log.warning(
+                "knowledge.invalid_rule_skipped",
+                rule_id=(h.payload or {}).get("rule_id", str(h.id)),
+                reasons=reasons,
+            )
+            continue
+        valid.append(h)
+    return valid
+
+
 async def _qdrant_search_error_detection_rules(args: dict[str, Any]) -> dict[str, Any]:
-    hits = await search_and_rerank(
-        collection="error_detection_rules",
-        query=args["query"],
-        filters=args.get("filters"),
-        top_k=int(args.get("top_k", 30)),
-        top_n=int(args.get("top_n", 8)),
+    hits = _valid_rule_hits(
+        await search_and_rerank(
+            collection="error_detection_rules",
+            query=args["query"],
+            filters=args.get("filters"),
+            top_k=int(args.get("top_k", 30)),
+            top_n=int(args.get("top_n", 8)),
+        )
     )
     return {"hits": _hits_to_payload(hits), "count": len(hits)}
 
