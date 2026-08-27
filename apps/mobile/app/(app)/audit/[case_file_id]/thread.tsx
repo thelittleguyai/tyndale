@@ -11,7 +11,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -36,6 +35,7 @@ import {
 import { ThreadEntry } from '../../../../components/thread/ThreadEntry';
 import type { Draft } from './encounter';
 import { useThemeColors } from '../../../../theme/useThemeColors';
+import { ChatComposer } from '../../../../components/chat/ChatComposer';
 
 export default function CaseThreadScreen() {
   const tc = useThemeColors();
@@ -45,7 +45,6 @@ export default function CaseThreadScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
-  const [composer, setComposer] = useState('');
   const [coverageSuggestion, setCoverageSuggestion] = useState<{
     field: string;
     value: number | string;
@@ -61,12 +60,22 @@ export default function CaseThreadScreen() {
     setMessages(conv.messages ?? []);
   }, []);
 
+  const [loadError, setLoadError] = useState(false);
+
   const load = useCallback(async () => {
-    const list = await listConversations({ case_id: case_file_id, mode: 'per_case', limit: 1 });
-    const cid = list.conversations[0]?.conversation_id ?? null;
-    setConversationId(cid);
-    if (cid) await refresh(cid);
-    setLoading(false);
+    // Never a permanent spinner (audit 2026-08-27 item 2): a failed load renders an
+    // error state with retry instead of hanging.
+    try {
+      setLoadError(false);
+      const list = await listConversations({ case_id: case_file_id, mode: 'per_case', limit: 1 });
+      const cid = list.conversations[0]?.conversation_id ?? null;
+      setConversationId(cid);
+      if (cid) await refresh(cid);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
     if (!extractKicked.current) {
       extractKicked.current = true;
       extractLineItems(case_file_id).catch(() => undefined);
@@ -150,10 +159,9 @@ export default function CaseThreadScreen() {
     setActiveSuggestionId(null);
   };
 
-  const sendText = async () => {
-    const text = composer.trim();
+  const sendTextWith = async (raw: string) => {
+    const text = raw.trim();
     if (!text || sending || !conversationId) return;
-    setComposer('');
     // Clear any un-confirmed pre-selection before re-mapping (no stale stacking).
     setDrafts((d) => {
       const next: Record<string, Draft> = {};
@@ -229,6 +237,20 @@ export default function CaseThreadScreen() {
           <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
             <Text className="text-sm text-secondary">← Back to dashboard</Text>
           </Pressable>
+          {loadError ? (
+            <View className="rounded-2xl border border-hairline bg-surface p-5" testID="thread-load-error">
+              <Text className="text-body leading-6 text-secondary">
+                Something went wrong loading this case. Your documents are safe — try again.
+              </Text>
+              <Pressable
+                onPress={() => { setLoading(true); void load(); }}
+                className="mt-3 min-h-[44px] items-center justify-center self-start rounded-xl bg-accent px-4"
+                testID="thread-retry"
+              >
+                <Text className="text-body font-bold text-on-accent">Try again</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {messages.map((m) => (
             <ThreadEntry
               key={m.message_id}
@@ -250,23 +272,19 @@ export default function CaseThreadScreen() {
         </View>
       </ScrollView>
       {pendingVerification || coveragePending ? (
-        <View className="w-full max-w-2xl flex-row items-end gap-2 self-center border-t border-hairline bg-page px-4 py-3">
-          <TextInput
-            value={composer}
-            onChangeText={setComposer}
+        <View className="w-full max-w-2xl self-center border-t border-hairline bg-page px-4 py-2">
+          {/* The shared composer (audit 2026-08-27 item 2): paperclip + a11y, one
+              implementation instead of the hand-rolled twin. */}
+          <ChatComposer
+            onSend={(text) => void sendTextWith(text)}
+            onStop={() => {}}
+            streaming={false}
+            disabled={sending}
             placeholder="Answer in your own words, or tap the cards…"
-            placeholderTextColor={tc.text.faint}
-            multiline
-            className="max-h-24 flex-1 rounded-2xl bg-surface px-4 py-2.5 text-[15px] text-primary"
-            onSubmitEditing={sendText}
+            onAttach={() =>
+              router.push({ pathname: '/upload', params: { caseId: case_file_id } })
+            }
           />
-          <Pressable
-            onPress={sendText}
-            disabled={sending || !composer.trim()}
-            className={`min-h-[44px] items-center justify-center rounded-full px-4 ${sending || !composer.trim() ? 'bg-inset' : 'bg-accent'}`}
-          >
-            <Text className={sending || !composer.trim() ? 'text-faint' : 'font-bold text-on-accent'}>Send</Text>
-          </Pressable>
         </View>
       ) : null}
     </View>

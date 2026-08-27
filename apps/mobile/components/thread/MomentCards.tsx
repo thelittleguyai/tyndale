@@ -82,10 +82,11 @@ function MomentRow({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * D0 first-case unlock moment. Built to Brock's mocked structure but rendered ONLY behind
- * ENABLE_BILLING && ENABLE_FIRST_CASE_UNLOCK — both false in Phase A, so this never mounts yet
- * (the pricing model is being revised; no payment path here). TODO(pricing-memo): wire the flags +
- * the $4.99 first-case checkout when the pricing memo lands.
+ * D0 first-case unlock moment. The REAL gate is server emission (audit 2026-08-27 item 2):
+ * this renders only for an `unlock_moment` thread entry, and the runtime posts none until
+ * billing ships server-side — no client flags exist or are needed (the previous comment
+ * named ENABLE_BILLING/ENABLE_FIRST_CASE_UNLOCK, which never existed in mobile).
+ * TODO(pricing-memo): the $4.99 first-case checkout when the pricing memo lands.
  */
 export function UnlockMoment({ payload }: { payload: UnlockMomentPayload }) {
   return (

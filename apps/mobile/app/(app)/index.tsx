@@ -192,11 +192,11 @@ export default function DashboardScreen() {
             Costs / Find a Doctor / Plan a Visit are §5 expanded-scope, not started: dead
             buttons are worse than absent ones, so they are gone, not "coming soon". */}
         <Text className="mb-3 mt-6 text-xs text-faint">
-          Quick Actions
+          Quick actions
         </Text>
         <View className="flex-row flex-wrap gap-3">
           <QuickActionTile
-            title="Check a Bill"
+            title="Check a bill"
             subtitle="Upload a bill or EOB and I'll audit every charge."
             Icon={FileText}
             onPress={() => router.push('/upload')}
@@ -231,7 +231,18 @@ export default function DashboardScreen() {
 
 
         {error ? (
-          <Text className="mt-4 text-xs text-danger">Dashboard fetch error: {error}</Text>
+          <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5" testID="dashboard-load-error">
+            <Text className="text-body leading-6 text-secondary">
+              Something went wrong loading your dashboard. Your cases are safe — try again.
+            </Text>
+            <PressableScale
+              onPress={() => void load()}
+              className="mt-3 min-h-[44px] items-center justify-center self-start rounded-xl bg-accent px-4"
+              testID="dashboard-retry"
+            >
+              <Text className="text-body font-bold text-on-accent">Try again</Text>
+            </PressableScale>
+          </View>
         ) : null}
 
         <Text className="mt-10 text-center text-xs text-faint">
@@ -574,7 +585,7 @@ function Header() {
             className="min-h-[44px] items-center justify-center rounded-full bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"
           >
             <Text className="text-xs font-semibold text-secondary">
-              {signingOut ? 'Signing out…' : 'Sign Out'}
+              {signingOut ? 'Signing out…' : 'Sign out'}
             </Text>
           </Pressable>
         )}

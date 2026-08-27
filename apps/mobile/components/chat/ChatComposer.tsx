@@ -34,6 +34,7 @@ export function ChatComposer({
   streaming,
   disabled,
   onAttach,
+  placeholder = 'Ask about your bill, coverage, codes, appeals…',
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
@@ -42,6 +43,7 @@ export function ChatComposer({
   /** Upload-a-bill affordance (2026-08-22): a paperclip left of the input. The thread
    *  decides where it goes — a new case (freeform) or the conversation's case (per-case). */
   onAttach?: () => void;
+  placeholder?: string;
 }) {
   const c = useThemeColors();
   const [text, setText] = useState('');
@@ -100,7 +102,7 @@ export function ChatComposer({
             onContentSizeChange={onContentSizeChange}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder="Ask about your bill, coverage, codes, appeals…"
+            placeholder={placeholder}
             placeholderTextColor={c.text.faint}
             multiline
             maxLength={8000}

@@ -1,8 +1,8 @@
 /**
  * Verification cards re-hosted into the chat thread (DL-91, D3/D4a). Renders one group's line
  * items (≤3, grouped server-side) using the SAME LineItemCard as the classic encounter screen.
- * Phase A is structured taps only (D4a — option a); the script-keyed nudge tells the user to tap.
- * TODO(phase-b): pre-select+confirm from free text (D4b) — map free text near a card to a tap.
+ * D4b shipped 2026-08-22: free text near a card maps to a pre-selected answer awaiting the
+ * confirming tap (verification_mapper + the suggestion entries); taps remain the only writes.
  */
 import { Text, View } from 'react-native';
 

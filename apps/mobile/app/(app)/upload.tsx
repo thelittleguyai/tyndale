@@ -71,6 +71,24 @@ export default function UploadScreen() {
 
   const pickFiles = () => inputRef.current?.click?.();
 
+  const pickNativeFiles = async () => {
+    // expo-document-picker (audit 2026-08-27 item 2): PDFs and images, multi-select.
+    const DocumentPicker = await import('expo-document-picker');
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      multiple: true,
+      copyToCacheDirectory: true,
+    });
+    if (res.canceled) return;
+    const added: Queued[] = res.assets.map((a) => ({
+      id: `${a.name}-${a.size ?? 0}-${Math.random().toString(36).slice(2, 8)}`,
+      file: { uri: a.uri, name: a.name, mimeType: a.mimeType ?? 'application/octet-stream' },
+      name: a.name,
+      size: a.size ?? 0,
+    }));
+    setQueue((q) => [...q, ...added]);
+  };
+
   const onPicked = (e: any) => {
     const picked: FileList | undefined = e?.target?.files;
     if (!picked || picked.length === 0) return;
@@ -262,33 +280,45 @@ export default function UploadScreen() {
         </>
       ) : (
         <View className="gap-3">
-          {/* NATIVE (2026-08-17): the camera is live — DL-44's worklets blocker fell, so
-              expo-camera is installed and capture works. The native FILE PICKER is still
-              pending (expo-document-picker not yet added — its own small follow-up), so
-              photos are the native path and files come via the web app for now. */}
+          {/* NATIVE parity (audit 2026-08-27 item 2): camera (2026-08-17) + a real file
+              picker (expo-document-picker) + per-file remove — no more "open the web app"
+              apology card. */}
           <PressableScale
             onPress={() => setCapturing(true)}
-            accessibilityRole="button"
             className="min-h-[56px] flex-row items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-4"
             testID="upload-take-photo"
           >
             <CameraIcon size={20} color={tc.onAccent} />
             <Text className="text-base font-bold text-on-accent">Take a photo of your bill</Text>
           </PressableScale>
+          <PressableScale
+            onPress={() => void pickNativeFiles()}
+            className="min-h-[44px] flex-row items-center justify-center gap-2 rounded-2xl border border-hairline bg-surface px-4 py-3"
+            testID="upload-pick-file-native"
+          >
+            <Plus size={16} color={tc.accent} />
+            <Text className="text-body font-semibold text-accent">Choose a PDF or photo</Text>
+          </PressableScale>
           {queue.length > 0 ? (
             <View className="gap-2">
               {queue.map((q) => (
-                <ListRow key={q.id} title={q.name} subtitle="photo" />
+                <ListRow
+                  key={q.id}
+                  title={q.name}
+                  subtitle={q.size > 0 ? prettyBytes(q.size) : 'photo'}
+                  trailing={
+                    <PressableScale
+                      onPress={() => remove(q.id)}
+                      accessibilityLabel={`Remove ${q.name}`}
+                      className="min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-inset"
+                    >
+                      <X size={16} color={tc.text.secondary} />
+                    </PressableScale>
+                  }
+                />
               ))}
             </View>
-          ) : (
-            <View className="rounded-2xl border border-hairline bg-surface p-5">
-              <Text className="text-body text-secondary">
-                Have the bill as a PDF or a saved file? Open Tyndale on the web to upload it —
-                the native file picker is coming.
-              </Text>
-            </View>
-          )}
+          ) : null}
         </View>
       )}
 

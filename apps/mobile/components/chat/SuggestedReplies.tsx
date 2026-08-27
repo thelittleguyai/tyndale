@@ -23,7 +23,7 @@ export function SuggestedReplies({
           onPress={() => onPick(r)}
           disabled={disabled}
           accessibilityRole="button"
-          className="min-h-[36px] justify-center rounded-full border border-accent bg-surface px-4 py-1.5 hover:bg-accent-tint active:opacity-70"
+          className="min-h-[44px] justify-center rounded-full border border-accent bg-surface px-4 py-1.5 hover:bg-accent-tint active:opacity-70"
         >
           <Text className="text-sm font-semibold text-accent">{r}</Text>
         </Pressable>

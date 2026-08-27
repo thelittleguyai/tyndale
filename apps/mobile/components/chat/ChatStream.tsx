@@ -40,6 +40,9 @@ export function useChatStream(conversationId: string): UseChatStream {
   const [activeTools, setActiveTools] = useState<ToolCall[]>([]);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Abort the in-flight SSE fetch when the screen unmounts (audit 2026-08-27 item 2) —
+  // otherwise the stream keeps reading into unmounted state setters.
+  useEffect(() => () => abortRef.current?.abort(), []);
   const streamingIdRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {

@@ -80,6 +80,15 @@ export default function SettingsScreen() {
   const c = useThemeColors();
   const router = useRouter();
   const signOut = useSignOut();
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disarmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (disarmTimer.current) clearTimeout(disarmTimer.current);
+    },
+    [],
+  );
   const [signingOut, setSigningOut] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pstate, setPstate] = useState<ProfileState | null>(null);
@@ -153,7 +162,7 @@ export default function SettingsScreen() {
 
   const flash = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2200);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
   };
 
   const dobCheck = validateDob(dob);
@@ -211,7 +220,7 @@ export default function SettingsScreen() {
     // Two-tap confirm: the first tap arms, the second deletes (row + both card photos).
     if (!confirmRemoveSecondary) {
       setConfirmRemoveSecondary(true);
-      setTimeout(() => setConfirmRemoveSecondary(false), 4000);
+      disarmTimer.current = setTimeout(() => setConfirmRemoveSecondary(false), 4000);
       return;
     }
     setConfirmRemoveSecondary(false);
