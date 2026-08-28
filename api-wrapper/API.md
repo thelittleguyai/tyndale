@@ -88,21 +88,21 @@ Adjudicated claims. `since` (optional) = only claims with service date on/after 
 All money is **dollars + ISO currency** (never cents).
 
 ### `GET /v1/accumulators?app_user_id={id}`
-Deductible/OOP positions. Returns `SourceResult<AccumulatorSnapshot>[]` — note `method` will typically be `"computed-from-eob"` (reconstructed by summing EOB adjudications) or `"eob-stated-ytd"`; disagreement between readings is **preserved, not flattened** — reconciliation belongs to the runtime's cross-validation layer:
+Deductible/OOP positions. Returns `SourceResult<AccumulatorSnapshot>[]`. **What the wrapper actually emits today** (one adapter, `OneUpEobAccumulatorSource`): a single `computed-from-eob` reading carrying only the `met` amounts — plan **limits are deliberately absent** (not derivable from EOBs; the adapter's own comment says so), so no `limit`, `remaining`, or plan-year fields, and confidence is capped at `medium` with these exact reasons:
 ```json
-{
-  "value": {
-    "planYearStart": "2026-01-01", "planYearEnd": "2026-12-31",
-    "individualDeductible": { "limit": {"amount":2000,"currency":"USD"}, "met": {"amount":1750,"currency":"USD"}, "remaining": {"amount":250,"currency":"USD"} },
-    "familyDeductible": null,
-    "individualOopMax": { "limit": {"amount":6500,"currency":"USD"}, "met": {"amount":3200,"currency":"USD"}, "remaining": {"amount":3300,"currency":"USD"} },
-    "familyOopMax": null
-  },
-  "provenance": { "vendor": "1upHealth", "method": "computed-from-eob", "retrievedAt": "…" },
-  "freshness": { "asOf": "2026-08-01", "ageDays": 12 },
-  "confidence": { "level": "medium", "reasons": ["payer omitted costToBeneficiary"] }
-}
+[
+  {
+    "value": {
+      "individualDeductible": { "met": { "amount": 1750, "currency": "USD" } },
+      "individualOopMax": { "met": { "amount": 3200, "currency": "USD" } }
+    },
+    "provenance": { "vendor": "1upHealth", "method": "computed-from-eob", "sourceRefs": ["ExplanationOfBenefit/…"], "retrievedAt": "2026-08-13T17:20:11Z" },
+    "freshness": { "asOf": "2026-08-13T17:20:11Z", "ageDays": 0 },
+    "confidence": { "level": "medium", "reasons": ["reconstructed by summing EOB adjudications", "plan limits not derivable from EOBs alone"] }
+  }
+]
 ```
+Either key is omitted when its sum is zero. **Design headroom, not current behavior:** the `AccumulatorSnapshot` type reserves `limit`/`remaining`/plan-year fields and the array return exists so a future eligibility-backed reading (`eob-stated-ytd` / `eligibility-271`) can sit alongside this one with disagreement preserved — today you always get exactly one computed-from-eob reading.
 
 ### `GET /v1/financial-picture?app_user_id={id}&since={ISO-date}`
 The combined fan-out (one call, all four families — used when the runtime wants everything):
@@ -114,7 +114,7 @@ The combined fan-out (one call, all four families — used when the runtime want
   "encounters":   [ SourceResult<EncounterRecord> … ]
 }
 ```
-Prefer the individual routes when you need one family — the resolver fan-out triggers redundant upstream FHIR reads otherwise.
+Prefer the individual routes when you need one family — the resolver fan-out triggers redundant upstream FHIR reads otherwise. **`encounters` is always `[]` today** — the shape is real but no clinical adapter is wired into the server's `buildSources()`; it populates when one lands.
 
 ## The SourceResult envelope (every value, every route)
 
@@ -122,7 +122,7 @@ Prefer the individual routes when you need one family — the resolver fan-out t
 |---|---|
 | `value` | The domain object (above) |
 | `provenance.vendor` | `"1upHealth"` today; open string (`flexpa`, `stedi`, `user-upload`…) |
-| `provenance.method` | `fhir-read` · `computed-from-eob` · `eligibility-271` · `eob-stated-ytd` · `user-upload` |
+| `provenance.method` | Emitted today: `fhir-read` (coverages/claims) · `computed-from-eob` (accumulators). Reserved for future adapters: `eligibility-271` · `eob-stated-ytd` · `user-upload` |
 | `provenance.sourceRefs` | FHIR references / document ids it derives from |
 | `provenance.retrievedAt` | When fetched (ISO 8601) |
 | `freshness.asOf` / `ageDays` | The point in time the data *represents*; whole-day age (never negative) |
