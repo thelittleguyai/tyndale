@@ -313,6 +313,12 @@ export default function HomePage() {
         {/* ── Clean-bill reassurance (prototype copy; not a checklist item) ── */}
         <CleanBillBand />
 
+
+        {/* ── Beta band (round-2 gap closed 2026-08-28) — prototype structure, current
+            tokens; NO glass (auras/blur stay HELD). Chip is honesty-adjusted: the page
+            carries the unsourced $504,100, so no page-wide "verified & cited" claim. */}
+        <BetaBand />
+
         {/* ── B7/B8 · Our Story — the small band, not a cofounder block ── */}
         <OurStoryBand />
       </main>
@@ -452,6 +458,8 @@ function GroundingBand() {
 
 /** B4 · Total recovered for members. */
 function SavingsBand() {
+  {/* SUBSTANTIATION PENDING (Brock) — see build-kit standing queue; swap to sourced figure
+      or confirmed-outcomes counter when ruled. Do not change the rendered figure here. */}
   return (
     <section className="bg-cream-soft">
       <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-24">
@@ -547,6 +555,39 @@ function CleanBillBand() {
 }
 
 /** B7/B8 · Our Story — a SMALL band across the page (a large cofounder block was rejected). */
+function BetaBand() {
+  return (
+    <section className="bg-teal-deep">
+      <div className="mx-auto max-w-5xl px-6 py-20 text-center sm:py-24">
+        <p className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3.5 py-1.5 text-[13px] font-semibold text-white/90">
+          Tyndale is just getting started
+        </p>
+        <h2 className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          Every bill Tyndale sees makes it sharper.
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/75">
+          We&apos;re early &mdash; and more errors caught means more people helped. Fix your
+          bill, and you make the next person&apos;s fight easier too.
+        </p>
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <a
+            href="/signin"
+            className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-deep"
+          >
+            Check my bill &mdash; free
+          </a>
+          <span className="inline-flex flex-wrap items-center justify-center gap-2 text-[13px] text-white/60">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-white/85">
+              Cited where it counts
+            </span>
+            Every finding in your audit traces to a source.
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function OurStoryBand() {
   return (
     <section className="bg-cream">
