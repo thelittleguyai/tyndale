@@ -12,6 +12,8 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+
+import { AuditMock } from '../components/audit-mock';
 import { Logo, Wordmark } from '@/components/logo';
 
 /* Landing content ported verbatim from docs/design/prototype-round2/lib/tyndale-data.ts.
@@ -116,42 +118,6 @@ const TRUST: TrustItem[] = [
 ];
 
 /** Illustrative three-number audit card (clearly labeled as an example). */
-function AuditMock() {
-  return (
-    <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-elev ring-1 ring-black/5 sm:p-7">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
-          Your audit
-        </p>
-        <span className="rounded-full bg-amber-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-deep">
-          Example
-        </span>
-      </div>
-
-      <dl className="mt-5 space-y-3">
-        <div className="flex items-baseline justify-between gap-4 rounded-md border border-line-soft px-4 py-3">
-          <dt className="text-sm text-ink/55">What you were billed</dt>
-          <dd className="text-lg font-semibold text-ink/35 line-through decoration-ink/30">
-            $2,347.18
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 rounded-md border border-line-soft px-4 py-3">
-          <dt className="text-sm text-ink/55">What your insurer says you owe</dt>
-          <dd className="text-lg font-semibold text-ink/70">$1,184.60</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 rounded-md bg-sage-soft px-4 py-3.5 ring-1 ring-sage/25">
-          <dt className="text-sm font-medium text-teal-deep">What you should actually owe</dt>
-          <dd className="text-2xl font-bold text-sage-deep">$612.40</dd>
-        </div>
-      </dl>
-
-      <p className="mt-4 text-xs leading-relaxed text-ink/45">
-        Every difference is a finding, cited to your plan documents and published rates.
-      </p>
-    </div>
-  );
-}
-
 export default function HomePage() {
   return (
     <>
