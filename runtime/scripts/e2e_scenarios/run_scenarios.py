@@ -40,7 +40,13 @@ HERE = pathlib.Path(__file__).parent
 SCENARIO_DIR = HERE / "scenarios"
 LOCAL_URL = "http://localhost:4000"
 DEV_URL = "https://api.tyndaleapp.net"
-SYNTH_EMAIL = "e2e-runner@e2e.tyndale.test"
+# One synthetic user PER RUN (2026-09-18): the 20-uploads/hour per-user cap (DL-46) is
+# per identity, and a single shared identity meant every sweep within an hour of another
+# inherited its spend — the 18:18 run hit the cap at its ninth scenario and slept 15 min.
+# The suffix is what test-token authorizes; the tag keeps each run's budget its own. Override
+# with E2E_SYNTH_EMAIL to reuse an identity deliberately (e.g. to inspect its cases).
+_RUN_TAG = os.environ.get("GITHUB_RUN_ID") or time.strftime("%Y%m%d%H%M%S", time.gmtime())
+SYNTH_EMAIL = os.environ.get("E2E_SYNTH_EMAIL") or f"e2e-runner+{_RUN_TAG}@e2e.tyndale.test"
 COOKIE_NAME = "tyndale_session"  # a session read-name on every env (bare name kept for grace)
 
 # The fabrication canaries — their presence in a result means non-document content leaked

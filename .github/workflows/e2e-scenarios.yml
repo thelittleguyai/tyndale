@@ -42,6 +42,10 @@ defaults:
 
 jobs:
   scenarios:
+    # A full sweep is ~80 min; a stalled run must never hold the deploy-runtime concurrency
+    # group for GitHub's 6 h default (2026-09-18: a run sat in a 15-min Retry-After sleep
+    # while the deploy behind it waited).
+    timeout-minutes: 150
     runs-on: ubuntu-latest
     environment: dev  # secrets (E2E_TEST_SECRET / E2E_ADMIN_TOKEN) are scoped to the dev environment
     steps:
