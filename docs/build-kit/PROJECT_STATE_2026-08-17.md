@@ -23,7 +23,7 @@ root) whose 7 findings + 3 nits are **all closed as of today**.
 | Measure | Value *(re-counted 2026-08-27)* |
 |---|---|
 | Repo | 396 commits on main; 130 since 2026-08-17 |
-| Runtime | FastAPI monolith · 23 route modules · 48 agent/source modules · 47 migrations (0001–0047), chain verified from empty in CI |
+| Runtime | FastAPI monolith · 23 route modules · 48 agent/source modules · 50 migrations (0001–0050), chain verified from empty in CI |
 | Tests | Runtime: **1,118 collected** (1,110+ passing / 5 skipped) · Mobile: **135 tests / 29 jest suites**, typecheck clean · E2E harness: 22 synthetic scenarios + the record-aggregates check |
 | Copy registry | 136 key sections (120 tier-tagged values: 112 `[A]` · 6 `[C]` · 2 `[B]` — the PACE/program handoffs), zero placeholders, drift-guarded; 40 keys boot-gated via RENDER_PATH_KEYS |
 | Conformance | 08-11 sweep stands (63 PASS · 4 FAIL · 1 PARTIAL · 6 N-A-YET); B1/B3/C1/C5 checklist rows amended to the 08-18 rulings on 2026-08-27 |
