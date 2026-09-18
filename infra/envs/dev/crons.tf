@@ -8,6 +8,14 @@
 # runtime, so they reach Postgres (VNet) + Qdrant (same CAE) exactly like the runtime does.
 # 'noop' is deliberately NOT scheduled (manual smoke-test only). CI rolls the placeholder
 # image to the runtime image (deploy-runtime.yml), and Terraform ignores that drift.
+#
+# ADDING A CRON: terraform creates the new job WITH the placeholder image, and it keeps it
+# until the next runtime deploy rolls the fleet — meanwhile the schedule fires a hello-world
+# container that idles to the job timeout and shows as Failed (stuck_audits, 2026-09-18).
+# After the apply, either dispatch deploy-runtime or roll the one job by hand:
+#   az containerapp job update -n tyndale-dev-cron-<name> -g tyndale-dev-rg \
+#     --image "$(az containerapp show -n tyndale-dev-runtime -g tyndale-dev-rg \
+#       --query 'properties.template.containers[0].image' -o tsv)"
 # ============================================================================
 
 locals {
