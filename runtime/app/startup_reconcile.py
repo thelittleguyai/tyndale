@@ -27,10 +27,12 @@ fix and is out of scope here.
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 
 import structlog
 from sqlalchemy import update
+from sqlalchemy.exc import DBAPIError, InterfaceError
 
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
@@ -46,7 +48,81 @@ _CRON_STALE_SECONDS = 6 * 60 * 60  # 6h
 _AUDIT_STALE_BUFFER_SECONDS = 300  # 5 min beyond the wall-clock budget
 
 
-async def reconcile_interrupted_runs(session_factory=AsyncSessionLocal) -> dict[str, int]:
+_CLAIM_ATTEMPTS = 3
+_CLAIM_RETRY_DELAY_S = 2.0
+
+
+async def _claim_with_retry(session_factory, audit_stale_seconds: int, *, sleep=asyncio.sleep):
+    """The claim UPDATEs, retried on a broken connection. The dev boot of 2026-09-18 18:13
+    lost its first connection mid-statement (asyncpg ConnectionDoesNotExistError after an SSL
+    'bad record mac') and the whole sweep was skipped until the next boot; pool_pre_ping only
+    guards checkout, not a TLS stream that dies under a statement. Each attempt is a fresh
+    session, so a poisoned pooled connection is discarded rather than reused."""
+    last: Exception | None = None
+    for attempt in range(1, _CLAIM_ATTEMPTS + 1):
+        try:
+            async with session_factory() as s:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                audit_cutoff = now - datetime.timedelta(seconds=audit_stale_seconds)
+                cron_cutoff = now - datetime.timedelta(seconds=_CRON_STALE_SECONDS)
+
+                # Atomic claim: a concurrent sweep (second replica booting, the cron) can't reconcile
+                # the same row twice. The reason is written HERE so a reader between the claim and
+                # the chokepoint pass below never sees the needs_documents default.
+                audit_ids = list(
+                    (
+                        await s.execute(
+                            update(CaseFile)
+                            .where(
+                                CaseFile.status == "audit_running",
+                                CaseFile.updated_at < audit_cutoff,
+                            )
+                            .values(
+                                status="audit_incomplete", audit_incomplete_reason="system_error"
+                            )
+                            .returning(CaseFile.case_file_id)
+                        )
+                    ).scalars()
+                )
+                cron_ids = list(
+                    (
+                        await s.execute(
+                            update(CronRunLog)
+                            .where(
+                                CronRunLog.status == "running",
+                                CronRunLog.started_at < cron_cutoff,
+                            )
+                            .values(
+                                status="interrupted",
+                                finished_at=now,
+                                error_message=(
+                                    "reconciled on startup: owning process died mid-run "
+                                    "(interrupted_by_restart)"
+                                ),
+                            )
+                            .returning(CronRunLog.run_id)
+                        )
+                    ).scalars()
+                )
+                await s.commit()
+            return audit_ids, cron_ids, now
+        except (OSError, DBAPIError, InterfaceError) as exc:
+            last = exc
+            log.warning(
+                "reconcile.claim_retry",
+                attempt=attempt,
+                attempts=_CLAIM_ATTEMPTS,
+                error_class=type(exc).__name__,
+            )
+            if attempt < _CLAIM_ATTEMPTS:
+                await sleep(_CLAIM_RETRY_DELAY_S)
+    assert last is not None
+    raise last
+
+
+async def reconcile_interrupted_runs(
+    session_factory=AsyncSessionLocal, *, sleep=asyncio.sleep
+) -> dict[str, int]:
     """Flip stranded non-terminal 'running' audits and crons to a terminal interrupted state.
 
     Returns {"audits": n, "crons": m} counts. Best-effort: any error is logged and swallowed so
@@ -59,48 +135,9 @@ async def reconcile_interrupted_runs(session_factory=AsyncSessionLocal) -> dict[
     # concurrent replica.
     audit_stale_seconds = settings.audit_wall_clock_budget_seconds + _AUDIT_STALE_BUFFER_SECONDS
     try:
-        async with session_factory() as s:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            audit_cutoff = now - datetime.timedelta(seconds=audit_stale_seconds)
-            cron_cutoff = now - datetime.timedelta(seconds=_CRON_STALE_SECONDS)
-
-            # Atomic claim: a concurrent sweep (second replica booting, the cron) can't reconcile
-            # the same row twice. The reason is written HERE so a reader between the claim and
-            # the chokepoint pass below never sees the needs_documents default.
-            audit_ids = list(
-                (
-                    await s.execute(
-                        update(CaseFile)
-                        .where(
-                            CaseFile.status == "audit_running",
-                            CaseFile.updated_at < audit_cutoff,
-                        )
-                        .values(status="audit_incomplete", audit_incomplete_reason="system_error")
-                        .returning(CaseFile.case_file_id)
-                    )
-                ).scalars()
-            )
-            cron_ids = list(
-                (
-                    await s.execute(
-                        update(CronRunLog)
-                        .where(
-                            CronRunLog.status == "running",
-                            CronRunLog.started_at < cron_cutoff,
-                        )
-                        .values(
-                            status="interrupted",
-                            finished_at=now,
-                            error_message=(
-                                "reconciled on startup: owning process died mid-run "
-                                "(interrupted_by_restart)"
-                            ),
-                        )
-                        .returning(CronRunLog.run_id)
-                    )
-                ).scalars()
-            )
-            await s.commit()
+        audit_ids, cron_ids, now = await _claim_with_retry(
+            session_factory, audit_stale_seconds, sleep=sleep
+        )
 
         # Each reconciled audit then goes through the status chokepoint for its side effects
         # (thread projection, lifecycle event, review-queue enqueue, emails policy) and counts

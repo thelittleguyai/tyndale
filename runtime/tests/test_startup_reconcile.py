@@ -190,3 +190,55 @@ def test_stuck_audits_cron_is_registered_and_scheduled():
     assert "stuck_audits" in CRON_REGISTRY and get_cron("stuck_audits") is not None
     tf = (pathlib.Path(__file__).resolve().parents[2] / "infra/envs/dev/crons.tf").read_text()
     assert 'stuck_audits = { cron = "*/15 * * * *"' in tf
+
+
+class _BrokenSession:
+    """A session whose first statement dies with the connection (dev 2026-09-18 18:13)."""
+
+    async def __aenter__(self):
+        from sqlalchemy.exc import InterfaceError
+
+        raise InterfaceError("stmt", {}, ConnectionError("connection was closed"))
+
+    async def __aexit__(self, *a):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_claim_retries_a_broken_connection_then_sweeps(client: AsyncClient):
+    """The boot sweep used to skip everything until the next boot when its first statement
+    lost the connection. A broken connection is retried on a fresh session; the sweep
+    still completes."""
+    cfid = await _fresh_case(client)
+    async with AsyncSessionLocal() as s:
+        await s.execute(
+            text(
+                "UPDATE case_files SET status='audit_running', "
+                "updated_at = now() - interval '1 hour' WHERE case_file_id = :id"
+            ),
+            {"id": str(cfid)},
+        )
+        await s.commit()
+    calls = {"n": 0}
+    slept: list[float] = []
+
+    def factory():
+        calls["n"] += 1
+        return _BrokenSession() if calls["n"] == 1 else AsyncSessionLocal()
+
+    async def fake_sleep(s: float) -> None:
+        slept.append(s)
+
+    result = await reconcile_interrupted_runs(session_factory=factory, sleep=fake_sleep)
+    assert result["audits"] >= 1 and calls["n"] == 2 and slept == [2.0]
+    async with AsyncSessionLocal() as s:
+        assert (await s.get(CaseFile, cfid)).status == "audit_incomplete"
+
+
+@pytest.mark.asyncio
+async def test_claim_gives_up_after_the_last_attempt_without_raising():
+    async def fake_sleep(_s: float) -> None:
+        return None
+
+    result = await reconcile_interrupted_runs(session_factory=_BrokenSession, sleep=fake_sleep)
+    assert result == {"audits": 0, "crons": 0}  # logged + swallowed — boot never fails on this
