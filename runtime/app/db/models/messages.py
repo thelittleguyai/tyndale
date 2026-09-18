@@ -53,6 +53,7 @@ class Message(Base):
             "conversation_id",
             "sequence_number",
         ),
+        Index("idx_messages_corrects", "corrects_message_id"),
         Index(
             "idx_messages_streaming",
             "conversation_id",
