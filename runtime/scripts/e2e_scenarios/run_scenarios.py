@@ -140,6 +140,36 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
+def _warm(fetch, *, attempts: int = 3, delay_s: float = 5.0, sleep=time.sleep) -> int:
+    """Pure core of the target warm-up: call ``fetch`` until it returns without raising, at
+    most ``attempts`` times with ``delay_s`` between. Returns the attempt that succeeded;
+    raises SystemExit once every attempt failed."""
+    last: Exception | None = None
+    for i in range(1, attempts + 1):
+        try:
+            fetch()
+            return i
+        except Exception as e:  # noqa: BLE001 — every transport error is a retry
+            last = e
+            if i < attempts:
+                sleep(delay_s)
+    raise SystemExit(f"cannot reach target after {attempts} attempts: {last}")
+
+
+def _warm_target(client: httpx.Client, base_url: str) -> None:
+    """Dev scales to zero; the first request after idling pays the container start (23 s
+    measured 2026-09-18, and longer than the preflight's 30 s once). Warm /health with a
+    generous timeout before anything with a tight one."""
+    t0 = time.monotonic()
+
+    def fetch() -> None:
+        client.get(f"{base_url}/health", timeout=90).raise_for_status()
+
+    n = _warm(fetch)
+    log(f"target warm after {n} attempt(s) in {time.monotonic() - t0:.1f}s")
+
+
+
 def authenticate(
     client: httpx.Client, base_url: str, admin_token: str | None, e2e_secret: str | None
 ) -> str | None:
@@ -152,6 +182,7 @@ def authenticate(
         headers["X-E2E-Test-Secret"] = e2e_secret
     elif admin_token:
         client.cookies.set(COOKIE_NAME, admin_token)
+    _warm_target(client, base_url)
     try:
         r = client.post(
             f"{base_url}/v1/admin/test-token",

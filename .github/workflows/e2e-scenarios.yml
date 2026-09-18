@@ -29,6 +29,13 @@ on:
 permissions:
   contents: read
 
+# Same group as deploy-runtime.yml: a dev deploy mid-sweep swaps the runtime revision and
+# kills the in-flight audits (two scenarios timed out in audit_running on 2026-09-18), so a
+# sweep and a deploy queue behind each other instead of overlapping.
+concurrency:
+  group: deploy-runtime
+  cancel-in-progress: false
+
 defaults:
   run:
     working-directory: runtime

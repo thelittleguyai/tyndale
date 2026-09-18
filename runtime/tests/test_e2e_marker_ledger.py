@@ -4,10 +4,13 @@ genuinely on the bill. Every other field, and that field without both conditions
 Pure functions, tested with explicit markers so the assertions survive a canary re-pick."""
 
 import sys
+
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_scenarios"))
 
+from run_scenarios import _warm  # noqa: E402
 from run_scenarios import (  # noqa: E402
     FIXTURE_MARKERS,
     _bill_codes,
@@ -75,3 +78,24 @@ def test_final_canary_set_is_structurally_unassigned():
         assert 2000 <= int(m) <= 9999 and len(m) == 5
     assert FIXTURE_MARKERS[2][0] == "Z"  # HCPCS Level II letter never nationally assigned
     assert _marker_hits("05821", "code 05821 billed") and not _marker_hits("05821", "cost 105821.00")
+
+
+def test_warm_up_retries_a_cold_target_then_gives_up():
+    """2026-09-18: a scale-to-zero cold start blew the 30 s preflight. The warm-up retries
+    with a delay and only exits once every attempt failed."""
+    calls: list[int] = []
+    slept: list[float] = []
+
+    def flaky() -> None:
+        calls.append(1)
+        if len(calls) < 3:
+            raise TimeoutError("cold")
+
+    assert _warm(flaky, attempts=3, delay_s=2.0, sleep=slept.append) == 3
+    assert slept == [2.0, 2.0]
+
+    def dead() -> None:
+        raise ConnectionError("down")
+
+    with pytest.raises(SystemExit, match="cannot reach target after 2 attempts"):
+        _warm(dead, attempts=2, delay_s=0.0, sleep=slept.append)
