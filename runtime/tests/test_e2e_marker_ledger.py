@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_scenarios"))
 
-from run_scenarios import _warm  # noqa: E402
+from run_scenarios import _retrying, _warm  # noqa: E402
 from run_scenarios import (  # noqa: E402
     FIXTURE_MARKERS,
     _bill_codes,
@@ -99,3 +99,18 @@ def test_warm_up_retries_a_cold_target_then_gives_up():
 
     with pytest.raises(SystemExit, match="cannot reach target after 2 attempts"):
         _warm(dead, attempts=2, delay_s=0.0, sleep=slept.append)
+
+
+def test_retrying_returns_the_value_and_treats_a_5xx_as_transient():
+    """The mid-cutover 500 on test-token (sweep 35378477176): a 5xx raised inside fetch is
+    retried like a transport error and the eventual response is returned."""
+    seen: list[int] = []
+
+    def mint():
+        seen.append(1)
+        if len(seen) == 1:
+            raise RuntimeError("test-token 500: internal_server_error")
+        return {"status": 200}
+
+    assert _retrying(mint, attempts=4, delay_s=0.0, sleep=lambda _s: None, what="test-token") == {"status": 200}
+    assert len(seen) == 2

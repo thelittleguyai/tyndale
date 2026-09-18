@@ -140,20 +140,34 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
-def _warm(fetch, *, attempts: int = 3, delay_s: float = 5.0, sleep=time.sleep) -> int:
-    """Pure core of the target warm-up: call ``fetch`` until it returns without raising, at
-    most ``attempts`` times with ``delay_s`` between. Returns the attempt that succeeded;
-    raises SystemExit once every attempt failed."""
+def _retrying(fetch, *, attempts: int = 3, delay_s: float = 5.0, sleep=time.sleep, what: str = "target"):
+    """Pure retry core: call ``fetch`` until it returns without raising, at most ``attempts``
+    times with ``delay_s`` between; returns fetch's value. Raises SystemExit once every
+    attempt failed — the harness treats an unreachable / mid-cutover target as a harness
+    failure, never as a scenario result."""
     last: Exception | None = None
     for i in range(1, attempts + 1):
         try:
-            fetch()
-            return i
-        except Exception as e:  # noqa: BLE001 — every transport error is a retry
+            return fetch()
+        except Exception as e:  # noqa: BLE001 — every transport error / 5xx is a retry
             last = e
+            log(f"  {what}: attempt {i}/{attempts} failed ({e}); " + ("retrying" if i < attempts else "giving up"))
             if i < attempts:
                 sleep(delay_s)
-    raise SystemExit(f"cannot reach target after {attempts} attempts: {last}")
+    raise SystemExit(f"cannot reach {what} after {attempts} attempts: {last}")
+
+
+def _warm(fetch, *, attempts: int = 3, delay_s: float = 5.0, sleep=time.sleep) -> int:
+    """Target warm-up on top of _retrying: returns the attempt that succeeded."""
+    n = 0
+
+    def counted():
+        nonlocal n
+        n += 1
+        fetch()
+
+    _retrying(counted, attempts=attempts, delay_s=delay_s, sleep=sleep)
+    return n
 
 
 def _warm_target(client: httpx.Client, base_url: str) -> None:
@@ -183,15 +197,23 @@ def authenticate(
     elif admin_token:
         client.cookies.set(COOKIE_NAME, admin_token)
     _warm_target(client, base_url)
-    try:
-        r = client.post(
+
+    # A 5xx here is not an answer, it's the target mid-cutover: the deploy workflow reports
+    # 'completed' 30–60 s before the new revision takes traffic, and a request that lands on
+    # the old replica as it drains gets a 500 (sweep 35378477176, 2026-09-18). Retry it like
+    # a transport error; any non-5xx status is a real answer and returns at once.
+    def mint() -> httpx.Response:
+        resp = client.post(
             f"{base_url}/v1/admin/test-token",
             json={"email": SYNTH_EMAIL},
             headers=headers,
             timeout=30,
         )
-    except httpx.HTTPError as e:
-        raise SystemExit(f"cannot reach {base_url}: {e}") from e
+        if resp.status_code >= 500:
+            raise RuntimeError(f"test-token {resp.status_code}: {resp.text[:200]}")
+        return resp
+
+    r = _retrying(mint, attempts=4, delay_s=20.0, what=f"test-token at {base_url}")
     if r.status_code == 200:
         body = r.json()
         client.cookies.clear()
