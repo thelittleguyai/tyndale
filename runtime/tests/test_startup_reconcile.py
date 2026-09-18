@@ -13,6 +13,7 @@ reconciliation error)."""
 from __future__ import annotations
 
 import datetime
+import pathlib
 import uuid
 
 import pytest
@@ -30,7 +31,9 @@ def _ago(**kw) -> datetime.datetime:
 
 
 async def _fresh_case(client: AsyncClient) -> uuid.UUID:
-    up = await client.post("/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")})
+    up = await client.post(
+        "/v1/upload", files={"file": ("bill.txt", b"%PDF-1.4 sample bill", "text/plain")}
+    )
     assert up.status_code == 200, up.text
     return uuid.UUID(up.json()["case_file_id"])
 
@@ -130,3 +133,60 @@ async def test_reconcile_never_raises_on_failure():
     # A failing session factory must be swallowed — startup continues regardless.
     result = await reconcile_interrupted_runs(session_factory=_boom)
     assert result == {"audits": 0, "crons": 0}
+
+
+@pytest.mark.asyncio
+async def test_reconciled_audit_is_system_error_through_the_chokepoint(client: AsyncClient):
+    """2026-09-18: a deploy-killed audit used to be flipped with a bare UPDATE — no reason, so
+    the result assembler defaulted to needs_documents (the user was asked for documents for
+    OUR failure), and nothing downstream (thread, lifecycle event, review queue) fired. Now the
+    flip carries system_error and goes through _set_status, so the review queue sees it."""
+    from sqlalchemy import select
+
+    from app.db.models.case_reviews import CaseReview
+    from app.review import queue as review_queue
+
+    from app.auth.dev_user import resolve_dev_user
+
+    async def _dial(pct: int) -> None:
+        async with AsyncSessionLocal() as s:
+            admin = await resolve_dev_user(s)
+            await review_queue.set_sample_pct(s, pct, admin_id=admin.user_id)
+            await s.commit()
+
+    await _dial(0)
+    try:
+        cfid = await _fresh_case(client)
+        async with AsyncSessionLocal() as s:
+            await s.execute(
+                text(
+                    "UPDATE case_files SET status='audit_running', "
+                    "updated_at = now() - interval '1 hour' WHERE case_file_id = :id"
+                ),
+                {"id": str(cfid)},
+            )
+            await s.commit()
+        result = await reconcile_interrupted_runs()
+        assert result["audits"] >= 1
+        async with AsyncSessionLocal() as s:
+            cf = await s.get(CaseFile, cfid)
+            assert cf.status == "audit_incomplete"
+            assert cf.audit_incomplete_reason == "system_error"
+            row = (
+                await s.execute(select(CaseReview).where(CaseReview.case_file_id == cfid))
+            ).scalar_one()
+        # dial at 0 — only the system_error TRIGGER can have enqueued it
+        assert row.system_error and "system_error" in row.triggers and not row.sampled
+        assert row.terminal_status == "audit_incomplete" and row.incomplete_reason == "system_error"
+    finally:
+        await _dial(100)
+
+
+def test_stuck_audits_cron_is_registered_and_scheduled():
+    """The sweep also runs on a schedule — the boot-only version left a case stranded until
+    the next deploy (two e2e sweep cases on dev, 2026-09-18)."""
+    from app.crons.registry import CRON_REGISTRY, get_cron
+
+    assert "stuck_audits" in CRON_REGISTRY and get_cron("stuck_audits") is not None
+    tf = (pathlib.Path(__file__).resolve().parents[2] / "infra/envs/dev/crons.tf").read_text()
+    assert 'stuck_audits = { cron = "*/15 * * * *"' in tf

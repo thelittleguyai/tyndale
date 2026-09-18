@@ -24,6 +24,9 @@ locals {
     # 04:00 UTC, after qdrant_snapshot, matching the registry's stated cadence.
     analytics_rollup = { cron = "0 4 * * *", timeout = 900 }  # nightly 04:00
     nudge            = { cron = "0 15 * * *", timeout = 600 } # daily 15:00 (registry cadence)
+    # Heals audits a deploy roll / OOM stranded in audit_running (2026-09-18): the boot-time
+    # reconcile sweep, on a schedule, so a strand between deploys is bounded instead of open.
+    stuck_audits = { cron = "*/15 * * * *", timeout = 300 } # every 15 min
   }
 }
 
@@ -144,6 +147,20 @@ resource "azurerm_container_app_job" "cron" {
       env {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
+      }
+      # stuck_audits (2026-09-18) reconciles through the orchestrator's status chokepoint, which
+      # reads the chat-first flag (thread projection) and the review-queue policy.
+      env {
+        name  = "ENABLE_CHAT_FIRST_AUDIT"
+        value = tostring(var.enable_chat_first_audit)
+      }
+      env {
+        name  = "REVIEW_SAMPLE_PCT"
+        value = tostring(var.review_sample_pct)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_SYSTEM_ERROR"
+        value = tostring(var.review_trigger_system_error)
       }
       env {
         name  = "SENDGRID_FROM_EMAIL"

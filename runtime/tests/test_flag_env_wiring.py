@@ -150,6 +150,11 @@ def test_cron_jobs_carry_what_the_crons_actually_read():
         "SENDGRID_FROM_EMAIL",
         "SENDGRID_API_KEY",
         "AUTH_SUCCESS_REDIRECT",
+        # stuck_audits (2026-09-18) reconciles through _set_status: thread projection flag +
+        # the review-queue policy it enqueues under.
+        "ENABLE_CHAT_FIRST_AUDIT",
+        "REVIEW_SAMPLE_PCT",
+        "REVIEW_TRIGGER_SYSTEM_ERROR",
     }
     missing = needed - _cron_env_names()
     assert missing == set(), f"cron job env missing: {sorted(missing)}"

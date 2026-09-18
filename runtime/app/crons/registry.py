@@ -36,6 +36,15 @@ async def _analytics_rollup_cron() -> dict:
     return await run_rollup()
 
 
+async def _stuck_audits_cron() -> dict:
+    """The boot-time reconcile sweep on a schedule (2026-09-18): a deploy roll / OOM kills an
+    in-flight audit without running its except path, and between boots nothing else would
+    ever move that case out of audit_running."""
+    from app.startup_reconcile import reconcile_interrupted_runs
+
+    return await reconcile_interrupted_runs()
+
+
 CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "cms_ncd_lcd_bulk": {"fn": run_cms_ncd_lcd_bulk_cron, "schedule": "weekly Sun 03:00 UTC"},
     "medicare_pfs": {"fn": run_medicare_pfs_cron, "schedule": "annual ~Jan 5"},
@@ -45,6 +54,7 @@ CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "nudge": {"fn": run_nudge_cron, "schedule": "daily 15:00 UTC"},
     "qdrant_snapshot": {"fn": run_qdrant_snapshot_cron, "schedule": "daily 02:00 UTC"},
     "analytics_rollup": {"fn": _analytics_rollup_cron, "schedule": "nightly 04:00 UTC"},
+    "stuck_audits": {"fn": _stuck_audits_cron, "schedule": "every 15 min"},
     "noop": {"fn": _noop_cron, "schedule": "manual"},
 }
 

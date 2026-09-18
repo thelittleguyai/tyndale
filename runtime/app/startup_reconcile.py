@@ -14,10 +14,15 @@ for those and mark them terminal:
 
 This never raises: a reconciliation failure must not stop the app from booting.
 
-Residual gap (documented follow-up): an audit killed *recently* (well inside the budget) has a
-recent last-transition time, so the age guard skips it until a later restart ages it out. The
-proper fix is per-replica ownership tracking (a heartbeat/lease column) so "the owning process
-is gone" can be proven directly rather than inferred from age; that is out of scope here.
+Since 2026-09-18 the same sweep also runs as the `stuck_audits` cron (every 15 min), so a case
+stranded between deploys heals within ~budget + buffer + 15 min instead of waiting for the
+next boot; and a reconciled audit goes through the orchestrator's status chokepoint
+(_set_status) as audit_incomplete / system_error — the honest apology copy (never the
+needs_documents default), the chat-thread projection, the lifecycle event, the §10.4 recovery
+promise, the review-queue enqueue with its system_error trigger, and the admin alert counter.
+Residual gap: age-based detection still can't prove "the owning process is gone" for a kill
+inside the budget window; per-replica ownership (a heartbeat/lease column) remains the proper
+fix and is out of scope here.
 """
 
 from __future__ import annotations
@@ -59,6 +64,9 @@ async def reconcile_interrupted_runs(session_factory=AsyncSessionLocal) -> dict[
             audit_cutoff = now - datetime.timedelta(seconds=audit_stale_seconds)
             cron_cutoff = now - datetime.timedelta(seconds=_CRON_STALE_SECONDS)
 
+            # Atomic claim: a concurrent sweep (second replica booting, the cron) can't reconcile
+            # the same row twice. The reason is written HERE so a reader between the claim and
+            # the chokepoint pass below never sees the needs_documents default.
             audit_ids = list(
                 (
                     await s.execute(
@@ -67,7 +75,7 @@ async def reconcile_interrupted_runs(session_factory=AsyncSessionLocal) -> dict[
                             CaseFile.status == "audit_running",
                             CaseFile.updated_at < audit_cutoff,
                         )
-                        .values(status="audit_incomplete")
+                        .values(status="audit_incomplete", audit_incomplete_reason="system_error")
                         .returning(CaseFile.case_file_id)
                     )
                 ).scalars()
@@ -94,14 +102,28 @@ async def reconcile_interrupted_runs(session_factory=AsyncSessionLocal) -> dict[
             )
             await s.commit()
 
-        # Log each reconciliation individually so the interruption is auditable per row.
+        # Each reconciled audit then goes through the status chokepoint for its side effects
+        # (thread projection, lifecycle event, review-queue enqueue, emails policy) and counts
+        # as a system_error alert — the ONLY terminal that tells the user "our team has been
+        # notified". Per row, so one failure can't strand the rest.
         for cid in audit_ids:
             log.warning(
                 "reconcile.audit_interrupted",
                 case_file_id=str(cid),
                 reason="interrupted_by_restart",
                 new_status="audit_incomplete",
+                incomplete_reason="system_error",
             )
+            try:
+                from app.agents.llm_health import record_system_alert
+                from app.agents.orchestrator import _set_status
+
+                await _set_status(str(cid), "audit_incomplete", incomplete_reason="system_error")
+                record_system_alert()
+            except Exception:  # noqa: BLE001 — the claim already made the status honest
+                log.error(
+                    "reconcile.audit_side_effects_failed", case_file_id=str(cid), exc_info=True
+                )
         for rid in cron_ids:
             log.warning(
                 "reconcile.cron_interrupted",
