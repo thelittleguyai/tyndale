@@ -75,6 +75,8 @@ def message_to_out(m: Message) -> MessageOut:
         ),
         created_at=m.created_at,
         completed_at=m.completed_at,
+        corrected_by_message_id=m.corrected_by_message_id,
+        corrects_message_id=m.corrects_message_id,
     )
 
 

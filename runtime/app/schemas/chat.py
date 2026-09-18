@@ -125,6 +125,10 @@ class MessageOut(BaseModel):
     estimated_cost_usd: float | None = None
     created_at: datetime.datetime
     completed_at: datetime.datetime | None = None
+    # Human Review §7-2f (2026-09-18): the append-only correction linkage, read-model only in
+    # Phase 1 (both null until Phase 3 writes a correction; no UI, no copy).
+    corrected_by_message_id: uuid.UUID | None = None
+    corrects_message_id: uuid.UUID | None = None
 
 
 class ConversationDetail(ConversationOut):

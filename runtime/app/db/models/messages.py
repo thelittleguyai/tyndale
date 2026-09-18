@@ -91,6 +91,16 @@ class Message(Base):
     # Tap-to-reply chips (Brock 2026-08-22, item 3): ≤4 short strings parsed off the model's
     # trailing SUGGESTED line. Rendered under the NEWEST assistant turn only.
     suggested_replies: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Human Review §7-2f (design-toward, 2026-09-18): the append-only correction pattern. A
+    # corrected prior message points at its follow-up (corrected_by_message_id); the
+    # follow-up points back (corrects_message_id). Read-model only in Phase 1 — no UI, no
+    # copy (Brock's) — so Phase 3 needs no schema change.
+    corrected_by_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.message_id"), nullable=True
+    )
+    corrects_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.message_id"), nullable=True
+    )
     # Chat-first typed thread entries (DL-91). `kind` discriminates the render — 'message' is the
     # classic text/chunks turn; the others are bridge-authored (role='system') cards. `payload`
     # carries the structured card data (status bars / verification group / moment card).
