@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,14 +23,23 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analytics.emit import emit
 from app.auth import CurrentUser
 from app.db.models.admin_verdicts import AdminVerdict
 from app.db.models.case_files import CaseFile
 from app.db.models.case_reviews import CONFIDENCE_BANDS, REVIEW_STATES, CaseReview
+from app.db.models.conversations import Conversation
+from app.db.models.deadlines import Deadline
+from app.db.models.feedback import FeedbackEvent
+from app.db.models.findings import Finding
+from app.db.models.messages import Message
 from app.db.session import get_session
 from app.review import queue as review_queue
+from app.review.routing import CAUSES, route_verdict
 from app.routes.admin._deps import admin_user, audit_admin_action
 from app.routes.admin._deps import iso as _iso
+from app.routes.admin.cases import _finding_dict, _load_case, case_provenance
+from app.schemas.case_file import as_dict
 
 log = structlog.get_logger()
 router = APIRouter(tags=["v1-admin"])
@@ -86,7 +95,11 @@ def _review_dict(
         "reviewer_masked": _mask(r.reviewer_id),
         "prior_review_id": str(r.prior_review_id) if r.prior_review_id else None,
         "verdict": (
-            {"verdict_id": str(verdict.verdict_id), "verdict": verdict.verdict, "cause": None}
+            {
+                "verdict_id": str(verdict.verdict_id),
+                "verdict": verdict.verdict,
+                "cause": verdict.cause,
+            }
             if verdict is not None
             else None
         ),
@@ -212,3 +225,510 @@ async def update_review_settings(
     )
     await session.commit()
     return {"review_sample_pct": pct}
+
+
+# ── workspace ────────────────────────────────────────────────────────────────────────────
+
+
+def _codes_in(obj: Any) -> list[str]:
+    """Code-like strings a finding's facts already name (BASIS codes) — collected from the
+    keys the agents write today; nothing is inferred."""
+    out: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in ("code", "cpt", "cpt_code", "hcpcs", "procedure_code") and isinstance(v, str):
+                out.append(v)
+            elif k in ("codes", "reference_codes", "cpt_codes", "basis_codes") and isinstance(
+                v, list
+            ):
+                out.extend(str(x) for x in v if isinstance(x, (str, int)))
+            elif isinstance(v, (dict, list)):
+                out.extend(_codes_in(v))
+    elif isinstance(obj, list):
+        for x in obj:
+            out.extend(_codes_in(x))
+    seen: set[str] = set()
+    return [c for c in out if not (c in seen or seen.add(c))]
+
+
+def _first_str(d: dict, *keys: str) -> str | None:
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return None
+
+
+def _why_lines(f: Finding) -> list[dict[str, Any]]:
+    """The per-finding 'why' expander: five lines, each read from a field the agents already
+    persist. A missing field is null — the console renders 'not recorded'. Never synthesized."""
+    facts = as_dict(f.facts) or {}
+    claim = as_dict(f.legal_claim) or {}
+    rec = as_dict(f.recommendation) or {}
+    numbers = {
+        k: facts[k]
+        for k in ("billed_amount", "allowed_amount", "eob_member_responsibility", "computed", "gap")
+        if isinstance(facts.get(k), (int, float))
+    }
+    return [
+        {
+            "key": "observed",
+            "label": "What the documents show",
+            "value": _first_str(facts, "notes", "observation", "description", "evidence"),
+        },
+        {
+            "key": "rule",
+            "label": "Rule applied",
+            "value": _first_str(claim, "claim", "rule", "text"),
+        },
+        {"key": "numbers", "label": "Numbers compared", "value": numbers or None},
+        {
+            "key": "action",
+            "label": "Recommended action",
+            "value": _first_str(rec, "action", "reasoning"),
+        },
+        {
+            "key": "producer",
+            "label": "Produced by",
+            "value": f"{f.subagent_source} · tier {f.voice_tier}" if f.subagent_source else None,
+        },
+    ]
+
+
+def _citations_of(f: Finding) -> list[dict]:
+    from app.agents.orchestrator import _project_citations
+
+    claim = as_dict(f.legal_claim) or {}
+    raw = claim.get("citations") or claim.get("citation") or []
+    try:
+        return [c.model_dump() for c in _project_citations(raw)]
+    except Exception:  # noqa: BLE001 — a malformed citation renders as none, not a 500
+        return []
+
+
+def _analysis_finding(f: Finding) -> dict[str, Any]:
+    facts = as_dict(f.facts) or {}
+    d = _finding_dict(f)
+    d.update(
+        {
+            "responsible_party": facts.get("responsible_party") or "either",
+            "amount_usd": facts.get("gap") if isinstance(facts.get("gap"), (int, float)) else None,
+            "basis_codes": _codes_in(facts),
+            "citations": _citations_of(f),
+            "confidence": facts.get("confidence")
+            if isinstance(facts.get("confidence"), (int, float, str))
+            else None,
+            "why": _why_lines(f),
+            "created_at": _iso(f.created_at),
+        }
+    )
+    return d
+
+
+def _document_card(i: int, d: dict) -> dict[str, Any]:
+    text_len = next((len(d[k]) for k in _DOC_TEXT_KEYS if isinstance(d.get(k), str)), 0)
+    return {
+        "index": i,
+        "document_type": d.get("document_type"),
+        "filename": d.get("filename") or d.get("name"),
+        "uploaded_at": d.get("uploaded_at") or d.get("created_at"),
+        "page_count": d.get("page_count") or d.get("pages"),
+        "text_chars": text_len,
+        "claim_number": d.get("claim_number"),
+        "account_number": d.get("account_number"),
+        "extraction_status": d.get("extraction_status") or d.get("status"),
+    }
+
+
+async def _journey(session: AsyncSession, cf: CaseFile) -> list[dict[str, Any]]:
+    """The user's journey as the server knows it: the audit-lifecycle analytics events for
+    this case (emitted from the status chokepoint), oldest first. Enum/number only by
+    construction of the analytics registry."""
+    from app.db.models.analytics_events import AnalyticsEvent
+
+    rows = (
+        (
+            await session.execute(
+                select(AnalyticsEvent)
+                .where(AnalyticsEvent.case_file_id == cf.case_file_id)
+                .order_by(AnalyticsEvent.occurred_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        {"event": r.event_name, "at": _iso(r.occurred_at), "properties": r.properties or {}}
+        for r in rows
+    ]
+
+
+@router.get("/admin/review/cases/{case_file_id}")
+async def review_workspace(
+    case_file_id: str,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """The three-pane workspace. Opening a pending row moves it to in_review under this
+    reviewer (a decided row is never downgraded); every open writes a review_view audit event."""
+    from app.agents.orchestrator import _assemble_result, tripwire_entries
+    from app.routes.conversations import message_to_out
+    from app.sources.call_identifiers import of_case
+    from app.sources.gameplan import build_gameplan
+
+    cf = await _load_case(session, case_file_id)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    review = await review_queue.latest_review(session, cf.case_file_id)
+    if review is not None and review.state in ("unreviewed", "re_review"):
+        review.state = "in_review"
+        review.reviewer_id = admin.user_id
+        review.in_review_at = now
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="review_view",
+        target_user_id=cf.user_id,
+        case_file_id=cf.case_file_id,
+        extra={
+            "review_id": str(review.review_id) if review else None,
+            "state": review.state if review else None,
+        },
+    )
+    await session.commit()
+
+    findings = (
+        (
+            await session.execute(
+                select(Finding)
+                .where(Finding.case_file_id == cf.case_file_id)
+                .order_by(Finding.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    messages = (
+        (
+            await session.execute(
+                select(Message)
+                .join(Conversation, Message.conversation_id == Conversation.conversation_id)
+                .where(Conversation.case_id == cf.case_file_id)
+                .order_by(Message.created_at.asc(), Message.sequence_number.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    deadlines = (
+        (await session.execute(select(Deadline).where(Deadline.case_file_id == cf.case_file_id)))
+        .scalars()
+        .all()
+    )
+    feedback = (
+        (
+            await session.execute(
+                select(FeedbackEvent)
+                .where(FeedbackEvent.case_file_id == cf.case_file_id)
+                .order_by(FeedbackEvent.created_at.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    verdicts = (
+        (
+            await session.execute(
+                select(AdminVerdict)
+                .where(AdminVerdict.case_file_id == cf.case_file_id)
+                .order_by(AdminVerdict.captured_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    chain = (
+        (
+            await session.execute(
+                select(CaseReview)
+                .where(CaseReview.case_file_id == cf.case_file_id)
+                .order_by(CaseReview.run_seq.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    audit: dict | None = None
+    try:
+        audit = (await _assemble_result(str(cf.case_file_id), composed="")).model_dump(mode="json")
+    except Exception as exc:  # noqa: BLE001 — the rest of the workspace still renders
+        log.warning("review.workspace.assemble_failed", case_file_id=case_file_id, error=str(exc))
+
+    ids = of_case(cf)
+    provenance = await case_provenance(case_file_id, admin=admin, session=session)
+    provenance.update(
+        {
+            "tripwires": tripwire_entries(cf),
+            "research_log": cf.research_log or [],
+            "api_pulls": _PHASE2_PLACEHOLDER,
+            "live_lookups": _PHASE2_PLACEHOLDER,
+            "missing_data": _PHASE2_PLACEHOLDER,
+            "retrieval_misses": _PHASE2_PLACEHOLDER,
+        }
+    )
+    outcomes = [
+        {
+            "feedback_type": fb.feedback_type,
+            "created_at": _iso(fb.created_at),
+            "payload": fb.payload,
+        }
+        for fb in feedback
+        if fb.feedback_type == "outcome_report"
+        or (isinstance(fb.payload, dict) and fb.payload.get("call_outcome"))
+    ]
+    verdict_by_id = {v.verdict_id: v for v in verdicts}
+    return {
+        "case": {
+            "case_file_id": str(cf.case_file_id),
+            "user_masked": _mask(cf.user_id),
+            "status": cf.status,
+            "incomplete_reason": cf.audit_incomplete_reason,
+            "intake_status": getattr(cf, "intake_status", None),
+            "created_at": _iso(cf.created_at),
+            "updated_at": _iso(cf.updated_at),
+        },
+        "review": _review_dict(
+            review, now=now, verdict=verdict_by_id.get(review.verdict_id), user_id=cf.user_id
+        )
+        if review
+        else None,
+        "review_chain": [
+            _review_dict(r, now=now, verdict=verdict_by_id.get(r.verdict_id), user_id=cf.user_id)
+            for r in chain
+        ],
+        "left": {
+            "documents": [
+                _document_card(i, d)
+                for i, d in enumerate(cf.documents or [])
+                if isinstance(d, dict)
+            ],
+            "eobs": [
+                _document_card(i, d) for i, d in enumerate(cf.eobs or []) if isinstance(d, dict)
+            ],
+            "extraction": {
+                "line_items": cf.line_items or [],
+                "coverage": cf.coverage or {},
+                "encounter_confirmations": getattr(cf, "encounter_confirmations", None) or [],
+            },
+            "journey": await _journey(session, cf),
+        },
+        "tabs": {
+            "analysis": {
+                "three_numbers": (audit or {}).get("audit"),
+                "disclosure": (audit or {}).get("disclosure"),
+                "summary": (audit or {}).get("summary") or "",
+                "result_status": (audit or {}).get("status"),
+                "documents_needed": (audit or {}).get("documents_needed") or [],
+                "findings": [_analysis_finding(f) for f in findings],
+            },
+            "conversation": [message_to_out(m).model_dump(mode="json") for m in messages],
+            "results": {
+                "gameplan": [g.model_dump(mode="json") for g in build_gameplan(findings, ids)],
+                "identifiers": {
+                    "claim_number": ids.claim_number,
+                    "account_number": ids.account_number,
+                    "provider_phone": ids.provider_phone,
+                    "payer_phone": ids.payer_phone,
+                },
+                "tiers": [
+                    {
+                        "finding_id": str(f.finding_id),
+                        "voice_tier": f.voice_tier,
+                        "tier_a_facts": as_dict(f.facts) or {},
+                        "tier_b_claim": f.legal_claim,
+                        "tier_c_recommendation": f.recommendation,
+                    }
+                    for f in findings
+                ],
+                "deadlines": [
+                    {
+                        "deadline_id": str(d.deadline_id),
+                        "deadline_date": d.deadline_date.isoformat() if d.deadline_date else None,
+                        "deadline_type": d.deadline_type,
+                        "status": d.status,
+                    }
+                    for d in deadlines
+                ],
+                "outcomes": outcomes,
+            },
+            "provenance": provenance,
+        },
+        "verdicts": [_verdict_dict(v) for v in verdicts],
+    }
+
+
+# ── verdicts ─────────────────────────────────────────────────────────────────────────────
+
+
+class StructuredNote(BaseModel):
+    concluded: str
+    should_have_concluded: str
+    input_or_rule: str
+
+
+class ReviewVerdictRequest(BaseModel):
+    action: Literal["approve", "disapprove", "cant_verify"]
+    note: str | None = None
+    verdict_type: str | None = None  # disapprove only — one of DISAPPROVAL_TYPES
+    scope: Literal["whole_case", "findings"] | None = None  # disapprove only
+    target_findings: list[str] | None = None  # scope == findings
+    cause: str | None = None  # disapprove only — exactly one of CAUSES
+    structured_note: StructuredNote | None = None  # disapprove only
+
+
+def _validate_disapproval(body: ReviewVerdictRequest, case_finding_ids: set[str]) -> list[str]:
+    problems: list[str] = []
+    if body.verdict_type not in DISAPPROVAL_TYPES:
+        problems.append(f"verdict_type must be one of {list(DISAPPROVAL_TYPES)}")
+    if body.scope is None:
+        problems.append("scope is required (whole_case | findings)")
+    elif body.scope == "findings":
+        targets = [t for t in (body.target_findings or []) if t]
+        if not targets:
+            problems.append("scope=findings needs at least one target finding")
+        elif unknown := [t for t in targets if t not in case_finding_ids]:
+            problems.append(f"target_findings not on this case: {unknown}")
+    if body.cause not in CAUSES:
+        problems.append(f"cause must be exactly one of {list(CAUSES)}")
+    sn = body.structured_note
+    if sn is None:
+        problems.append(
+            "structured_note is required (concluded / should_have_concluded / input_or_rule)"
+        )
+    else:
+        for k in ("concluded", "should_have_concluded", "input_or_rule"):
+            if not (getattr(sn, k) or "").strip():
+                problems.append(f"structured_note.{k} must not be empty")
+    return problems
+
+
+@router.post("/admin/review/cases/{case_file_id}/verdict")
+async def review_verdict(
+    case_file_id: str,
+    body: ReviewVerdictRequest,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Approve (optional note) / Disapprove… (type + scope + one cause + structured note) /
+    Can't verify (unable_to_verify — excluded from the approval rate). Append-only: a new
+    admin_verdicts row every time, the review row moves to the decided state."""
+    cf = await _load_case(session, case_file_id)
+    finding_ids = {
+        str(x)
+        for x in (
+            await session.execute(
+                select(Finding.finding_id).where(Finding.case_file_id == cf.case_file_id)
+            )
+        )
+        .scalars()
+        .all()
+    }
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if body.action == "approve":
+        verdict_type, state, targets, cause, sn = "correct", "approved", None, None, None
+    elif body.action == "cant_verify":
+        verdict_type, state, targets, cause, sn = (
+            "unable_to_verify",
+            "cant_verify",
+            None,
+            None,
+            None,
+        )
+    else:
+        problems = _validate_disapproval(body, finding_ids)
+        if problems:
+            raise HTTPException(status_code=422, detail=problems)
+        verdict_type, state = body.verdict_type, "disapproved"
+        targets = list(body.target_findings or []) if body.scope == "findings" else None
+        cause = body.cause
+        sn = body.structured_note.model_dump() if body.structured_note else None
+
+    verdict = AdminVerdict(
+        admin_user_id=admin.user_id,
+        case_file_id=cf.case_file_id,
+        verdict=verdict_type,
+        notes=(body.note or "").strip() or None,
+        target_findings=targets,
+        cause=cause,
+        structured_note=sn,
+    )
+    session.add(verdict)
+    await session.flush()
+
+    review = await review_queue.latest_review(session, cf.case_file_id)
+    if review is None or review.state in review_queue.DECIDED_STATES:
+        # A verdict on a run the policy skipped (or a second verdict on a decided run) still
+        # gets its own row — append-only, linked to its predecessor.
+        review = CaseReview(
+            case_file_id=cf.case_file_id,
+            run_seq=(review.run_seq + 1) if review else 1,
+            prior_review_id=review.review_id if review else None,
+            terminal_status=cf.status,
+            incomplete_reason=cf.audit_incomplete_reason,
+            findings_count=len(finding_ids),
+            enqueued_at=now,
+            documents_fingerprint=review_queue.documents_fingerprint(cf.documents),
+        )
+        session.add(review)
+    review.state = state
+    review.reviewer_id = admin.user_id
+    review.decided_at = now
+    review.verdict_id = verdict.verdict_id
+    if review.in_review_at is None:
+        review.in_review_at = now
+
+    scope = body.scope or "whole_case"
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="review_verdict",
+        target_user_id=cf.user_id,
+        case_file_id=cf.case_file_id,
+        extra={
+            "review_id": str(review.review_id),
+            "verdict_id": str(verdict.verdict_id),
+            "review_action": body.action,
+            "verdict": verdict_type,
+            "cause": cause,
+            "scope": scope,
+        },
+    )
+    await session.commit()
+    await emit(
+        "review_verdict_recorded",
+        user_id=admin.user_id,
+        case_file_id=cf.case_file_id,
+        properties={
+            "action": body.action,
+            "cause": cause or "none",
+            "scope": scope,
+            "findings_in_scope": len(targets or []),
+        },
+    )
+    target = route_verdict(cause=cause)
+    log.info(
+        "review.verdict.recorded",
+        case_file_id=case_file_id,
+        review_id=str(review.review_id),
+        state=state,
+        cause=cause,
+        phase2_route=target.value if target else None,
+    )
+    return {
+        "review_id": str(review.review_id),
+        "state": state,
+        "verdict_id": str(verdict.verdict_id),
+        "verdict": verdict_type,
+        "cause": cause,
+        "phase2_route": target.value if target else None,
+    }

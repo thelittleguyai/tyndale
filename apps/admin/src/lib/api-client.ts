@@ -485,6 +485,120 @@ export interface ReviewSettings {
   triggers: Record<string, boolean>;
 }
 
+export interface ReviewWhyLine {
+  key: string;
+  label: string;
+  value: string | Record<string, number> | null;
+}
+
+export interface ReviewFinding extends AdminFinding {
+  responsible_party: string;
+  amount_usd: number | null;
+  basis_codes: string[];
+  citations: { authority: string; section: string | null; src_id: string; marker: string }[];
+  confidence: number | string | null;
+  why: ReviewWhyLine[];
+  created_at: string | null;
+}
+
+export interface ReviewDocumentCard {
+  index: number;
+  document_type: string | null;
+  filename: string | null;
+  uploaded_at: string | null;
+  page_count: number | null;
+  text_chars: number;
+  claim_number: string | null;
+  account_number: string | null;
+  extraction_status: string | null;
+}
+
+export interface ReviewVerdictRecord {
+  verdict_id: string;
+  verdict: string;
+  notes: string | null;
+  cause: DisapprovalCause | null;
+  structured_note: { concluded: string; should_have_concluded: string; input_or_rule: string } | null;
+  target_findings: string[] | null;
+  reviewer_masked: string | null;
+  captured_at: string | null;
+}
+
+export interface ReviewWorkspace {
+  case: {
+    case_file_id: string;
+    user_masked: string | null;
+    status: string;
+    incomplete_reason: string | null;
+    intake_status: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+  };
+  review: ReviewQueueItem | null;
+  review_chain: ReviewQueueItem[];
+  left: {
+    documents: ReviewDocumentCard[];
+    eobs: ReviewDocumentCard[];
+    extraction: {
+      line_items: Record<string, unknown>[];
+      coverage: Record<string, unknown>;
+      encounter_confirmations: unknown[];
+    };
+    journey: { event: string; at: string | null; properties: Record<string, unknown> }[];
+  };
+  tabs: {
+    analysis: {
+      three_numbers: Record<string, unknown> | null;
+      disclosure: { tier: number; label: string; missing_inputs: string[]; chase_inputs: string[] } | null;
+      summary: string;
+      result_status: string | null;
+      documents_needed: { key: string; label: string; have: boolean }[];
+      findings: ReviewFinding[];
+    };
+    conversation: Record<string, unknown>[];
+    results: {
+      gameplan: Record<string, unknown>[];
+      identifiers: Record<string, string | null>;
+      tiers: {
+        finding_id: string;
+        voice_tier: string;
+        tier_a_facts: Record<string, unknown>;
+        tier_b_claim: Record<string, unknown> | null;
+        tier_c_recommendation: Record<string, unknown> | null;
+      }[];
+      deadlines: Record<string, unknown>[];
+      outcomes: Record<string, unknown>[];
+    };
+    provenance: {
+      case_file_id: string;
+      documents: Record<string, unknown>[];
+      skills_loaded: string[];
+      tools_called: { tools_invoked: string[] | null; args: unknown; result: unknown; outcome: string | null; timestamp: string | null }[];
+      qdrant_chunks_retrieved: unknown[];
+      subagent_calls: { actor: string | null; outcome: string | null; timestamp: string | null; detail: unknown }[];
+      findings_written: AdminFinding[];
+      llm_calls: { model: string | null; outcome: string | null; timestamp: string | null; usage: unknown }[];
+      tripwires: Record<string, unknown>[];
+      research_log: unknown[];
+      api_pulls: { status: string; label: string };
+      live_lookups: { status: string; label: string };
+      missing_data: { status: string; label: string };
+      retrieval_misses: { status: string; label: string };
+    };
+  };
+  verdicts: ReviewVerdictRecord[];
+}
+
+export interface ReviewVerdictBody {
+  action: 'approve' | 'disapprove' | 'cant_verify';
+  note?: string;
+  verdict_type?: DisapprovalType;
+  scope?: 'whole_case' | 'findings';
+  target_findings?: string[];
+  cause?: DisapprovalCause;
+  structured_note?: { concluded: string; should_have_concluded: string; input_or_rule: string };
+}
+
 export function adminReviewQueue(params: Record<string, string | number | boolean> = {}) {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -497,3 +611,35 @@ export function adminReviewQueue(params: Record<string, string | number | boolea
 export const adminReviewSettings = () => get<ReviewSettings>('/v1/admin/review/settings');
 export const adminSetReviewSampling = (pct: number) =>
   put<{ review_sample_pct: number }>('/v1/admin/review/settings', { review_sample_pct: pct });
+export const adminReviewWorkspace = (caseId: string) =>
+  get<ReviewWorkspace>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}`);
+
+/** Posts a verdict; a 422 surfaces the server's validation list as the error message. */
+export async function adminReviewVerdict(caseId: string, body: ReviewVerdictBody) {
+  const path = `/v1/admin/review/cases/${encodeURIComponent(caseId)}/verdict`;
+  const res = await fetch(`${RUNTIME}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `${path} -> ${res.status}`;
+    try {
+      const j = (await res.json()) as { detail?: unknown };
+      if (Array.isArray(j.detail)) detail = j.detail.map(String).join(' · ');
+      else if (typeof j.detail === 'string') detail = j.detail;
+    } catch {
+      /* keep the status message */
+    }
+    throw new AdminApiError(res.status, detail);
+  }
+  return (await res.json()) as {
+    review_id: string;
+    state: ReviewState;
+    verdict_id: string;
+    verdict: string;
+    cause: DisapprovalCause | null;
+    phase2_route: string | null;
+  };
+}
