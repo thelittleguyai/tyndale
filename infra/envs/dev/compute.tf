@@ -1,6 +1,16 @@
 # Container Apps Environment — consumption tier
 resource "azurerm_container_app_environment" "main" {
-  name                       = "${local.name_prefix}-cae"
+  name = "${local.name_prefix}-cae"
+
+  # Azure migrated Consumption-plan environments to workload-profile environments (observed
+  # 2026-09-18: both CAEs carry a "Consumption" profile and every app/job is pinned to it).
+  # Declared here so terraform matches Azure instead of trying to strip the profile.
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 0
+    maximum_count         = 0
+  }
   location                   = local.region
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
@@ -20,6 +30,7 @@ resource "azurerm_container_app" "runtime" {
   # NOTE: changing the environment forces a replace of this Container App.
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -427,6 +438,7 @@ resource "azurerm_container_app_job" "runtime_migrations" {
   name                         = "${local.name_prefix}-runtime-migrations"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   location                     = local.region
   tags                         = local.tags
 
@@ -512,6 +524,7 @@ resource "azurerm_container_app_job" "runtime_seed" {
   name                         = "${local.name_prefix}-runtime-seed"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   location                     = local.region
   tags                         = local.tags
 
@@ -606,6 +619,7 @@ resource "azurerm_container_app" "litellm" {
   name                         = "${local.name_prefix}-litellm"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -663,6 +677,7 @@ resource "azurerm_container_app" "qdrant" {
   name                         = "${local.name_prefix}-qdrant"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -741,6 +756,7 @@ resource "azurerm_container_app" "wrapper" {
   name                         = "${local.name_prefix}-wrapper"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -860,7 +876,17 @@ resource "azurerm_container_app" "wrapper" {
 # VNet-private while the marketing landing can take public traffic.
 # ============================================================================
 resource "azurerm_container_app_environment" "external" {
-  name                       = "${local.name_prefix}-cae-external"
+  name = "${local.name_prefix}-cae-external"
+
+  # Azure migrated Consumption-plan environments to workload-profile environments (observed
+  # 2026-09-18: both CAEs carry a "Consumption" profile and every app/job is pinned to it).
+  # Declared here so terraform matches Azure instead of trying to strip the profile.
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 0
+    maximum_count         = 0
+  }
   location                   = local.region
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
@@ -878,6 +904,7 @@ resource "azurerm_container_app" "marketing" {
   name                         = "${local.name_prefix}-marketing"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -1126,6 +1153,7 @@ resource "azurerm_container_app" "app" {
   name                         = "${local.name_prefix}-app"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 
@@ -1223,6 +1251,7 @@ resource "azurerm_container_app" "admin" {
   name                         = "${local.name_prefix}-admin"
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see the CAE workload_profile note
   revision_mode                = "Single"
   tags                         = local.tags
 

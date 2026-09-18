@@ -40,6 +40,7 @@ resource "azurerm_container_app_job" "cron" {
   name                         = substr("${local.name_prefix}-cron-${replace(each.key, "_", "-")}", 0, 32)
   container_app_environment_id = azurerm_container_app_environment.external.id
   resource_group_name          = azurerm_resource_group.main.name
+  workload_profile_name        = "Consumption" # see compute.tf CAE workload_profile note
   location                     = local.region
   tags                         = local.tags
 
