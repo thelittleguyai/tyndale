@@ -48,6 +48,77 @@ COOKIE_NAME = "tyndale_session"  # a session read-name on every env (bare name k
 FIXTURE_MARKERS = ("70553", "A9579", "36000")
 
 
+# ── Ledgered benign signature (Brock 2026-09-17, option b) ────────────────────────────
+# The 2026-08-25 sweep tripped on the Bill Detective's ANALYST NOTES naming a canary while
+# reasoning about the CPT FAMILY of a code that was genuinely on the bill ("lowest complexity
+# of the 70551/70552/70553 family; no upcoding signal"). That is correct reasoning, not a
+# leak. The allow-rule is deliberately NARROW: only that field, only when the marker shares
+# the family prefix with an extracted line-item code, only with family-reasoning language.
+# Every other field, and that field without both conditions, still trips.
+_BENIGN_NOTE_FIELD_SUFFIX = ".facts.notes"
+_BENIGN_LEDGER_KEY = "canary:family_reasoning_in_notes"
+_FAMILY_LANG_RE = re.compile(r"\bfamily\b|\b[A-Z]?\d{4,5}(?:\s*/\s*[A-Z]?\d{4,5})+\b", re.IGNORECASE)
+
+
+def _family_prefix(code: str) -> str:
+    """The CPT/HCPCS 'family' prefix: all but the last digit (70551/70552/70553 -> 7055;
+    A9579 -> A957)."""
+    return code.strip().upper()[:-1]
+
+
+def _bill_codes(extract: dict | None) -> set[str]:
+    return {
+        str(li.get("code")).strip().upper()
+        for li in ((extract or {}).get("line_items") or [])
+        if isinstance(li, dict) and li.get("code")
+    }
+
+
+def _marker_benign(marker: str, path: str, text: str, bill_codes: set[str]) -> str | None:
+    """The ledger key when a marker hit is the ledgered benign signature, else None."""
+    if not path.endswith(_BENIGN_NOTE_FIELD_SUFFIX):
+        return None
+    if not any(_family_prefix(marker) == _family_prefix(c) for c in bill_codes if c):
+        return None
+    if not _FAMILY_LANG_RE.search(text):
+        return None
+    return _BENIGN_LEDGER_KEY
+
+
+def _walk_strings(node, path="$"):
+    """Every (json-path, string) leaf — the per-FIELD scan the allow-rule needs."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk_strings(v, f"{path}.{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk_strings(v, f"{path}[{i}]")
+    elif isinstance(node, str):
+        yield path, node
+
+
+def _scan_audit_markers(
+    audit: dict, bill_codes: set[str], markers=None
+) -> tuple[list[str], list[str]]:
+    """(failures, ledgered_notes) over every string field of the audit result."""
+    fails: list[str] = []
+    ledgered: list[str] = []
+    for path, text in _walk_strings(audit):
+        for marker in (markers or FIXTURE_MARKERS):
+            if not _marker_hits(marker, text):
+                continue
+            key = _marker_benign(marker, path, text, bill_codes)
+            if key is None:
+                fails.append(f"FIXTURE MARKER {marker!r} leaked into the result at {path}")
+                continue
+            entry = _load_doctrine("doctrine_config").X_KNOWN_GAPS.get(key)
+            if entry is None:  # the ledger entry was removed -> enforcement is back on
+                fails.append(f"FIXTURE MARKER {marker!r} at {path} — ledger key {key!r} missing")
+            else:
+                ledgered.append(f"ledgered: {key} — {marker} at {path}")
+    return fails, ledgered
+
+
 def _marker_hits(marker: str, blob: str) -> bool:
     """Token-boundary marker match (audit 2026-08-27 item 5): "36000" must not fire on an
     innocent 3600.00 rendered unformatted (…360000…) or a 136000 anywhere in the JSON —
@@ -401,10 +472,10 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             got = audit.get("incomplete_reason")
             if got != exp["incomplete_reason"]:
                 fails.append(f"incomplete_reason={got!r} expected {exp['incomplete_reason']!r}")
-        blob = json.dumps(audit).lower()
-        for marker in FIXTURE_MARKERS:
-            if _marker_hits(marker, blob):
-                fails.append(f"FIXTURE MARKER {marker!r} leaked into the result")
+        marker_fails, ledgered = _scan_audit_markers(audit, _bill_codes(extract))
+        fails.extend(marker_fails)
+        for note in ledgered:
+            log(f"  {note}")
         findings = audit.get("findings", [])
         # max_findings counts ERROR findings only: informational context (all-clear notes,
         # audit-performed summaries — cfg.INFORMATIONAL_CATEGORIES) is not an accusation, and
@@ -759,21 +830,20 @@ def main() -> int:
                     log(f"  finding: category={f.get('category')} finding_type={f.get('finding_type')}"
                         f" error_type={f.get('error_type')} has_impact={bool((f.get('facts') or {}).get('impact'))}")
                 # Marker triage: when a sweep says a FIXTURE MARKER leaked, this names the
-                # exact JSON path — synthetic e2e data, so snippets are safe to print.
-                def _walk(node, path):
-                    if isinstance(node, dict):
-                        for k, v in node.items():
-                            yield from _walk(v, f"{path}.{k}")
-                    elif isinstance(node, list):
-                        for i, v in enumerate(node):
-                            yield from _walk(v, f"{path}[{i}]")
-                    elif isinstance(node, str):
-                        yield path, node
-                for path, text in _walk(body, "$"):
+                # exact JSON path — synthetic e2e data, so snippets are safe to print — and
+                # says "ledgered" when the hit is the benign family-reasoning signature.
+                inspect_codes = {
+                    str(li.get("code")).strip().upper()
+                    for li in (body.get("line_items") or [])
+                    if isinstance(li, dict) and li.get("code")
+                }
+                for path, text in _walk_strings(body):
                     for m in FIXTURE_MARKERS:
-                        if m in text:
-                            at = text.find(m)
-                            log(f"  MARKER {m} at {path}: …{text[max(0, at - 60) : at + 70]}…")
+                        if _marker_hits(m, text):
+                            at = text.upper().find(m.upper())
+                            key = _marker_benign(m, path, text, inspect_codes)
+                            tag = f" ledgered: {key}" if key else ""
+                            log(f"  MARKER {m} at {path}:{tag} …{text[max(0, at - 60) : at + 70]}…")
         return 0
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
