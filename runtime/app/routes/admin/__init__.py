@@ -17,6 +17,7 @@ from app.routes.admin import (
     crons,
     knowledge_gaps,
     qdrant,
+    review,
     system,
     test_support,
     users,
@@ -33,6 +34,7 @@ router.include_router(crons.router)
 router.include_router(knowledge_gaps.router)
 router.include_router(appeals.router)
 router.include_router(analytics.router)
+router.include_router(review.router)  # Human Review Phase 1 (2026-09-18)
 router.include_router(test_support.router)  # HP-2: dev-only synthetic test-token
 
 __all__ = ["router", "admin_user", "audit_admin_action"]

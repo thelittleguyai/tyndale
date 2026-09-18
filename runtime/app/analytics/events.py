@@ -133,6 +133,18 @@ REGISTRY: dict[str, EventSpec] = {
     # ("they said they'd fix it" is a claim by the party we're auditing, not a recovery), so
     # this event carries no money and never feeds recovered_so_far.
     "call_outcome_recorded": EventSpec({"route": enum_prop(*_CALL_OUTCOME_ROUTES)}),
+    # Human Review Phase 1 (2026-09-18): one event per reviewer verdict. Enums + a number
+    # only — never the note text, never a case identifier beyond the standard column.
+    "review_verdict_recorded": EventSpec(
+        {
+            "action": enum_prop("approve", "disapprove", "cant_verify"),
+            "cause": enum_prop(
+                "content_gap", "reasoning_error", "bad_input", "stale_data_source", "none"
+            ),
+            "scope": enum_prop("whole_case", "findings"),
+            "findings_in_scope": num_prop(),
+        }
+    ),
     # §3 Outcomes -------------------------------------------------------------
     "outcome_reported": EventSpec(
         {"resolved": enum_prop(*_OUTCOME_RESOLVED), "amount_saved": num_prop()}

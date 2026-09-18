@@ -66,6 +66,30 @@ from app.stubs.fixtures import mri_audit_fixture
 log = structlog.get_logger(__name__)
 
 
+def _record_tripwire(case, kind: str, *, codes: list[str] | None = None, category: str | None = None) -> None:
+    """Append a typed tripwire entry to the case's research_log (Human Review Phase 1,
+    2026-09-18): the fabrication guards used to only LOG, so nothing per case said "a
+    canary fired here". The review queue's canary trigger reads these. Never raises."""
+    if case is None:
+        return
+    entry = {
+        "kind": "tripwire",
+        "which": kind,  # grounding_drop | grounding_scrub | translate_drop
+        "codes": list(codes or []),
+        "category": category,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    case.research_log = [*(case.research_log or []), entry]
+
+
+def tripwire_entries(case) -> list[dict]:
+    """The case's tripwire records (see _record_tripwire); [] when none fired."""
+    return [
+        e for e in (getattr(case, "research_log", None) or [])
+        if isinstance(e, dict) and e.get("kind") == "tripwire"
+    ]
+
+
 async def _set_status(
     case_file_id: str, status: str, *, incomplete_reason: str | None = None
 ) -> None:
@@ -99,6 +123,12 @@ async def _set_status(
     # reconciliation re-run can't double-count.
     if user_id is not None:
         await _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id)
+    # Human Review Phase 1 (doc 39 §7-2d): every terminal run is offered to the reviewer queue
+    # from this same chokepoint. Policy + triggers live in app.review.queue; it never raises.
+    if status in ("audit_complete", "audit_incomplete"):
+        from app.review import queue as review_queue
+
+        await review_queue.on_terminal(case_file_id, status, incomplete_reason)
     # The audit-ready email (D3) — §2.2's "I'll email you the moment it's ready", kept from the
     # same chokepoint that owns terminal status. Flag-gated, once-per-case and self-no-op'ing
     # inside; a send failure must never fail the audit that just succeeded, so it's swallowed
@@ -588,12 +618,15 @@ async def _ground_prose(
                     category=f.category,
                     ungrounded_codes=verdict.dropped_codes,
                 )
+                _record_tripwire(case, "grounding_drop", codes=verdict.dropped_codes,
+                                 category=f.category)
                 await s.delete(f)
             else:
                 _, refs = pg.structured_code_claims(f.facts, f.legal_claim, f.recommendation)
                 vouched |= refs
                 if verdict.scrubbed:
                     DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
+                    _record_tripwire(case, "grounding_scrub", codes=[], category=f.category)
                     for name, payload in verdict.scrubbed.items():
                         setattr(f, name, payload)
                     log.warning(
@@ -1207,7 +1240,8 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
             )
             # Persist the filtered list NOW — fabricated rows must not survive in the DB
             # even if a later step fails (the honest no-item paths below return without
-            # rewriting line_items).
+            # rewriting line_items). The drop is also a case-scoped TRIPWIRE record
+            # (research_log) — the human-review canary trigger reads it.
             async with AsyncSessionLocal() as s:
                 row = (
                     await s.execute(
@@ -1216,6 +1250,7 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
                 ).scalar_one_or_none()
                 if row is not None:
                     row.line_items = line_items
+                    _record_tripwire(row, "translate_drop", codes=list(dropped))
                     await s.commit()
 
     if not line_items:

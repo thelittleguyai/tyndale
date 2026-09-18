@@ -248,6 +248,18 @@ class Settings(BaseSettings):
     # BAA is signed. When off, nothing calls the wrapper and the upload-only
     # adapters are the sole source — identical behavior to before this landed.
     enable_coverage_connection: bool = False  # env: ENABLE_COVERAGE_CONNECTION
+
+    # Human Review Phase 1 (doc 39 §7-2d, Brock 2026-09-17). review_sample_pct is the
+    # random-sample dial for completed runs (100 = review everything; admin-settable at
+    # runtime via admin_settings, this is the env default). The always-enqueue TRIGGERS fire
+    # regardless of the dial — each is config so a trigger can be turned off without a
+    # deploy, and the env-wiring test guarantees every one is reachable from tfvars.
+    review_sample_pct: int = 100  # env: REVIEW_SAMPLE_PCT
+    review_trigger_first_case: bool = True  # env: REVIEW_TRIGGER_FIRST_CASE
+    review_trigger_low_confidence: bool = True  # env: REVIEW_TRIGGER_LOW_CONFIDENCE
+    review_trigger_system_error: bool = True  # env: REVIEW_TRIGGER_SYSTEM_ERROR
+    review_trigger_canary: bool = True  # env: REVIEW_TRIGGER_CANARY
+    review_trigger_material_disagreement: bool = True  # env: REVIEW_TRIGGER_MATERIAL_DISAGREEMENT
     coverage_wrapper_url: str | None = None  # e.g. http://tyndale-dev-wrapper:80
     wrapper_auth_token: str | None = None  # bearer shared with the wrapper (KV secret)
     # Ceiling on a single wrapper HTTP call. The wrapper fans out to 1up FHIR reads,

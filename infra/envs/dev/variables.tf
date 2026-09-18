@@ -400,3 +400,40 @@ variable "oneup_redirect_uri" {
   default     = ""
   description = "Registered 1upHealth payer-OAuth redirect URI (Setup Call 4). OPTIONAL like the client id/secret; empty skips the env wiring. Must match a URI registered with 1up when set."
 }
+
+# ── Human Review Phase 1 (doc 39 §7-2d, 2026-09-18) ────────────────────────────────────
+variable "review_sample_pct" {
+  type        = number
+  default     = 100
+  description = "Random-sample percentage of completed audit runs that enter the human-review queue (100 = every run). Env DEFAULT only — an admin can override at runtime (admin_settings). The always-enqueue triggers below fire regardless."
+}
+
+variable "review_trigger_first_case" {
+  type        = bool
+  default     = true
+  description = "Always enqueue a user's FIRST case for human review, regardless of review_sample_pct."
+}
+
+variable "review_trigger_low_confidence" {
+  type        = bool
+  default     = true
+  description = "Always enqueue low-confidence runs (disclosure tier 3 / no anchor) for human review."
+}
+
+variable "review_trigger_system_error" {
+  type        = bool
+  default     = true
+  description = "Always enqueue runs that ended in the system_error terminal for human review."
+}
+
+variable "review_trigger_canary" {
+  type        = bool
+  default     = true
+  description = "Always enqueue runs where a fabrication tripwire fired (grounding drop/scrub, translate drop) for human review."
+}
+
+variable "review_trigger_material_disagreement" {
+  type        = bool
+  default     = true
+  description = "Always enqueue runs where the EOB-claimed and Tyndale-computed member responsibility disagree above materiality (AUDIT_FLAG)."
+}

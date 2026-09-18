@@ -176,6 +176,32 @@ resource "azurerm_container_app" "runtime" {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
       }
+      # Human Review Phase 1 (2026-09-18): the sample dial's env default + the five
+      # always-enqueue triggers. Config, not code — see doc 39 §7-2d.
+      env {
+        name  = "REVIEW_SAMPLE_PCT"
+        value = tostring(var.review_sample_pct)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_FIRST_CASE"
+        value = tostring(var.review_trigger_first_case)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_LOW_CONFIDENCE"
+        value = tostring(var.review_trigger_low_confidence)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_SYSTEM_ERROR"
+        value = tostring(var.review_trigger_system_error)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_CANARY"
+        value = tostring(var.review_trigger_canary)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_MATERIAL_DISAGREEMENT"
+        value = tostring(var.review_trigger_material_disagreement)
+      }
       env {
         name  = "USE_REAL_CRISIS_CLASSIFIER"
         value = tostring(var.use_real_crisis_classifier)

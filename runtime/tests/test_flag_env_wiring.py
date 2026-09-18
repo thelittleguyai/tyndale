@@ -153,3 +153,10 @@ def test_cron_jobs_carry_what_the_crons_actually_read():
     }
     missing = needed - _cron_env_names()
     assert missing == set(), f"cron job env missing: {sorted(missing)}"
+
+
+def test_review_sample_dial_is_env_wired():
+    """Human Review §7-2d: the dial is an INT, so the bool sweep above doesn't see it — pin
+    it explicitly (env in compute.tf + a terraform variable), like the flags."""
+    assert "REVIEW_SAMPLE_PCT" in _tf_env_names()
+    assert 'variable "review_sample_pct"' in VARIABLES_TF.read_text(encoding="utf-8")

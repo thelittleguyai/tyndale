@@ -44,6 +44,17 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${RUNTIME}${path}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new AdminApiError(res.status, `${path} -> ${res.status}`);
+  return (await res.json()) as T;
+}
+
 async function post<T = { ok: boolean }>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${RUNTIME}${path}`, {
     method: 'POST',
@@ -411,3 +422,78 @@ export interface AdminAnalytics {
 }
 export const adminGetAnalytics = (days = 30) =>
   get<AdminAnalytics>(`/v1/admin/analytics?days=${days}`);
+
+// ── Human Review Phase 1 (doc 39 §7, 2026-09-18) ─────────────────────────────────────────
+
+export type ReviewState =
+  | 'unreviewed'
+  | 'in_review'
+  | 'approved'
+  | 'disapproved'
+  | 'cant_verify'
+  | 're_review';
+export type ConfidenceBand = 'high' | 'medium' | 'low' | 'unknown';
+export type DisapprovalCause = 'content_gap' | 'reasoning_error' | 'bad_input' | 'stale_data_source';
+export type DisapprovalType = 'partially_correct' | 'wrong' | 'missed_finding' | 'hallucinated' | 'partial';
+
+export interface ReviewQueueItem {
+  review_id: string;
+  case_file_id: string;
+  user_masked: string | null;
+  run_seq: number;
+  state: ReviewState;
+  terminal_status: string;
+  incomplete_reason: string | null;
+  confidence_band: ConfidenceBand;
+  findings_count: number;
+  net_finding_usd: number | null;
+  sampled: boolean;
+  triggers: string[];
+  flags: { first_case: boolean; system_error: boolean; canary: boolean; material_disagreement: boolean };
+  enqueued_at: string | null;
+  age_hours: number | null;
+  in_review_at: string | null;
+  decided_at: string | null;
+  reviewer_masked: string | null;
+  prior_review_id: string | null;
+  verdict: { verdict_id: string; verdict: string; cause: string | null } | null;
+}
+
+export interface ReviewHealth {
+  unreviewed: number;
+  in_review: number;
+  median_age_hours: number | null;
+  approved_7d: number;
+  disapproved_7d: number;
+  approval_rate_7d: number | null;
+  approved_30d: number;
+  disapproved_30d: number;
+  approval_rate_30d: number | null;
+}
+
+export interface ReviewQueueResponse {
+  items: ReviewQueueItem[];
+  count: number;
+  limit: number;
+  offset: number;
+  health: ReviewHealth;
+}
+
+export interface ReviewSettings {
+  review_sample_pct: number;
+  env_default_pct: number;
+  triggers: Record<string, boolean>;
+}
+
+export function adminReviewQueue(params: Record<string, string | number | boolean> = {}) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== '' && v !== undefined && v !== null) q.set(k, String(v));
+  }
+  const s = q.toString();
+  return get<ReviewQueueResponse>(`/v1/admin/review/queue${s ? `?${s}` : ''}`);
+}
+
+export const adminReviewSettings = () => get<ReviewSettings>('/v1/admin/review/settings');
+export const adminSetReviewSampling = (pct: number) =>
+  put<{ review_sample_pct: number }>('/v1/admin/review/settings', { review_sample_pct: pct });
