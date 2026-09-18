@@ -9,8 +9,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_scenarios"))
 
 from run_scenarios import (  # noqa: E402
+    FIXTURE_MARKERS,
     _bill_codes,
     _marker_benign,
+    _marker_hits,
     _scan_audit_markers,
 )
 
@@ -67,3 +69,9 @@ def test_allow_rule_is_marker_agnostic_and_prefix_scoped():
     assert _marker_benign("02417", "$.findings[0].facts.notes", "02417 family reasoning", {"70551"}) is None
     assert _marker_benign("70553", "$.findings[0].facts.notes", _NOTE, {"70551"}) is not None
 
+def test_final_canary_set_is_structurally_unassigned():
+    assert FIXTURE_MARKERS == ("02417", "05821", "Z4411")
+    for m in ("02417", "05821"):  # the five-digit CPT gap between anesthesia and surgery
+        assert 2000 <= int(m) <= 9999 and len(m) == 5
+    assert FIXTURE_MARKERS[2][0] == "Z"  # HCPCS Level II letter never nationally assigned
+    assert _marker_hits("05821", "code 05821 billed") and not _marker_hits("05821", "cost 105821.00")

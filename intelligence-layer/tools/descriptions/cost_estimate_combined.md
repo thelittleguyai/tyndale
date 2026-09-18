@@ -21,7 +21,7 @@ the Medicare baseline with hospital-MRF + TiC negotiated rates from `transparenc
 
 ## Returns
 ```json
-{"code":"70553","location_zip3":"021","central_estimate":620.0,"low_estimate":540.0,
+{"code":"02417","location_zip3":"021","central_estimate":620.0,"low_estimate":540.0,
  "high_estimate":700.0,"sources_used":["medicare_pfs","tic_mrf"],
  "confidence_summary":"...","methodology":"..."}
 ```

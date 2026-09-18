@@ -19,10 +19,10 @@ structured fields (provider, dates, charges, totals, codes).
 
 ## Returns
 ```json
-{"extracted_text":"MERCY RADIOLOGY … CPT 70553 … $1,200.00 …",
+{"extracted_text":"MERCY RADIOLOGY … CPT 02417 … $1,200.00 …",
  "structured_fields":{"provider_name":"Mercy Radiology","date_of_service":"2026-03-14",
-   "line_items":[{"code":"70553","description":"MRI brain w/wo contrast","charge":1200.00}],
-   "total_billed":1200.00,"codes":["70553"]}}
+   "line_items":[{"code":"02417","description":"MRI brain w/wo contrast","charge":1200.00}],
+   "total_billed":1200.00,"codes":["02417"]}}
 ```
 
 ## Errors and edge cases

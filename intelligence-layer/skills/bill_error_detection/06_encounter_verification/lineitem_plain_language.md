@@ -55,7 +55,7 @@ Per category guidance:
   - You'd typically get results within a few days, often via patient portal or a follow-up call
 - **Imaging:** which body part, scan duration, contrast dye (IV/oral), hold-still/hold-breath,
   whether you were gowned.
-  Example — "MRI brain w/ + w/o contrast (70553)":
+  Example — "MRI brain w/ + w/o contrast (02417)":
   - You'd have been in the scanner for about 30–60 minutes
   - You'd have been asked to lie very still
   - You'd have had an IV placed for contrast dye partway through

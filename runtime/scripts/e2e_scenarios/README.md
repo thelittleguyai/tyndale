@@ -13,7 +13,7 @@ Never put real PHI here.
 - `scenarios/*.json` — declarative scenarios: documents to generate, encounter answers, expected
   terminal state + finding types.
 - `run_scenarios.py` — the driver: per scenario, upload → poll extraction → answer encounter →
-  run audit → poll to terminal → assert terminal + finding types + **no fixture markers**. Prints
+  run audit → poll to terminal → assert terminal + finding types + **no fixture markers** (`02417` · `05821` · `Z4411` — structurally unassigned codes; a hit in Bill Detective `facts.notes` that is genuine family reasoning about a code on the bill is LEDGERED, everything else trips). Prints
   a pass/fail table with `case_file_id` on every failure (inspect it in the admin console) and
   per-stage timings.
 

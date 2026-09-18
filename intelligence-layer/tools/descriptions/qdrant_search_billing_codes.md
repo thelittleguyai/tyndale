@@ -14,12 +14,12 @@ returning matching records with descriptor + metadata.
   (use `qdrant_search_error_detection_rules`).
 
 ## Arguments
-- `query` (string, required) — a code or descriptor, e.g. `"70553"` or `"MRI brain with contrast"`.
+- `query` (string, required) — a code or descriptor, e.g. `"02417"` or `"MRI brain with contrast"`.
 - `max_results` (int, optional, default 10).
 
 ## Returns
 ```json
-[{"code":"70553","code_system":"CPT","descriptor":"MRI of the brain with and without contrast",
+[{"code":"02417","code_system":"CPT","descriptor":"MRI of the brain with and without contrast",
   "category":"Radiology","score":0.93}]
 ```
 

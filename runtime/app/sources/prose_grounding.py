@@ -16,8 +16,9 @@ one layer up, where it reaches AUDIT PROSE (a finding's narrative, the LP summar
     count ONLY in explicit code contexts ("CPT 70553", "code: A9579", "(70553)") so a zip
     code or a dollar figure in prose can never convict a finding.
 
-The canary codes (70553 / A9579 / 36000 — see intelligence-layer/prompts/README.md) are
-the tripwire this exists for; tests use them exactly as the e2e harness does.
+The canary codes (02417 / 05821 / Z4411 since 2026-09-18 — see
+intelligence-layer/prompts/README.md) are the tripwire this exists for; tests use them
+exactly as the e2e harness does.
 """
 
 from __future__ import annotations

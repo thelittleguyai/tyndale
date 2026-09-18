@@ -24,7 +24,8 @@ from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
 
-_FIXTURE_MARKER = "70553"  # an MRI-fixture CPT code — its presence == fabricated line items
+_FIXTURE_MARKER = "70553"  # the dev MRI FIXTURE case's own code — its presence == the fixture
+# leaked, NOT the e2e canary set (those are 02417/05821/Z4411 since 2026-09-18)
 
 
 async def _fresh_case(client: AsyncClient) -> str:

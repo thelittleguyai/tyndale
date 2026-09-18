@@ -1,6 +1,6 @@
 {
   "name": "captured_bill_photo",
-  "description": "A PHOTOGRAPHED bill (JPEG, as camera capture emits) plus its EOB. N1/C1: a captured photo must reach extraction on exactly the same path as a picked PDF — same magic-byte gate, same classifier, same audit — so camera-first intake never becomes a weaker second door. NOTE: 70551 deliberately, NOT 70553 — 70553 is a FIXTURE_MARKER (the leak tripwire), and the first dev sweep (2026-08-17) proved a scenario that uses a marker as legitimate data fails itself.",
+  "description": "A PHOTOGRAPHED bill (JPEG, as camera capture emits) plus its EOB. N1/C1: a captured photo must reach extraction on exactly the same path as a picked PDF — same magic-byte gate, same classifier, same audit — so camera-first intake never becomes a weaker second door. NOTE: 70551 deliberately (a real MRI code). The canary set was re-picked 2026-09-18 to structurally unassigned codes (02417/05821/Z4411) precisely because 70553 — the old marker — was this code's own family sibling; the first dev sweep (2026-08-17) proved a scenario that uses a marker as legitimate data fails itself.",
   "documents": [
     {
       "type": "bill_photo",

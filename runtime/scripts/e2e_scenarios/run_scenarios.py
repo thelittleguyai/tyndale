@@ -43,9 +43,15 @@ DEV_URL = "https://api.tyndaleapp.net"
 SYNTH_EMAIL = "e2e-runner@e2e.tyndale.test"
 COOKIE_NAME = "tyndale_session"  # a session read-name on every env (bare name kept for grace)
 
-# MRI-fixture codes — their presence anywhere in a result means fabricated data leaked (the bug
-# HP prompts have chased). NO scenario legitimately uses these.
-FIXTURE_MARKERS = ("70553", "A9579", "36000")
+# The fabrication canaries — their presence in a result means non-document content leaked
+# (the bug HP prompts have chased). RE-PICKED 2026-09-18 (Brock 2026-09-17): the old set
+# (70553 MRI family, A9579 a real contrast agent, 36000 venipuncture) were REAL codes, so
+# genuine reasoning could name them. These are valid in FORMAT and structurally never
+# assigned — 02417/05821 sit in the empty five-digit CPT gap between anesthesia (ends
+# 01999) and surgery (starts 10004); Z4411 uses the HCPCS letter Z, never nationally
+# assigned. They are also the worked-example codes in the intelligence-layer prompts
+# (prompts/README.md) — echoing an example is exactly the fabrication this catches.
+FIXTURE_MARKERS = ("02417", "05821", "Z4411")
 
 
 # ── Ledgered benign signature (Brock 2026-09-17, option b) ────────────────────────────
@@ -120,9 +126,9 @@ def _scan_audit_markers(
 
 
 def _marker_hits(marker: str, blob: str) -> bool:
-    """Token-boundary marker match (audit 2026-08-27 item 5): "36000" must not fire on an
-    innocent 3600.00 rendered unformatted (…360000…) or a 136000 anywhere in the JSON —
-    the canary only sings when the marker stands alone as a code-like token."""
+    """Token-boundary marker match (audit 2026-08-27 item 5): a marker must not fire inside
+    a longer number or id ("05821" is not in "105821.00") — the canary only sings when the
+    marker stands alone as a code-like token."""
     return re.search(rf"(?<![0-9A-Za-z.]){re.escape(marker)}(?![0-9A-Za-z.])", blob, re.IGNORECASE) is not None
 
 POLL_TIMEOUT_S = 600

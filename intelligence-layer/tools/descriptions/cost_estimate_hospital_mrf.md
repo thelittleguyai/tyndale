@@ -20,7 +20,7 @@ from its CMS-mandated machine-readable file (`transparency_rates` source=`hospit
 
 ## Returns
 ```json
-{"code":"70553","hospital_id":"330101",
+{"code":"02417","hospital_id":"330101",
  "rates":[{"payer":"Aetna","rate":620.0,"rate_type":"negotiated","confidence":0.85}]}
 ```
 

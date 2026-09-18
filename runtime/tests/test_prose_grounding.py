@@ -1,6 +1,6 @@
 """Prose grounding — drop-if-basis, scrub-if-incidental (2026-08-18, Phil's ruling).
 
-Canary codes (70553 / A9579 / 36000) are used exactly as the e2e harness uses them: any
+Canary codes (02417 / 05821 / Z4411, re-picked 2026-09-18) are used exactly as the e2e harness uses them: any
 appearing in an output while absent from the documents is the fabrication tripwire. The
 load-bearing properties: basis-dependence drops the whole finding; only cleanly-strippable
 (parenthesized) incidental references scrub; inline mentions are never hand-edited into
@@ -25,9 +25,9 @@ HAYSTACK = (
 # ── basis: a structural code no document contains drops the finding ───────────────────────
 def test_basis_code_absent_from_documents_drops_the_finding():
     verdict = ground_finding(
-        {"code": "70553", "gap": 1200.0}, None, None, HAYSTACK
+        {"code": "02417", "gap": 1200.0}, None, None, HAYSTACK
     )
-    assert verdict.action == "drop" and verdict.dropped_codes == ["70553"]
+    assert verdict.action == "drop" and verdict.dropped_codes == ["02417"]
 
 
 def test_grounded_structured_claims_keep():
@@ -42,12 +42,12 @@ def test_grounded_structured_claims_keep():
 
 def test_code_claims_split_presence_from_reference():
     presence, reference = structured_code_claims(
-        {"lines": [{"procedure_code": "73721"}, {"hcpcs": "A9579"}],
+        {"lines": [{"procedure_code": "73721"}, {"hcpcs": "Z4411"}],
          "correct_panel_code": "80053", "note": "ignored"},
         None,
         {"suggested_cpt": "80047"},
     )
-    assert presence == {"73721", "A9579"}
+    assert presence == {"73721", "Z4411"}
     # Reference context: reference-marked facts keys + everything in recommendation.
     assert reference == {"80053", "80047"}
 
@@ -55,31 +55,31 @@ def test_code_claims_split_presence_from_reference():
 # ── incidental: parenthesized scrubs; inline drops; ungrounded-basis drops ────────────────
 def test_parenthesized_incidental_reference_is_scrubbed_when_grounding_is_real():
     verdict = ground_finding(
-        {"line_item_id": "li-1", "description": "Doubled imaging like an MRI brain (70553)"},
+        {"line_item_id": "li-1", "description": "Doubled imaging like an MRI brain (02417)"},
         None,
         None,
         HAYSTACK,
     )
     assert verdict.action == "keep"
-    assert "70553" not in str(verdict.scrubbed["facts"])
+    assert "02417" not in str(verdict.scrubbed["facts"])
     assert "MRI brain" in verdict.scrubbed["facts"]["description"]
 
 
 def test_inline_mention_is_never_franken_prosed_it_drops_instead():
     verdict = ground_finding(
-        {"line_item_id": "li-1", "description": "You were billed CPT 70553 twice."},
+        {"line_item_id": "li-1", "description": "You were billed CPT 02417 twice."},
         None,
         None,
         HAYSTACK,
     )
-    assert verdict.action == "drop" and "70553" in verdict.dropped_codes
+    assert verdict.action == "drop" and "02417" in verdict.dropped_codes
 
 
 def test_prose_mention_without_any_real_grounding_drops():
     verdict = ground_finding(
-        {"description": "Phantom service (A9579) suspected."}, None, None, HAYSTACK
+        {"description": "Phantom service (Z4411) suspected."}, None, None, HAYSTACK
     )
-    assert verdict.action == "drop" and verdict.dropped_codes == ["A9579"]
+    assert verdict.action == "drop" and verdict.dropped_codes == ["Z4411"]
 
 
 # ── conviction rules: context-anchored only, sub-4 always keeps ───────────────────────────
@@ -97,19 +97,19 @@ def test_sub_four_char_codes_always_keep():
 
 # ── the summary path ──────────────────────────────────────────────────────────────────────
 def test_summary_detection_flags_only_ungrounded_context_codes():
-    dirty = "The MRI (70553) was billed twice; the office visit (99213) is consistent."
-    assert summary_ungrounded_codes(dirty, HAYSTACK) == ["70553"]
+    dirty = "The MRI (02417) was billed twice; the office visit (99213) is consistent."
+    assert summary_ungrounded_codes(dirty, HAYSTACK) == ["02417"]
     clean = "The MRI (73721) was billed twice."
     assert summary_ungrounded_codes(clean, HAYSTACK) == []
 
 
 def test_regeneration_instruction_names_the_codes_and_forbids_meta_talk():
-    text = regeneration_instruction(["70553"])
-    assert "70553" in text and "Do not mention this correction" in text
+    text = regeneration_instruction(["02417"])
+    assert "02417" in text and "Do not mention this correction" in text
 
 
 def test_strip_spans_leaves_tidy_text():
-    s = "An MRI of the brain (70553) done twice."
+    s = "An MRI of the brain (02417) done twice."
     spans = [(m[0], m[1]) for m in prose_mentions(s)]
     assert strip_spans(s, spans) == "An MRI of the brain done twice."
 
