@@ -5,7 +5,10 @@
 import { Text, View } from 'react-native';
 
 import type { ThreeNumberMomentPayload, UnlockMomentPayload } from '@tyndale/shared';
+import { router } from 'expo-router';
+
 import { MomentCard } from '../ui';
+import { PressableScale } from '../ui/PressableScale';
 import { useThemeColors } from '../../theme/useThemeColors';
 
 function money(n: number | null | undefined): string {
@@ -101,6 +104,17 @@ export function UnlockMoment({ payload }: { payload: UnlockMomentPayload }) {
         ))}
       </View>
       <Text className="text-center text-body font-semibold text-primary">{payload.footnote}</Text>
+      {/* unlock_gate_mode (doc 40 open question 2): the server says whether this moment PROCEEDS.
+          free_beta → a way in to the plan; block / billing → none. Never a dead button. */}
+      {payload.proceeds && payload.next_route && payload.proceed_label ? (
+        <PressableScale
+          onPress={() => router.push(payload.next_route as never)}
+          className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
+          testID="unlock-proceed"
+        >
+          <Text className="text-body font-bold text-on-accent">{payload.proceed_label}</Text>
+        </PressableScale>
+      ) : null}
     </View>
   );
 }

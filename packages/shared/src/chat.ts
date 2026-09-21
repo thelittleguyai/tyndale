@@ -94,6 +94,12 @@ export interface UnlockMomentPayload {
   headline: string;
   value_points: string[];
   footnote: string;
+  /** What the moment does while billing is dark (server: unlock_gate_mode — PROVISIONAL). */
+  gate_mode?: 'free_beta' | 'block' | 'billing';
+  /** True only when there is a way on; the client renders no button otherwise. */
+  proceeds?: boolean;
+  proceed_label?: string | null;
+  next_route?: string | null;
 }
 /** payload for kind='moment_card' — full-width, visually distinct (D0). */
 export type MomentCardPayload = ThreeNumberMomentPayload | UnlockMomentPayload;
