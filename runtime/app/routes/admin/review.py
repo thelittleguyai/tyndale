@@ -23,7 +23,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.analytics.emit import emit
 from app.auth import CurrentUser
 from app.db.models.admin_verdicts import AdminVerdict
 from app.db.models.case_files import CaseFile
@@ -35,7 +34,7 @@ from app.db.models.findings import Finding
 from app.db.models.messages import Message
 from app.db.session import get_session
 from app.review import queue as review_queue
-from app.review.routing import CAUSES, route_verdict
+from app.review.verdicts import DISAPPROVAL_TYPES, VerdictInput, VerdictRejected, record_verdict  # noqa: F401
 from app.routes.admin._deps import admin_user, audit_admin_action
 from app.routes.admin._deps import iso as _iso
 from app.routes.admin.cases import _finding_dict, _load_case, case_provenance
@@ -44,9 +43,6 @@ from app.schemas.case_file import as_dict
 log = structlog.get_logger()
 router = APIRouter(tags=["v1-admin"])
 
-# Disapproval types: the existing verdict enum minus unable_to_verify (that is the
-# Can't-verify action) and minus correct (that is the Approve action).
-DISAPPROVAL_TYPES = ("partially_correct", "wrong", "missed_finding", "hallucinated", "partial")
 _PHASE2_PLACEHOLDER = {"status": "coming_in_phase_2", "label": "Coming in Phase 2"}
 _DOC_TEXT_KEYS = ("ocr_text", "full_text", "text_preview", "preview", "text")
 
@@ -586,32 +582,6 @@ class ReviewVerdictRequest(BaseModel):
     structured_note: StructuredNote | None = None  # disapprove only
 
 
-def _validate_disapproval(body: ReviewVerdictRequest, case_finding_ids: set[str]) -> list[str]:
-    problems: list[str] = []
-    if body.verdict_type not in DISAPPROVAL_TYPES:
-        problems.append(f"verdict_type must be one of {list(DISAPPROVAL_TYPES)}")
-    if body.scope is None:
-        problems.append("scope is required (whole_case | findings)")
-    elif body.scope == "findings":
-        targets = [t for t in (body.target_findings or []) if t]
-        if not targets:
-            problems.append("scope=findings needs at least one target finding")
-        elif unknown := [t for t in targets if t not in case_finding_ids]:
-            problems.append(f"target_findings not on this case: {unknown}")
-    if body.cause not in CAUSES:
-        problems.append(f"cause must be exactly one of {list(CAUSES)}")
-    sn = body.structured_note
-    if sn is None:
-        problems.append(
-            "structured_note is required (concluded / should_have_concluded / input_or_rule)"
-        )
-    else:
-        for k in ("concluded", "should_have_concluded", "input_or_rule"):
-            if not (getattr(sn, k) or "").strip():
-                problems.append(f"structured_note.{k} must not be empty")
-    return problems
-
-
 @router.post("/admin/review/cases/{case_file_id}/verdict")
 async def review_verdict(
     case_file_id: str,
@@ -621,114 +591,24 @@ async def review_verdict(
 ) -> dict[str, Any]:
     """Approve (optional note) / Disapprove… (type + scope + one cause + structured note) /
     Can't verify (unable_to_verify — excluded from the approval rate). Append-only: a new
-    admin_verdicts row every time, the review row moves to the decided state."""
+    admin_verdicts row every time, the review row moves to the decided state. The work lives in
+    app.review.verdicts.record_verdict — the legacy cases route is a strict alias of it."""
     cf = await _load_case(session, case_file_id)
-    finding_ids = {
-        str(x)
-        for x in (
-            await session.execute(
-                select(Finding.finding_id).where(Finding.case_file_id == cf.case_file_id)
-            )
+    try:
+        return await record_verdict(
+            session,
+            admin=admin,
+            cf=cf,
+            via="review",
+            v=VerdictInput(
+                action=body.action,
+                note=body.note,
+                verdict_type=body.verdict_type,
+                scope=body.scope,
+                target_findings=body.target_findings,
+                cause=body.cause,
+                structured_note=body.structured_note.model_dump() if body.structured_note else None,
+            ),
         )
-        .scalars()
-        .all()
-    }
-    now = datetime.datetime.now(datetime.timezone.utc)
-    if body.action == "approve":
-        verdict_type, state, targets, cause, sn = "correct", "approved", None, None, None
-    elif body.action == "cant_verify":
-        verdict_type, state, targets, cause, sn = (
-            "unable_to_verify",
-            "cant_verify",
-            None,
-            None,
-            None,
-        )
-    else:
-        problems = _validate_disapproval(body, finding_ids)
-        if problems:
-            raise HTTPException(status_code=422, detail=problems)
-        verdict_type, state = body.verdict_type, "disapproved"
-        targets = list(body.target_findings or []) if body.scope == "findings" else None
-        cause = body.cause
-        sn = body.structured_note.model_dump() if body.structured_note else None
-
-    verdict = AdminVerdict(
-        admin_user_id=admin.user_id,
-        case_file_id=cf.case_file_id,
-        verdict=verdict_type,
-        notes=(body.note or "").strip() or None,
-        target_findings=targets,
-        cause=cause,
-        structured_note=sn,
-    )
-    session.add(verdict)
-    await session.flush()
-
-    review = await review_queue.latest_review(session, cf.case_file_id)
-    if review is None or review.state in review_queue.DECIDED_STATES:
-        # A verdict on a run the policy skipped (or a second verdict on a decided run) still
-        # gets its own row — append-only, linked to its predecessor.
-        review = CaseReview(
-            case_file_id=cf.case_file_id,
-            run_seq=(review.run_seq + 1) if review else 1,
-            prior_review_id=review.review_id if review else None,
-            terminal_status=cf.status,
-            incomplete_reason=cf.audit_incomplete_reason,
-            findings_count=len(finding_ids),
-            enqueued_at=now,
-            documents_fingerprint=review_queue.documents_fingerprint(cf.documents),
-        )
-        session.add(review)
-    review.state = state
-    review.reviewer_id = admin.user_id
-    review.decided_at = now
-    review.verdict_id = verdict.verdict_id
-    if review.in_review_at is None:
-        review.in_review_at = now
-
-    scope = body.scope or "whole_case"
-    await audit_admin_action(
-        session,
-        admin=admin,
-        action="review_verdict",
-        target_user_id=cf.user_id,
-        case_file_id=cf.case_file_id,
-        extra={
-            "review_id": str(review.review_id),
-            "verdict_id": str(verdict.verdict_id),
-            "review_action": body.action,
-            "verdict": verdict_type,
-            "cause": cause,
-            "scope": scope,
-        },
-    )
-    await session.commit()
-    await emit(
-        "review_verdict_recorded",
-        user_id=admin.user_id,
-        case_file_id=cf.case_file_id,
-        properties={
-            "action": body.action,
-            "cause": cause or "none",
-            "scope": scope,
-            "findings_in_scope": len(targets or []),
-        },
-    )
-    target = route_verdict(cause=cause)
-    log.info(
-        "review.verdict.recorded",
-        case_file_id=case_file_id,
-        review_id=str(review.review_id),
-        state=state,
-        cause=cause,
-        phase2_route=target.value if target else None,
-    )
-    return {
-        "review_id": str(review.review_id),
-        "state": state,
-        "verdict_id": str(verdict.verdict_id),
-        "verdict": verdict_type,
-        "cause": cause,
-        "phase2_route": target.value if target else None,
-    }
+    except VerdictRejected as exc:
+        raise HTTPException(status_code=422, detail=exc.problems) from exc

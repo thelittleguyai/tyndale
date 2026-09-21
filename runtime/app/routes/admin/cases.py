@@ -373,52 +373,69 @@ async def case_provenance(
 
 
 class VerdictRequest(BaseModel):
-    # CO-9 Module 3 verdict v2 — the 5-option fine-tune vocabulary.
-    verdict: Literal["correct", "missed_finding", "hallucinated", "partial", "unable_to_verify"]
+    # CO-9 Module 3 vocabulary. Since deep review C3 this route is a STRICT ALIAS of the review
+    # route: `correct` is an approval, `unable_to_verify` is can't-verify, and every other value
+    # is a disapproval that must carry §7-2b's scope + exactly one cause + structured note.
+    verdict: Literal[
+        "correct",
+        "partially_correct",
+        "wrong",
+        "missed_finding",
+        "hallucinated",
+        "partial",
+        "unable_to_verify",
+    ]
     notes: str | None = None
     missed_findings: list[str] | None = None
     hallucinated_claims: list[str] | None = None
-    target_findings: list[str] | None = None  # null = whole case
+    target_findings: list[str] | None = None
     target_response: str | None = None  # null = latest
+    cause: str | None = None
+    scope: Literal["whole_case", "findings"] | None = None
+    structured_note: dict | None = None  # {concluded, should_have_concluded, input_or_rule}
 
 
-@router.post("/admin/cases/{case_file_id}/verdict")
+@router.post("/admin/cases/{case_file_id}/verdict", deprecated=True)
 async def submit_verdict(
     case_file_id: str,
     req: VerdictRequest,
     admin: CurrentUser = Depends(admin_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    cf = await _load_case(session, case_file_id)
-    verdict = AdminVerdict(
-        case_file_id=cf.case_file_id,
-        admin_user_id=admin.user_id,
-        verdict=req.verdict,
-        notes=req.notes,
-        missed_findings=req.missed_findings,
-        hallucinated_claims=req.hallucinated_claims,
-        target_findings=req.target_findings,
-        target_response=req.target_response,
+    """DEPRECATED — use POST /v1/admin/review/cases/{id}/verdict. Kept as a strict alias so an
+    old client cannot bypass Brock's §7-2b rules or the review-state machine: same validator,
+    same case_reviews write, same audit event (via=legacy_cases_route)."""
+    from app.review.verdicts import (
+        VerdictInput,
+        VerdictRejected,
+        action_for_legacy_verdict,
+        record_verdict,
     )
-    session.add(verdict)
-    await session.flush()
-    verdict_id = verdict.verdict_id
 
-    await audit_admin_action(
-        session,
-        admin=admin,
-        action="verdict",
-        target_user_id=cf.user_id,
-        case_file_id=cf.case_file_id,
-        extra={
-            "verdict": req.verdict,
-            "missed_findings": req.missed_findings,
-            "hallucinated_claims": req.hallucinated_claims,
-            "verdict_id": str(verdict_id),
-        },
-    )
-    await session.commit()
-    return {"verdict_id": str(verdict_id), "stored": True}
+    cf = await _load_case(session, case_file_id)
+    action, verdict_type = action_for_legacy_verdict(req.verdict)
+    try:
+        out = await record_verdict(
+            session,
+            admin=admin,
+            cf=cf,
+            via="legacy_cases_route",
+            v=VerdictInput(
+                action=action,
+                note=req.notes,
+                verdict_type=verdict_type,
+                scope=req.scope,
+                target_findings=req.target_findings,
+                cause=req.cause,
+                structured_note=req.structured_note,
+                missed_findings=req.missed_findings,
+                hallucinated_claims=req.hallucinated_claims,
+                target_response=req.target_response,
+            ),
+        )
+    except VerdictRejected as exc:
+        raise HTTPException(status_code=422, detail=exc.problems) from exc
+    return {**out, "stored": True, "deprecated": "use POST /v1/admin/review/cases/{id}/verdict"}
 
 
 @router.get("/admin/cases/{case_file_id}/verdicts")
