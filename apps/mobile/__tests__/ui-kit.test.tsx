@@ -10,7 +10,31 @@ import {
   SectionHeader,
   StatusChip,
 } from '../components/ui';
+import { PressableScale } from '../components/ui/PressableScale';
 import { Text } from 'react-native';
+
+describe('PressableScale accessibility (audit 2026-08-27 carry-over)', () => {
+  it('is a button to a screen reader unless the call site says otherwise', () => {
+    const { getByRole, getByTestId, queryAllByRole } = render(
+      <>
+        <PressableScale accessibilityLabel="Upload a bill" onPress={() => {}}>
+          <Text>Upload</Text>
+        </PressableScale>
+        <PressableScale testID="as-link" accessibilityRole="link" accessibilityLabel="Privacy policy">
+          <Text>Privacy</Text>
+        </PressableScale>
+        <PressableScale testID="as-tab" role="tab" accessibilityLabel="Results">
+          <Text>Results</Text>
+        </PressableScale>
+      </>,
+    );
+    expect(getByRole('button', { name: 'Upload a bill' })).toBeTruthy();
+    expect(queryAllByRole('button')).toHaveLength(1); // the default never overrides a stated role
+    expect(getByTestId('as-link').props.accessibilityRole).toBe('link');
+    expect(getByTestId('as-tab').props.accessibilityRole).toBeUndefined();
+    expect(getByTestId('as-tab').props.role).toBe('tab');
+  });
+});
 
 describe('component kit (redesign §2)', () => {
   it('renders the primitives with content', () => {
