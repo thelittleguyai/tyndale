@@ -135,6 +135,11 @@ REGISTRY: dict[str, EventSpec] = {
     "call_outcome_recorded": EventSpec({"route": enum_prop(*_CALL_OUTCOME_ROUTES)}),
     # Human Review Phase 1 (2026-09-18): one event per reviewer verdict. Enums + a number
     # only — never the note text, never a case identifier beyond the standard column.
+    # A terminal run by a synthetic test identity was kept OUT of the review queue (deep review
+    # C5). Enum-only; attributed to the synthetic user and removed with it by the e2e teardown.
+    "review_enqueue_skipped_synthetic": EventSpec(
+        {"terminal": enum_prop("audit_complete", "audit_incomplete")}
+    ),
     "review_verdict_recorded": EventSpec(
         {
             "action": enum_prop("approve", "disapprove", "cant_verify"),

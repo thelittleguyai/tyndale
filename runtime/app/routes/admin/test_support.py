@@ -114,3 +114,39 @@ async def issue_test_token(
         email=email,
         cookie_name=settings.session_cookie_write_name,
     )
+
+
+class TestCleanupRequest(BaseModel):
+    email: str
+    # A sweep's FAILED scenarios: their cases (and so the identity) are kept for --inspect.
+    keep_case_ids: list[str] = []
+
+
+@router.post("/admin/test-cleanup")
+async def cleanup_test_identity(
+    body: TestCleanupRequest,
+    authorized_by: str = Depends(_authorize_test_token),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Tear down ONE synthetic e2e identity — its cases, stored documents, threads, findings,
+    review rows, feedback and analytics (deep review C5). Gated exactly like test-token: 404 in
+    production and for any caller without the dev shared secret or an admin session; and the
+    address must carry the synthetic suffix, so a real identity can never be passed through."""
+    from app.synthetic_teardown import NotSynthetic, teardown_synthetic_user
+
+    try:
+        counts = await teardown_synthetic_user(
+            session, body.email, keep_case_ids=body.keep_case_ids
+        )
+    except NotSynthetic:
+        await session.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"test-cleanup is only for synthetic {SYNTHETIC_EMAIL_SUFFIX} identities",
+        ) from None
+    except ValueError as exc:  # a malformed keep_case_ids entry
+        await session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await session.commit()
+    log.info("admin.test_cleanup.done", authorized_by=authorized_by, users=counts.get("users", 0))
+    return {"email": body.email.strip().lower(), "deleted": counts}

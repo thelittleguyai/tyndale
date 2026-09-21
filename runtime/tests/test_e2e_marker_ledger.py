@@ -10,7 +10,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_scenarios"))
 
-from run_scenarios import _marker_pattern, _retrying, _scan_extract_markers, _warm  # noqa: E402
+from run_scenarios import (  # noqa: E402
+    _failed_case_ids,
+    _marker_pattern,
+    _retrying,
+    _scan_extract_markers,
+    _warm,
+)
 from run_scenarios import (  # noqa: E402
     FIXTURE_MARKERS,
     _bill_codes,
@@ -185,3 +191,16 @@ def test_both_scans_stay_quiet_on_decimals_and_longer_numbers():
     assert _scan_extract_markers(extract) == []
     audit = {"summary": "Charges of 105821.00 and 02417.50; ref AZ4411X.", "findings": []}
     assert _scan_audit_markers(audit, set()) == ([], [])
+
+
+def test_teardown_keeps_only_the_failed_scenarios_cases():
+    """Deep review C5: a sweep tears its synthetic identity down, but a FAILED scenario's case
+    stays so `--inspect` still has something to look at."""
+    results = [
+        {"name": "a", "pass": True, "case_id": "11111111-1111-1111-1111-111111111111"},
+        {"name": "b", "pass": False, "case_id": "22222222-2222-2222-2222-222222222222"},
+        {"name": "c", "pass": False, "case_id": ""},  # failed before a case existed
+        {"name": "record_aggregates", "pass": True, "case_id": ""},
+    ]
+    assert _failed_case_ids(results) == ["22222222-2222-2222-2222-222222222222"]
+    assert _failed_case_ids([]) == []

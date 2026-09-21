@@ -138,6 +138,41 @@ async def _persist(content: bytes, filename: str) -> str:
     return str(path)
 
 
+async def delete_stored(uri: str | None) -> bool:
+    """Best-effort removal of ONE stored upload — the e2e teardown's counterpart to _persist.
+    Only ever touches our own store: a blob under the configured account + uploads container, or
+    a file inside local_uploads_dir. Anything else is left alone and reported False."""
+    if not uri:
+        return False
+    settings = get_settings()
+    if settings.azure_storage_account_url:
+        prefix = f"{settings.azure_storage_account_url}/{settings.azure_storage_uploads_container}/"
+        if not uri.startswith(prefix):
+            return False
+        try:
+            from azure.identity.aio import DefaultAzureCredential
+            from azure.storage.blob.aio import BlobServiceClient
+
+            async with DefaultAzureCredential() as cred, BlobServiceClient(
+                account_url=settings.azure_storage_account_url, credential=cred
+            ) as svc:
+                container = svc.get_container_client(settings.azure_storage_uploads_container)
+                await container.delete_blob(uri[len(prefix):])
+            return True
+        except Exception as exc:  # noqa: BLE001 — teardown is best-effort about bytes
+            log.warning("upload.delete_stored_failed", error_class=type(exc).__name__)
+            return False
+    try:
+        root = Path(settings.local_uploads_dir).resolve()
+        target = Path(uri).resolve()
+        if root in target.parents and target.is_file():
+            target.unlink()
+            return True
+    except OSError as exc:
+        log.warning("upload.delete_stored_failed", error_class=type(exc).__name__)
+    return False
+
+
 # HEIC/HEIF ISO-BMFF brands (bytes 8-12) we accept — iPhone photos are 'heic'/'mif1'.
 _HEIF_BRANDS = frozenset(
     {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"hevm", b"hevs", b"mif1", b"msf1", b"heif"}

@@ -49,6 +49,21 @@ Local runs (`run_scenarios.py` without `--dev`) need neither — the dev-user st
 CI: the `E2E Scenarios` workflow (`workflow_dispatch`, never scheduled — real Claude token cost)
 runs against dev using those repo secrets.
 
+## Identity + teardown (2026-09-18)
+
+Each run mints its own synthetic user, `e2e-runner+<run id>@e2e.tyndale.test` (the
+20-uploads/hour cap is per identity, so runs don't inherit each other's spend). Synthetic
+identities are refused by the human-review queue — a sweep never lands in a reviewer's list.
+
+`--cleanup` tears the run's identity down at the end via the dev-only
+`POST /v1/admin/test-cleanup` (same gate as test-token: 404 in production and without the
+shared secret / an admin session; synthetic suffix only): cases, stored documents, threads,
+findings, review rows, feedback, analytics. **FAILED scenarios' cases are kept** (and so the
+identity) — `--inspect <case_file_id>` still works; finish later with
+`E2E_SYNTH_EMAIL=<that address> … --dev --cleanup-only`. The workflow passes `--cleanup` and
+runs `--cleanup-only` as an always-run safety net (crash / timeout / cancel); both passes honour
+the keep list the run wrote. The audit log is never touched.
+
 ## Cost
 
 Each scenario runs a real audit on dev (multi-minute, real Claude tokens). ~22 audits per full

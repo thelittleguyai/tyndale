@@ -112,11 +112,22 @@ _DISAPPROVE = {
 # ── queue ───────────────────────────────────────────────────────────────────────────────
 
 
+def _just_now() -> str:
+    """ISO timestamp a minute ago — the queue's `since` filter. The shared local DB accumulates
+    pending rows across runs and the queue lists oldest-first, so without it a freshly enqueued
+    row falls off `limit=200` and the listing tests fail for reasons unrelated to the code."""
+    import datetime
+
+    return (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1)).isoformat()
+
+
 @pytest.mark.asyncio
 async def test_queue_lists_run_with_masked_user_and_health(client: AsyncClient):
+    since = _just_now()
     cfid, rid = await _enqueued()
     r = await client.get(
-        "/v1/admin/review/queue", params={"state": "unreviewed,re_review,in_review", "limit": 200}
+        "/v1/admin/review/queue",
+        params={"state": "unreviewed,re_review,in_review", "limit": 200, "since": since},
     )
     assert r.status_code == 200, r.text
     body = r.json()
@@ -144,17 +155,20 @@ async def test_queue_filters_and_rejects_unknown_values(client: AsyncClient):
     assert (
         await client.get("/v1/admin/review/queue", params={"confidence": "sky-high"})
     ).status_code == 422
+    since = _just_now()
     cfid = await _case(status="audit_incomplete", audit_incomplete_reason="system_error")
     rid = await rq.on_terminal(cfid, "audit_incomplete", "system_error")
     hits = (
         await client.get(
-            "/v1/admin/review/queue", params={"has_system_error": "true", "limit": 200}
+            "/v1/admin/review/queue",
+            params={"has_system_error": "true", "limit": 200, "since": since},
         )
     ).json()["items"]
     assert any(i["review_id"] == rid for i in hits)
     misses = (
         await client.get(
-            "/v1/admin/review/queue", params={"has_system_error": "false", "limit": 200}
+            "/v1/admin/review/queue",
+            params={"has_system_error": "false", "limit": 200, "since": since},
         )
     ).json()["items"]
     assert all(i["review_id"] != rid for i in misses)

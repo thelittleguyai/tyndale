@@ -75,4 +75,17 @@ jobs:
           fi
           # --chat-first / --record: dev runs with ENABLE_CHAT_FIRST_AUDIT and
           # ENABLE_RECORD_VIEW on, so the thread + Record assertion layers always apply.
-          uv run python scripts/e2e_scenarios/run_scenarios.py --dev --chat-first --record $ONLY_ARGS
+          # --cleanup: the run tears down its own synthetic identity at the end (deep review
+          # C5), keeping FAILED scenarios' cases so --inspect still works. Not for inspect runs.
+          CLEANUP="--cleanup"
+          if [ -n "${{ inputs.inspect }}" ]; then CLEANUP=""; fi
+          uv run python scripts/e2e_scenarios/run_scenarios.py --dev --chat-first --record $CLEANUP $ONLY_ARGS
+      - name: Tear down the run's synthetic identity (safety net)
+        # The harness normally does this itself; this covers a crash, a timeout or a cancel —
+        # a leaked identity is ~22 fixture cases on dev. Idempotent, and it honours the keep
+        # list the run wrote, so a failed scenario's case survives both passes.
+        if: ${{ always() && inputs.inspect == '' }}
+        env:
+          TYNDALE_E2E_SECRET: ${{ secrets.E2E_TEST_SECRET }}
+          TYNDALE_ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
+        run: uv run python scripts/e2e_scenarios/run_scenarios.py --dev --cleanup-only

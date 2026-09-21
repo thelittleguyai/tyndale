@@ -876,6 +876,58 @@ def run_scenario(
                 "pass": False, "fails": [f"{type(e).__name__}: {e}"]}
 
 
+def _failed_case_ids(results: list[dict]) -> list[str]:
+    """Case ids of the scenarios that did NOT pass — the teardown keeps these (and so the run's
+    identity) so `--inspect <case_file_id>` forensics still work after the run."""
+    return [r["case_id"] for r in results if not r.get("pass") and r.get("case_id")]
+
+
+def _state_file() -> pathlib.Path:
+    """Where a run records what its teardown must keep — read back by `--cleanup-only` (the
+    workflow's always-run safety net), which otherwise could not know which scenarios failed."""
+    override = os.environ.get("E2E_STATE_FILE")
+    if override:
+        return pathlib.Path(override)
+    return pathlib.Path(tempfile.gettempdir()) / f"tyndale_e2e_state_{_RUN_TAG}.json"
+
+
+def _teardown(base_url: str, email: str, keep_case_ids: list[str]) -> dict | None:
+    """Delete this run's synthetic identity via the dev-only endpoint (deep review C5). Uses its
+    OWN client: after authenticate() the scenario client carries the synthetic user's cookie,
+    which the endpoint (shared secret or ADMIN session) rightly refuses. Never raises — a
+    teardown problem is logged, it does not change a sweep's verdict."""
+    secret = os.environ.get("TYNDALE_E2E_SECRET")
+    admin_token = os.environ.get("TYNDALE_ADMIN_TOKEN")
+    if not (secret or admin_token):
+        log("teardown: skipped (no TYNDALE_E2E_SECRET / TYNDALE_ADMIN_TOKEN — local dev-user run)")
+        return None
+    try:
+        with httpx.Client(follow_redirects=True) as c:
+            headers = {"X-E2E-Test-Secret": secret} if secret else {}
+            if not secret:
+                c.cookies.set(COOKIE_NAME, admin_token)
+            r = c.post(
+                f"{base_url}/v1/admin/test-cleanup",
+                json={"email": email, "keep_case_ids": keep_case_ids},
+                headers=headers,
+                timeout=120,
+            )
+        if r.status_code != 200:
+            log(f"teardown: FAILED [{r.status_code}] {r.text[:200]}")
+            return None
+        deleted = r.json().get("deleted", {})
+        kept = deleted.get("kept_cases", 0)
+        log(
+            f"teardown: {email} — {deleted.get('case_files', 0)} cases, "
+            f"{deleted.get('stored_files', 0)} stored files, user removed={bool(deleted.get('users'))}"
+            + (f"; KEPT {kept} failed-scenario case(s) for --inspect" if kept else "")
+        )
+        return deleted
+    except httpx.HTTPError as e:
+        log(f"teardown: FAILED ({e})")
+        return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Tyndale e2e scenario harness (synthetic only)")
     ap.add_argument("--dev", action="store_true", help="target the deployed dev API")
@@ -891,6 +943,12 @@ def main() -> int:
                     help="also assert each sub-case appears in /v1/record with the right status + "
                          "honest $0-recovered, plus a suite-level aggregate check (DL-91 D5 §5; "
                          "target server must have ENABLE_RECORD_VIEW on)")
+    ap.add_argument("--cleanup", action="store_true",
+                    help="after the run, tear down this run's synthetic identity (its cases, "
+                         "documents, threads, review rows) — FAILED scenarios' cases are kept")
+    ap.add_argument("--cleanup-only", action="store_true",
+                    help="no scenarios: tear down this run's synthetic identity (keeps what the "
+                         "run's state file says to keep). The workflow's always-run safety net.")
     ap.add_argument("--inspect", action="append", default=[],
                     help="READ-ONLY: print an existing case's terminal state, needs-documents "
                          "checklist, and finding categories, then exit. No uploads, no audits — "
@@ -933,6 +991,17 @@ def main() -> int:
         return 0
 
     base_url = args.base_url or (DEV_URL if args.dev else LOCAL_URL)
+    if args.cleanup_only:
+        keep: list[str] = []
+        sf = _state_file()
+        if sf.exists():
+            try:
+                keep = list(json.loads(sf.read_text()).get("keep_case_ids") or [])
+            except (OSError, ValueError):
+                keep = []
+        log(f"cleanup-only: {SYNTH_EMAIL} (keeping {len(keep)} case(s))")
+        _teardown(base_url, SYNTH_EMAIL, keep)
+        return 0
     scenarios = [json.loads(p.read_text()) for p in sorted(SCENARIO_DIR.glob("*.json"))]
     if args.only:
         scenarios = [s for s in scenarios if s["name"] in set(args.only)]
@@ -981,6 +1050,16 @@ def main() -> int:
     passed = sum(1 for r in results if r["pass"])
     log("=" * 78)
     log(f"RESULT: {passed}/{len(results)} scenarios passed")
+    if args.cleanup:
+        keep = _failed_case_ids(results)
+        try:
+            _state_file().write_text(json.dumps({"email": SYNTH_EMAIL, "keep_case_ids": keep}))
+        except OSError:
+            pass
+        _teardown(base_url, SYNTH_EMAIL, keep)
+        if keep:
+            log(f"  kept for forensics: {', '.join(keep)}")
+            log(f"  finish later with: E2E_SYNTH_EMAIL={SYNTH_EMAIL} … run_scenarios.py --dev --cleanup-only")
     return 0 if passed == len(results) else 1
 
 

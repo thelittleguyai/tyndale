@@ -64,6 +64,13 @@ def _to_domain(email: str) -> str:
 # read endpoints). Synthetic recipients never reach the provider.
 
 
+def is_synthetic_email(email: str | None) -> bool:
+    """True for a synthetic test identity (settings.synthetic_email_suffixes). The ONE guard:
+    email delivery, the human-review queue and the e2e teardown all ask this."""
+    addr = (email or "").strip().lower()
+    return bool(addr) and any(addr.endswith(s) for s in get_settings().synthetic_email_suffix_list)
+
+
 async def send_product_email(
     to_email: str, subject: str, text: str, html: str | None = None, *, kind: str
 ) -> bool:
@@ -82,8 +89,7 @@ async def send_product_email(
         log.error("notify.blocked_by_phi_guard", kind=kind, reason=decision.block_reason)
         return False
 
-    recipient = to_email.strip().lower()
-    if any(recipient.endswith(s) for s in settings.synthetic_email_suffix_list):
+    if is_synthetic_email(to_email):
         # False (nothing delivered) so exactly-once ledgers stay unstamped — the harness
         # asserts honest state, and a synthetic user re-completing retries harmlessly.
         log.info("notify.synthetic_recipient_no_send", kind=kind, to_domain=_to_domain(to_email))

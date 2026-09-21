@@ -57,6 +57,8 @@ class EnqueueFacts:
     findings_count: int
     net_finding_usd: float | None
     documents_fingerprint: str
+    # A synthetic test identity (@e2e.tyndale.test …): its runs are fixtures, not reviews.
+    synthetic: bool = False
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,7 @@ class EnqueueDecision:
     enqueue: bool
     sampled: bool
     triggers: tuple[str, ...]
+    skipped: str | None = None  # "synthetic" — the policy refused before dial or triggers
 
 
 def confidence_band(tier: int | None) -> str:
@@ -95,6 +98,11 @@ def decide(
     facts: EnqueueFacts, *, sample_pct: int, settings=None, roll: float | None = None
 ) -> EnqueueDecision:
     """The pure policy. ``roll`` in [0, 1) is the sampling draw (injected by tests)."""
+    if facts.synthetic:
+        # Deep review C5: every e2e sweep mints a synthetic user and completes ~22 audits; at
+        # dial 100 that is ~22 fixtures in the reviewer's queue per run. No dial, no trigger
+        # and no forced re-review overrides this.
+        return EnqueueDecision(enqueue=False, sampled=False, triggers=(), skipped="synthetic")
     s = settings or get_settings()
     triggers: list[str] = []
     if s.review_trigger_first_case and facts.first_case:
@@ -155,7 +163,12 @@ async def gather_facts(
     """Assemble the enqueue facts from persisted data only (the result projection, the
     findings, the case's tripwire log, the user's case count) — never from a model."""
     from app.agents.orchestrator import _assemble_result, tripwire_entries
+    from app.db.models.users import User
+    from app.notify.email import is_synthetic_email
 
+    owner_email = (
+        await session.execute(select(User.email).where(User.user_id == case.user_id))
+    ).scalar_one_or_none()
     user_cases = (
         await session.execute(
             select(func.count()).select_from(CaseFile).where(CaseFile.user_id == case.user_id)
@@ -188,6 +201,7 @@ async def gather_facts(
         findings_count=len(findings),
         net_finding_usd=_net_usd(findings),
         documents_fingerprint=documents_fingerprint(case.documents),
+        synthetic=is_synthetic_email(owner_email),
     )
 
 
@@ -226,6 +240,8 @@ async def enqueue(
     """Apply a decision to the case's review rows (see module docstring for the state rules).
     A re-run of a DECIDED case whose documents changed is always enqueued as re_review — the
     prior verdict is stale by definition, whatever the dial says."""
+    if decision.skipped:
+        return None  # refused by policy (synthetic identity) — not even the forced re-review
     latest = await latest_review(session, case.case_file_id)
     triggers = list(decision.triggers)
     documents_changed = latest is not None and latest.documents_fingerprint != facts.documents_fingerprint
@@ -276,6 +292,19 @@ async def on_terminal(case_file_id: str, status: str, incomplete_reason: str | N
             pct = await effective_sample_pct(s)
             decision = decide(facts, sample_pct=pct)
             row = await enqueue(s, case, facts, decision)
+            if decision.skipped == "synthetic":
+                from app.analytics.emit import emit
+
+                # Enum-only. The subject is the synthetic user itself (anonymity is reserved
+                # for the statutory intake); the e2e teardown removes it with that identity.
+                await emit(
+                    "review_enqueue_skipped_synthetic",
+                    user_id=case.user_id,
+                    case_file_id=case.case_file_id,
+                    properties={"terminal": status},
+                )
+                log.info("review.queue.skipped_synthetic", case_file_id=case_file_id)
+                return None
             if row is None:
                 log.info("review.queue.skipped", case_file_id=case_file_id, sample_pct=pct)
                 return None
