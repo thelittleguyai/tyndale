@@ -1,6 +1,6 @@
 {
   "name": "guided_intake_commercial",
-  "description": "The GUIDED front door (doc 40), commercial: bill + EOB + card + SBC through /v1/intake/*, the planner choosing every screen. Asserts the infer-first rules end to end — the planner READS the card itself (the harness never asks it to): the member ID is a confident read and is kept, while the payer is one the extractor does not know, so it is a LOW-confidence read and arrives PRE-FILLED on the 'which insurer' screen for the user to confirm (never silent, never discarded); the SBC is on file and carries its Coverage Period (no plan-rules ask, no plan-year ask); the confirmed EOB stack resolves the accumulators (no manual deductible / out-of-pocket asks) — then READY → the SHARED audit and reveal, with every finding attributed to a side (§C14). A high-confidence payer (no 'which insurer' at all) is covered by runtime/tests/test_intake_routes.py. Needs --intake-mode guided.",
+  "description": "The GUIDED front door (doc 40), commercial: bill + EOB + card + SBC through /v1/intake/*, the planner choosing every screen. Asserts the infer-first rules end to end — the planner READS the card itself (the harness never asks it to): the member ID is a confident read and is kept, while the payer is one the extractor does not know, so it is a LOW-confidence read and arrives PRE-FILLED on the 'which insurer' screen for the user to confirm (never silent, never discarded); the SBC is on file and carries its Coverage Period (no plan-rules ask, no plan-year ask); the confirmed EOB stack resolves the accumulators (no manual deductible / out-of-pocket asks) — then READY → the SHARED audit and reveal, which must COMPLETE (the same bill + EOB completes through the chat-first door — see clean_bill_matching_eob — and the guided door hands the engine MORE, so it may never deliver less), with every finding attributed to a side (§C14). A high-confidence payer (no 'which insurer' at all) is covered by runtime/tests/test_intake_routes.py. Needs --intake-mode guided.",
   "documents": [
     {
       "type": "bill",
@@ -95,10 +95,8 @@
     "default": "yes"
   },
   "expect": {
-    "terminal": [
-      "audit_complete",
-      "audit_incomplete"
-    ],
+    "terminal": "audit_complete",
+    "incomplete_reason": null,
     "no_fixture": true
   }
 }
