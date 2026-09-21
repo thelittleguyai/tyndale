@@ -67,22 +67,6 @@ from app.stubs.fixtures import mri_audit_fixture
 log = structlog.get_logger(__name__)
 
 
-def _record_tripwire(case, kind: str, *, codes: list[str] | None = None, category: str | None = None) -> None:
-    """Append a typed tripwire entry to the case's research_log (Human Review Phase 1,
-    2026-09-18): the fabrication guards used to only LOG, so nothing per case said "a
-    canary fired here". The review queue's canary trigger reads these. Never raises."""
-    if case is None:
-        return
-    entry = {
-        "kind": "tripwire",
-        "which": kind,  # grounding_drop | grounding_scrub | translate_drop
-        "codes": list(codes or []),
-        "category": category,
-        "at": datetime.now(timezone.utc).isoformat(),
-    }
-    case.research_log = [*(case.research_log or []), entry]
-
-
 async def _append_tripwire(
     case_file_id: str,
     kind: str,
@@ -91,7 +75,12 @@ async def _append_tripwire(
     category: str | None = None,
     session=None,
 ) -> None:
-    """Append a typed tripwire entry to research_log with ONE atomic UPDATE —
+    """Record that a fabrication guard fired on this case (Human Review Phase 1: the guards used
+    to only LOG, so nothing per case said "a canary fired here"; the review queue's canary
+    trigger reads these). ``kind``: grounding_drop | grounding_scrub | translate_drop |
+    grounding_summary_regen | grounding_summary_degraded.
+
+    Appends a typed entry to research_log with ONE atomic UPDATE —
     `research_log = coalesce(research_log, '[]') || :entry` — no read-modify-write, so a
     concurrent append is never lost, and no loaded ORM object is needed (the summary seams
     run after the session that loaded the case has closed). Joins ``session``'s transaction
@@ -127,7 +116,7 @@ async def _append_tripwire(
 
 
 def tripwire_entries(case) -> list[dict]:
-    """The case's tripwire records (see _record_tripwire); [] when none fired."""
+    """The case's tripwire records (see _append_tripwire); [] when none fired."""
     return [
         e for e in (getattr(case, "research_log", None) or [])
         if isinstance(e, dict) and e.get("kind") == "tripwire"
@@ -767,15 +756,19 @@ async def _ground_prose(
                     category=f.category,
                     ungrounded_codes=verdict.dropped_codes,
                 )
-                _record_tripwire(case, "grounding_drop", codes=verdict.dropped_codes,
-                                 category=f.category)
+                await _append_tripwire(
+                    case_file_id, "grounding_drop", codes=verdict.dropped_codes,
+                    category=f.category, session=s,
+                )
                 await s.delete(f)
             else:
                 _, refs = pg.structured_code_claims(f.facts, f.legal_claim, f.recommendation)
                 vouched |= refs
                 if verdict.scrubbed:
                     DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
-                    _record_tripwire(case, "grounding_scrub", codes=[], category=f.category)
+                    await _append_tripwire(
+                        case_file_id, "grounding_scrub", category=f.category, session=s
+                    )
                     for name, payload in verdict.scrubbed.items():
                         setattr(f, name, payload)
                     log.warning(
@@ -1406,7 +1399,9 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
                 ).scalar_one_or_none()
                 if row is not None:
                     row.line_items = line_items
-                    _record_tripwire(row, "translate_drop", codes=list(dropped))
+                    await _append_tripwire(
+                        case_file_id, "translate_drop", codes=list(dropped), session=s
+                    )
                     await s.commit()
 
     if not line_items:

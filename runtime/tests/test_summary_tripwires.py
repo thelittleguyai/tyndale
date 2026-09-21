@@ -129,3 +129,40 @@ async def test_concurrent_appends_are_never_lost():
     await orchestrator._append_tripwire(cfid, "grounding_scrub")
     assert len(await _tripwires(cfid)) == 1
     await orchestrator._append_tripwire(str(uuid.uuid4()), "grounding_scrub")
+
+
+
+def test_nothing_appends_to_research_log_by_read_modify_write():
+    """Item 7: the only writer of research_log is the atomic `||` UPDATE. A Python-side
+    `research_log = [*old, entry]` (or .append) loses a concurrent writer's entry."""
+    import pathlib
+    import re
+
+    app_dir = pathlib.Path(__file__).resolve().parents[1] / "app"
+    rmw = re.compile(r"research_log\s*=\s*\[|research_log\.append\(|research_log\s*\+=")
+    offenders = [
+        str(f.relative_to(app_dir))
+        for f in app_dir.rglob("*.py")
+        if "db/migrations" not in str(f) and rmw.search(f.read_text(encoding="utf-8"))
+    ]
+    assert offenders == [], offenders
+
+
+@pytest.mark.asyncio
+async def test_the_grounding_drop_seam_records_through_the_atomic_append():
+    """The pre-existing seams (finding dropped for an ungrounded BASIS code) now write through
+    the same expression, inside their own transaction."""
+    from app.db.models.findings import Finding
+
+    cfid = await _case_with_bill()
+    async with AsyncSessionLocal() as s:
+        s.add(Finding(
+            case_file_id=uuid.UUID(cfid), finding_type="provider_side", category="bundling",
+            subagent_source="bill_detective", voice_tier="B", status="open",
+            facts={"gap": 50.0, "codes": ["02417"], "notes": "02417 billed separately"},
+            legal_claim={"claim": "CPT 02417 must be bundled into the visit."},
+        ))
+        await s.commit()
+    await orchestrator._ground_prose(cfid, _CLEAN, _budget(1), "bd", "mp")
+    kinds = [e["which"] for e in await _tripwires(cfid)]
+    assert kinds and set(kinds) <= {"grounding_drop", "grounding_scrub"}, kinds
