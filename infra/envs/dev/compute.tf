@@ -192,6 +192,10 @@ resource "azurerm_container_app" "runtime" {
       # Stranded-audit healer threshold floor (deep review C2) — the boot sweep reads it here,
       # the stuck_audits cron reads the same variable in crons.tf.
       env {
+        name  = "AUDIT_WALL_CLOCK_BUDGET_SECONDS"
+        value = tostring(var.audit_wall_clock_budget_seconds)
+      }
+      env {
         name  = "AUDIT_RECONCILE_STALE_SECONDS"
         value = tostring(var.audit_reconcile_stale_seconds)
       }

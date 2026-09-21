@@ -341,7 +341,7 @@ class Settings(BaseSettings):
     # regenerations), persists what's computed, and marks the case audit_incomplete
     # (reason=budget_exceeded) — a case is never left in audit_running forever. The empty-KB
     # citation stall (regenerate x3, each a multi-minute model pass) is what this bounds.
-    audit_wall_clock_budget_seconds: int = 600
+    audit_wall_clock_budget_seconds: int = 600  # env: AUDIT_WALL_CLOCK_BUDGET_SECONDS (runtime + crons)
     # Per-run cap on total Stop-gate citation regenerations (belt to the per-agent <=3).
     audit_max_regenerations: int = 3
     # Stranded-audit healer (deep review C2): an audit_running case is considered dead only when

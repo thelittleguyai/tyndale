@@ -443,3 +443,9 @@ variable "audit_reconcile_stale_seconds" {
   default     = 1800
   description = "Floor (seconds) for how stale a running audit's HEARTBEAT must be before the stranded-audit healer treats it as dead; the effective threshold is max(3 x audit budget, this). Wired to BOTH the runtime (boot sweep) and the cron container (stuck_audits) so they agree."
 }
+
+variable "audit_wall_clock_budget_seconds" {
+  type        = number
+  default     = 600
+  description = "Wall-clock budget for one audit run (seconds). Also the base of the stranded-audit healer's threshold (max(3 x this, audit_reconcile_stale_seconds)), so it is wired to BOTH the runtime and the cron container — they must agree about which audits are dead."
+}

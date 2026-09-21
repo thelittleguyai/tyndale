@@ -157,23 +157,63 @@ resource "azurerm_container_app_job" "cron" {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
       }
-      # stuck_audits (2026-09-18) reconciles through the orchestrator's status chokepoint, which
-      # reads the chat-first flag (thread projection) and the review-queue policy.
+      # stuck_audits (2026-09-18) reconciles through the orchestrator's status chokepoint: the
+      # thread projection, the result projection (_assemble_result) and the review-queue policy
+      # all run INSIDE the cron. Everything below is what that path reads that the runtime
+      # container also carries — the list is ENFORCED, not remembered:
+      # runtime/tests/test_flag_env_wiring.py walks the cron path's Settings reads and fails
+      # when the runtime wires one that this block does not (deep review C4).
       env {
         name  = "ENABLE_CHAT_FIRST_AUDIT"
         value = tostring(var.enable_chat_first_audit)
+      }
+      # thread_bridge posts the D5 record message on a terminal status only when this is on —
+      # without it a cron-healed case silently omitted the message the runtime path emits.
+      env {
+        name  = "ENABLE_RECORD_VIEW"
+        value = tostring(var.enable_record_view)
+      }
+      # _regime_provenance (inside _assemble_result) adds "No Surprises Act checks are not yet
+      # enabled" when this is off — with the runtime on and the cron off, a cron-projected
+      # result would say something false.
+      env {
+        name  = "ENABLE_NSA_CHECKS"
+        value = tostring(var.enable_nsa_checks)
+      }
+      # The healer's threshold = max(3 x budget, floor): both halves, same source as the runtime.
+      env {
+        name  = "AUDIT_WALL_CLOCK_BUDGET_SECONDS"
+        value = tostring(var.audit_wall_clock_budget_seconds)
       }
       env {
         name  = "AUDIT_RECONCILE_STALE_SECONDS"
         value = tostring(var.audit_reconcile_stale_seconds)
       }
+      # review/queue.py::decide() reads the dial and ALL FIVE triggers; only SYSTEM_ERROR was
+      # wired, so flipping any other in tfvars applied to the API and not to cron-healed runs.
       env {
         name  = "REVIEW_SAMPLE_PCT"
         value = tostring(var.review_sample_pct)
       }
       env {
+        name  = "REVIEW_TRIGGER_FIRST_CASE"
+        value = tostring(var.review_trigger_first_case)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_LOW_CONFIDENCE"
+        value = tostring(var.review_trigger_low_confidence)
+      }
+      env {
         name  = "REVIEW_TRIGGER_SYSTEM_ERROR"
         value = tostring(var.review_trigger_system_error)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_CANARY"
+        value = tostring(var.review_trigger_canary)
+      }
+      env {
+        name  = "REVIEW_TRIGGER_MATERIAL_DISAGREEMENT"
+        value = tostring(var.review_trigger_material_disagreement)
       }
       env {
         name  = "SENDGRID_FROM_EMAIL"
