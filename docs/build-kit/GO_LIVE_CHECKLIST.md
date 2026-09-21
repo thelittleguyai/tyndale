@@ -32,3 +32,28 @@ Nothing here creates or touches staging/production infrastructure.
       prior yet — the tranche says so explicitly and the loader keeps them point-form).*
 - [ ] 50-state NSA seed + rules/laws corpora content (Brock's program) — balance-billing
       check + retrieval quality.
+
+## Human Review — queue policy (doc 39 §1 + §7-2d) · added 2026-09-21
+
+Six flags decide what a human looks at. All six are wired to the runtime **and every cron**
+(the derived env-parity test fails if a tfvars flip would reach one and not the other — a
+cron-healed case enqueues through the same policy). Defaults are Brock's §7-2d ruling: review
+everything, every trigger on.
+
+- [ ] **`REVIEW_SAMPLE_PCT`** (default `100`) — confirm the launch value **with Brock**. This is
+      only the env DEFAULT: a dial an admin saved on the Review page lives in `admin_settings`,
+      **overrides it, and survives deploys**. Read the value in force from the Review page (or
+      `GET /v1/admin/review/settings`: `review_sample_pct` vs `env_default_pct`) — not from tfvars.
+- [ ] **`REVIEW_TRIGGER_FIRST_CASE`** = `true`
+- [ ] **`REVIEW_TRIGGER_LOW_CONFIDENCE`** = `true`
+- [ ] **`REVIEW_TRIGGER_SYSTEM_ERROR`** = `true`
+- [ ] **`REVIEW_TRIGGER_CANARY`** = `true`
+- [ ] **`REVIEW_TRIGGER_MATERIAL_DISAGREEMENT`** = `true`
+      — the five always-enqueue triggers fire regardless of the dial. Turning one off removes a
+      class of runs from human eyes whenever the dial is below 100; that is Brock's call. If one
+      is off at launch, write who decided and when on this line.
+- [ ] **Reviewers exist** — Brock and Phil are `user_type=admin` in the launch env and can each
+      open `/review` from an allowlisted IP (§7-2e: the two of them, no assignment machinery).
+- [ ] **Capacity** — at dial 100 every completed run is a review row. Agree the expected daily
+      volume is reviewable by two people, or set the dial; an unreviewed backlog is visible on
+      the health strip ("awaiting review" + median age) but nothing pages on it yet.
