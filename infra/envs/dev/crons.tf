@@ -17,13 +17,16 @@
 #     --image "$(az containerapp show -n tyndale-dev-runtime -g tyndale-dev-rg \
 #       --query 'properties.template.containers[0].image' -o tsv)"
 #
-# THE SECOND DOOR — CHANGING A SCHEDULE. `schedule_trigger_config` is ForceNew in azurerm 4.79
-# (per the 2026-09-18 deep review; READ THE PLAN — it will say "must be replaced" for the job):
-# editing a `cron =` below does not update the job in place, it DESTROYS and RECREATES it — and
-# the recreated job comes up on the placeholder image exactly like a brand-new one (the image
-# is under ignore_changes, so terraform never writes the real one back). Same cure: after the
-# apply, dispatch deploy-runtime or run the one-line roll above. Verifying the roll is part of
-# the deploy check in docs/build-kit/DEV_TEST_DAY.md §0.3.
+# CHANGING A SCHEDULE IS SAFE — it is an in-place update. The 2026-09-18 deep review said
+# `schedule_trigger_config` is ForceNew (so editing a `cron =` below would destroy + recreate
+# the job on the placeholder). CHECKED 2026-09-21 against the pinned provider with a real plan
+# of a one-field change: "azurerm_container_app_job.cron["nudge"] will be updated in-place …
+# Plan: 0 to add, 1 to change, 0 to destroy". An earlier revision of this comment repeated the
+# review's claim as fact; it was wrong. What DOES reopen the placeholder door is anything the
+# plan reports as "will be created" or "must be replaced" for a job (a new cron, a rename, a
+# provider upgrade that changes the rule) — so the habit stands: READ THE PLAN, and after an
+# apply that created or replaced a job, roll it (above). The check lives in
+# docs/build-kit/DEV_TEST_DAY.md §0.3.
 # ============================================================================
 
 locals {

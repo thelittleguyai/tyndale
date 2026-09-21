@@ -29,6 +29,27 @@ OCR, Foundry Claude, fixture fallback off), so everything below is the true prod
 Admin → System, or `GET /v1/admin/system/health`: `deploy_sha` matches your pushed HEAD;
 `anthropic_status`, `qdrant_status` healthy; `last_claude_call` recent and ok.
 
+**After a `terraform apply`: are the cron jobs on the real image?** A Container App Job that
+terraform **creates** comes up on the `aci-helloworld` placeholder — the image is under
+`ignore_changes`, so terraform never writes the real one — and stays there until a runtime
+deploy rolls the fleet. Its schedule still fires: a hello-world container idles to the job
+timeout and the run shows Failed (`stuck_audits`, 2026-09-18 — the healer did nothing for its
+first hours). So if the plan said `will be created` or `must be replaced` for any
+`azurerm_container_app_job`, check, then cure:
+
+```bash
+az containerapp job list -g tyndale-dev-rg --query "[].{name:name, image:properties.template.containers[0].image}" -o table
+```
+
+Every `tyndale-dev-cron-*` row should show the `runtime:<sha>` of the running app. One that
+shows `aci-helloworld`: dispatch `deploy-runtime` (it rolls every cron by name prefix), or roll
+just that job with the one-liner in `infra/envs/dev/crons.tf`'s header.
+
+> **Editing a cron's *schedule* is NOT one of those doors.** The 2026-09-18 deep review said
+> `schedule_trigger_config` is ForceNew; a real plan of a one-field schedule change on
+> 2026-09-21 says `will be updated in-place … 0 to add, 1 to change, 0 to destroy`. The rule
+> is not "which field did I touch" but **read the plan**: created or replaced → roll.
+
 ### 0.3b Pin warm replicas for the test window
 In `infra/envs/dev/compute.tf`, set `min_replicas = 1` on the **runtime** app (line ~108)
 and the **app** container (line ~1089), then apply. These are hardcoded in compute.tf, not
@@ -49,21 +70,50 @@ an account number that matches the paper bill. A case with no structured source 
 and the call script degrades — that is correct behavior, not a bug.
 
 ### 0.5 The e2e sweep (the last leg of the ready-to-test gate)
-Run the full harness against dev **after** the apply, so the X2/X3/X5 contract assertions
-run against the build that has the `error_type` read seam:
+Run the full harness against dev **after** the apply *and after the deploy has finished*, so
+the X2/X3/X5 contract assertions run against the build that has the `error_type` read seam.
+Dispatch it — do not run it from a laptop (the secret pull is blocked there by design, and the
+interlock below only exists in the workflow):
 
 ```bash
-export TYNDALE_E2E_SECRET="$(az keyvault secret show --vault-name tyndale-dev-kv-71izsy --name e2e-test-token-secret --query value -o tsv)"
+gh workflow run e2e-scenarios.yml
 ```
 
 ```bash
-cd runtime && uv run python scripts/e2e_scenarios/run_scenarios.py --dev --chat-first --record
+gh run watch "$(gh run list --workflow e2e-scenarios.yml --limit 1 --json databaseId -q '.[0].databaseId')"
 ```
 
-Expect **23/23** (22 scenarios + the record-aggregates row). Costs ~22 real audits; runs
-~45–90 min as an isolated synthetic user (`…@e2e.tyndale.test`) — it never touches your
-account or the Beloit case. If a late scenario 429s on upload (20/hr cap), wait out the
-window and rerun just it with `--only <name>`.
+Expect **23/23** (22 scenarios + the record-aggregates row). Costs ~22 real audits. What
+changed on 2026-09-18, and what it means for test day:
+
+- **~80 minutes, hard-capped at 150.** Start it the night before, not the morning of. A subset:
+  `-f only=<name>[,<name>]`.
+- **One synthetic identity per run *and per attempt*** — `e2e-runner+<run id>-<attempt>@e2e.tyndale.test`,
+  printed in every report. It never touches your account or the Beloit case, and the
+  20-uploads/hour cap is per identity, so a re-run no longer inherits the last run's spend.
+  Synthetic users are **never enqueued for human review** — a sweep cannot fill Brock's queue.
+- **Upload 429s are waited out from a 30-minute per-run budget**; past it the run stops at the
+  next scenario boundary and reports the rest `SKIP` instead of sleeping toward the cap.
+  Re-dispatch just those with `-f only=…`.
+- **Deploy interlock — the sweep yields.** It waits (≤ 20 min) for an in-flight
+  `deploy-runtime` before uploading, re-checks at every scenario boundary, and if a deploy has
+  begun it stops cleanly: report, teardown, **exit code 3**, a warning annotation — nothing that
+  ran is marked failed. Re-dispatch when the deploy is done. It cannot see a `terraform apply`
+  (which rolls the runtime too): **don't push to `runtime/**` or apply mid-sweep.**
+- **It cleans up after itself** — cases, stored documents, threads, findings, review rows,
+  analytics; never the audit log. **A FAILED scenario's case is kept**, and so is its identity,
+  so you can look at it:
+
+```bash
+gh workflow run e2e-scenarios.yml -f identity=<address from the report> -f inspect=<case_file_id>
+```
+
+```bash
+gh workflow run e2e-scenarios.yml -f identity=<address from the report> -f cleanup_only=true
+```
+
+The second one finishes the teardown once you are done. The whole story, including what the
+interlock cannot see, is `runtime/scripts/e2e_scenarios/README.md` → "A sweep, end to end".
 
 > Why not local: the local runtime is the stub pipeline by construction (no DI, no Qdrant
 > corpus, fixture extract), and the harness's fixture-marker tripwire fails it by design.
@@ -170,6 +220,24 @@ each box; anything that fails, capture the `case_file_id` (§ "If something brea
       is test-covered; the cron-run plumbing is what you're checking
 - [ ] Case provenance view on one of today's cases: extraction truth surfaced, no fixture
       markers
+- [ ] **Review** (Admin → Review — doc 39): the health strip and the sampling dial load; the
+      state pills show counts and "Pending" is selected
+  - [ ] **Queue:** today's cases are rows you can *recognise* — provider · service date ·
+        document-set chip, a masked `u·xxxx` and **no email**. The e2e sweep's cases are NOT
+        there (synthetic users are never enqueued)
+  - [ ] **Open a case:** documents left, the four tabs centre, the verdict panel right. Opening
+        did **not** claim it (state still Unreviewed). Open a document → the file renders, the
+        OCR-text toggle works. Audit log shows `review_view` + `review_document_view` with the
+        case owner as subject
+  - [ ] **Approve** one: "Start review", Approve → state Approved, the run leaves Pending
+  - [ ] **Disapprove** one: the button stays disabled until type + scope + cause + the
+        three-part note are filled; click a finding card to scope it. After: state Disapproved,
+        the cause shows under it in the queue
+  - [ ] **Can't verify** one: state Can't verify
+  - [ ] **The rate math:** note the 7d cell before. After exactly one approve + one disapprove
+        the counts under it are `+1 approved · +1 disapproved` and the rate is
+        approved ÷ (approved + disapproved); the can't-verify moved **neither** number. Pill
+        counts moved by exactly the three runs you decided
 
 ---
 
