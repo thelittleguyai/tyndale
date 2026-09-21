@@ -47,6 +47,9 @@ dev = [
     "mypy>=1.9",
     # HP-2 e2e scenario harness only (synthetic PDF generation); NOT a runtime/production dep.
     "reportlab>=4.0",
+    # tests/test_ci_workflow_parity.py parses the GitHub workflows. Already in the lock as a
+    # transitive dep (uvicorn[standard], presidio) — declared so the test owns what it imports.
+    "pyyaml>=6.0",
 ]
 
 # No [build-system]: this is an application project, not an installable package.

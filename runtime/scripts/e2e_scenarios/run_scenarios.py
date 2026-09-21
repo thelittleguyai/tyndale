@@ -45,7 +45,18 @@ DEV_URL = "https://api.tyndaleapp.net"
 # inherited its spend — the 18:18 run hit the cap at its ninth scenario and slept 15 min.
 # The suffix is what test-token authorizes; the tag keeps each run's budget its own. Override
 # with E2E_SYNTH_EMAIL to reuse an identity deliberately (e.g. to inspect its cases).
-_RUN_TAG = os.environ.get("GITHUB_RUN_ID") or time.strftime("%Y%m%d%H%M%S", time.gmtime())
+def _run_tag(env=None) -> str:
+    """<run id>-<attempt> in CI, a UTC timestamp locally. The ATTEMPT matters: "Re-run jobs"
+    keeps GITHUB_RUN_ID, so a re-run used to inherit the first attempt's identity — and its
+    spent 20-uploads/hour budget, the exact case the per-run identity exists to prevent."""
+    env = os.environ if env is None else env
+    run_id = env.get("GITHUB_RUN_ID")
+    if run_id:
+        return f"{run_id}-{env.get('GITHUB_RUN_ATTEMPT') or '1'}"
+    return time.strftime("%Y%m%d%H%M%S", time.gmtime())
+
+
+_RUN_TAG = _run_tag()
 SYNTH_EMAIL = os.environ.get("E2E_SYNTH_EMAIL") or f"e2e-runner+{_RUN_TAG}@e2e.tyndale.test"
 COOKIE_NAME = "tyndale_session"  # a session read-name on every env (bare name kept for grace)
 
@@ -240,9 +251,16 @@ def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> t
     if r.status_code == 429:
         # The 20/hr per-user upload cap (DL-46). A full-suite run legitimately grazes it near
         # the end (the 2026-08-17 sweep lost its last two scenarios this way), so honor
-        # Retry-After ONCE — a real regression still fails after the single wait.
+        # Retry-After ONCE per upload — a real regression still fails after the single wait.
+        # The waits are BUDGETED per run: unbounded, 23 scenarios x up to 900 s is ~5.5 h of
+        # sleeping, and the job is hard-killed at 150 min with no summary at all.
         wait = min(int(r.headers.get("Retry-After") or 600), 900)
-        log(f"  upload 429 — honoring Retry-After: waiting {wait}s once")
+        if not _RATE_LIMIT.spend(wait):
+            log(f"  upload 429 — NOT waiting {wait}s: the run's {RATE_LIMIT_BUDGET_S // 60}-min "
+                f"rate-limit budget is spent ({_RATE_LIMIT.waited_s}s already slept)")
+            return r.status_code, ""
+        log(f"  upload 429 — honoring Retry-After: waiting {wait}s once "
+            f"({_RATE_LIMIT.waited_s}s of {RATE_LIMIT_BUDGET_S}s budget used)")
         time.sleep(wait)
         r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
     if r.status_code != 200:
@@ -840,6 +858,116 @@ def run_scenario(
                 "pass": False, "fails": [f"{type(e).__name__}: {e}"]}
 
 
+# ── rate-limit budget ────────────────────────────────────────────────────────────────────
+RATE_LIMIT_BUDGET_S = 30 * 60
+
+
+class _RateLimitBudget:
+    """Total seconds a run may spend honoring upload 429s. ``spend`` reserves a wait and says
+    whether it fits; once one does not, the run is ``exhausted`` and stops at the next
+    scenario boundary with a clean summary."""
+
+    def __init__(self, budget_s: int = RATE_LIMIT_BUDGET_S) -> None:
+        self.budget_s, self.waited_s, self.exhausted = budget_s, 0, False
+
+    def spend(self, wait_s: int) -> bool:
+        if self.waited_s + wait_s > self.budget_s:
+            self.exhausted = True
+            return False
+        self.waited_s += wait_s
+        return True
+
+
+_RATE_LIMIT = _RateLimitBudget()
+
+# ── deploy interlock: the SWEEP yields, a deploy never waits ─────────────────────────────
+# A dev runtime deploy swaps the Container App revision and kills in-flight audits (two
+# scenarios timed out in audit_running on 2026-09-18). The first fix shared ONE concurrency
+# group between this workflow and deploy-runtime — but GitHub keeps a single PENDING run per
+# group, so a sweep dispatched while a deploy sat queued REPLACED it and that commit never
+# reached dev. Now each workflow has its own group and the sweep does the yielding: it waits
+# (bounded) for any active deploy before starting, re-checks at every scenario boundary, and
+# stops cleanly — report, teardown, exit EXIT_YIELDED — if one began. Deploys are never
+# delayed and never dropped. (`terraform apply` also rolls the runtime and is invisible here:
+# don't apply mid-sweep.)
+DEPLOY_WORKFLOW = "deploy-runtime.yml"
+EXIT_YIELDED = 3
+_ACTIVE_RUN_STATUSES = frozenset({"queued", "in_progress", "requested", "waiting", "pending"})
+
+
+def _pick_active(runs: list[dict]) -> list[dict]:
+    """Pure: the workflow runs that have not completed."""
+    return [
+        {"id": r.get("id"), "status": r.get("status"), "url": r.get("html_url")}
+        for r in runs
+        if r.get("status") in _ACTIVE_RUN_STATUSES
+    ]
+
+
+def _active_deploys() -> list[dict]:
+    """deploy-runtime runs in flight, via the Actions API. [] when the interlock is unavailable
+    (no GITHUB_TOKEN/GITHUB_REPOSITORY — a local run) or the API errors: it fails OPEN, because
+    the interlock protects a sweep from a deploy and must never be a reason a sweep can't run."""
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    if not (token and repo):
+        return []
+    try:
+        r = httpx.get(
+            f"https://api.github.com/repos/{repo}/actions/workflows/{DEPLOY_WORKFLOW}/runs",
+            params={"per_page": 15},
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+            timeout=20,
+        )
+        if r.status_code != 200:
+            log(f"  deploy interlock: Actions API answered {r.status_code} — proceeding")
+            return []
+        return _pick_active(r.json().get("workflow_runs") or [])
+    except (httpx.HTTPError, ValueError) as e:
+        log(f"  deploy interlock: {e} — proceeding")
+        return []
+
+
+def _wait_for_deploys(*, max_wait_s: int = 20 * 60, poll_s: int = 30, active=_active_deploys,
+                      sleep=time.sleep, clock=time.monotonic) -> bool:
+    """Before the first scenario: wait for in-flight deploys to finish. True when clear; False
+    if one is STILL active after ``max_wait_s`` (the caller yields rather than racing it)."""
+    start = clock()
+    while True:
+        runs = active()
+        if not runs:
+            return True
+        if clock() - start >= max_wait_s:
+            log(f"deploy interlock: still active after {max_wait_s // 60} min — {runs[0]['url']}")
+            return False
+        log(f"deploy interlock: waiting for {runs[0]['status']} deploy {runs[0]['url']}")
+        sleep(poll_s)
+
+
+def _skipped(scenario: dict, reason: str) -> dict:
+    return {"name": scenario["name"], "case_id": "", "terminal": "SKIPPED", "timings": {},
+            "pass": False, "skipped": True, "fails": [reason]}
+
+
+def _run_all(scenarios: list[dict], run_one, *, active=_active_deploys, budget=None) -> tuple[list[dict], str | None]:
+    """Run scenarios in order, checking at every BOUNDARY whether to stop: a deploy began (yield)
+    or the rate-limit budget is spent. Returns (results incl. SKIPPED rows, stop reason | None)."""
+    budget = _RATE_LIMIT if budget is None else budget
+    results: list[dict] = []
+    for i, s in enumerate(scenarios):
+        reason = None
+        if budget.exhausted:
+            reason = (f"rate-limit budget spent ({budget.waited_s}s slept on upload 429s) — "
+                      "re-dispatch later; every run has its own identity and a fresh hourly cap")
+        elif i and (runs := active()):
+            reason = f"yielded to deploy {runs[0]['url']} — re-dispatch the sweep once it completes"
+        if reason:
+            results.extend(_skipped(rest, reason) for rest in scenarios[i:])
+            return results, reason
+        results.append(run_one(s))
+    return results, None
+
+
 def _failed_case_ids(results: list[dict]) -> list[str]:
     """Case ids of the scenarios that did NOT pass — the teardown keeps these (and so the run's
     identity) so `--inspect <case_file_id>` forensics still work after the run."""
@@ -973,6 +1101,9 @@ def main() -> int:
         return 0
 
     log(f"target: {base_url}")
+    if not _wait_for_deploys():
+        log("RESULT: 0 scenarios run — yielded to an in-flight deploy (nothing uploaded)")
+        return EXIT_YIELDED
     with httpx.Client(follow_redirects=True) as client:
         uid = authenticate(
             client,
@@ -981,14 +1112,15 @@ def main() -> int:
             os.environ.get("TYNDALE_E2E_SECRET"),
         )
         log(f"authenticated as {uid or 'dev-user'}\n")
-        results = [
-            run_scenario(client, base_url, s, workdir, chat_first=args.chat_first,
-                         no_placeholders=args.assert_no_placeholders, record=args.record)
-            for s in scenarios
-        ]
+        results, stopped = _run_all(
+            scenarios,
+            lambda s: run_scenario(client, base_url, s, workdir, chat_first=args.chat_first,
+                                   no_placeholders=args.assert_no_placeholders, record=args.record),
+        )
         # Suite-level Record check: after every upload, the multi-upload user's Record must hold
-        # ≥2 sub-cases with honest aggregates (DL-91 §5). Skipped unless we ran real scenarios.
-        if args.record and not args.only:
+        # ≥2 sub-cases with honest aggregates (DL-91 §5). Skipped unless we ran real scenarios
+        # (and ran them all — a stopped sweep's Record is incomplete by construction).
+        if args.record and not args.only and not stopped:
             results.append(_record_aggregate_checks(client, base_url))
 
     # --- report ---
@@ -996,16 +1128,19 @@ def main() -> int:
     log(f"{'SCENARIO':<30} {'RESULT':<7} {'TERMINAL':<20} TIMINGS")
     log("-" * 78)
     for r in results:
-        mark = "PASS" if r["pass"] else "FAIL"
+        mark = "SKIP" if r.get("skipped") else ("PASS" if r["pass"] else "FAIL")
         tim = " ".join(f"{k}={v}" for k, v in r["timings"].items())
         log(f"{r['name']:<30} {mark:<7} {r['terminal']:<20} {tim}")
-        if not r["pass"]:
+        if not r["pass"] and not r.get("skipped"):
             log(f"    case_file_id={r['case_id'] or '(none)'}")
             for f in r["fails"]:
                 log(f"      - {f}")
     passed = sum(1 for r in results if r["pass"])
+    skipped = sum(1 for r in results if r.get("skipped"))
     log("=" * 78)
-    log(f"RESULT: {passed}/{len(results)} scenarios passed")
+    log(f"RESULT: {passed}/{len(results)} scenarios passed" + (f" ({skipped} skipped)" if skipped else ""))
+    if stopped:
+        log(f"STOPPED EARLY: {stopped}")
     # Cases are owner-only and every run has its own identity — a later --inspect (or a
     # finishing --cleanup-only) must act as THIS one: workflow input `identity`.
     log(f"identity: {SYNTH_EMAIL}")
@@ -1020,6 +1155,8 @@ def main() -> int:
             log(f"  kept for forensics: {', '.join(keep)}")
             log(f"  inspect:  gh workflow run e2e-scenarios.yml -f identity={SYNTH_EMAIL} -f inspect={','.join(keep)}")
             log(f"  finish:   gh workflow run e2e-scenarios.yml -f identity={SYNTH_EMAIL} -f cleanup_only=true")
+    if stopped and "yielded to deploy" in stopped and passed == len(results) - skipped:
+        return EXIT_YIELDED  # nothing that RAN failed — the sweep just stepped aside
     return 0 if passed == len(results) else 1
 
 

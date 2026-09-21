@@ -8,6 +8,24 @@ name: E2E Scenarios (dev, on-demand)
 # scenario, and each scenario is a multi-minute agent run — 22 scenarios today). Trigger it
 # manually when validating a change end-to-end. Uses SYNTHETIC identities only (never real PHI).
 #
+# CONCURRENCY MODEL — the SWEEP yields; a deploy never waits and is never dropped.
+#   A dev runtime deploy swaps the Container App revision and kills in-flight audits, so the
+#   two must not overlap. They used to share one concurrency group — but GitHub keeps ONE
+#   pending run per group (cancel-in-progress: false only protects the RUNNING one), so a
+#   second sweep dispatched while a deploy sat queued REPLACED it and that commit never
+#   reached dev. Now: deploy-runtime has its own group (deploys serialize among themselves; a
+#   newer pending deploy supersedes an older one, which it contains). This workflow has its
+#   own group too, and the HARNESS does the yielding via the Actions API
+#   (run_scenarios.py: _wait_for_deploys / _run_all): it waits up to 20 min for an in-flight
+#   deploy before uploading anything, re-checks at every scenario boundary, and if a deploy
+#   has begun it stops cleanly — report, teardown, exit 3, a warning annotation — for a manual
+#   re-dispatch. Not covered: `terraform apply` also rolls the runtime and is invisible to
+#   GitHub — don't apply mid-sweep.
+#
+# DURATION — a full sweep is ~80 min (23 scenarios, each a multi-minute agent run); the job is
+#   capped at 150. Upload 429s (the 20/hour per-identity cap, which a full sweep grazes) are
+#   waited out from a 30-min per-run budget; past it the run stops with a clean summary.
+#
 # Auth to the dev-only /v1/admin/test-token endpoint (which mints the synthetic test user's
 # session) uses ONE of:
 #   * E2E_TEST_SECRET (preferred) — the stable Key Vault shared secret; set once from
@@ -37,12 +55,11 @@ on:
 
 permissions:
   contents: read
+  actions: read  # the deploy interlock lists deploy-runtime's workflow runs
 
-# Same group as deploy-runtime.yml: a dev deploy mid-sweep swaps the runtime revision and
-# kills the in-flight audits (two scenarios timed out in audit_running on 2026-09-18), so a
-# sweep and a deploy queue behind each other instead of overlapping.
+# Its OWN group (see CONCURRENCY MODEL above) — sweeps serialize among themselves only.
 concurrency:
-  group: deploy-runtime
+  group: e2e-scenarios
   cancel-in-progress: false
 
 defaults:
@@ -68,29 +85,40 @@ jobs:
         if: ${{ !inputs.cleanup_only }}
         env:
           E2E_SYNTH_EMAIL: ${{ inputs.identity }}
+          ONLY: ${{ inputs.only }}
+          INSPECT: ${{ inputs.inspect }}
+          GITHUB_TOKEN: ${{ github.token }}  # deploy interlock (read-only: actions: read)
           # Prefer the stable Key Vault shared secret (set once via `terraform output`);
           # E2E_ADMIN_TOKEN is a fallback (a 7-day admin session token).
           TYNDALE_E2E_SECRET: ${{ secrets.E2E_TEST_SECRET }}
           TYNDALE_ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
         run: |
-          ONLY_ARGS=""
-          if [ -n "${{ inputs.only }}" ]; then
-            for s in $(echo "${{ inputs.only }}" | tr ',' ' '); do
-              ONLY_ARGS="$ONLY_ARGS --only $s"
+          # Inputs arrive via env (never interpolated into the script) and become an argv array.
+          ARGS=(--dev --chat-first --record)
+          if [ -n "${ONLY:-}" ]; then
+            IFS=',' read -r -a only <<< "$ONLY"
+            for s in "${only[@]}"; do
+              if [ -n "$s" ]; then ARGS+=(--only "$s"); fi
             done
           fi
-          if [ -n "${{ inputs.inspect }}" ]; then
-            for c in $(echo "${{ inputs.inspect }}" | tr ',' ' '); do
-              ONLY_ARGS="$ONLY_ARGS --inspect $c"
+          if [ -n "${INSPECT:-}" ]; then
+            IFS=',' read -r -a inspect <<< "$INSPECT"
+            for c in "${inspect[@]}"; do
+              if [ -n "$c" ]; then ARGS+=(--inspect "$c"); fi
             done
           fi
           # --chat-first / --record: dev runs with ENABLE_CHAT_FIRST_AUDIT and
           # ENABLE_RECORD_VIEW on, so the thread + Record assertion layers always apply.
           # --cleanup: the run tears down its own synthetic identity at the end (deep review
           # C5), keeping FAILED scenarios' cases so --inspect still works. Not for inspect runs.
-          CLEANUP="--cleanup"
-          if [ -n "${{ inputs.inspect }}" ]; then CLEANUP=""; fi
-          uv run python scripts/e2e_scenarios/run_scenarios.py --dev --chat-first --record $CLEANUP $ONLY_ARGS
+          if [ -z "${INSPECT:-}" ]; then ARGS+=(--cleanup); fi
+          set +e
+          uv run python scripts/e2e_scenarios/run_scenarios.py "${ARGS[@]}"
+          code=$?
+          if [ "$code" -eq 3 ]; then
+            echo "::warning title=Sweep yielded to a deploy::A dev runtime deploy began, so the sweep stopped at a scenario boundary (nothing that ran failed). Re-dispatch once the deploy completes."
+          fi
+          exit $code
       - name: Tear down the run's synthetic identity (safety net)
         # The harness normally does this itself; this covers a crash, a timeout or a cancel —
         # a leaked identity is ~22 fixture cases on dev. Idempotent, and it honours the keep

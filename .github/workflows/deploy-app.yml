@@ -106,5 +106,28 @@ jobs:
           docker create --name dist-probe "$IMAGE:${{ github.sha }}"
           docker cp dist-probe:/usr/share/nginx/html ./dist-deployed
           docker rm dist-probe
-          sleep 30  # let the new revision take traffic
-          node apps/mobile/scripts/check-route-matrix.mjs https://app.tyndaleapp.net ./dist-deployed
+          # Bounded readiness (deep review 2/3) instead of `sleep 30`: `az containerapp update`
+          # returns 30–60 s before the new revision takes traffic, and the matrix used to run
+          # into that cutover. Wait — up to 120 s, every 5 s — until the revision built from
+          # THIS image is active at 100% traffic and running, AND `/` answers 200.
+          ready=""
+          for i in $(seq 1 24); do
+            serving=$(az containerapp revision list \
+              --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" \
+              --query "length([?properties.template.containers[0].image=='$IMAGE:${{ github.sha }}' && properties.active && properties.trafficWeight==\`100\` && starts_with(properties.runningState, 'Running')])" \
+              -o tsv 2>/dev/null || echo 0)
+            code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' https://app.tyndaleapp.net/ || echo 000)
+            echo "[$i/24] new revision serving=$serving  GET / -> $code"
+            if [ "${serving:-0}" -ge 1 ] && [ "$code" = "200" ]; then ready=yes; break; fi
+            sleep 5
+          done
+          if [ -z "$ready" ]; then
+            echo "::error::the new revision was not serving / after 120 s — not running the route matrix against the old one"
+            exit 1
+          fi
+          # One retry: a single transient 5xx on one of ~47 routes must not fail a good deploy.
+          node apps/mobile/scripts/check-route-matrix.mjs https://app.tyndaleapp.net ./dist-deployed || {
+            echo "route matrix failed — retrying once in 20 s"
+            sleep 20
+            node apps/mobile/scripts/check-route-matrix.mjs https://app.tyndaleapp.net ./dist-deployed
+          }

@@ -15,10 +15,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_sc
 
 import run_scenarios  # noqa: E402
 from run_scenarios import (  # noqa: E402
+    EXIT_YIELDED,
     _failed_case_ids,
     _marker_pattern,
+    _pick_active,
+    _RateLimitBudget,
     _retrying,
+    _run_all,
+    _run_tag,
     _scan_extract_markers,
+    _wait_for_deploys,
     _warm,
 )
 from run_scenarios import (  # noqa: E402
@@ -195,3 +201,91 @@ def test_teardown_keeps_only_the_failed_scenarios_cases():
     ]
     assert _failed_case_ids(results) == ["22222222-2222-2222-2222-222222222222"]
     assert _failed_case_ids([]) == []
+
+
+# ══ deep review 2/3 (2026-09-18): identity per ATTEMPT, the deploy interlock, the 429 budget ══
+
+
+def test_a_rerun_mints_a_fresh_identity():
+    """'Re-run jobs' keeps GITHUB_RUN_ID — without the attempt, a re-run inherited the first
+    attempt's identity and its spent 20-uploads/hour budget (the case e75cc21 set out to fix)."""
+    first = _run_tag({"GITHUB_RUN_ID": "35383490200", "GITHUB_RUN_ATTEMPT": "1"})
+    rerun = _run_tag({"GITHUB_RUN_ID": "35383490200", "GITHUB_RUN_ATTEMPT": "2"})
+    assert (first, rerun) == ("35383490200-1", "35383490200-2")
+    assert _run_tag({"GITHUB_RUN_ID": "7"}) == "7-1"  # attempt absent -> first
+    local = _run_tag({})
+    assert len(local) == 14 and local.isdigit()  # UTC timestamp outside CI
+    assert run_scenarios.SYNTH_EMAIL.endswith("@e2e.tyndale.test")
+
+
+def test_only_unfinished_deploys_count_as_active():
+    runs = [
+        {"id": 1, "status": "completed", "html_url": "u1"},
+        {"id": 2, "status": "in_progress", "html_url": "u2"},
+        {"id": 3, "status": "queued", "html_url": "u3"},
+        {"id": 4, "status": "pending", "html_url": "u4"},
+    ]
+    assert [r["id"] for r in _pick_active(runs)] == [2, 3, 4]
+    assert _pick_active([]) == [] and _pick_active([{"id": 9, "status": "completed"}]) == []
+
+
+def test_the_sweep_waits_for_a_deploy_before_starting_and_gives_up_after_the_bound():
+    polls = iter([[{"status": "in_progress", "url": "u"}], [{"status": "in_progress", "url": "u"}], []])
+    slept: list[int] = []
+    assert _wait_for_deploys(active=lambda: next(polls), sleep=slept.append, clock=lambda: 0.0) is True
+    assert slept == [30, 30]  # two polls, then clear
+
+    ticks = iter([0.0, 10.0, 99_999.0])
+    stuck = _wait_for_deploys(
+        max_wait_s=1200, active=lambda: [{"status": "queued", "url": "u"}],
+        sleep=lambda _s: None, clock=lambda: next(ticks),
+    )
+    assert stuck is False  # still deploying after the bound -> the caller yields, never races
+
+
+def test_the_sweep_yields_at_a_scenario_boundary_when_a_deploy_begins():
+    scenarios = [{"name": n} for n in ("a", "b", "c", "d")]
+    ran: list[str] = []
+
+    def run_one(s):
+        ran.append(s["name"])
+        return {"name": s["name"], "pass": True, "case_id": "x", "terminal": "audit_complete", "timings": {}}
+
+    # no deploy at the a|b boundary; one has begun by b|c
+    checks = iter([[], [{"status": "queued", "url": "https://gh/run/9"}]])
+    results, stopped = _run_all(scenarios, run_one, active=lambda: next(checks), budget=_RateLimitBudget())
+    assert ran == ["a", "b"]  # c and d never uploaded anything
+    assert "yielded to deploy https://gh/run/9" in stopped
+    assert [(r["name"], r.get("skipped", False)) for r in results] == [
+        ("a", False), ("b", False), ("c", True), ("d", True),
+    ]
+    assert all(r["terminal"] == "SKIPPED" and not r["pass"] for r in results[2:])
+    assert _failed_case_ids(results) == []  # a skipped scenario has no case to keep
+    assert EXIT_YIELDED == 3
+
+    # the boundary check never runs BEFORE the first scenario (that is _wait_for_deploys' job)
+    ran.clear()
+    results, stopped = _run_all(scenarios[:1], run_one, active=lambda: [{"status": "queued", "url": "u"}])
+    assert ran == ["a"] and stopped is None
+
+
+def test_the_429_budget_stops_the_run_cleanly_instead_of_sleeping_for_hours():
+    """Unbounded, 23 scenarios x up to 900 s of Retry-After is ~5.5 h of sleeping, and the job
+    is hard-killed at the 150-min cap with no summary at all."""
+    b = _RateLimitBudget(budget_s=1800)
+    assert b.spend(900) and b.spend(900) and b.waited_s == 1800 and not b.exhausted
+    assert b.spend(1) is False and b.exhausted and b.waited_s == 1800  # refused, not slept
+
+    scenarios = [{"name": n} for n in ("a", "b", "c")]
+    budget = _RateLimitBudget(budget_s=600)
+    ran: list[str] = []
+
+    def run_one(s):
+        ran.append(s["name"])
+        if s["name"] == "a":
+            budget.spend(900)  # a's upload hit a 429 it could not afford to wait out
+        return {"name": s["name"], "pass": s["name"] != "a", "case_id": "", "terminal": "upload_429", "timings": {}}
+
+    results, stopped = _run_all(scenarios, run_one, active=lambda: [], budget=budget)
+    assert ran == ["a"] and "rate-limit budget spent" in stopped
+    assert [r.get("skipped", False) for r in results] == [False, True, True]

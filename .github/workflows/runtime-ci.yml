@@ -37,6 +37,12 @@ on:
       - '.github/workflows/runtime-ci.yml'
   # Reusable (audit item 3): deploy-runtime gates on this exact suite instead of racing it.
   workflow_call:
+    inputs:
+      gate:
+        description: 'Called as a deploy gate — never skip (see the scope job)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -46,7 +52,40 @@ defaults:
     working-directory: runtime
 
 jobs:
+  # ONE SUITE PER PUSH (deep review 2/3). A push that touches runtime/** fired this workflow
+  # AND deploy-runtime, which calls this workflow as its gate — the same 3-minute suite, twice.
+  # On a push, the standalone run now steps aside when the push touches deploy-runtime's paths
+  # (DEPLOY_PATHS below mirrors its `on.push.paths`; test_ci_workflow_parity.py keeps them in
+  # step). Pull requests always run; the gate call always runs; if the changed-file lookup
+  # fails, it RUNS — skipping is the only thing that needs certainty.
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE: ${{ inputs.gate }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          DEPLOY_PATHS: '^(runtime/|packages/shared/|\.github/workflows/deploy-runtime\.yml$)'
+        run: |
+          run=true
+          if [ "$GATE" != "true" ] && [ "$EVENT" = "push" ]; then
+            files=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BEFORE}...${GITHUB_SHA}" \
+              --jq '.files[].filename' 2>/dev/null || echo "__lookup_failed__")
+            if echo "$files" | grep -qE "$DEPLOY_PATHS"; then
+              run=false
+              echo "::notice title=Runtime CI skipped::this push touches deploy-runtime's paths — Deploy Dev Runtime runs this same suite as its gate."
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   tests:
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -80,6 +119,8 @@ jobs:
         run: uv run pytest -q
 
   migrations:
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:

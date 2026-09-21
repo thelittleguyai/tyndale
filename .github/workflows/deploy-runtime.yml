@@ -14,6 +14,18 @@ name: Deploy Dev Runtime
 #
 # Rollback: `az containerapp update --image ghcr.io/.../runtime:<previous-sha>`
 # or via the Azure portal's revision list.
+#
+# CONCURRENCY MODEL — a deploy never waits on an e2e sweep and is never dropped.
+#   This group holds deploys ONLY. GitHub keeps one pending run per group, so a newer pending
+#   deploy supersedes an older one — safe, because on main the newer commit contains the
+#   older. The e2e sweep is NOT in this group (it was, briefly: a sweep dispatched while a
+#   deploy sat queued replaced it, and that commit never reached dev). Instead the sweep
+#   yields — see e2e-scenarios.yml's header and run_scenarios.py::_run_all.
+#
+# ONE SUITE PER PUSH — the `ci` job below runs the reusable Runtime CI as this deploy's gate
+#   (gate: true). Runtime CI's own push trigger skips pushes that touch the paths below,
+#   because this workflow will run the identical suite; keep the two path lists in step
+#   (runtime/tests/test_ci_workflow_parity.py asserts it).
 
 on:
   push:
@@ -44,6 +56,8 @@ jobs:
   # suite still deployed and migrated). The same reusable CI workflow now gates the roll.
   ci:
     uses: ./.github/workflows/runtime-ci.yml
+    with:
+      gate: true  # never skipped: this run IS the suite for a push that touches runtime paths
 
   deploy:
     needs: ci

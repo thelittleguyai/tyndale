@@ -1,0 +1,47 @@
+name: Terraform CI
+
+# Until now the only thing that ever read the HCL in CI was a regex inside the runtime test
+# suite (the flag/env wiring + cron parity guards). `terraform fmt` and `terraform validate`
+# ran on Phil's laptop or not at all, so a typo'd reference or an unformatted file surfaced at
+# apply time. This is the cheap half of terraform CI: no plan, because a plan needs Azure
+# credentials + the state backend, and this workflow deliberately has neither.
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9  # what dev is applied with; providers.tf requires >= 1.9
+          terraform_wrapper: false
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive -diff infra
+      - name: terraform init -backend=false + validate (every env that has configuration)
+        run: |
+          set -euo pipefail
+          found=0
+          for dir in infra/envs/*/; do
+            if ls "$dir"*.tf >/dev/null 2>&1; then
+              found=1
+              echo "::group::${dir}"
+              terraform -chdir="$dir" init -backend=false -input=false -no-color
+              terraform -chdir="$dir" validate -no-color
+              echo "::endgroup::"
+            fi
+          done
+          [ "$found" -eq 1 ] || { echo "::error::no terraform configuration found under infra/envs"; exit 1; }
