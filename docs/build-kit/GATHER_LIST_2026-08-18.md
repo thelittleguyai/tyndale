@@ -74,8 +74,11 @@ honest ranges.
 - **§3.9** — approve/author the recovery-email body + the `system_error_no_email` trim.
 - **§3.10** — one grounding line for `lineitem_plain_language.md` ("never substitute a
   code from these examples"); the sweep showed example bleed can reach audit prose too.
-  Keep 70553/A9579/36000 as your example codes — they are the leak-canary set
+  ~~Keep 70553/A9579/36000 as your example codes — they are the leak-canary set~~
   (see `intelligence-layer/prompts/README.md`); if you swap them, tell engineering.
+
+  > **SUPERSEDED 2026-09-18 → the canary set is now `02417` / `05821` / `Z4411`.** The instruction here to keep `70553` / `A9579` / `36000` is RETIRED — those were real codes, so correct reasoning could name them (Brock's re-pick, 2026-09-17). Prompt examples now use the new three; the why and the lockstep rule live in `intelligence-layer/prompts/README.md`. The original wording stays as the record of what was asked at the time.
+
 - **A6** — sign-off on `doctrine_config.py` (the DRAFT error-type enum, category
   mappings, informational categories). Also wanted from A6: the category taxonomy —
   agents currently mint free-form all-clear phrasings (`diagnostic_audit_clean`,

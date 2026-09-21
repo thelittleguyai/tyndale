@@ -19,7 +19,7 @@ after DL-63 ghost-rate filtering.
 
 ## Returns
 ```json
-{"code":"70553","payer":"UnitedHealthcare",
+{"code":"02417","payer":"UnitedHealthcare",
  "rates":[{"rate":540.0,"rate_type":"negotiated","confidence":0.78}]}
 ```
 

@@ -151,6 +151,13 @@ X_KNOWN_GAPS: dict[str, str] = {
         "dev sweep 2026-08-17) — the finding->gameplan action binding is not yet guaranteed "
         "by the pipeline"
     ),
+    # canary:family_reasoning_in_notes DELETED 2026-09-21 (deep review 2026-09-18, prompt 1/3) —
+    # it excused a canary code in Bill Detective notes when the code shared a CPT family with a
+    # code genuinely on the bill (Brock 2026-09-17, option b). The 2026-09-18 re-pick made the
+    # excuse impossible by construction: 02417 / 05821 / Z4411 are valid in FORMAT and never
+    # assigned, and no real code shares their prefixes — so no mention is benign, the harness
+    # carries NO allow-rule, and any hit trips. A rule that can never fire is not a known gap;
+    # keeping it ledgered would have been a standing invitation to re-add the allowance.
     "scenario:clean_bill_a6_vocabulary": (
         "the agents mint NOVEL all-clear category phrasings every run "
         "(diagnostic_audit_clean, then diagnostic_pass_complete the very next sweep) — the "

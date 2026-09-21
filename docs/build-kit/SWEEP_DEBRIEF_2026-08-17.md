@@ -69,6 +69,9 @@ thin, the agent **echoed the example into persisted line items** — a fabricate
 the encounter screen. Caught only because the example code doubles as a harness marker
 (the example codes are accidentally perfect canaries — keep 70553/A9579/36000 in prompts,
 or move the canary set in lockstep).
+
+> **SUPERSEDED 2026-09-18 → the canary set is now `02417` / `05821` / `Z4411`.** The instruction here to keep `70553` / `A9579` / `36000` is RETIRED — those were real codes, so correct reasoning could name them (Brock's re-pick, 2026-09-17). Prompt examples now use the new three; the why and the lockstep rule live in `intelligence-layer/prompts/README.md`. The original wording stays as the record of what was asked at the time.
+
 - **Guard (runtime, deployed):** a coded line item whose base code appears in NO uploaded
   document's OCR text is dropped at the translate seam + logged; filtered list persists
   immediately; all-dropped → the existing honest no-item states. Conviction needs strong

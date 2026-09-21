@@ -176,6 +176,8 @@ appear in the document. If a code is unreadable, say so — never substitute a c
 examples." And keep the example codes AS-IS (70553 / A9579 / 36000 are the harness's canary
 set); if you ever swap them, tell engineering so the canaries follow.
 
+> **SUPERSEDED 2026-09-18 → the canary set is now `02417` / `05821` / `Z4411`.** The instruction here to keep `70553` / `A9579` / `36000` is RETIRED — those were real codes, so correct reasoning could name them (Brock's re-pick, 2026-09-17). Prompt examples now use the new three; the why and the lockstep rule live in `intelligence-layer/prompts/README.md`. The original wording stays as the record of what was asked at the time.
+
 
 ### 3.11 A voice state your script doesn't have: "complete — and one document would sharpen it"
 Phil ruled on the SBC gate (2026-08-18, from the first full dev sweep): an audit **completes at

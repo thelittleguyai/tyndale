@@ -139,7 +139,7 @@ async def go() -> None:
                         "eob_member_responsibility": 1200.0,
                         "tyndale_computed": 560.0,
                         "gap": 1482.0,  # demo value matches the dashboard screenshot's $1,482 amount-saved
-                        "cpt_code": "70553",
+                        "cpt_code": "02417",  # the canary example code (prompts/README.md) — never a real CPT
                     },
                     legal_claim={
                         "claim": "Payer appears to have miscalculated member cost-sharing.",
