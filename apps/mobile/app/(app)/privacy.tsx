@@ -14,7 +14,7 @@ export default function PrivacyScreen() {
   const doc = buildPrivacyDoc();
   return (
     <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 24, flexGrow: 1 }}>
-      <Pressable onPress={() => router.back()} className="mb-8 self-start">
+      <Pressable accessibilityRole="button" onPress={() => router.back()} className="mb-8 self-start">
         <Text className="text-sm text-secondary">← Back</Text>
       </Pressable>
       <LegalDocView doc={doc} published={LEGAL_PUBLISHED} />

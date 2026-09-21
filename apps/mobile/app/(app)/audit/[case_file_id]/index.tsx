@@ -195,7 +195,7 @@ export default function AuditResultScreen() {
             <Text className="text-xs font-semibold text-primary">Overview</Text>
           </View>
           <Link href={`/audit/${case_file_id}/chat`} asChild>
-            <Pressable className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-hairline px-4 py-1.5">
+            <Pressable accessibilityRole="link" className="min-h-[44px] flex-row items-center justify-center gap-1.5 rounded-full border border-hairline px-4 py-1.5">
               <MessageSquare size={13} color={tc.text.secondary} />
               <Text className="text-xs font-semibold text-secondary">Chat</Text>
             </Pressable>
@@ -338,6 +338,7 @@ function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
       <Text className="mb-4 text-base leading-6 text-primary">{summary.question}</Text>
       <View className="flex-row gap-3">
         <Pressable
+          accessibilityRole="button"
           disabled={busy}
           onPress={() => answer(true)}
           className="flex-1 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
@@ -345,6 +346,7 @@ function EobCompletenessCard({ caseFileId }: { caseFileId: string }) {
           <Text className="text-body font-bold text-on-accent">Yes, that&apos;s all of them</Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           disabled={busy}
           onPress={() => answer(false)}
           className="flex-1 min-h-[44px] items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
@@ -395,7 +397,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
   return (
     <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
-        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+        <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="mb-5 self-start">
           <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 
@@ -435,6 +437,7 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
         ) : null}
 
         <Pressable
+          accessibilityRole="button"
           onPress={() =>
             router.push({ pathname: '/upload', params: { caseId: caseFileId } })
           }
@@ -475,7 +478,7 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
   return (
     <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
-        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+        <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="mb-5 self-start">
           <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 

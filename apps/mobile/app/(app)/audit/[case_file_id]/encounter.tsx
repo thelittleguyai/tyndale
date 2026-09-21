@@ -110,7 +110,7 @@ export default function EncounterVerificationScreen() {
         className="flex-1 bg-page"
         contentContainerStyle={{ padding: 20, paddingTop: 28 }}
       >
-        <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+        <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="mb-5 self-start">
           <Text className="text-sm text-secondary">← Back to dashboard</Text>
         </Pressable>
 
@@ -154,6 +154,7 @@ export default function EncounterVerificationScreen() {
         ) : null}
 
         <Pressable
+          accessibilityRole="button"
           onPress={() => router.push('/upload')}
           className="mt-2 rounded-xl bg-accent px-4 py-4"
         >
@@ -170,7 +171,7 @@ export default function EncounterVerificationScreen() {
 
   return (
     <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
-      <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+      <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="mb-5 self-start">
         <Text className="text-sm text-secondary">← Back to dashboard</Text>
       </Pressable>
 
@@ -207,6 +208,7 @@ export default function EncounterVerificationScreen() {
       ))}
 
       <Pressable
+        accessibilityRole="button"
         disabled={!allConfirmed || submitting}
         onPress={onContinue}
         className={

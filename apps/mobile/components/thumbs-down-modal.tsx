@@ -53,6 +53,8 @@ export function ThumbsDownModal({
                 const on = selected.includes(value);
                 return (
                   <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
                     key={value}
                     onPress={() => toggle(value)}
                     className={
@@ -80,10 +82,10 @@ export function ThumbsDownModal({
           </ScrollView>
 
           <View className="mt-5 flex-row gap-3">
-            <Pressable onPress={skip} className="flex-1 rounded-xl bg-inset px-4 py-3">
+            <Pressable accessibilityRole="button" onPress={skip} className="flex-1 rounded-xl bg-inset px-4 py-3">
               <Text className="text-center text-body font-semibold text-secondary">Skip</Text>
             </Pressable>
-            <Pressable onPress={submit} className="flex-1 rounded-xl bg-accent px-4 py-3">
+            <Pressable accessibilityRole="button" onPress={submit} className="flex-1 rounded-xl bg-accent px-4 py-3">
               <Text className="text-center text-body font-bold text-on-accent">Submit</Text>
             </Pressable>
           </View>

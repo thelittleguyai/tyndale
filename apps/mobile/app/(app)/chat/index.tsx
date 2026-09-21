@@ -47,7 +47,7 @@ export default function ChatListScreen() {
     <View className="flex-1 bg-page">
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/" asChild>
-          <Pressable className="min-h-[44px] flex-row items-center gap-1 active:opacity-70">
+          <Pressable accessibilityRole="link" className="min-h-[44px] flex-row items-center gap-1 active:opacity-70">
             <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary hover:text-primary">Home</Text>
           </Pressable>

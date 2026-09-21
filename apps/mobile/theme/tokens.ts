@@ -15,6 +15,8 @@
  * test; never edit one on its own.
  */
 
+import { semantic } from '@tyndale/shared';
+
 export type { SemanticColors, ThemeMode } from '@tyndale/shared';
 export {
   brand,
@@ -26,7 +28,5 @@ export {
   space,
   type,
 } from '@tyndale/shared';
-
-import { semantic } from '@tyndale/shared';
 
 export default semantic;

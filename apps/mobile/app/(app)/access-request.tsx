@@ -85,7 +85,7 @@ export default function AccessRequestScreen() {
 
   return (
     <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
-      <Pressable onPress={() => router.back()} className="mb-6 self-start" testID="access-back">
+      <Pressable accessibilityRole="button" onPress={() => router.back()} className="mb-6 self-start" testID="access-back">
         <Text className="text-sm text-secondary">← Back</Text>
       </Pressable>
 

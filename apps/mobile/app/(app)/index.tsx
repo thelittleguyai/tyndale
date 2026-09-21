@@ -20,9 +20,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -52,7 +50,6 @@ import {
   getUserProfile,
   listConversations,
   makeFeedbackEvent,
-  removeCase,
   submitFeedback,
   type DashboardPayload,
   type RecordPayload,
@@ -352,6 +349,8 @@ function OutcomeFollowupCard({
         <OutcomeButton label="Skip for now" tone="ink" onPress={() => answer('pending')} />
       </View>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: remind }}
         onPress={() => setRemind((r) => !r)}
         className="mt-3 min-h-[44px] justify-center self-start"
         testID="checkin-remind"
@@ -580,6 +579,7 @@ function Header() {
         </Pressable>
         {narrow ? null : (
           <Pressable
+            accessibilityRole="button"
             onPress={onSignOut}
             disabled={signingOut}
             className="min-h-[44px] items-center justify-center rounded-full bg-inset px-3 py-1.5 hover:bg-inset active:opacity-80"

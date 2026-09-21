@@ -29,11 +29,13 @@ export function CitationDetailModal({
   return (
     <Modal visible={!!c} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
+        accessible={false}
         onPress={onClose}
         className="flex-1 items-center justify-center bg-black/60 p-6"
       >
         {c ? (
           <Pressable
+            accessible={false}
             onPress={() => undefined}
             className="max-h-[80%] w-full max-w-xl rounded-2xl border border-hairline bg-surface p-5"
           >
@@ -41,7 +43,7 @@ export function CitationDetailModal({
               <Text className="flex-1 text-base font-bold text-primary">
                 {c.title || 'Source'}
               </Text>
-              <Pressable onPress={onClose} hitSlop={8}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={8}>
                 <X size={18} color={tc.text.secondary} />
               </Pressable>
             </View>
@@ -57,6 +59,7 @@ export function CitationDetailModal({
               ) : null}
               {c.url ? (
                 <Pressable
+                  accessibilityRole="link"
                   onPress={() => Linking.openURL(c.url as string).catch(() => undefined)}
                   className="mt-1 flex-row items-center gap-2 self-start rounded-lg border border-hairline px-3 py-2"
                 >

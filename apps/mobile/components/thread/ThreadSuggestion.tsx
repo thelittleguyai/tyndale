@@ -22,6 +22,7 @@ export function ThreadSuggestion({
       <Text className="text-[15px] leading-6 text-primary">{payload.text}</Text>
       {active ? (
         <Pressable
+          accessibilityRole="button"
           onPress={onConfirm}
           className="mt-3 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
         >

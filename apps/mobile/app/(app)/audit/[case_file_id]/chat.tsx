@@ -40,7 +40,7 @@ export default function CaseChatScreen() {
     <View className="flex-1 bg-page">
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href={`/audit/${caseId}`} asChild>
-          <Pressable className="flex-row items-center gap-1">
+          <Pressable accessibilityRole="link" className="flex-row items-center gap-1">
             <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary">Case</Text>
           </Pressable>
@@ -79,6 +79,7 @@ function CaseEmptyState({ onSuggest }: { onSuggest: (text: string) => void }) {
       </Text>
       {suggestions.map((s) => (
         <Pressable
+          accessibilityRole="button"
           key={s}
           onPress={() => onSuggest(s)}
           className="mb-2 self-center rounded-full border border-hairline bg-surface px-4 py-2 hover:border-hairline"

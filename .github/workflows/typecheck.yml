@@ -33,6 +33,23 @@ jobs:
       # (admin was previously unchecked in CI.)
       - run: npm run typecheck
 
+  # The frontend lint gate. Added 2026-09-21 (08-27 audit carry-over): admin and web-marketing
+  # had a `next lint` script and NO config — it would have prompted interactively — and mobile
+  # had nothing. Each app now has an eslint.config (Next / Expo defaults + react-hooks + a11y)
+  # and `eslint . --max-warnings 0`: a warning is a failure. First run found a dead unmount
+  # guard in the admin case list and 76 touchables a screen reader could not announce.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      # Fans out to every workspace with a lint script — admin, mobile, web-marketing.
+      - run: npm run lint
+
   # The frontend unit tests. Added 2026-08-12: `npm run test` existed in every workspace but no
   # workflow ran it, so the mobile suite could sit red indefinitely — and did. One assertion in
   # case-summary.test.tsx broke when a second "recovered so far" line was added to the sub-case
@@ -46,7 +63,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
-      # Fans out to every workspace with a test script (mobile today) via --if-present.
+      # Fans out to every workspace with a test script (mobile jest, admin vitest) via --if-present.
       - run: npm test
 
   barrel-export-completeness:

@@ -16,7 +16,6 @@ export function track(event: string, props?: EventProps): void {
   if (typeof plausible === 'function') {
     plausible(event, props ? { props } : undefined);
   } else if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
     console.debug('[analytics] (dev — not sent)', event, props ?? {});
   }
 }

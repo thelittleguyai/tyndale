@@ -16,6 +16,11 @@ export function CaseList({ limit }: { limit?: number }) {
       .then((r) => alive && setCases(r.cases))
       .catch((e) => alive && setError(e?.message ?? String(e)))
       .finally(() => alive && setLoading(false));
+    // Without this the `alive` guard above never flips (lint caught it as "never reassigned"):
+    // a response landing after unmount, or after `limit` changed, still wrote state.
+    return () => {
+      alive = false;
+    };
   }, [limit]);
 
   if (loading) return <p className="text-sm text-white/40">Loading cases…</p>;

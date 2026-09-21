@@ -18,7 +18,6 @@ type EventProps = Record<string, string | number | boolean>;
 
 export function track(event: string, props?: EventProps): void {
   if (__DEV__) {
-    // eslint-disable-next-line no-console
     console.debug('[analytics] (first-party; not sent)', event, props ?? {});
   }
 }

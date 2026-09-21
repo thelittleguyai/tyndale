@@ -26,7 +26,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 // Phase 2 adds it here, e.g. an HTTP/Nodemailer provider pointed at SendGrid.
 
 if (process.env.NODE_ENV !== 'production' && !process.env.AUTH_SECRET) {
-  // eslint-disable-next-line no-console
   console.warn(
     '[auth] AUTH_SECRET is not set. Fine for Phase 1B local dev; REQUIRED in production.',
   );

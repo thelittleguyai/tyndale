@@ -118,6 +118,7 @@ export function CameraCapture({
         <View className="mt-3 flex-row gap-2">
           {permission.canAskAgain ? (
             <Pressable
+              accessibilityRole="button"
               onPress={() => void requestPermission()}
               className="min-h-[44px] items-center justify-center rounded-control bg-accent px-4"
               testID="capture-request-permission"
@@ -126,6 +127,7 @@ export function CameraCapture({
             </Pressable>
           ) : null}
           <Pressable
+            accessibilityRole="button"
             onPress={onClose}
             className="min-h-[44px] items-center justify-center rounded-control bg-inset px-4"
             testID="capture-dismiss"
@@ -145,7 +147,7 @@ export function CameraCapture({
         <Text className="text-caption text-faint">
           {pages.length > 0 ? `Page ${pages.length + (pending ? 1 : 0)}` : 'Add your bill'}
         </Text>
-        <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="capture-close">
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="capture-close">
           <X size={22} color={tc.text.secondary} />
         </Pressable>
       </View>
@@ -153,7 +155,12 @@ export function CameraCapture({
       <View className="flex-1 px-5">
         <View className="relative w-full max-w-xl flex-1 self-center overflow-hidden rounded-moment bg-navy">
           {pending ? (
-            <Image source={{ uri: pending.uri }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+            <Image
+              source={{ uri: pending.uri }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="contain"
+              accessibilityLabel="Preview of the photo you just took"
+            />
           ) : (
             <CameraView ref={cameraRef} style={{ width: '100%', height: '100%' }} facing="back" />
           )}
@@ -178,6 +185,7 @@ export function CameraCapture({
         {pending ? (
           <View className="flex-row gap-3">
             <Pressable
+              accessibilityRole="button"
               onPress={() => setPending(null)}
               className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-control border border-hairline bg-surface px-4"
               testID="capture-retake"

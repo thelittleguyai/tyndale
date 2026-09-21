@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { ThumbsDown, ThumbsUp } from 'lucide-react-native';
 
 import {
@@ -82,6 +82,8 @@ export function ThumbsRating({
   return (
     <View className="flex-row items-center gap-2">
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: rating === 'up' }}
         onPress={onUp}
         accessibilityLabel="Helpful"
         hitSlop={8}
@@ -94,6 +96,8 @@ export function ThumbsRating({
         <ThumbsUp size={size} color={rating === 'up' ? c.success.base : c.text.faint} />
       </Pressable>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: rating === 'down' }}
         onPress={onDown}
         accessibilityLabel="Not helpful"
         hitSlop={8}

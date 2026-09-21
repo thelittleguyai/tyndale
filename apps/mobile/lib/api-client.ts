@@ -8,6 +8,33 @@
  * Phase 4 wires real auth headers (JWT bearer from NextAuth → mobile session).
  */
 
+// Every wire type comes from @tyndale/shared. ONE import, at the top (import/first): the
+// sections below re-export the types their callers need, beside the calls that use them.
+import type {
+  AuditStatusResponse,
+  CaseFeedbackPayload,
+  CaseSummaryPayload,
+  CasesListPayload,
+  ChatStreamEvent,
+  ConfirmationsAccepted,
+  Conversation,
+  ConversationDetail,
+  ConversationList,
+  CoverageDetailPayload,
+  CoverageRegime,
+  DashboardPayload,
+  ExtractResult,
+  FeedbackAck,
+  FeedbackEvent,
+  IntakeCompletionSummary,
+  IntakeStateResponse,
+  IntakeStepAck,
+  LineItemConfirmation,
+  OutcomePromptsPayload,
+  RecordPayload,
+  UserProfile,
+} from '@tyndale/shared';
+
 function resolveBaseUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (url) return url.replace(/\/+$/, '');
@@ -253,14 +280,6 @@ export async function confirmEobCompleteness(
 
 // --- Dashboard ---------------------------------------------------------------
 
-import type {
-  CaseSummaryPayload,
-  CasesListPayload,
-  CoverageDetailPayload,
-  DashboardPayload,
-  RecordPayload,
-} from '@tyndale/shared';
-
 export type {
   CaseSummaryPayload,
   CasesListPayload,
@@ -317,13 +336,6 @@ export async function getCoverage(): Promise<CoverageDetailPayload> {
 }
 
 // --- Encounter verification (Phase 2I) --------------------------------------
-
-import type {
-  AuditStatusResponse,
-  ConfirmationsAccepted,
-  ExtractResult,
-  LineItemConfirmation,
-} from '@tyndale/shared';
 
 export type {
   AuditStatusResponse,
@@ -445,15 +457,6 @@ export async function getAuditStatus(case_file_id: string): Promise<AuditStatusR
 }
 
 // --- Feedback + consent (Phase 2J) ------------------------------------------
-
-import type {
-  CaseFeedbackPayload,
-  ConsentHistoryPayload,
-  FeedbackAck,
-  FeedbackEvent,
-  OutcomePromptsPayload,
-  UserProfile,
-} from '@tyndale/shared';
 
 export type {
   CaseFeedbackPayload,
@@ -609,13 +612,6 @@ export async function logout(): Promise<void> {
 
 // --- Intake wizard (Phase CO-1A) --------------------------------------------
 
-import type {
-  CoverageRegime,
-  IntakeCompletionSummary,
-  IntakeStateResponse,
-  IntakeStepAck,
-} from '@tyndale/shared';
-
 export type {
   ConfirmationPrompt,
   IntakeCapturedData,
@@ -730,12 +726,6 @@ export async function completeIntake(caseFileId: string): Promise<IntakeCompleti
 }
 
 // ─── Chat (Phase CO-10) ──────────────────────────────────────────────────────
-import type {
-  ChatStreamEvent,
-  Conversation,
-  ConversationDetail,
-  ConversationList,
-} from '@tyndale/shared';
 
 export async function listConversations(params?: {
   case_id?: string;
@@ -1125,7 +1115,6 @@ export async function fetchCardImageObjectUrl(
     return null;
   }
 }
-
 
 /** Authored copy for a screen with no case thread yet (upload). Registry-sourced so the app
  *  never hardcodes product voice; a field is null when the string is deliberately withheld. */

@@ -124,6 +124,7 @@ function RecordRow({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       className={`min-h-[44px] flex-row items-center justify-between gap-3 p-4 active:bg-inset ${
         last ? '' : 'border-b border-hairline'

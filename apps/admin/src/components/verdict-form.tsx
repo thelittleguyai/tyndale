@@ -108,8 +108,8 @@ export function VerdictForm({
         />
       ) : null}
 
-      <label className="mb-1 block text-xs text-white/60">Scope</label>
-      <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} className={inputClass}>
+      <label htmlFor="verdict-scope" className="mb-1 block text-xs text-white/60">Scope</label>
+      <select id="verdict-scope" value={scope} onChange={(e) => setScope(e.target.value as Scope)} className={inputClass}>
         <option value="whole">Whole case</option>
         <option value="finding">Specific finding</option>
         <option value="response">Specific response</option>

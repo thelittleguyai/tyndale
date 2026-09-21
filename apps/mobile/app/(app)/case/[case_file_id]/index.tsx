@@ -50,7 +50,7 @@ export default function CaseSummaryScreen() {
           We couldn&rsquo;t load this summary. It may have been removed, or the Record view isn&rsquo;t
           enabled for your account yet.
         </Text>
-        <Pressable onPress={() => router.push('/')} className="min-h-[44px] items-center justify-center rounded-xl border border-hairline px-5 py-3">
+        <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="min-h-[44px] items-center justify-center rounded-xl border border-hairline px-5 py-3">
           <Text className="text-sm font-semibold text-secondary">← Back to dashboard</Text>
         </Pressable>
       </View>
@@ -71,10 +71,11 @@ export default function CaseSummaryScreen() {
     <ScrollView className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <View className="w-full max-w-2xl self-center">
         <View className="mb-5 flex-row items-center justify-between">
-          <Pressable onPress={() => router.push('/')} className="min-h-[44px] justify-center">
+          <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="min-h-[44px] justify-center">
             <Text className="text-sm text-secondary">← Record</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={() => router.push(`/audit/${caseFileId}/thread` as never)}
             className="min-h-[44px] flex-row items-center gap-1.5"
           >
@@ -147,6 +148,7 @@ export default function CaseSummaryScreen() {
               </View>
             ))}
             <Pressable
+              accessibilityRole="button"
               onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}
               className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             >

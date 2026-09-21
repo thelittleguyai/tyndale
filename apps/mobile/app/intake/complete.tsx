@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { type IntakeCompletionSummary, completeIntake, getIntakeState } from '../../lib/api-client';

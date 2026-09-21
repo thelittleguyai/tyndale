@@ -21,6 +21,8 @@ function Explainer({ text, itemKey }: { text?: string; itemKey: string }) {
   return (
     <View className="ml-6">
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
         onPress={() => setOpen((o) => !o)}
         className="min-h-[44px] flex-row items-center self-start"
         testID={`explainer-toggle-${itemKey}`}
@@ -98,6 +100,8 @@ function CoverageItemRow({
   return (
     <View className="mt-3 border-t border-hairline pt-3">
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open, disabled: done }}
         onPress={() => (done ? null : setOpen((o) => !o))}
         className="min-h-[44px] flex-row items-center gap-2"
         testID={`coverage-item-${item.key}`}
@@ -134,6 +138,7 @@ function CoverageItemRow({
             <View className="mb-2 flex-row flex-wrap gap-2">
               {(item.candidates ?? []).map((c) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={c}
                   onPress={() => void save(c)}
                   className="min-h-[44px] justify-center rounded-full border border-accent px-4"
@@ -156,6 +161,7 @@ function CoverageItemRow({
               testID={`coverage-input-${item.key}`}
             />
             <Pressable
+              accessibilityRole="button"
               onPress={() => (item.kind === 'number' ? saveNumber() : text.trim() && void save(text.trim()))}
               disabled={busy}
               className="min-h-[44px] justify-center rounded-xl bg-accent px-4"
@@ -165,6 +171,7 @@ function CoverageItemRow({
             </Pressable>
           </View>
           <Pressable
+            accessibilityRole="button"
             onPress={() => void save(undefined, true)}
             className="mt-1 min-h-[44px] justify-center self-start px-1"
             testID={`coverage-notsure-${item.key}`}
@@ -220,6 +227,7 @@ export function ThreadNeedsDocuments({
             <>
               <Text className="ml-6 text-body leading-6 text-secondary">{d.how_to_get}</Text>
               <Pressable
+                accessibilityRole="button"
                 onPress={() =>
                   router.push({ pathname: '/upload', params: { caseId: caseFileId, expect: d.key } })
                 }
@@ -246,6 +254,7 @@ export function ThreadNeedsDocuments({
       {/* Overall fallback — the per-item Add buttons above are the primary path (each opens
           the upload flow pre-tagged with the document type it should satisfy). */}
       <Pressable
+        accessibilityRole="button"
         onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}
         className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
       >

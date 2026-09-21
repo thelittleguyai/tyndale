@@ -230,6 +230,7 @@ export function CameraCapture({
             : 'Camera capture needs the web app on a phone — you can pick a photo or PDF instead.'}
         </Text>
         <Pressable
+          accessibilityRole="button"
           onPress={close}
           className="mt-3 min-h-[44px] items-center justify-center self-start rounded-control bg-inset px-4"
           testID="capture-dismiss"
@@ -249,6 +250,8 @@ export function CameraCapture({
           {pages.length > 0 ? `Page ${pages.length + (pending ? 1 : 0)}` : 'Add your bill'}
         </Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
           onPress={close}
           className="min-h-[44px] min-w-[44px] items-center justify-center"
           testID="capture-close"
@@ -306,6 +309,7 @@ export function CameraCapture({
         {phase === 'review' ? (
           <View className="flex-row gap-3">
             <Pressable
+              accessibilityRole="button"
               onPress={retake}
               className="min-h-[48px] flex-row items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-4"
               testID="capture-retake"

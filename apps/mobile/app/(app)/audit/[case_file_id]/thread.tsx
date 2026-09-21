@@ -234,7 +234,7 @@ export default function CaseThreadScreen() {
     <View className="flex-1 bg-page">
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
         <View className="w-full max-w-2xl self-center">
-          <Pressable onPress={() => router.push('/')} className="mb-5 self-start">
+          <Pressable accessibilityRole="button" onPress={() => router.push('/')} className="mb-5 self-start">
             <Text className="text-sm text-secondary">← Back to dashboard</Text>
           </Pressable>
           {loadError ? (
@@ -243,6 +243,7 @@ export default function CaseThreadScreen() {
                 Something went wrong loading this case. Your documents are safe — try again.
               </Text>
               <Pressable
+                accessibilityRole="button"
                 onPress={() => { setLoading(true); void load(); }}
                 className="mt-3 min-h-[44px] items-center justify-center self-start rounded-xl bg-accent px-4"
                 testID="thread-retry"

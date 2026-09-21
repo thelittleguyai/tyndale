@@ -111,6 +111,8 @@ export default function CoverageRegimeConfirmStep() {
           const active = selected === opt.value;
           return (
             <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
               key={opt.value}
               onPress={() => setSelected(opt.value)}
               className={`rounded-2xl border p-4 ${

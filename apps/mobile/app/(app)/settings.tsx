@@ -307,6 +307,7 @@ export default function SettingsScreen() {
   return (
     <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 28 }}>
       <Pressable
+        accessibilityRole="button"
         onPress={() => router.push('/')}
         className="mb-5 self-start active:opacity-70"
       >
@@ -360,6 +361,7 @@ export default function SettingsScreen() {
         />
         {!usState && pstate?.suggested_state ? (
           <Pressable
+            accessibilityRole="button"
             onPress={() => setUsState(pstate.suggested_state ?? '')}
             className="mb-2 self-start rounded-full bg-accent-tint px-3 py-1"
             testID="state-suggestion-chip"
@@ -420,6 +422,7 @@ export default function SettingsScreen() {
         {/* Item 3 (2026-08-19): "Not set" is now SETTABLE — the same verification ladder
             intake uses, same confirm path (user_declared, verified). */}
         <Pressable
+          accessibilityRole="button"
           onPress={() => router.push('/intake/coverage-regime-confirm?from=settings')}
           className="flex-row items-center justify-between py-1"
           testID="coverage-type-row"
@@ -478,10 +481,10 @@ export default function SettingsScreen() {
               </View>
             </View>
             <View className="mt-3 flex-row gap-5">
-              <Pressable onPress={startEditSecondary} testID="secondary-edit" className="min-h-[32px] justify-center">
+              <Pressable accessibilityRole="button" onPress={startEditSecondary} testID="secondary-edit" className="min-h-[32px] justify-center">
                 <Text className="text-sm font-semibold text-accent">Edit</Text>
               </Pressable>
-              <Pressable onPress={removeSecondary} testID="secondary-remove" className="min-h-[32px] justify-center">
+              <Pressable accessibilityRole="button" onPress={removeSecondary} testID="secondary-remove" className="min-h-[32px] justify-center">
                 <Text className="text-sm font-semibold text-danger">
                   {confirmRemoveSecondary ? 'Tap again to remove' : 'Remove'}
                 </Text>
@@ -510,6 +513,8 @@ export default function SettingsScreen() {
                 .filter(([value]) => value !== 'self_pay')
                 .map(([value, label]) => (
                   <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: secPlanType === value }}
                     key={value}
                     onPress={() => setSecPlanType(secPlanType === value ? null : value)}
                     className={
@@ -554,6 +559,7 @@ export default function SettingsScreen() {
               <Text className="mb-2 text-sm text-secondary">{secondary.captured_hint}</Text>
             ) : null}
             <Pressable
+              accessibilityRole="button"
               onPress={startEditSecondary}
               testID="secondary-add"
               className="min-h-[32px] justify-center self-start"
@@ -603,12 +609,14 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Pressable
+              accessibilityRole="button"
               onPress={() => void viewPlanDoc(d.plan_document_id)}
               className="min-h-[32px] justify-center"
             >
               <Text className="text-sm font-semibold text-accent">View</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               onPress={() => void removePlanDoc(d.plan_document_id)}
               className="min-h-[32px] justify-center"
               testID={`plan-doc-remove-${d.plan_document_id}`}
@@ -638,6 +646,7 @@ export default function SettingsScreen() {
           />
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setConsentModal(true)}
           className="mt-3 self-start active:opacity-70"
         >
@@ -965,7 +974,12 @@ function CardThumb({ side, present }: { side: CardType; present: boolean }) {
   }, [side, present]);
   if (!present || !uri) return null;
   return (
-    <Image source={{ uri }} resizeMode="cover" className="mb-2 h-24 w-full rounded-xl bg-inset" />
+    <Image
+      source={{ uri }}
+      resizeMode="cover"
+      accessibilityLabel={`${side.startsWith('secondary') ? 'Secondary insurance' : 'Insurance'} card, ${side.endsWith('back') ? 'back' : 'front'}`}
+      className="mb-2 h-24 w-full rounded-xl bg-inset"
+    />
   );
 }
 

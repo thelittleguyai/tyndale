@@ -16,8 +16,7 @@ import { getDashboard, getProfileState } from '../../lib/api-client';
 import { useCurrentUser } from '../../lib/auth';
 import { isIntakeDeferred } from '../../lib/intake-deferred';
 import { isCaseWorkRoute, shouldRedirectToWizard } from '../../lib/intake-gate';
-import { themeColors } from '../../theme/useThemeColors';
-import { useThemeColors } from '../../theme/useThemeColors';
+import { themeColors, useThemeColors } from '../../theme/useThemeColors';
 
 type IntakeGate = { status: string; step: string | null; hasCases: boolean };
 

@@ -60,6 +60,15 @@ export function UserDetail({ userId }: { userId: string }) {
 
   useEffect(() => load(), [load]);
 
+  useEffect(() => {
+    if (!action) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAction(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [action]);
+
   const run = async () => {
     if (!user) return;
     setBusy(true);
@@ -198,15 +207,22 @@ export function UserDetail({ userId }: { userId: string }) {
       </div>
 
       {action ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setAction(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* The backdrop is a real button (keyboard + screen reader reachable), BEHIND the dialog —
+              not a click handler on a div with stopPropagation on its child. */}
+          <button
+            type="button"
+            aria-label="Cancel and close"
+            onClick={() => setAction(null)}
+            className="absolute inset-0 cursor-default bg-black/60"
+          />
           <div
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-navy-soft p-5"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-action-title"
+            className="relative w-full max-w-md rounded-2xl border border-white/10 bg-navy-soft p-5"
           >
-            <h3 className="mb-3 text-sm font-bold capitalize">{action} {user.email}</h3>
+            <h3 id="user-action-title" className="mb-3 text-sm font-bold capitalize">{action} {user.email}</h3>
             {action === 'block' ? (
               <textarea
                 value={reason}

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { buildPrivacyDoc } from '@tyndale/shared';
 import { LegalDocView } from '../../components/legal-doc';
 
@@ -13,9 +15,9 @@ export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-20">
       <LegalDocView doc={doc} published={LEGAL_PUBLISHED} />
-      <a href="/" className="mt-12 inline-block text-sm font-medium text-teal hover:text-teal-deep">
+      <Link href="/" className="mt-12 inline-block text-sm font-medium text-teal hover:text-teal-deep">
         ← Back home
-      </a>
+      </Link>
     </main>
   );
 }

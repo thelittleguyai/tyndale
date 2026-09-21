@@ -167,6 +167,8 @@ export default function Onboarding() {
         {/* Terms — the checkbox unlocks only after the user opens "Review Terms". */}
         <View className="mt-5 rounded-2xl border border-hairline bg-surface p-4">
           <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showTerms }}
             onPress={() => {
               setShowTerms((o) => !o);
               setReviewedTerms(true);
@@ -180,6 +182,8 @@ export default function Onboarding() {
             <Text className="mt-2 text-xs leading-5 text-secondary">{TERMS_SUMMARY}</Text>
           ) : null}
           <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: terms, disabled: !reviewedTerms }}
             onPress={() => reviewedTerms && setTerms((t) => !t)}
             disabled={!reviewedTerms}
             className="mt-3 min-h-[44px] flex-row items-center gap-3"
@@ -201,6 +205,7 @@ export default function Onboarding() {
         {error ? <Text className="mt-3 text-body text-danger">{error}</Text> : null}
 
         <Pressable
+          accessibilityRole="button"
           disabled={!canContinue}
           onPress={submit}
           className={

@@ -66,6 +66,7 @@ export default function PlanProposalScreen() {
         {err ? <Text className="mb-3 text-body text-danger">{err}</Text> : null}
 
         <Pressable
+          accessibilityRole="button"
           disabled={busy}
           onPress={finish(() => confirmPlanProposal(proposal.plan_library_id, caseId))}
           className="mb-3 min-h-[48px] items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
@@ -73,6 +74,7 @@ export default function PlanProposalScreen() {
           <Text className="text-base font-bold text-on-accent">Yes, that&apos;s my plan</Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           disabled={busy}
           onPress={finish(() => rejectPlanProposal(proposal.plan_library_id, caseId))}
           className="min-h-[48px] items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"

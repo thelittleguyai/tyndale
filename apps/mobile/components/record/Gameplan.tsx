@@ -71,7 +71,7 @@ function StepCard({ step, open, onToggle }: { step: GameplanStep; open: boolean;
   const tc = useThemeColors();
   return (
     <View className="mb-3 overflow-hidden rounded-2xl border border-hairline bg-surface">
-      <Pressable onPress={onToggle} className="min-h-[44px] flex-row items-center gap-3 p-4">
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} className="min-h-[44px] flex-row items-center gap-3 p-4">
         <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-raised">
           <Text className="text-sm font-bold text-primary">{step.index}</Text>
         </View>
@@ -130,6 +130,7 @@ export function Gameplan({
         />
       ))}
       <Pressable
+        accessibilityRole="button"
         onPress={() => setCallMode(true)}
         className="mt-1 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 hover:bg-accent"
       >
@@ -192,7 +193,7 @@ export function CallMode({
         <Text className="text-xs text-faint">
           {step ? `Call ${step.index} of ${steps.length}` : onOutro ? 'After the call' : 'Get ready'}
         </Text>
-        <Pressable onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="call-mode-close">
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center" testID="call-mode-close">
           <X size={22} color={tc.text.secondary} />
         </Pressable>
       </View>
@@ -233,6 +234,7 @@ export function CallMode({
               {/* H6 tap-to-dial — only when a number exists (see the `phone` note above). */}
               {phone ? (
                 <Pressable
+                  accessibilityRole="button"
                   onPress={dial}
                   className="mb-5 min-h-[44px] flex-row items-center justify-center gap-2 rounded-control bg-accent px-4 py-3"
                   testID="call-mode-dial"
@@ -250,6 +252,7 @@ export function CallMode({
                 <View className="gap-2">
                   {CALL_OUTCOMES.map((o) => (
                     <Pressable
+                      accessibilityRole="button"
                       key={o.key}
                       onPress={() => onOutcome?.(step.finding_id, o.key)}
                       className="min-h-[44px] items-center justify-center rounded-control border border-hairline bg-surface px-4 py-3"
@@ -268,6 +271,7 @@ export function CallMode({
       <View className="flex-row gap-3 px-5 pb-10 pt-3">
         {page > firstPage ? (
           <Pressable
+            accessibilityRole="button"
             onPress={() => setPage((p) => p - 1)}
             className="min-h-[48px] flex-1 items-center justify-center rounded-xl border border-hairline px-4 py-3 hover:bg-inset"
             testID="call-mode-back"
@@ -277,6 +281,7 @@ export function CallMode({
         ) : null}
         {page < lastPage ? (
           <Pressable
+            accessibilityRole="button"
             onPress={() => setPage((p) => p + 1)}
             className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             testID="call-mode-next"
@@ -285,6 +290,7 @@ export function CallMode({
           </Pressable>
         ) : (
           <Pressable
+            accessibilityRole="button"
             onPress={onClose}
             className="min-h-[48px] flex-1 items-center justify-center rounded-xl bg-accent px-4 py-3 hover:bg-accent"
             testID="call-mode-done"

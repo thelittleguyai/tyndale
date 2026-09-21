@@ -9,8 +9,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
 import { useCurrentUser } from '../../lib/auth';
-import { themeColors } from '../../theme/useThemeColors';
-import { useThemeColors } from '../../theme/useThemeColors';
+import { themeColors, useThemeColors } from '../../theme/useThemeColors';
 
 export default function IntakeLayout() {
   const tc = useThemeColors();

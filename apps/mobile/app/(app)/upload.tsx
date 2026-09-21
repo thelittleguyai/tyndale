@@ -168,6 +168,7 @@ export default function UploadScreen() {
   return (
     <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 24, paddingTop: 32 }}>
       <Pressable
+        accessibilityRole="button"
         onPress={() => router.push('/')}
         className="mb-5 self-start active:opacity-70"
       >

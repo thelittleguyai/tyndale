@@ -123,6 +123,7 @@ export function ChatMessage({
             </Text>
             {onRetry ? (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => onRetry(message)}
                 hitSlop={10}
                 className="flex-row items-center gap-1 rounded-md border border-hairline px-2 py-1"

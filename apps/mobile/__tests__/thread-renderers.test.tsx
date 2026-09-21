@@ -1,8 +1,7 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import type { Message } from '@tyndale/shared';
 
-import { fireEvent } from '@testing-library/react-native';
 
 import { ThreeNumberMoment } from '../components/thread/MomentCards';
 import { StatusCard } from '../components/thread/StatusCard';

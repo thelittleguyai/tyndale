@@ -26,7 +26,7 @@ export default function ConversationScreen() {
     <View className="flex-1 bg-page">
       <View className="flex-row items-center justify-between border-b border-hairline bg-surface px-4 py-3">
         <Link href="/chat" asChild>
-          <Pressable className="flex-row items-center gap-1">
+          <Pressable accessibilityRole="link" className="flex-row items-center gap-1">
             <ChevronLeft size={18} color={tc.text.secondary} />
             <Text className="text-sm text-secondary">Chats</Text>
           </Pressable>
