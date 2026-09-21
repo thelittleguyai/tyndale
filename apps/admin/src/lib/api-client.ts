@@ -667,6 +667,28 @@ export const adminSetReviewSampling = (pct: number) =>
 export const adminReviewWorkspace = (caseId: string, signal?: AbortSignal) =>
   get<ReviewWorkspace>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}`, signal);
 
+// ── document viewer ─────────────────────────────────────────────────────────────────────
+/** A document's key on a case: its document_id, or `idx-<doc_index>` for entries that predate it. */
+export const reviewDocumentKey = (d: { document_id: string | null; doc_index: number }) =>
+  d.document_id ?? `idx-${d.doc_index}`;
+
+/** The stored file, fetched WITH the session cookie (an <img src> to another origin would not
+ *  carry it). The caller turns it into an object URL and revokes it on close. */
+export async function adminReviewDocumentFile(caseId: string, docKey: string, signal?: AbortSignal) {
+  const path = `/v1/admin/review/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(docKey)}`;
+  const res = await fetch(`${RUNTIME}${path}`, { credentials: 'include', signal, cache: 'no-store' });
+  if (!res.ok) {
+    throw new AdminApiError(res.status, res.status === 404 ? 'The stored file is unavailable.' : `${path} -> ${res.status}`);
+  }
+  return { blob: await res.blob(), contentType: res.headers.get('content-type') ?? 'application/octet-stream' };
+}
+
+export const adminReviewDocumentText = (caseId: string, docKey: string, signal?: AbortSignal) =>
+  get<ReviewDocumentCard & { text: string; chars: number }>(
+    `/v1/admin/review/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(docKey)}/text`,
+    signal,
+  );
+
 export interface ReviewClaimResult {
   review_id: string;
   state: ReviewState;

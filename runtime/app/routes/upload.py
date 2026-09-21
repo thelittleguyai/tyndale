@@ -138,6 +138,53 @@ async def _persist(content: bytes, filename: str) -> str:
     return str(path)
 
 
+_MIME_BY_SNIFF = {
+    "pdf": "application/pdf", "jpeg": "image/jpeg", "png": "image/png",
+    "tiff": "image/tiff", "bmp": "image/bmp", "heic": "image/heic",
+}  # fmt: skip
+
+
+def stored_media_type(content: bytes) -> str:
+    """The content-type to serve a stored upload with — from its MAGIC BYTES (the same sniff
+    that admitted it), never from the user-supplied filename."""
+    return _MIME_BY_SNIFF.get(_sniff_upload_type(content) or "", "application/octet-stream")
+
+
+async def read_stored(uri: str | None) -> bytes | None:
+    """Read ONE stored upload back (the reviewer's document viewer). Like delete_stored it only
+    ever touches our own store — a blob under the configured account + uploads container, or a
+    file inside local_uploads_dir; any other URI (whatever a document entry claims) returns None.
+    Reads only: nothing is copied, cached or written."""
+    if not uri:
+        return None
+    settings = get_settings()
+    if settings.azure_storage_account_url:
+        prefix = f"{settings.azure_storage_account_url}/{settings.azure_storage_uploads_container}/"
+        if not uri.startswith(prefix):
+            return None
+        try:
+            from azure.identity.aio import DefaultAzureCredential
+            from azure.storage.blob.aio import BlobServiceClient
+
+            async with DefaultAzureCredential() as cred, BlobServiceClient(
+                account_url=settings.azure_storage_account_url, credential=cred
+            ) as svc:
+                container = svc.get_container_client(settings.azure_storage_uploads_container)
+                stream = await container.download_blob(uri[len(prefix):])
+                return await stream.readall()
+        except Exception as exc:  # noqa: BLE001 — the viewer says "unavailable", never 500s
+            log.warning("upload.read_stored_failed", error_class=type(exc).__name__)
+            return None
+    try:
+        root = Path(settings.local_uploads_dir).resolve()
+        target = Path(uri).resolve()
+        if root in target.parents and target.is_file():
+            return target.read_bytes()
+    except OSError as exc:
+        log.warning("upload.read_stored_failed", error_class=type(exc).__name__)
+    return None
+
+
 async def delete_stored(uri: str | None) -> bool:
     """Best-effort removal of ONE stored upload — the e2e teardown's counterpart to _persist.
     Only ever touches our own store: a blob under the configured account + uploads container, or

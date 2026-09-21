@@ -725,3 +725,82 @@ async def test_the_three_sections_are_empty_lists_not_missing_keys_when_there_is
     cfid, _ = await _enqueued(coverage={"deductible_amount": 2000, "oop_max_amount": 6000, "coinsurance_percent": 0.2})
     prov = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()["tabs"]["provenance"]
     assert prov["user_answers"] == [] and prov["priors_applied"] == [] and prov["pricing_reference"] == []
+
+
+# ══ the document viewer (doc 39 §2 — "the reviewer's ground truth") ═══════════════════════════
+
+
+async def _stored_file(content: bytes, name: str) -> str:
+    import pathlib
+
+    from app.config import get_settings
+
+    root = pathlib.Path(get_settings().local_uploads_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{uuid.uuid4()}_{name}"
+    path.write_bytes(content)
+    return str(path)
+
+
+@pytest.mark.asyncio
+async def test_viewer_serves_the_stored_file_and_its_ocr_text_and_audits_each_open(client: AsyncClient):
+    pdf = b"%PDF-1.4 a synthetic bill"
+    doc_id = str(uuid.uuid4())
+    uri = await _stored_file(pdf, "bill.pdf")
+    png_uri = await _stored_file(b"\x89PNG\r\n\x1a\n....", "eob.png")
+    cfid, _ = await _enqueued(
+        documents=[{"document_id": doc_id, "document_type": "bill", "filename": "bill.pdf", "uri": uri,
+                    "ocr_text": "EMERGENCY DEPT VISIT 99284"}],
+        eobs=[{"document_type": "eob", "filename": "eob.png", "uri": png_uri, "ocr_text": "EOB TEXT"}],  # no id: legacy
+    )
+    r = await client.get(f"/v1/admin/review/cases/{cfid}/documents/{doc_id}")
+    assert r.status_code == 200 and r.content == pdf
+    assert r.headers["content-type"] == "application/pdf"  # from the magic bytes, not the filename
+    assert r.headers["cache-control"] == "no-store" and r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["content-disposition"] == "inline"
+
+    legacy = await client.get(f"/v1/admin/review/cases/{cfid}/documents/idx-1")  # doc_index, shared namespace
+    assert legacy.status_code == 200 and legacy.headers["content-type"] == "image/png"
+
+    text = (await client.get(f"/v1/admin/review/cases/{cfid}/documents/{doc_id}/text")).json()
+    assert text["text"] == "EMERGENCY DEPT VISIT 99284" and text["chars"] == 26
+    assert text["doc_index"] == 0 and text["kind"] == "document" and "ocr_text" not in text
+
+    actions = await _audit_actions(cfid)
+    assert actions.count("review_document_view") == 3  # two files + one text — each open is an access
+    assert "review_view" not in actions  # …and it is NOT the same event as opening the case
+
+
+@pytest.mark.asyncio
+async def test_viewer_never_reads_outside_our_store_and_is_admin_only(client: AsyncClient):
+    from app.auth import CurrentUser, current_user
+    from app.main import app
+
+    cfid, _ = await _enqueued(
+        documents=[
+            {"document_id": "d-evil", "document_type": "bill", "uri": "/etc/hosts", "ocr_text": "x"},
+            {"document_id": "d-gone", "document_type": "bill", "uri": "/tmp/tyndale_uploads/nope.pdf"},
+            {"document_id": "d-none", "document_type": "bill"},
+        ]
+    )
+    for key in ("d-evil", "d-gone", "d-none"):
+        r = await client.get(f"/v1/admin/review/cases/{cfid}/documents/{key}")
+        assert r.status_code == 404 and "unavailable" in r.json()["detail"], key
+    assert (await client.get(f"/v1/admin/review/cases/{cfid}/documents/not-on-this-case")).status_code == 404
+    assert (await client.get(f"/v1/admin/review/cases/{cfid}/documents/idx-99/text")).status_code == 404
+    assert "review_document_view" not in await _audit_actions(cfid)  # nothing was viewed
+
+    other_case, _ = await _enqueued(documents=[{"document_id": "d-other", "document_type": "bill", "ocr_text": "theirs"}])
+    # a document id from ANOTHER case is not reachable through this one
+    assert (await client.get(f"/v1/admin/review/cases/{cfid}/documents/d-other/text")).status_code == 404
+    assert (await client.get(f"/v1/admin/review/cases/{other_case}/documents/d-other/text")).status_code == 200
+
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        user_id=uuid.uuid4(), email="regular@example.com", first_name="Reg", user_type="user"
+    )
+    try:
+        for path in (f"/v1/admin/review/cases/{other_case}/documents/d-other",
+                     f"/v1/admin/review/cases/{other_case}/documents/d-other/text"):
+            assert (await client.get(path)).status_code == 404
+    finally:
+        app.dependency_overrides.pop(current_user, None)

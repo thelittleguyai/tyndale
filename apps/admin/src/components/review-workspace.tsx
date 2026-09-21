@@ -6,6 +6,7 @@ import {
   adminReviewClaim,
   adminReviewWorkspace,
   type ReviewCitation,
+  type ReviewDocumentCard,
   type ReviewFinding,
   type ReviewVerdictRecord,
   type ReviewWorkspace as Workspace,
@@ -27,6 +28,7 @@ import {
   shortId,
   when,
 } from './review-ui';
+import { DocumentViewer } from './document-viewer';
 import { VerdictPanel, type ClaimView } from './verdict-panel';
 
 // The case workspace (doc 39 §2 + mockup human_review_case.svg): left = source documents,
@@ -744,6 +746,7 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
   const [recorded, setRecorded] = useState<ReviewVerdictRecord[]>([]);
   const [justRecordedId, setJustRecordedId] = useState<string | null>(null);
   const [citation, setCitation] = useState<ReviewCitation | null>(null);
+  const [viewing, setViewing] = useState<{ doc: ReviewDocumentCard; page: number | null } | null>(null);
   const inflight = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
@@ -870,7 +873,7 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
-        <LeftPane left={ws.left} caseRow={ws.case} />
+        <LeftPane left={ws.left} caseRow={ws.case} onOpenDocument={(doc) => setViewing({ doc, page: null })} />
 
         <div>
           <div className="mb-4 flex gap-1 border-b border-white/10">
@@ -925,7 +928,18 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
           onRecorded={onRecorded}
         />
       </div>
-      {citation ? <CitationSheet citation={citation} onClose={() => setCitation(null)} /> : null}
+      {citation ? (
+        <CitationSheet
+          citation={citation}
+          onClose={() => setCitation(null)}
+          onOpenDocument={(docIndex, page) => {
+            const doc = [...ws.left.documents, ...ws.left.eobs].find((d) => d.doc_index === docIndex);
+            setCitation(null);
+            if (doc) setViewing({ doc, page });
+          }}
+        />
+      ) : null}
+      {viewing ? <DocumentViewer caseId={caseId} doc={viewing.doc} page={viewing.page} onClose={() => setViewing(null)} /> : null}
     </div>
   );
 }

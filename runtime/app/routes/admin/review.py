@@ -19,7 +19,7 @@ import uuid
 from typing import Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -753,6 +753,88 @@ async def review_workspace(
         },
         "verdicts": [_verdict_dict(v) for v in verdicts],
     }
+
+
+# ── document viewer ──────────────────────────────────────────────────────────────────────
+# Doc 39 §2: the source documents are "the reviewer's ground truth" — a verdict without seeing
+# the document isn't a review. READS only (no new storage of PHI), admin-gated like everything
+# here, and every open is its own audit event: looking at a patient's bill is an access that
+# must be accountable separately from opening the case.
+
+
+def _find_document(cf: CaseFile, doc_key: str) -> tuple[dict, dict] | None:
+    """(raw entry, its card) for a document on THIS case — by document_id, or `idx-<doc_index>`
+    for entries older than document_id. The key never reaches storage; only the entry's own
+    uri does, and read_stored refuses anything outside our store."""
+    docs = [d for d in (cf.documents or []) if isinstance(d, dict)]
+    eobs = [d for d in (cf.eobs or []) if isinstance(d, dict)]
+    doc_cards, eob_cards = _document_cards(cf)
+    for entry, card in zip([*docs, *eobs], [*doc_cards, *eob_cards], strict=True):
+        if doc_key == f"idx-{card['doc_index']}" or (entry.get("document_id") and doc_key == entry["document_id"]):
+            return entry, card
+    return None
+
+
+async def _audit_document_view(session, admin, cf: CaseFile, card: dict, part: str) -> None:
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="review_document_view",
+        target_user_id=cf.user_id,
+        case_file_id=cf.case_file_id,
+        extra={"document_id": card.get("document_id"), "doc_index": card["doc_index"],
+               "kind": card["kind"], "part": part},
+    )
+    await session.commit()
+
+
+@router.get("/admin/review/cases/{case_file_id}/documents/{doc_key}")
+async def review_document(
+    case_file_id: str,
+    doc_key: str,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """The stored file itself, served inline with the content-type its magic bytes give it."""
+    from app.routes.upload import read_stored, stored_media_type
+
+    cf = await _load_case(session, case_file_id)
+    found = _find_document(cf, doc_key)
+    if found is None:
+        raise HTTPException(status_code=404, detail="no such document on this case")
+    entry, card = found
+    content = await read_stored(entry.get("uri"))
+    if content is None:
+        raise HTTPException(status_code=404, detail="the stored file is unavailable")
+    await _audit_document_view(session, admin, cf, card, "file")
+    return Response(
+        content=content,
+        media_type=stored_media_type(content),
+        headers={
+            "Content-Disposition": "inline",
+            "Cache-Control": "no-store",  # PHI: never in a shared or disk cache
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/admin/review/cases/{case_file_id}/documents/{doc_key}/text")
+async def review_document_text(
+    case_file_id: str,
+    doc_key: str,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """The OCR text the audit actually read — the viewer's toggle. The workspace payload never
+    carries it ('never the OCR text'); it is fetched here, explicitly, and audited."""
+    cf = await _load_case(session, case_file_id)
+    found = _find_document(cf, doc_key)
+    if found is None:
+        raise HTTPException(status_code=404, detail="no such document on this case")
+    entry, card = found
+    text = next((entry[k] for k in _DOC_TEXT_KEYS if isinstance(entry.get(k), str) and entry[k]), "")
+    await _audit_document_view(session, admin, cf, card, "text")
+    return {**card, "text": text, "chars": len(text)}
 
 
 # ── claim ────────────────────────────────────────────────────────────────────────────────
