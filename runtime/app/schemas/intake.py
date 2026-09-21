@@ -117,6 +117,10 @@ class IntakeRunResponse(BaseModel):
     conversation_id: str | None = None
 
 
+class IntakeHandoffRequest(BaseModel):
+    case_file_id: str
+
+
 class HelpEmailRequest(BaseModel):
     case_file_id: str | None = None
     document_type: str

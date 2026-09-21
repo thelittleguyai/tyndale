@@ -29,7 +29,7 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
-from app.intake.mode import ensure_cohort, hidden_surfaces, resolve_intake_mode
+from app.intake.mode import ensure_cohort, guided_case_label, hidden_surfaces, in_guided_intake, resolve_intake_mode
 from app.schemas.case_file import as_dict
 from app.schemas.dashboard import (
     ActiveCase,
@@ -269,6 +269,10 @@ async def _active_cases_payload(s: AsyncSession, cases: list[CaseFile]) -> list[
         # HP-1: a document-blocked audit reads as an action, not a failure, on the dashboard too.
         if case.status == "audit_incomplete" and case.audit_incomplete_reason == "needs_documents":
             label = "Needs your documents"
+        # doc 40: an unfinished GUIDED case resumes on the guided route — the encounter screen
+        # expects an intake this user has not finished (and the planner owns what comes next).
+        if in_guided_intake(case):
+            label, resume = guided_case_label() or label, "intake"
         anchor = case.created_at or datetime.now(timezone.utc)
         d = next_deadline.get(str(case.case_file_id))
         out.append(
@@ -464,9 +468,7 @@ async def get_dashboard(
         if ensure_cohort(urow, settings, is_new=len(cases) == 0):
             await session.commit()
         intake_mode, intake_mode_source = resolve_intake_mode(urow, settings)
-    unfinished = [
-        c for c in cases if c.intake_mode == "guided" and c.intake_status == "in_progress"
-    ]
+    unfinished = [c for c in cases if in_guided_intake(c)]
     resume = max(unfinished, key=lambda c: c.created_at, default=None)
 
     return DashboardPayload(

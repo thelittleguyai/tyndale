@@ -60,6 +60,12 @@ planner raises a screen the scenario has no answer for. What it asserts is the p
 `insurer`), `expect_screens` / `expect_final` (`READY` → `POST /v1/intake/run` → the shared audit
 and the usual `expect` block; or `handoff`), and that every finding names a side (§C14).
 
+A `handoff` ending is FOLLOWED, because it is an exit and not a parking spot: the harness calls
+`POST /v1/intake/handoff` and fails unless the route it names is one of chat-first's own entry
+points for that case, the landing no longer offers the case as "pick up where you left off", and
+a second call returns the same route. The harness never calls the card-extract step either — the
+planner reads a new card itself, so a card that names the payer must still never raise `insurer`.
+
 Run them with **`--intake-mode guided`** (workflow input `intake_mode`, default `guided`); without
 it they are reported as skipped. No server flag is involved: a case opened through
 `/v1/intake/start` records `intake_mode='guided'` by construction, so both routes land in the

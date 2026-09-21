@@ -75,7 +75,8 @@ class ActiveCase(BaseModel):
     # Which screen resumes this case: the encounter-verification screen (pre-audit) or the audit
     # results/progress screen. The audit results screen would spin forever on a pre-encounter
     # case, so this must be status-driven, not a single hard-coded route.
-    resume: Literal["encounter", "results"]
+    # "intake": a case still on the guided route (doc 40) — the planner owns its next screen.
+    resume: Literal["encounter", "results", "intake"]
     days_open: int = 0
     next_deadline_date: date | None = None
     next_deadline_label: str | None = None

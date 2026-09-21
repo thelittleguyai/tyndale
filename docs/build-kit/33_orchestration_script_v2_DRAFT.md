@@ -258,6 +258,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.resume.title` | packet §C7 | Pick up where you left off. |
 | `intake.resume.body` | eng | Your work is saved. Next up: {group_label}. |
 | `intake.resume.home_body` | eng | Your bill check is saved. A few more steps and I can run it. |
+| `intake.resume.case_label` | eng | Not finished yet |
 | `intake.resume.primary` | eng | Keep going |
 | `intake.resume.new` | eng | Start a new bill |
 | `intake.resume.link_expiry` | packet §C7 | To come back, ask for a new sign-in link. Each link works for {minutes} minutes. |
@@ -316,6 +317,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.insurer.field_member_id` | co1a | Member ID, if you have it |
 | `intake.insurer.primary` | eng | Save |
 | `intake.insurer.skip` | co1a | Skip for now |
+| `intake.insurer.skip_consequence` | eng | Without it, I can't look up your plan. I may need to ask you more. |
 | `intake.coverage_type.title` | co1a | How do you get your health insurance? |
 | `intake.coverage_type.body` | co1a | This tells me which rules apply to your bill. |
 | `intake.coverage_type.opt_job_or_bought` | eng | Through a job, or I bought it myself |
@@ -324,6 +326,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.coverage_type.opt_military_va` | eng | TRICARE or VA |
 | `intake.coverage_type.opt_none` | co1a | I don't have insurance |
 | `intake.coverage_type.opt_not_sure` | eng | I'm not sure |
+| `intake.coverage_type.not_sure_consequence` | eng | That's fine. I'll use the rules most plans follow, and I'll say so. |
 | `intake.plan_rules.title` | packet §A2 | Now your plan's rulebook. |
 | `intake.plan_rules.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
 | `intake.plan_rules.body` | eng | It is a few pages long. Your insurer's website has it. So does the benefits office at your job. |
@@ -345,6 +348,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.plan_year.body` | packet §A7 | Many plans start in January, but not all. Your deductible starts over on that day. |
 | `intake.plan_year.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
 | `intake.plan_year.opt_not_sure` | eng | I'm not sure |
+| `intake.plan_year.not_sure_consequence` | eng | That's fine. I just won't know if a month is missing. |
 | `intake.timeline.title` | packet §A7 | Your EOBs this plan year. |
 | `intake.timeline.gloss_eob` | packet §A2 | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
 | `intake.timeline.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
@@ -383,6 +387,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.other_insurance.yes` | eng | Yes |
 | `intake.other_insurance.no` | eng | No |
 | `intake.other_insurance.not_sure` | eng | I'm not sure |
+| `intake.other_insurance.not_sure_consequence` | eng | That's fine. I'll check this bill with the one plan I know. |
 | `intake.reading.title` | packet §B4 | Reading your bill. |
 | `intake.reading.body` | eng | This takes a minute or two. You can leave and come back. Your work is saved. |
 | `intake.facts_only.title` | packet §B15 | A few quick facts about your visit. |

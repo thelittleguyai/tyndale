@@ -277,3 +277,32 @@ def test_plan_year_start_follows_the_visit_not_the_calendar():
     assert plan_year_start_for(7, datetime.date(2026, 6, 14)) == "2025-07-01"  # July plan, June visit
     assert plan_year_start_for(7, datetime.date(2026, 8, 2)) == "2026-07-01"
     assert plan_year_start_for(1, datetime.date(2026, 6, 14)) == "2026-01-01"
+
+
+# ── a way out always says what it costs ──────────────────────────────────────────────────
+WAY_OUT_SLOTS = {"skip": "skip_consequence", "no_bill": "no_bill_note", "secondary": "secondary_consequence",
+                 "not_sure": "not_sure_consequence", "opt_not_sure": "not_sure_consequence"}
+
+
+def test_every_way_out_of_a_screen_carries_its_consequence_line():
+    """Skips are honest (§A4, §B): any screen that offers "skip" / "I don't have it" / "I'm not
+    sure" ALSO carries the line that says what that costs the audit. Found by walking the flow —
+    `insurer`, `plan_year` and `other_insurance` shipped a way out with nothing beside it."""
+    from app.agents.context_loader import load_orchestration_script
+
+    script = load_orchestration_script()
+    missing = []
+    for sc in ip.SCREEN_REGISTRY:
+        slots = {k.split(".", 2)[2] for k in script if k.startswith(f"intake.{sc.id}.")}
+        for way_out, consequence in WAY_OUT_SLOTS.items():
+            if way_out in slots and consequence not in slots and not (
+                sc.id == "confirmations" and "not_sure_note" in slots  # §B16: its own reassurance line
+            ):
+                missing.append(f"intake.{sc.id}.{way_out} has no intake.{sc.id}.{consequence}")
+    assert not missing, missing
+    # and the inverse: a skippable screen really does offer a way out
+    for sc in ip.SCREEN_REGISTRY:
+        if sc.skippable:
+            slots = {k.split(".", 2)[2] for k in script if k.startswith(f"intake.{sc.id}.")}
+            assert slots & set(WAY_OUT_SLOTS), f"{sc.id} is skippable but offers no way out"
+

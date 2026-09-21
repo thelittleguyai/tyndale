@@ -807,10 +807,9 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
                     fails.append(f"guided upload on {sid} → {up.status_code}")
                     break
                 uploaded.add(sid)
-                if sid == "card":  # the card is READ, so the planner can skip what it answered
-                    doc_id = up.json()["uploads"][0]["document_id"]
-                    client.post(f"{base_url}/v1/intake/step/insurance-card/extract", timeout=120,
-                                json={"case_file_id": case_id, "document_id": doc_id})
+                # No "now read the card" call: the PLANNER reads a new card the next time it
+                # looks at the case (routes/intake._read_new_cards). The app orchestrates
+                # nothing, so neither does the harness — this exercises the real path.
                 state = answer(sid)
             elif sid in spec.get("answers", {}):
                 a = spec["answers"][sid]
@@ -845,7 +844,28 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
     needle = spec.get("expect_copy_contains")
     if needle and needle not in json.dumps(state.get("screen") or {}):
         fails.append(f"final screen copy lacks {needle!r}")
+    if not fails and seen and seen[-1] == "handoff":
+        fails += _follow_handoff(client, base_url, case_id)
     return case_id, seen, fails, state
+
+
+def _follow_handoff(client, base_url: str, case_id: str) -> list[str]:
+    """The handoff is an EXIT, not a parking spot: the server closes the guided route for the
+    case and names chat-first's own entry point, and nothing invites the user back afterwards."""
+    fails: list[str] = []
+    h = client.post(f"{base_url}/v1/intake/handoff", json={"case_file_id": case_id}, timeout=300)
+    if h.status_code != 200:
+        return [f"intake/handoff {h.status_code}: {h.text[:160]}"]
+    route = h.json().get("next_route") or ""
+    if not (route.startswith(f"/audit/{case_id}/") or route.startswith(f"/upload?caseId={case_id}")):
+        fails.append(f"handoff next_route {route!r} is not a chat-first entry point for this case")
+    landing = client.get(f"{base_url}/v1/intake/state", timeout=60).json()
+    if (landing.get("resume") or {}).get("case_file_id") == case_id:
+        fails.append("the handed-off case is still offered as 'pick up where you left off'")
+    again = client.post(f"{base_url}/v1/intake/handoff", json={"case_file_id": case_id}, timeout=300)
+    if again.status_code != 200 or again.json().get("next_route") != route:
+        fails.append("intake/handoff is not idempotent")
+    return fails
 
 
 def run_scenario(

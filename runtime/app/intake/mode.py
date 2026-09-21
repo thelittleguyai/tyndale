@@ -75,3 +75,21 @@ def hidden_surfaces(mode: str, settings) -> list[str]:
     if mode != "guided":
         return []
     return [s for s in settings.guided_hidden_surface_list if s in HIDEABLE_SURFACES]
+
+
+def in_guided_intake(case) -> bool:
+    """True while a case is still ON the guided route: opened through it, and neither run
+    (READY → audit) nor handed to chat-first. The ONE test the resume card, the Open Cases card
+    and the Record rows share — a case like this resumes at /intake, never at a screen that
+    expects an intake the user has not finished."""
+    return case.intake_mode == "guided" and case.intake_status == "in_progress"
+
+
+def guided_case_label() -> str | None:
+    """The status chip for a case still on the guided route — registry copy like every other
+    guided string (None if unauthored: the caller keeps its own label)."""
+    from app.agents.context_loader import PLACEHOLDER_PREFIX, orchestration_step
+
+    text = orchestration_step("intake.resume.case_label")
+    return None if text.startswith(("<MISSING", PLACEHOLDER_PREFIX)) else text
+

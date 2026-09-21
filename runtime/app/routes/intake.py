@@ -57,6 +57,7 @@ from app.schemas.intake import (
     ExtractRequest,
     HelpEmailRequest,
     IntakeAnswerRequest,
+    IntakeHandoffRequest,
     IntakeProgress,
     IntakeResume,
     IntakeRunResponse,
@@ -609,7 +610,7 @@ async def _apply_answer(  # noqa: PLR0912, PLR0915
         await _save_confirmations(case, v.get("confirmations") or [])
     elif sid in ("attest", "plan_rules_confirm", "handoff"):
         # attest → POST /v1/case/{id}/attest[/decline]; plan → /intake/plan-proposal/*; the
-        # handoff is an exit. Each is its own existing, audited route — not re-implemented here.
+        # handoff → POST /intake/handoff. Each is its own audited route — not re-implemented here.
         raise HTTPException(status_code=422, detail=f"{sid} is answered through its own route")
 
 
@@ -716,6 +717,48 @@ async def run_intake(
         next_route=f"/audit/{cfid}/thread" if conversation_id else f"/audit/{cfid}",
         conversation_id=conversation_id,
     )
+
+
+@router.post("/intake/handoff", response_model=IntakeRunResponse)
+async def handoff_intake(
+    req: IntakeHandoffRequest,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> IntakeRunResponse:
+    """The guided route's OTHER exit (§A4-4): a coverage population Phase 1 does not carry leaves
+    for the chat-first flow. This CLOSES the guided intake for the case — otherwise the home
+    card and /intake keep inviting the user back to a route that cannot take them — and says
+    where chat-first picks the case up, using chat-first's own entry points:
+
+    - documents on the case → its thread (the upload path's `bootstrap_thread`), or — with the
+      chat-first audit off — the classic read-then-verify screen, exactly as an upload would;
+    - nothing uploaded yet  → the upload screen, which calls this again once a document lands.
+
+    Idempotent. `case_files.intake_mode` stays "guided": it records the door the case was
+    OPENED through, and `intake_state.handed_off` records that it left (population enum)."""
+    from app.agents.orchestrator import extract_line_items
+    from app.agents.thread_bridge import bootstrap_thread
+
+    case = await _resolve_case(session, user, req.case_file_id)
+    if not IntakeState(case).get("handed_off"):
+        _, inputs, picked = await _plan(session, case)
+        if picked != "handoff":
+            raise HTTPException(status_code=409, detail=f"not a handoff: next is {picked}")
+        IntakeState(case).set("handed_off", inputs.population or "other")
+        case.intake_status = "complete"
+    await session.commit()
+
+    cfid = str(case.case_file_id)
+    if not any(isinstance(d, dict) for d in (case.documents or [])):
+        return IntakeRunResponse(case_file_id=cfid, status=case.status,
+                                 next_route=f"/upload?caseId={cfid}&handoff=1")
+    conversation_id = await bootstrap_thread(cfid)  # flag-gated no-op when chat-first is off
+    if conversation_id:
+        return IntakeRunResponse(case_file_id=cfid, status=case.status,
+                                 next_route=f"/audit/{cfid}/thread", conversation_id=conversation_id)
+    if not case.line_items:  # classic flow: the verify screen expects the bill already read
+        await extract_line_items(cfid)
+    return IntakeRunResponse(case_file_id=cfid, status=case.status, next_route=f"/audit/{cfid}/encounter")
 
 
 @router.get("/intake/help")

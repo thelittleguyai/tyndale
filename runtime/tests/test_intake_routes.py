@@ -424,3 +424,91 @@ async def test_a_card_never_overwrites_what_the_user_typed_and_a_weak_read_still
     assert not ((await _reload(weak.case_file_id)).coverage or {}).get("payer_name")
     assert state["current_step"] == "insurer"  # the honest fallback: ask, with the fields to fill
 
+
+# ── the handoff is an EXIT: it closes the guided route and chat-first takes the case ─────
+MEDICARE = dict(coverage_regime="medicare_traditional",
+                regime_detection={"verified": True, "regime": "medicare_traditional", "confidence": "high"})
+
+
+@pytest.mark.asyncio
+async def test_the_handoff_closes_the_guided_route_and_names_chat_firsts_own_entry_point(client: AsyncClient, monkeypatch):
+    """Found walking the flow: the case stayed `in_progress`, so the home card and /intake kept
+    inviting a Medicare user back to the screen that had just sent them away."""
+    read: list[str] = []
+
+    async def fake_extract(case_file_id):
+        read.append(case_file_id)
+
+    monkeypatch.setattr("app.agents.orchestrator.extract_line_items", fake_extract)
+    cf = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT)], intake_state={"acked": ["welcome"]}, **MEDICARE)
+    cfid = str(cf.case_file_id)
+
+    # classic flow (chat-first audit off): the bill is read, then the verify screen — as an upload would
+    r = await client.post("/v1/intake/handoff", json={"case_file_id": cfid})
+    assert r.status_code == 200, r.text
+    assert r.json()["next_route"] == f"/audit/{cfid}/encounter" and read == [cfid]
+    done = await _reload(cf.case_file_id)
+    assert done.intake_status == "complete" and done.intake_state["handed_off"] == "medicare"
+    assert done.intake_mode == "guided"  # the door it was OPENED through — a fact, not a state
+
+    # nothing invites the user back: not the landing, not the home card, not the Open Cases card
+    landing = (await client.get("/v1/intake/state")).json()
+    assert landing.get("resume") is None or landing["resume"]["case_file_id"] != cfid
+    dash = (await client.get("/v1/dashboard")).json()
+    assert dash["guided_resume_case_id"] != cfid
+    assert all(c["resume"] != "intake" for c in dash["active_cases"] if c["case_file_id"] == cfid)
+
+    # chat-first audit on: the case gets the SAME thread an upload gets. Idempotent.
+    async def fake_bootstrap(case_file_id):
+        return "conv-1"
+
+    monkeypatch.setattr("app.agents.thread_bridge.bootstrap_thread", fake_bootstrap)
+    again = await client.post("/v1/intake/handoff", json={"case_file_id": cfid})
+    assert again.status_code == 200 and again.json()["next_route"] == f"/audit/{cfid}/thread"
+    assert again.json()["conversation_id"] == "conv-1"
+
+
+@pytest.mark.asyncio
+async def test_a_handoff_before_any_document_goes_to_upload_and_comes_back_through_the_same_route(client: AsyncClient):
+    """No document yet → the upload screen. NOT the results screen afterwards (it would wait
+    forever on a never-audited case): `handoff=1` makes the upload screen ask this route again."""
+    cf = await _case(documents=[], intake_state={"acked": ["welcome"], "skipped": ["bill", "eob", "card", "insurer"],
+                                                 "answers": {"coverage_type": "medicaid"}})
+    r = await client.post("/v1/intake/handoff", json={"case_file_id": str(cf.case_file_id)})
+    assert r.status_code == 200, r.text
+    assert r.json()["next_route"] == f"/upload?caseId={cf.case_file_id}&handoff=1"
+    assert (await _reload(cf.case_file_id)).intake_state["handed_off"] == "medicaid"
+
+
+@pytest.mark.asyncio
+async def test_a_commercial_case_cannot_be_handed_off(client: AsyncClient):
+    cf = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT)], intake_state={"acked": ["welcome"]},
+                     coverage_regime="erisa_self_funded", regime_detection={"verified": True})
+    r = await client.post("/v1/intake/handoff", json={"case_file_id": str(cf.case_file_id)})
+    assert r.status_code == 409 and "not a handoff" in r.text
+    assert (await _reload(cf.case_file_id)).intake_status == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_an_unfinished_guided_case_resumes_on_the_guided_route_everywhere(client: AsyncClient, monkeypatch):
+    """The Open Cases card and the Record rows sent a pre-audit case to the verify screen / its
+    thread — screens that expect an intake this user has not finished. One shared test
+    (`in_guided_intake`) now routes all three surfaces to /intake, with a registry label."""
+    from app.agents.context_loader import orchestration_step
+    from app.config import get_settings
+
+    other = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT)], intake_mode="chat_first", intake_status="not_started")
+    cf = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT)], intake_state={"acked": ["welcome"]})
+    cfid = str(cf.case_file_id)
+    dash = (await client.get("/v1/dashboard")).json()  # ONE call: it is slow on a long-lived local DB
+    row = next(c for c in dash["active_cases"] if c["case_file_id"] == cfid)
+    assert row["resume"] == "intake" and row["label"] == orchestration_step("intake.resume.case_label")
+    assert dash["guided_resume_case_id"] == cfid
+    # a chat-first case in the same pre-audit status is untouched
+    assert next(c for c in dash["active_cases"] if c["case_file_id"] == str(other.case_file_id))["resume"] == "encounter"
+
+    monkeypatch.setattr(get_settings(), "enable_record_view", True)
+    rec = (await client.get("/v1/record")).json()
+    sub = next(c for c in rec["sub_cases"] if c["case_file_id"] == cfid)
+    assert sub["resume"] == "intake" and sub["label"] == orchestration_step("intake.resume.case_label")
+

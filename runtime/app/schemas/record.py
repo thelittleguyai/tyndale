@@ -26,7 +26,7 @@ class SubCaseRow(BaseModel):
     # verifying | in_progress) — drives BOTH the chip and the second line so they always agree.
     state: str = "in_progress"
     label: str
-    resume: str  # 'summary' (results-bearing) | 'thread' (in-flight)
+    resume: str  # 'summary' (results-bearing) | 'thread' (in-flight) | 'intake' (still on the guided route)
     three_number: ThreeNumberBrief | None = None  # null → the row shows needs-documents, not {0,0,0}
     open_item_count: int = 0
     next_deadline: DeadlineInfo | None = None

@@ -23,6 +23,7 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
+from app.intake.mode import guided_case_label, in_guided_intake
 from app.routes.case_access import require_case_owner
 from app.schemas.case_summary import (
     CaseSummaryPayload,
@@ -146,6 +147,8 @@ async def get_record(
         oic = open_item_count(fs)
         rec = recovered.get(cid, 0.0)
         label, resume = _label_and_resume(c.status)
+        if in_guided_intake(c):  # doc 40: the guided route owns this case until it runs or hands off
+            label, resume = guided_case_label() or label, "intake"
         state = _row_state(c.status)
         nci = next_check_in_date(c, fs)
         rows.append(

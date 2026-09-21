@@ -756,6 +756,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (the home screen's resume card — it cannot name the next group without a planner call) -->
 [A] Your bill check is saved. A few more steps and I can run it.
 
+## intake.resume.case_label
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (the status chip on a case still on the guided route — home Open Cases card and Record rows) -->
+[A] Not finished yet
+
 ## intake.resume.primary
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] Keep going
@@ -1012,6 +1016,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
 [A] Skip for now
 
+## intake.insurer.skip_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (a way out always says what it costs) -->
+[A] Without it, I can't look up your plan. I may need to ask you more.
+
 
 ## — intake.coverage_type · kind of coverage — only when detection could not tell
 
@@ -1046,6 +1054,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.coverage_type.opt_not_sure
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] I'm not sure
+
+## intake.coverage_type.not_sure_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (a way out always says what it costs) -->
+[A] That's fine. I'll use the rules most plans follow, and I'll say so.
 
 
 ## — intake.plan_rules · #8 plan rules (SBC)
@@ -1139,6 +1151,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.plan_year.opt_not_sure
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] I'm not sure
+
+## intake.plan_year.not_sure_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (a way out always says what it costs) -->
+[A] That's fine. I just won't know if a month is missing.
 
 
 ## — intake.timeline · #11–12 the EOB timeline (§A7)
@@ -1306,6 +1322,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.other_insurance.not_sure
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] I'm not sure
+
+## intake.other_insurance.not_sure_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (a way out always says what it costs) -->
+[A] That's fine. I'll check this bill with the one plan I know.
 
 
 ## — intake.reading · #4 reading it
