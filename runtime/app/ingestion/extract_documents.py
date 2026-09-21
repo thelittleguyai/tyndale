@@ -175,13 +175,20 @@ def extract_insurance_card_from_text(text: str) -> InsuranceCardFields:
         if first:
             payer_fv = FieldValue(first, _WEAK)
 
-    # member id — "Member ID: X" strong; bare "ID X" weak
+    # member id — "Member ID: X" strong; bare "ID X" weak. The label needs a word boundary and
+    # the value a digit: "MEMBER IDENTIFICATION CARD" — printed on most cards — used to read as
+    # a STRONG member id of "ENTIFICATION CARD" ("member" + "id" + the rest), which the guided
+    # intake would have merged silently (found 2026-09-21 on the synthetic e2e card).
     member_fv = FieldValue(None, _NONE)
-    strong = _labeled(t, r"member\s*(?:id|#|no\.?)\s*[:#]?\s*([A-Z0-9][A-Z0-9\- ]{4,})")
+    strong = _labeled(
+        t, r"member\s*(?:id\b|#|no\b\.?)\s*[:#]?\s*((?=[A-Z0-9\- ]*\d)[A-Z0-9][A-Z0-9\-]*(?: [A-Z0-9\-]+)*)"
+    )
+    if strong and len(strong[0].strip()) < 5:
+        strong = None
     if strong:
         member_fv = FieldValue(strong[0].strip(), _STRONG)
     else:
-        weak = re.search(r"\bID[:#]?\s*([A-Z0-9]{6,})", t)
+        weak = re.search(r"\bID\b[:#]?\s*((?=[A-Z0-9]*\d)[A-Z0-9]{6,})", t)  # same banner trap
         if weak:
             member_fv = FieldValue(weak.group(1), _WEAK)
 

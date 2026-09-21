@@ -144,6 +144,24 @@ def test_low_confidence_insurance_card_extraction_returns_confirmation_prompt():
     assert "A12345678" in member["prompt"]
 
 
+def test_the_member_identification_card_banner_is_never_read_as_a_member_id():
+    """"MEMBER IDENTIFICATION CARD" is printed on most cards. The label regex had no word
+    boundary, so it read as a STRONG member id of "ENTIFICATION CARD" — a value the guided
+    intake merges silently. The banner yields nothing; the real line below it still reads."""
+    banner_only = extract_insurance_card_from_text("ACME\nMEMBER IDENTIFICATION CARD\nName: PAT DOE\n")
+    assert "member_id" not in banner_only.high_confidence_coverage()
+    assert not [c for c in banner_only.confirmations() if c["field"] == "member_id"]
+
+    card = extract_insurance_card_from_text(
+        "SYNTHETIC MUTUAL HEALTH PLAN\nMEMBER IDENTIFICATION CARD\n\nMember ID: SYN-123456789\nGroup Number: SYN-GRP-0042\n"
+    )
+    assert card.high_confidence_coverage()["member_id"] == "SYN-123456789"
+    # the shapes that already worked still do
+    for text, want in [("Cigna\nMember ID 123 456 789 01", "123 456 789 01"), ("X\nMember # XYZ123456", "XYZ123456"),
+                       ("X\nMember No. 912345678", "912345678")]:
+        assert extract_insurance_card_from_text(text).high_confidence_coverage()["member_id"] == want
+
+
 def test_high_confidence_insurance_card_extraction_persists_silently():
     fields = extract_insurance_card_from_text(
         "Aetna\nMember ID: W987654321\nGroup Number: 70123\nPlan: Aetna Choice POS II"
