@@ -15,6 +15,7 @@ import { EMPTY_DRAFT, toggleTarget, type VerdictDraft } from '@/lib/verdict-draf
 import {
   BandPill,
   Card,
+  DocumentSetChip,
   FlagChips,
   KeyValues,
   NotRecorded,
@@ -23,8 +24,10 @@ import {
   SectionLabel,
   Sheet,
   StatePill,
+  caseTitle,
   humanize,
   money,
+  serviceDate,
   shortId,
   when,
 } from './review-ui';
@@ -846,9 +849,18 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
           <p className="text-xs uppercase tracking-widest text-white/40">
             Review · case{loading ? ' · refreshing…' : ''}
           </p>
-          <p className="font-mono text-sm text-white/70">
-            {shortId(ws.case.case_file_id)} · {ws.case.user_masked ?? '—'}
-            {ws.review ? ` · run #${ws.review.run_seq}` : ''}
+          <h1 className="text-lg font-bold text-white">
+            {caseTitle(ws.case.provider)}
+            {serviceDate(ws.case.service_date) ? (
+              <span className="font-normal text-white/60"> · {serviceDate(ws.case.service_date)}</span>
+            ) : null}
+          </h1>
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-sm text-white/70">
+            <span>
+              {shortId(ws.case.case_file_id)} · {ws.case.user_masked ?? '—'}
+              {ws.review ? ` · run #${ws.review.run_seq}` : ''}
+            </span>
+            <DocumentSetChip set={ws.case.document_set} />
           </p>
           <p className="mt-1 text-sm text-white/60">
             {humanize(ws.case.status)}

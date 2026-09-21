@@ -440,6 +440,11 @@ export interface ReviewQueueItem {
   review_id: string;
   case_file_id: string;
   user_masked: string | null;
+  /** The user's own Record-row title (plausibility-gated server-side) — null renders neutral. */
+  provider: string | null;
+  service_date: string | null;
+  /** Distinct classified document types on the case, e.g. ['Itemized bill', 'EOB']. */
+  document_set: string[];
   run_seq: number;
   state: ReviewState;
   terminal_status: string;
@@ -476,6 +481,8 @@ export interface ReviewQueueResponse {
   count: number;
   limit: number;
   offset: number;
+  /** Rows per state under every active filter EXCEPT state — all six keys always present. */
+  state_counts: Record<ReviewState, number>;
   health: ReviewHealth;
 }
 
@@ -560,6 +567,9 @@ export interface ReviewWorkspace {
   case: {
     case_file_id: string;
     user_masked: string | null;
+    provider: string | null;
+    service_date: string | null;
+    document_set: string[];
     status: string;
     incomplete_reason: string | null;
     intake_status: string | null;
@@ -652,13 +662,16 @@ export interface ReviewVerdictBody {
   structured_note?: { concluded: string; should_have_concluded: string; input_or_rule: string };
 }
 
-export function adminReviewQueue(params: Record<string, string | number | boolean> = {}) {
+export function adminReviewQueue(
+  params: Record<string, string | number | boolean> = {},
+  signal?: AbortSignal,
+) {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== '' && v !== undefined && v !== null) q.set(k, String(v));
   }
   const s = q.toString();
-  return get<ReviewQueueResponse>(`/v1/admin/review/queue${s ? `?${s}` : ''}`);
+  return get<ReviewQueueResponse>(`/v1/admin/review/queue${s ? `?${s}` : ''}`, signal);
 }
 
 export const adminReviewSettings = () => get<ReviewSettings>('/v1/admin/review/settings');

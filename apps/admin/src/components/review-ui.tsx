@@ -72,6 +72,40 @@ export function FlagChips({
   );
 }
 
+/** The neutral title the member app's Record row uses when no plausible provider was extracted
+ *  — the server returns null rather than a misread ledger label, and so do we. */
+export function caseTitle(provider: string | null | undefined): string {
+  return provider?.trim() || 'Bill review';
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A date of SERVICE is a calendar date, not an instant: format `YYYY-MM-DD` by its parts
+ *  (`new Date('2026-08-30')` is UTC midnight — it renders as Aug 29 west of Greenwich). An
+ *  extracted free-form date ("08/30/2026") is shown as extracted. */
+export function serviceDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) return value;
+  const month = MONTHS[Number(m[2]) - 1];
+  return month ? `${month} ${Number(m[3])}, ${m[1]}` : value;
+}
+
+/** "Itemized bill + EOB" — which documents the run had. Says so when there are none. */
+export function DocumentSetChip({ set }: { set: string[] | null | undefined }) {
+  const has = !!set?.length;
+  return (
+    <span
+      title="Documents on this case"
+      className={`inline-block rounded-lg border border-white/15 px-2 py-0.5 font-sans text-[11px] ${
+        has ? 'text-white/70' : 'italic text-white/50'
+      }`}
+    >
+      {has ? set.join(' + ') : 'no documents'}
+    </span>
+  );
+}
+
 export function shortId(id: string | null | undefined): string {
   return id ? `c·${id.slice(-4)}` : '—';
 }

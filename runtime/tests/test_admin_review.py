@@ -175,6 +175,102 @@ async def test_queue_filters_and_rejects_unknown_values(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_a_queue_row_is_findable_by_provider_service_date_and_document_set(
+    client: AsyncClient,
+):
+    """Deep review 2026-09-18: rows read `c·xxxx #n` — unnavigable. The row now carries what the
+    user's own Record row shows (same helpers), plus the document-set chip; still no email."""
+    import datetime
+
+    since = _just_now()
+    cfid, rid = await _enqueued(
+        provider_name="Riverton Imaging",
+        date_of_service=datetime.date(2026, 8, 30),
+        documents=[
+            {"document_type": "itemized_bill", "filename": "a.pdf"},
+            {"document_type": "itemized_bill", "filename": "b.pdf"},
+            {"document_type": "unclassified", "filename": "c.jpg"},
+        ],
+        eobs=[{"claim_number": "CLM-1"}],  # a structured EOB row with no document_type
+    )
+    body = (
+        await client.get("/v1/admin/review/queue", params={"limit": 200, "since": since})
+    ).json()
+    item = next(i for i in body["items"] if i["review_id"] == rid)
+    assert item["provider"] == "Riverton Imaging"
+    assert item["service_date"] == "2026-08-30"
+    assert item["document_set"] == ["Itemized bill", "EOB", "Unclassified"]  # distinct, in order
+    assert item["user_masked"].startswith("u·") and "email" not in item
+
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    assert ws["case"]["provider"] == "Riverton Imaging"  # the workspace header agrees
+    assert ws["case"]["document_set"] == item["document_set"]
+
+
+@pytest.mark.asyncio
+async def test_a_queue_row_is_never_titled_with_statement_furniture(client: AsyncClient):
+    """The provider passes the SAME plausibility gate as the homescreen card: a misextracted
+    ledger label degrades to the document-type rung, and with nothing classified to None —
+    the client then renders a neutral label, never the junk."""
+    since = _just_now()
+    _, typed = await _enqueued(
+        provider_name="Payments (since last statements)",
+        documents=[{"document_type": "bill"}],
+    )
+    _, bare = await _enqueued(provider_name="Payments (since last statements)")
+    items = {
+        i["review_id"]: i
+        for i in (
+            await client.get("/v1/admin/review/queue", params={"limit": 200, "since": since})
+        ).json()["items"]
+    }
+    assert items[typed]["provider"] == "Bill visit"
+    assert items[bare]["provider"] is None and items[bare]["service_date"] is None
+    assert items[bare]["document_set"] == []
+
+
+@pytest.mark.asyncio
+async def test_state_counts_are_what_clicking_each_pill_would_list(client: AsyncClient):
+    """The count pills. A pill's N obeys every filter EXCEPT state (so choosing a pill never
+    changes the other pills' numbers), and all six states are always present — a zero pill
+    still renders. Measured as deltas: the local DB is shared across runs."""
+    from app.db.models.case_reviews import REVIEW_STATES
+
+    since = _just_now()
+
+    async def counts(**extra) -> dict[str, int]:
+        r = await client.get(
+            "/v1/admin/review/queue", params={"limit": 1, "since": since, **extra}
+        )
+        assert r.status_code == 200, r.text
+        return r.json()["state_counts"]
+
+    before, before_err = await counts(), await counts(has_system_error="true")
+    assert set(before) == set(REVIEW_STATES)
+
+    await _enqueued()
+    approved_case, _ = await _enqueued()
+    r = await client.post(
+        f"/v1/admin/review/cases/{approved_case}/verdict", json={"action": "approve"}
+    )
+    assert r.status_code == 200, r.text
+    errored = await _case(status="audit_incomplete", audit_incomplete_reason="system_error")
+    assert await rq.on_terminal(errored, "audit_incomplete", "system_error")
+
+    after = await counts()
+    assert after["unreviewed"] - before["unreviewed"] == 2  # the plain one + the errored one
+    assert after["approved"] - before["approved"] == 1
+    assert after["disapproved"] == before["disapproved"]
+
+    # choosing a pill narrows the PAGE, never the other pills' numbers
+    assert await counts(state="approved") == after
+    # …while a non-state filter narrows both
+    after_err = await counts(has_system_error="true")
+    assert after_err["unreviewed"] - before_err["unreviewed"] == 1
+    assert after_err["approved"] == before_err["approved"]
+
+
+@pytest.mark.asyncio
 async def test_settings_dial_roundtrip(client: AsyncClient):
     try:
         assert (await client.get("/v1/admin/review/settings")).json()["review_sample_pct"] in range(

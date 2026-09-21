@@ -21,7 +21,7 @@ from typing import Any, Literal
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import case, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser
@@ -59,17 +59,61 @@ def _age_hours(t: datetime.datetime | None, now: datetime.datetime) -> float | N
     return round(max(0.0, (now - t).total_seconds() / 3600.0), 1)
 
 
+def _document_set(cf: CaseFile) -> list[str]:
+    """The queue row's document-set chip — the distinct classified types on the case, in upload
+    order, cased by the Record's own label map ('Itemized bill', 'EOB', 'SBC'). A structured
+    `eobs` row counts as an EOB even when it carries no document_type; an unclassified upload
+    is listed LAST, because the reviewer should know it is there."""
+    from app.routes.record import _doc_type_label
+
+    labels: list[str] = []
+    unclassified = False
+    for kind, rows in (("document", cf.documents), ("eob", cf.eobs)):
+        for d in rows or []:
+            if not isinstance(d, dict):
+                continue
+            dt = d.get("document_type")
+            if not isinstance(dt, str) or not dt or dt == "unclassified":
+                if kind == "eob":
+                    dt = "eob"
+                else:
+                    unclassified = True
+                    continue
+            label = _doc_type_label(dt)
+            if label not in labels:
+                labels.append(label)
+    return [*labels, "Unclassified"] if unclassified else labels
+
+
+def _case_line(cf: CaseFile | None) -> dict[str, Any]:
+    """What makes a queue row findable. ONE source with the user's own Record row — the
+    plausibility-gated provider (statement-ledger furniture never becomes a title) and the
+    extracted service date — so the reviewer and the user are looking at the same label.
+    There is deliberately no free-text 'service description': nothing gated produces one."""
+    if cf is None:
+        return {"provider": None, "service_date": None, "document_set": []}
+    from app.routes.record import _row_provider, _row_service_date
+
+    return {
+        "provider": _row_provider(cf),
+        "service_date": _row_service_date(cf),
+        "document_set": _document_set(cf),
+    }
+
+
 def _review_dict(
     r: CaseReview,
     *,
     now: datetime.datetime,
     verdict: AdminVerdict | None = None,
     user_id: uuid.UUID | None = None,
+    case_file: CaseFile | None = None,
 ) -> dict[str, Any]:
     return {
         "review_id": str(r.review_id),
         "case_file_id": str(r.case_file_id),
         "user_masked": _mask(user_id),
+        **_case_line(case_file),
         "run_seq": r.run_seq,
         "state": r.state,
         "terminal_status": r.terminal_status,
@@ -139,45 +183,66 @@ async def review_queue_list(
     """The reviewer queue. Default order: pending rows first (unreviewed / re_review / in_review),
     oldest enqueued first — the mockup's 'oldest unreviewed at the top'."""
     now = datetime.datetime.now(datetime.timezone.utc)
-    q = (
-        select(CaseReview, AdminVerdict, CaseFile.user_id)
-        .join(CaseFile, CaseFile.case_file_id == CaseReview.case_file_id)
-        .outerjoin(AdminVerdict, AdminVerdict.verdict_id == CaseReview.verdict_id)
-    )
+    states: list[str] = []
     if state:
         states = [s.strip() for s in state.split(",") if s.strip()]
         bad = [s for s in states if s not in REVIEW_STATES]
         if bad:
             raise HTTPException(status_code=422, detail=f"unknown review state(s): {bad}")
-        q = q.where(CaseReview.state.in_(states))
+    # Every filter EXCEPT state — shared by the page and by the pill counts, so a pill's N is
+    # exactly the number of rows clicking it would list under the filters already applied.
+    conds = []
     if verdict:
-        q = q.where(AdminVerdict.verdict == verdict)
+        conds.append(AdminVerdict.verdict == verdict)
     if confidence:
         bands = [b.strip() for b in confidence.split(",") if b.strip()]
         bad = [b for b in bands if b not in CONFIDENCE_BANDS]
         if bad:
             raise HTTPException(status_code=422, detail=f"unknown confidence band(s): {bad}")
-        q = q.where(CaseReview.confidence_band.in_(bands))
+        conds.append(CaseReview.confidence_band.in_(bands))
     if has_system_error is not None:
-        q = q.where(CaseReview.system_error.is_(has_system_error))
+        conds.append(CaseReview.system_error.is_(has_system_error))
     if canary is not None:
-        q = q.where(CaseReview.canary_flag.is_(canary))
+        conds.append(CaseReview.canary_flag.is_(canary))
     if since is not None:
-        q = q.where(CaseReview.enqueued_at >= since)
+        conds.append(CaseReview.enqueued_at >= since)
     if until is not None:
-        q = q.where(CaseReview.enqueued_at < until)
+        conds.append(CaseReview.enqueued_at < until)
+
+    q = (
+        select(CaseReview, AdminVerdict, CaseFile)
+        .join(CaseFile, CaseFile.case_file_id == CaseReview.case_file_id)
+        .outerjoin(AdminVerdict, AdminVerdict.verdict_id == CaseReview.verdict_id)
+        .where(*conds)
+    )
+    if states:
+        q = q.where(CaseReview.state.in_(states))
     pending_first = case((CaseReview.state.in_(review_queue.PENDING_STATES), 0), else_=1)
     rows = (
         await session.execute(
             q.order_by(pending_first, CaseReview.enqueued_at.asc()).limit(limit).offset(offset)
         )
     ).all()
-    items = [_review_dict(r, now=now, verdict=v, user_id=uid) for r, v, uid in rows]
+    items = [
+        _review_dict(r, now=now, verdict=v, user_id=cf.user_id, case_file=cf) for r, v, cf in rows
+    ]
+    counted = (
+        await session.execute(
+            select(CaseReview.state, func.count())
+            .join(CaseFile, CaseFile.case_file_id == CaseReview.case_file_id)
+            .outerjoin(AdminVerdict, AdminVerdict.verdict_id == CaseReview.verdict_id)
+            .where(*conds)
+            .group_by(CaseReview.state)
+        )
+    ).all()
+    state_counts = {s: 0 for s in REVIEW_STATES}  # every pill renders, zero included
+    state_counts.update({s: int(n) for s, n in counted})
     return {
         "items": items,
         "count": len(items),
         "limit": limit,
         "offset": offset,
+        "state_counts": state_counts,
         "health": await review_queue.health(session, now=now),
     }
 
@@ -683,6 +748,7 @@ async def review_workspace(
         "case": {
             "case_file_id": str(cf.case_file_id),
             "user_masked": _mask(cf.user_id),
+            **_case_line(cf),  # the same provider · service date · document set the queue row shows
             "status": cf.status,
             "incomplete_reason": cf.audit_incomplete_reason,
             "intake_status": getattr(cf, "intake_status", None),
@@ -690,12 +756,22 @@ async def review_workspace(
             "updated_at": _iso(cf.updated_at),
         },
         "review": _review_dict(
-            review, now=now, verdict=verdict_by_id.get(review.verdict_id), user_id=cf.user_id
+            review,
+            now=now,
+            verdict=verdict_by_id.get(review.verdict_id),
+            user_id=cf.user_id,
+            case_file=cf,
         )
         if review
         else None,
         "review_chain": [
-            _review_dict(r, now=now, verdict=verdict_by_id.get(r.verdict_id), user_id=cf.user_id)
+            _review_dict(
+                r,
+                now=now,
+                verdict=verdict_by_id.get(r.verdict_id),
+                user_id=cf.user_id,
+                case_file=cf,
+            )
             for r in chain
         ],
         "left": {
