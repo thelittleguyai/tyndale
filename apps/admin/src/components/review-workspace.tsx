@@ -1,14 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { adminReviewWorkspace, type ReviewFinding, type ReviewWorkspace as Workspace } from '@/lib/api-client';
-import { BandPill, Card, FlagChips, Phase2Placeholder, SectionLabel, StatePill, humanize, money, shortId, when } from './review-ui';
-import { VerdictPanel } from './verdict-panel';
+import {
+  adminReviewClaim,
+  adminReviewWorkspace,
+  type ReviewCitation,
+  type ReviewFinding,
+  type ReviewVerdictRecord,
+  type ReviewWorkspace as Workspace,
+} from '@/lib/api-client';
+import { EMPTY_DRAFT, toggleTarget, type VerdictDraft } from '@/lib/verdict-draft';
+import {
+  BandPill,
+  Card,
+  FlagChips,
+  KeyValues,
+  NotRecorded,
+  Phase2Placeholder,
+  RawToggle,
+  SectionLabel,
+  Sheet,
+  StatePill,
+  humanize,
+  money,
+  shortId,
+  when,
+} from './review-ui';
+import { VerdictPanel, type ClaimView } from './verdict-panel';
 
 // The case workspace (doc 39 §2 + mockup human_review_case.svg): left = source documents,
 // extraction, user journey; center = four tabs; right = the verdict panel. Every field is
-// read from existing data — a missing value renders "not recorded", never a guess.
+// read from existing data — a missing value renders "not recorded", never a guess — and nothing
+// is printed as a raw JSON dump by default (this is a PHI console; "show raw" is collapsed).
 
 type Tab = 'analysis' | 'conversation' | 'results' | 'provenance';
 const TABS: { key: Tab; label: string }[] = [
@@ -18,19 +42,17 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'provenance', label: 'Data & provenance' },
 ];
 
-function NotRecorded() {
-  return <span className="italic text-white/30">not recorded</span>;
-}
-
-function Json({ v }: { v: unknown }) {
-  return <pre className="overflow-auto text-[11px] leading-4 text-white/60">{JSON.stringify(v, null, 2)}</pre>;
-}
+type Dict = Record<string, unknown>;
 
 function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v : typeof v === 'number' ? String(v) : null;
 }
 
-function ThreeNumbers({ tn }: { tn: Record<string, unknown> | null }) {
+function asDict(v: unknown): Dict | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Dict) : null;
+}
+
+function ThreeNumbers({ tn }: { tn: Dict | null }) {
   const n = (k: string) => (typeof tn?.[k] === 'number' ? (tn[k] as number) : null);
   const cell = (label: string, value: number | null, sub?: string | null) => (
     <div key={label} className="flex-1 rounded-lg bg-white/5 p-2">
@@ -41,15 +63,16 @@ function ThreeNumbers({ tn }: { tn: Record<string, unknown> | null }) {
   );
   const low = n('tyndale_computed_low');
   const high = n('tyndale_computed_high');
+  // joined from the parts that EXIST — a missing computed_source used to leave a dangling " · "
+  const computedSub =
+    [low !== null && high !== null ? `range ${money(low)} – ${money(high)}` : null, str(tn?.computed_source)]
+      .filter(Boolean)
+      .join(' · ') || null;
   return (
     <div className="flex flex-wrap gap-2">
       {cell('Provider billed', n('provider_billed'))}
       {cell('EOB says you owe', n('eob_member_responsibility'))}
-      {cell(
-        'Tyndale computed',
-        n('tyndale_computed'),
-        low !== null && high !== null ? `range ${money(low)} – ${money(high)} · ${str(tn?.computed_source) ?? ''}` : str(tn?.computed_source),
-      )}
+      {cell('Tyndale computed', n('tyndale_computed'), computedSub)}
     </div>
   );
 }
@@ -57,7 +80,7 @@ function ThreeNumbers({ tn }: { tn: Record<string, unknown> | null }) {
 function WhyExpander({ f }: { f: ReviewFinding }) {
   return (
     <details className="mt-2 rounded-lg bg-white/5 p-2 text-xs">
-      <summary className="cursor-pointer text-white/60">Why this finding</summary>
+      <summary className="min-h-[28px] cursor-pointer text-white/60">Why this finding</summary>
       <dl className="mt-2 space-y-1">
         {f.why.map((line) => (
           <div key={line.key} className="grid grid-cols-[140px_1fr] gap-2">
@@ -82,15 +105,36 @@ function WhyExpander({ f }: { f: ReviewFinding }) {
   );
 }
 
-function FindingCard({ f, internalNotes }: { f: ReviewFinding; internalNotes: string[] }) {
+function FindingCard({
+  f,
+  selected,
+  onToggle,
+  onOpenCitation,
+}: {
+  f: ReviewFinding;
+  selected: boolean;
+  onToggle: () => void;
+  onOpenCitation: (c: ReviewCitation) => void;
+}) {
   return (
-    <Card>
+    <Card className={selected ? 'border-rose/60' : ''}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-white">{humanize(f.category)}</p>
-          <p className="text-[11px] text-white/50">
-            {humanize(f.finding_type)} · responsible: {humanize(f.responsible_party)} · tier {f.voice_tier} · {f.status}
-          </p>
+        <div className="flex items-start gap-2">
+          {/* click-to-select scope (doc 39 §2): the same selection the verdict panel lists */}
+          <label className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center">
+            <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${humanize(f.category)} for the verdict scope`} />
+          </label>
+          <div>
+            <p className="text-sm font-semibold text-white">
+              {humanize(f.category)}
+              {selected ? (
+                <span className="ml-2 rounded bg-rose px-1.5 py-0.5 text-[10px] font-semibold text-white">selected ✓</span>
+              ) : null}
+            </p>
+            <p className="text-[11px] text-white/50">
+              {humanize(f.finding_type)} · responsible: {humanize(f.responsible_party)} · tier {f.voice_tier} · {f.status}
+            </p>
+          </div>
         </div>
         <p className="text-base font-bold text-white">{f.amount_usd === null ? <NotRecorded /> : money(f.amount_usd)}</p>
       </div>
@@ -108,13 +152,19 @@ function FindingCard({ f, internalNotes }: { f: ReviewFinding; internalNotes: st
         <span className="ml-3 text-white/40">CONFIDENCE</span>
         {f.confidence === null ? <NotRecorded /> : <span className="text-white/80">{String(f.confidence)}</span>}
       </div>
-      <div className="mt-1 text-[11px]">
-        <span className="text-white/40">CITATIONS </span>
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+        <span className="text-white/40">CITATIONS</span>
         {f.citations.length ? (
           f.citations.map((c) => (
-            <span key={c.src_id} className="mr-2 font-mono text-citation-soft">
+            <button
+              key={c.src_id + c.marker}
+              type="button"
+              onClick={() => onOpenCitation(c)}
+              className="min-h-[28px] rounded border border-citation/50 px-1.5 font-mono text-citation-soft hover:bg-white/5"
+              title="Open the cited source"
+            >
               {c.marker}
-            </span>
+            </button>
           ))
         ) : (
           <NotRecorded />
@@ -122,22 +172,75 @@ function FindingCard({ f, internalNotes }: { f: ReviewFinding; internalNotes: st
       </div>
       <div className="mt-2 rounded-lg border border-amber/40 p-2 text-[11px]">
         <p className="font-semibold uppercase tracking-widest text-amber">Analyst notes · internal — never shown to users</p>
-        {internalNotes.length ? (
-          internalNotes.map((n, i) => (
-            <p key={i} className="mt-1 text-white/70">
-              {n}
-            </p>
-          ))
-        ) : (
-          <p className="mt-1 text-white/40">none yet</p>
-        )}
+        {/* the AGENT'S reasoning, or "not recorded". A reviewer's verdict note never appears here. */}
+        <p className="mt-1 whitespace-pre-wrap text-white/70">{f.analyst_notes ?? <NotRecorded />}</p>
       </div>
       <WhyExpander f={f} />
     </Card>
   );
 }
 
-function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspace['case'] }) {
+function CitationSheet({
+  citation,
+  onClose,
+  onOpenDocument,
+}: {
+  citation: ReviewCitation;
+  onClose: () => void;
+  onOpenDocument?: (docIndex: number, page: number | null) => void;
+}) {
+  const s = citation.source;
+  return (
+    <Sheet title={citation.marker} subtitle={[citation.authority, citation.section].filter(Boolean).join(' · ')} onClose={onClose}>
+      {s.kind === 'chunk' ? (
+        <div className="space-y-3 text-sm">
+          <KeyValues
+            data={{ collection: s.collection, title: s.title, effective_date: s.effective_date, last_verified: s.last_verified, source_id: citation.src_id }}
+          />
+          {s.text ? (
+            <p className="whitespace-pre-wrap rounded-lg bg-white/5 p-3 leading-6 text-white/80">
+              {s.text}
+              {s.truncated ? <span className="text-white/40"> … (truncated)</span> : null}
+            </p>
+          ) : (
+            <p className="text-xs text-white/40">The retrieved chunk carried no text.</p>
+          )}
+        </div>
+      ) : s.kind === 'document' ? (
+        <div className="space-y-3 text-sm text-white/80">
+          <p>
+            Cites one of this case’s documents — document #{s.doc_index + 1}
+            {s.page ? `, page ${s.page}` : ''}.
+          </p>
+          {onOpenDocument ? (
+            <button
+              type="button"
+              onClick={() => onOpenDocument(s.doc_index, s.page)}
+              className="min-h-[44px] rounded-lg border border-white/15 px-3 text-xs text-white/80 hover:bg-white/5"
+            >
+              Open the document
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-sm text-white/60">
+          This citation’s source (<span className="font-mono">{citation.src_id}</span>) was not among the chunks this run retrieved, and it
+          isn’t one of the case’s documents — <NotRecorded />. A citation with no retrievable source is itself worth a look.
+        </p>
+      )}
+    </Sheet>
+  );
+}
+
+function LeftPane({
+  left,
+  caseRow,
+  onOpenDocument,
+}: {
+  left: Workspace['left'];
+  caseRow: Workspace['case'];
+  onOpenDocument?: (doc: Workspace['left']['documents'][number]) => void;
+}) {
   // One namespace: the server numbers documents and eobs together (doc_index).
   const docs = [...left.documents, ...left.eobs];
   return (
@@ -146,26 +249,43 @@ function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspa
         <SectionLabel>Source documents</SectionLabel>
         {docs.length ? (
           <div className="space-y-2">
-            {docs.map((d) => (
-              <Card key={d.doc_index} className="text-xs">
-                <p className="font-semibold text-white/80">
-                  {humanize(d.document_type ?? d.kind)}
-                  <span className="text-white/40"> · {d.filename ?? 'unnamed'}</span>
-                </p>
-                <p className="text-white/40">
-                  {d.page_count ? `${d.page_count} pages · ` : ''}
-                  {d.text_chars ? `${d.text_chars.toLocaleString()} chars extracted` : 'no text extracted'}
-                  {d.extraction_status ? ` · ${humanize(d.extraction_status)}` : ''}
-                </p>
-                {d.claim_number || d.account_number ? (
-                  <p className="font-mono text-white/50">
-                    {d.claim_number ? `claim ${d.claim_number}` : ''}
-                    {d.claim_number && d.account_number ? ' · ' : ''}
-                    {d.account_number ? `acct ${d.account_number}` : ''}
+            {docs.map((d) => {
+              const body = (
+                <>
+                  <p className="font-semibold text-white/80">
+                    {humanize(d.document_type ?? d.kind)}
+                    <span className="text-white/40"> · {d.filename ?? 'unnamed'}</span>
                   </p>
-                ) : null}
-              </Card>
-            ))}
+                  <p className="text-white/40">
+                    {d.page_count ? `${d.page_count} pages · ` : ''}
+                    {d.has_text ? `${d.text_chars.toLocaleString()} chars extracted` : 'no text extracted'}
+                    {d.extraction_status ? ` · ${humanize(d.extraction_status)}` : ''}
+                  </p>
+                  {d.claim_number || d.account_number ? (
+                    <p className="font-mono text-white/50">
+                      {d.claim_number ? `claim ${d.claim_number}` : ''}
+                      {d.claim_number && d.account_number ? ' · ' : ''}
+                      {d.account_number ? `acct ${d.account_number}` : ''}
+                    </p>
+                  ) : null}
+                </>
+              );
+              return onOpenDocument ? (
+                <button
+                  key={d.doc_index}
+                  type="button"
+                  onClick={() => onOpenDocument(d)}
+                  className="block min-h-[44px] w-full rounded-xl border border-white/10 bg-navy-soft p-3 text-left text-xs hover:border-white/30"
+                >
+                  {body}
+                  <span className="mt-1 block text-[11px] text-citation-soft">Open viewer →</span>
+                </button>
+              ) : (
+                <Card key={d.doc_index} className="text-xs">
+                  {body}
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-white/40">No documents on this case.</p>
@@ -196,13 +316,9 @@ function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspa
           <p className="text-xs text-white/40">No line items extracted.</p>
         )}
         {Object.keys(left.extraction.coverage).length ? (
-          <div className="mt-2 text-[11px] text-white/60">
-            <p className="text-white/40">Coverage terms</p>
-            {Object.entries(left.extraction.coverage).map(([k, v]) => (
-              <p key={k}>
-                {humanize(k)}: <span className="font-mono">{v === null || v === undefined ? '—' : String(v)}</span>
-              </p>
-            ))}
+          <div className="mt-2">
+            <p className="text-[11px] text-white/40">Coverage terms</p>
+            <KeyValues data={left.extraction.coverage} skip={['user_input_provenance']} />
           </div>
         ) : null}
       </div>
@@ -235,7 +351,20 @@ function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspa
   );
 }
 
-function ConversationTab({ messages }: { messages: Record<string, unknown>[] }) {
+/** A non-text thread message (status card, verification request, moment card…): its kind-specific
+ *  essentials as label/value rows — never the raw payload. */
+function MessagePayload({ payload }: { payload: unknown }) {
+  const d = asDict(payload);
+  if (!d) return <NotRecorded />;
+  return (
+    <>
+      <KeyValues data={d} />
+      <RawToggle value={d} />
+    </>
+  );
+}
+
+function ConversationTab({ messages }: { messages: Dict[] }) {
   if (!messages.length) {
     return <p className="text-sm text-white/40">No conversation on this case yet.</p>;
   }
@@ -254,11 +383,44 @@ function ConversationTab({ messages }: { messages: Record<string, unknown>[] }) 
               {when(str(m.created_at))}
               {str(m.status) && m.status !== 'complete' ? ` · ${String(m.status)}` : ''}
             </p>
-            {content ? <p className="whitespace-pre-wrap leading-5">{content}</p> : <Json v={m.payload ?? {}} />}
+            {content ? <p className="whitespace-pre-wrap leading-5">{content}</p> : <MessagePayload payload={m.payload} />}
           </div>
         );
       })}
     </div>
+  );
+}
+
+function TierRendering({ t }: { t: Workspace['tabs']['results']['tiers'][number] }) {
+  const claim = asDict(t.tier_b_claim);
+  const rec = asDict(t.tier_c_recommendation);
+  return (
+    <Card className="text-xs">
+      <p className="font-mono text-white/40">
+        {shortId(t.finding_id)} · voice tier {t.voice_tier}
+      </p>
+      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/40">A · facts</p>
+      <KeyValues data={t.tier_a_facts} skip={['notes', 'analyst_notes']} />
+      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/40">B · claim</p>
+      {claim ? (
+        <>
+          <p className="text-white/80">{str(claim.claim) ?? str(claim.text) ?? <NotRecorded />}</p>
+          <KeyValues data={claim} skip={['claim', 'text', 'citations', 'citation']} />
+        </>
+      ) : (
+        <NotRecorded />
+      )}
+      <p className="mt-2 text-[10px] uppercase tracking-widest text-white/40">C · recommendation</p>
+      {rec ? (
+        <>
+          <p className="text-white/80">{str(rec.action) ?? <NotRecorded />}</p>
+          {str(rec.reasoning) ? <p className="text-white/50">because: {str(rec.reasoning)}</p> : null}
+        </>
+      ) : (
+        <NotRecorded />
+      )}
+      <RawToggle value={{ facts: t.tier_a_facts, claim: t.tier_b_claim, recommendation: t.tier_c_recommendation }} />
+    </Card>
   );
 }
 
@@ -271,7 +433,7 @@ function ResultsTab({ r, documentsNeeded }: { r: Workspace['tabs']['results']; d
         {r.gameplan.length ? (
           <div className="space-y-2">
             {r.gameplan.map((g, i) => {
-              const script = (g.script ?? {}) as Record<string, unknown>;
+              const script = asDict(g.script) ?? {};
               return (
                 <Card key={i} className="text-xs">
                   <p className="text-sm font-semibold text-white">
@@ -314,17 +476,7 @@ function ResultsTab({ r, documentsNeeded }: { r: Workspace['tabs']['results']; d
         {r.tiers.length ? (
           <div className="space-y-2">
             {r.tiers.map((t) => (
-              <Card key={t.finding_id} className="text-xs">
-                <p className="font-mono text-white/40">
-                  {shortId(t.finding_id)} · voice tier {t.voice_tier}
-                </p>
-                <p className="mt-1 text-white/40">A · facts</p>
-                <Json v={t.tier_a_facts} />
-                <p className="mt-1 text-white/40">B · claim</p>
-                {t.tier_b_claim ? <Json v={t.tier_b_claim} /> : <NotRecorded />}
-                <p className="mt-1 text-white/40">C · recommendation</p>
-                {t.tier_c_recommendation ? <Json v={t.tier_c_recommendation} /> : <NotRecorded />}
-              </Card>
+              <TierRendering key={t.finding_id} t={t} />
             ))}
           </div>
         ) : (
@@ -345,14 +497,46 @@ function ResultsTab({ r, documentsNeeded }: { r: Workspace['tabs']['results']; d
       ) : null}
       <div>
         <SectionLabel>Deadlines</SectionLabel>
-        {r.deadlines.length ? <Json v={r.deadlines} /> : <p className="text-xs text-white/40">None.</p>}
+        {r.deadlines.length ? (
+          <ul className="space-y-1 text-xs text-white/70">
+            {r.deadlines.map((d, i) => (
+              <li key={str(d.deadline_id) ?? i}>
+                <span className="font-mono">{str(d.deadline_date) ?? '—'}</span> · {humanize(str(d.deadline_type))} ·{' '}
+                <span className="text-white/40">{humanize(str(d.status))}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-white/40">None.</p>
+        )}
       </div>
       <div>
         <SectionLabel>Outcomes reported by the user</SectionLabel>
-        {r.outcomes.length ? <Json v={r.outcomes} /> : <p className="text-xs text-white/40">None reported yet.</p>}
+        {r.outcomes.length ? (
+          <ul className="space-y-2 text-xs text-white/70">
+            {r.outcomes.map((o, i) => {
+              const payload = asDict(o.payload) ?? {};
+              return (
+                <li key={i} className="rounded-lg bg-white/5 p-2">
+                  <p>
+                    {humanize(str(o.feedback_type))} · <span className="text-white/40">{when(str(o.created_at))}</span>
+                  </p>
+                  <KeyValues data={payload} />
+                  <RawToggle value={o} />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-xs text-white/40">None reported yet.</p>
+        )}
       </div>
     </div>
   );
+}
+
+function NoneOnThisRun({ what }: { what: string }) {
+  return <p className="text-xs text-white/40">None on this run — {what}.</p>;
 }
 
 function ProvenanceTab({ p }: { p: Workspace['tabs']['provenance'] }) {
@@ -361,16 +545,119 @@ function ProvenanceTab({ p }: { p: Workspace['tabs']['provenance'] }) {
       {p.tripwires.length ? (
         <Card className="border-rose/40">
           <SectionLabel>Tripwires fired</SectionLabel>
-          <Json v={p.tripwires} />
+          <ul className="space-y-1 text-xs text-white/80">
+            {p.tripwires.map((tw, i) => (
+              <li key={i}>
+                <span className="font-semibold">{humanize(str(tw.which))}</span>
+                {Array.isArray(tw.codes) && tw.codes.length ? <span className="font-mono"> · {tw.codes.join(', ')}</span> : null}
+                {str(tw.category) ? ` · ${humanize(str(tw.category))}` : ''}
+                <span className="text-white/40"> · {when(str(tw.at))}</span>
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
+
+      <div>
+        <SectionLabel>User answers &amp; attestations · {p.user_answers.length}</SectionLabel>
+        {p.user_answers.length ? (
+          <ul className="space-y-1 text-xs text-white/70">
+            {p.user_answers.map((a, i) => (
+              <li key={i}>
+                <span className="text-white/40">{humanize(a.kind)}</span> · {a.code ? <span className="font-mono">{a.code} </span> : null}
+                {a.label}: <span className="font-semibold text-white/90">{a.value === null ? '—' : String(a.value)}</span>
+                {a.note ? <span className="text-white/50"> — “{a.note}”</span> : null}
+                <span className="text-white/40"> · {a.at ? when(a.at) : 'time not recorded'}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <NoneOnThisRun what="the user confirmed no line items, typed no coverage values and was not asked to attest" />
+        )}
+      </div>
+
+      <div>
+        <SectionLabel>Priors applied · {p.priors_applied.length}</SectionLabel>
+        {p.priors_applied.length ? (
+          <table className="w-full text-[11px] text-white/70">
+            <thead className="text-white/40">
+              <tr>
+                <th className="py-1 text-left">Missing input</th>
+                <th className="py-1 text-left">Prior (low · base · high)</th>
+                <th className="py-1 text-left">Tier</th>
+                <th className="py-1 text-left">Resulting range</th>
+                <th className="py-1 text-left">Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {p.priors_applied.map((pr) => {
+                const fmt = (v: number) => (pr.unit === 'usd' ? money(v) : `${Math.round(v * 100)}%`);
+                return (
+                  <tr key={pr.input} className="border-t border-white/10">
+                    <td className="py-1">{humanize(pr.input)}</td>
+                    <td className="py-1 font-mono">
+                      {fmt(pr.low)} · {fmt(pr.base)} · {fmt(pr.high)}
+                    </td>
+                    <td className="py-1">{pr.tier ?? '—'}</td>
+                    <td className="py-1 font-mono">
+                      {pr.resulting_range ? `${money(pr.resulting_range.low)} – ${money(pr.resulting_range.high)}` : 'point form (no range shown)'}
+                    </td>
+                    <td className="py-1 text-white/40">
+                      {pr.source}
+                      {pr.placeholder ? ' · placeholder' : ''}
+                      {pr.as_of ? ` · as of ${pr.as_of}` : ''}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <NoneOnThisRun what="every cost-share input the engine needs was stated by a document or the user" />
+        )}
+      </div>
+
+      <div>
+        <SectionLabel>Pricing &amp; reference data · {p.pricing_reference.length}</SectionLabel>
+        {p.pricing_reference.length ? (
+          <ul className="space-y-1 text-xs text-white/70">
+            {p.pricing_reference.map((x, i) => (
+              <li key={i}>
+                <span className="font-mono">{x.tool}</span> · {x.outcome ?? '—'} · {x.source ?? <NotRecorded />} · as of {x.as_of ?? <NotRecorded />}
+                <span className="text-white/40"> · {when(x.at)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <NoneOnThisRun what="no pricing or fee-schedule lookup was recorded" />
+        )}
+      </div>
+
+      <div>
+        <SectionLabel>Knowledge chunks retrieved · {p.qdrant_chunks_retrieved.length}</SectionLabel>
+        {p.qdrant_chunks_retrieved.length ? (
+          <ul className="space-y-1 text-xs text-white/70">
+            {p.qdrant_chunks_retrieved.slice(0, 25).map((c, i) => {
+              const d = asDict(c) ?? {};
+              return (
+                <li key={i}>
+                  <span className="font-mono">{str(d.src_id) ?? str(d.source_id) ?? str(d.chunk_id) ?? str(d.id) ?? `#${i + 1}`}</span>
+                  {str(d.collection) ? ` · ${str(d.collection)}` : ''}
+                  {str(d.title) ?? str(d.authority) ? ` · ${str(d.title) ?? str(d.authority)}` : ''}
+                  {str(d.effective_date) ? <span className="text-white/40"> · effective {str(d.effective_date)}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-xs text-white/40">No chunks recorded.</p>
+        )}
+        {p.qdrant_chunks_retrieved.length ? <RawToggle value={p.qdrant_chunks_retrieved} /> : null}
+      </div>
+
       <div>
         <SectionLabel>Skills loaded</SectionLabel>
-        {p.skills_loaded.length ? (
-          <p className="text-xs text-white/70">{p.skills_loaded.join(' · ')}</p>
-        ) : (
-          <p className="text-xs text-white/40">None recorded.</p>
-        )}
+        {p.skills_loaded.length ? <p className="text-xs text-white/70">{p.skills_loaded.join(' · ')}</p> : <p className="text-xs text-white/40">None recorded.</p>}
       </div>
       <div>
         <SectionLabel>Tools called · {p.tools_called.length}</SectionLabel>
@@ -391,11 +678,9 @@ function ProvenanceTab({ p }: { p: Workspace['tabs']['provenance'] }) {
         )}
       </div>
       <div>
-        <SectionLabel>Retrieval · {p.qdrant_chunks_retrieved.length} chunks</SectionLabel>
-        {p.qdrant_chunks_retrieved.length ? <Json v={p.qdrant_chunks_retrieved.slice(0, 20)} /> : <p className="text-xs text-white/40">No chunks recorded.</p>}
-      </div>
-      <div>
-        <SectionLabel>Subagent calls · {p.subagent_calls.length} · Model calls · {p.llm_calls.length}</SectionLabel>
+        <SectionLabel>
+          Subagent calls · {p.subagent_calls.length} · Model calls · {p.llm_calls.length}
+        </SectionLabel>
         {p.subagent_calls.length || p.llm_calls.length ? (
           <ul className="space-y-1 text-xs text-white/70">
             {p.subagent_calls.map((s, i) => (
@@ -414,11 +699,28 @@ function ProvenanceTab({ p }: { p: Workspace['tabs']['provenance'] }) {
         )}
       </div>
       <div>
-        <SectionLabel>Findings written · {p.findings_written.length} · research log · {p.research_log.length} entries</SectionLabel>
-        {p.research_log.length ? <Json v={p.research_log} /> : null}
+        <SectionLabel>
+          Findings written · {p.findings_written.length} · research log · {p.research_log.length} entries
+        </SectionLabel>
+        {p.research_log.length ? (
+          <ul className="space-y-1 text-xs text-white/70">
+            {p.research_log.map((e, i) => {
+              const d = asDict(e) ?? {};
+              return (
+                <li key={i}>
+                  <span className="font-semibold">{humanize(str(d.kind) ?? 'entry')}</span>
+                  {str(d.which) ? ` · ${humanize(str(d.which))}` : ''}
+                  {str(d.query) ? ` · “${str(d.query)}”` : ''}
+                  {str(d.at) ?? str(d.timestamp) ? <span className="text-white/40"> · {when(str(d.at) ?? str(d.timestamp))}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {p.research_log.length ? <RawToggle value={p.research_log} /> : null}
       </div>
       <div>
-        <SectionLabel>Phase 2</SectionLabel>
+        <SectionLabel>Not collected yet</SectionLabel>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <Phase2Placeholder title="API pulls" label={p.api_pulls.label} />
           <Phase2Placeholder title="Live lookups" label={p.live_lookups.label} />
@@ -430,30 +732,97 @@ function ProvenanceTab({ p }: { p: Workspace['tabs']['provenance'] }) {
   );
 }
 
+const LOAD_TIMEOUT_MS = 30_000;
+
 export function ReviewWorkspace({ caseId }: { caseId: string }) {
   const [ws, setWs] = useState<Workspace | null>(null);
   const [tab, setTab] = useState<Tab>('analysis');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The reviewer's in-progress verdict lives HERE, above everything a refetch can replace.
+  const [draft, setDraft] = useState<VerdictDraft>(EMPTY_DRAFT);
+  const [recorded, setRecorded] = useState<ReviewVerdictRecord[]>([]);
+  const [justRecordedId, setJustRecordedId] = useState<string | null>(null);
+  const [citation, setCitation] = useState<ReviewCitation | null>(null);
+  const inflight = useRef<AbortController | null>(null);
 
   const load = useCallback(() => {
-    adminReviewWorkspace(caseId)
+    inflight.current?.abort();
+    const ctl = new AbortController();
+    inflight.current = ctl;
+    // No permanent "Loading workspace…": the fetch is aborted at 30 s and says so.
+    const timer = setTimeout(() => ctl.abort(new DOMException('timeout', 'TimeoutError')), LOAD_TIMEOUT_MS);
+    setLoading(true);
+    adminReviewWorkspace(caseId, ctl.signal)
       .then((w) => {
         setWs(w);
+        setRecorded([]); // the server copy now carries them
         setError(null);
       })
-      .catch((e) => setError(e?.message ?? String(e)));
+      .catch((e: unknown) => {
+        if (ctl.signal.aborted && ctl.signal.reason?.name !== 'TimeoutError') return; // superseded
+        const timedOut = ctl.signal.reason?.name === 'TimeoutError';
+        setError(timedOut ? 'The workspace took longer than 30 s to load.' : e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (inflight.current === ctl) setLoading(false);
+      });
   }, [caseId]);
 
   useEffect(() => {
     load();
+    return () => inflight.current?.abort();
   }, [load]);
 
-  if (error) return <p className="text-sm text-rose">{error}</p>;
-  if (!ws) return <p className="text-sm text-white/40">Loading workspace…</p>;
+  const onClaim = useCallback(
+    (takeOver: boolean) => {
+      adminReviewClaim(caseId, takeOver)
+        .then(() => load())
+        .catch(() => undefined); // a failed claim never blocks a verdict — that route records the reviewer
+    },
+    [caseId, load],
+  );
+
+  // ONLY the very first load may take over the screen. Once a workspace is on screen, a failed
+  // refetch is a banner above it — never an unmount (that is how a draft used to be lost).
+  if (!ws) {
+    if (error) {
+      return (
+        <div role="alert" className="rounded-xl border border-rose/40 bg-navy-soft p-4 text-sm">
+          <p className="text-rose-soft">Couldn’t load this case: {error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[44px] rounded-lg border border-white/15 px-3 text-xs text-white/80 hover:bg-white/5"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return <p className="text-sm text-white/40">Loading workspace…</p>;
+  }
+
+  const viewerMasked = ws.viewer?.masked ?? null;
+  const claim: ClaimView = !ws.review
+    ? { kind: 'none' }
+    : ws.review.state === 'unreviewed' || ws.review.state === 're_review'
+      ? { kind: 'unclaimed' }
+      : ws.review.state === 'in_review'
+        ? ws.review.reviewer_masked && ws.review.reviewer_masked === viewerMasked
+          ? { kind: 'mine' }
+          : { kind: 'other', reviewerMasked: ws.review.reviewer_masked }
+        : { kind: 'decided' };
+  const verdicts = [...recorded.filter((r) => !ws.verdicts.some((v) => v.verdict_id === r.verdict_id)), ...ws.verdicts];
+  const onRecorded = (record: ReviewVerdictRecord) => {
+    setRecorded((prev) => [record, ...prev]); // shown in the history at once
+    setJustRecordedId(record.verdict_id);
+    setDraft(EMPTY_DRAFT); // mode / type / scope / cause / notes all reset — nothing sticky
+    load();
+  };
 
   const a = ws.tabs.analysis;
-  const notesFor = (fid: string) =>
-    ws.verdicts.filter((v) => v.notes && v.target_findings?.includes(fid)).map((v) => v.notes as string);
   const findingLabels = a.findings.map((f) => ({
     finding_id: f.finding_id,
     label: `${humanize(f.category)}${f.amount_usd !== null ? ` · ${money(f.amount_usd)}` : ''}`,
@@ -461,9 +830,19 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
 
   return (
     <div>
+      {error ? (
+        <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-rose/40 bg-navy-soft px-3 py-2 text-xs">
+          <span className="text-rose-soft">Refresh failed: {error} — showing the last loaded copy; your draft is untouched.</span>
+          <button type="button" onClick={load} className="min-h-[44px] rounded-lg border border-white/15 px-3 text-white/80 hover:bg-white/5">
+            Retry
+          </button>
+        </div>
+      ) : null}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-white/40">Review · case</p>
+          <p className="text-xs uppercase tracking-widest text-white/40">
+            Review · case{loading ? ' · refreshing…' : ''}
+          </p>
           <p className="font-mono text-sm text-white/70">
             {shortId(ws.case.case_file_id)} · {ws.case.user_masked ?? '—'}
             {ws.review ? ` · run #${ws.review.run_seq}` : ''}
@@ -513,7 +892,13 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
               {a.findings.length ? (
                 <div className="space-y-3">
                   {a.findings.map((f) => (
-                    <FindingCard key={f.finding_id} f={f} internalNotes={notesFor(f.finding_id)} />
+                    <FindingCard
+                      key={f.finding_id}
+                      f={f}
+                      selected={draft.targets.includes(f.finding_id)}
+                      onToggle={() => setDraft((d) => toggleTarget(d, f.finding_id))}
+                      onOpenCitation={setCitation}
+                    />
                   ))}
                 </div>
               ) : (
@@ -526,8 +911,21 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
           {tab === 'provenance' ? <ProvenanceTab p={ws.tabs.provenance} /> : null}
         </div>
 
-        <VerdictPanel caseId={caseId} review={ws.review} findings={findingLabels} verdicts={ws.verdicts} onSubmitted={load} />
+        <VerdictPanel
+          caseId={caseId}
+          review={ws.review}
+          viewerMasked={viewerMasked}
+          claim={claim}
+          onClaim={onClaim}
+          findings={findingLabels}
+          verdicts={verdicts}
+          justRecordedId={justRecordedId}
+          draft={draft}
+          onDraft={setDraft}
+          onRecorded={onRecorded}
+        />
       </div>
+      {citation ? <CitationSheet citation={citation} onClose={() => setCitation(null)} /> : null}
     </div>
   );
 }

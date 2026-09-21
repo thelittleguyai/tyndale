@@ -38,8 +38,8 @@ export class AdminApiError extends Error {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${RUNTIME}${path}`, { credentials: 'include' });
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${RUNTIME}${path}`, { credentials: 'include', signal });
   if (!res.ok) throw new AdminApiError(res.status, `${path} -> ${res.status}`);
   return (await res.json()) as T;
 }
@@ -491,12 +491,37 @@ export interface ReviewWhyLine {
   value: string | number | Record<string, number> | null;
 }
 
+/** What a citation chip opens — resolved server-side from the run's own retrieval + the case's
+ *  documents; `unresolved` is said plainly (nothing is fetched or guessed client-side). */
+export type ReviewCitationSource =
+  | { kind: 'document'; doc_index: number; document_id: string; page: number | null }
+  | {
+      kind: 'chunk';
+      collection: string | null;
+      title: string | null;
+      effective_date: string | null;
+      last_verified: string | null;
+      text: string | null;
+      truncated: boolean;
+    }
+  | { kind: 'unresolved' };
+
+export interface ReviewCitation {
+  authority: string;
+  section: string | null;
+  src_id: string;
+  marker: string;
+  source: ReviewCitationSource;
+}
+
 export interface ReviewFinding extends AdminFinding {
   responsible_party: string;
   amount_usd: number | null;
   basis_codes: string[];
-  citations: { authority: string; section: string | null; src_id: string; marker: string }[];
+  citations: ReviewCitation[];
   confidence: number | string | null;
+  /** The AGENT'S internal reasoning. Null = none recorded. Never a reviewer's verdict note. */
+  analyst_notes: string | null;
   why: ReviewWhyLine[];
   created_at: string | null;
 }
@@ -530,6 +555,8 @@ export interface ReviewVerdictRecord {
 }
 
 export interface ReviewWorkspace {
+  /** Who is looking — masked, for "Reviewing as …" and to tell my claim from someone else's. */
+  viewer: { masked: string | null };
   case: {
     case_file_id: string;
     user_masked: string | null;
@@ -583,6 +610,27 @@ export interface ReviewWorkspace {
       subagent_calls: { actor: string | null; outcome: string | null; timestamp: string | null; detail: unknown }[];
       findings_written: AdminFinding[];
       llm_calls: { model: string | null; outcome: string | null; timestamp: string | null; usage: unknown }[];
+      user_answers: {
+        kind: 'encounter_confirmation' | 'coverage_input' | 'attestation';
+        label: string;
+        code: string | null;
+        value: string | number | null;
+        note: string | null;
+        at: string | null;
+      }[];
+      priors_applied: {
+        input: string;
+        low: number;
+        base: number;
+        high: number;
+        unit: string;
+        source: string;
+        as_of: string | null;
+        placeholder: boolean;
+        tier: number | null;
+        resulting_range: { low: number; high: number } | null;
+      }[];
+      pricing_reference: { tool: string; outcome: string | null; at: string | null; source: string | null; as_of: string | null }[];
       tripwires: Record<string, unknown>[];
       research_log: unknown[];
       api_pulls: { status: string; label: string };
@@ -616,8 +664,8 @@ export function adminReviewQueue(params: Record<string, string | number | boolea
 export const adminReviewSettings = () => get<ReviewSettings>('/v1/admin/review/settings');
 export const adminSetReviewSampling = (pct: number) =>
   put<{ review_sample_pct: number }>('/v1/admin/review/settings', { review_sample_pct: pct });
-export const adminReviewWorkspace = (caseId: string) =>
-  get<ReviewWorkspace>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}`);
+export const adminReviewWorkspace = (caseId: string, signal?: AbortSignal) =>
+  get<ReviewWorkspace>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}`, signal);
 
 export interface ReviewClaimResult {
   review_id: string;
@@ -628,8 +676,10 @@ export interface ReviewClaimResult {
 }
 
 /** Take a pending run for review. Explicit + idempotent: opening the workspace never claims. */
-export const adminReviewClaim = (caseId: string) =>
-  post<ReviewClaimResult>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}/claim`);
+export const adminReviewClaim = (caseId: string, takeOver = false) =>
+  post<ReviewClaimResult>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}/claim`, {
+    take_over: takeOver,
+  });
 
 /** Posts a verdict; a 422 surfaces the server's validation list as the error message. */
 export async function adminReviewVerdict(caseId: string, body: ReviewVerdictBody) {

@@ -1,126 +1,135 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
-  adminReviewClaim,
   adminReviewVerdict,
   type DisapprovalCause,
   type DisapprovalType,
   type ReviewQueueItem,
-  type ReviewVerdictBody,
   type ReviewVerdictRecord,
 } from '@/lib/api-client';
+import {
+  CAUSES,
+  DISAPPROVAL_TYPES,
+  toVerdictBody,
+  toggleTarget,
+  validateDraft,
+  verdictLabel,
+  type DraftField,
+  type VerdictDraft,
+  type VerdictMode,
+} from '@/lib/verdict-draft';
 import { Card, SectionLabel, StatePill, humanize, when } from './review-ui';
 
-// The right pane (doc 39 §2 + §7-2b/2c): Approve (optional note) / Disapprove… (type ·
-// scope · exactly one cause · the three prompts) / Can't verify (excluded from the rate).
-// Verdicts are append-only; the reviewer's UUID is the actor server-side.
+// The right pane (doc 39 §2 + §7-2b/2c): Approve (optional note) / Disapprove… (type · scope ·
+// exactly one cause · the three prompts) / Can't verify (excluded from the rate). Verdicts are
+// append-only; the reviewer's UUID is the actor server-side.
+//
+// The DRAFT is owned by the workspace (lib/verdict-draft.ts), not by this component: a refetch
+// — even a failed one — must never cost a reviewer a half-written disapproval, and the finding
+// cards in the center pane drive the same scope selection.
 
-const TYPES: { value: DisapprovalType; label: string }[] = [
-  { value: 'missed_finding', label: 'Missed a finding' },
-  { value: 'hallucinated', label: 'Hallucinated a claim' },
-  { value: 'wrong', label: 'Wrong conclusion' },
-  { value: 'partial', label: 'Partially right' },
-  { value: 'partially_correct', label: 'Partially correct' },
-];
+export type ClaimView =
+  | { kind: 'none' } // the run never entered the queue
+  | { kind: 'unclaimed' }
+  | { kind: 'mine' }
+  | { kind: 'other'; reviewerMasked: string | null }
+  | { kind: 'decided' };
 
-const CAUSES: { value: DisapprovalCause; label: string; hint: string }[] = [
-  { value: 'content_gap', label: 'Content gap', hint: 'a rule or source the corpus does not have yet' },
-  { value: 'reasoning_error', label: 'Reasoning error', hint: 'the inputs were there; the conclusion was wrong' },
-  { value: 'bad_input', label: 'Bad input', hint: 'extraction or intake fed the audit something wrong' },
-  { value: 'stale_data_source', label: 'Stale data source', hint: 'a source Tyndale relies on is out of date' },
-];
-
-type Mode = 'approve' | 'disapprove' | 'cant_verify';
+function Hint({ text }: { text?: string }) {
+  return text ? <p className="mt-1 text-[11px] text-amber">{text}</p> : null;
+}
 
 export function VerdictPanel({
   caseId,
   review,
+  viewerMasked,
+  claim,
+  onClaim,
   findings,
   verdicts,
-  onSubmitted,
+  justRecordedId,
+  draft,
+  onDraft,
+  onRecorded,
 }: {
   caseId: string;
   review: ReviewQueueItem | null;
+  viewerMasked: string | null;
+  claim: ClaimView;
+  onClaim: (takeOver: boolean) => void;
   findings: { finding_id: string; label: string }[];
   verdicts: ReviewVerdictRecord[];
-  onSubmitted: () => void;
+  justRecordedId: string | null;
+  draft: VerdictDraft;
+  onDraft: (next: VerdictDraft) => void;
+  onRecorded: (record: ReviewVerdictRecord, state: ReviewQueueItem['state']) => void;
 }) {
-  const [mode, setMode] = useState<Mode>('approve');
-  const [note, setNote] = useState('');
-  const [type, setType] = useState<DisapprovalType>('missed_finding');
-  const [scope, setScope] = useState<'whole_case' | 'findings'>('whole_case');
-  const [targets, setTargets] = useState<string[]>([]);
-  const [cause, setCause] = useState<DisapprovalCause | null>(null);
-  const [concluded, setConcluded] = useState('');
-  const [should, setShould] = useState('');
-  const [inputOrRule, setInputOrRule] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  // `busy` is state and lands a render late; the ref closes the double-click window so a
+  // second submit can never append a second verdict + review row (deep review C6).
+  const submitting = useRef(false);
 
-  // Opening the workspace never claims the run (a view or a prefetch is not intent). Picking a
-  // verdict mode or pressing Start review is — the claim is idempotent and never steals a row
-  // another reviewer holds.
-  const pending = review?.state === 'unreviewed' || review?.state === 're_review';
-  const [claimNote, setClaimNote] = useState<string | null>(null);
-  const claim = async () => {
-    if (!pending) return;
-    try {
-      const r = await adminReviewClaim(caseId);
-      setClaimNote(r.held_by_me ? null : `Held by ${r.reviewer_masked ?? 'another reviewer'}`);
-      if (r.claimed) onSubmitted();
-    } catch {
-      /* a failed claim must not block a verdict — the verdict route records the reviewer */
-    }
+  const findingIds = findings.map((f) => f.finding_id);
+  const { valid, problems } = validateDraft(draft, findingIds);
+  const set = (patch: Partial<VerdictDraft>) => onDraft({ ...draft, ...patch });
+  const hint = (f: DraftField) => problems[f];
+
+  // Intent, not a page view, claims the run (the claim route is idempotent and never steals).
+  const intend = () => {
+    if (claim.kind === 'unclaimed') onClaim(false);
   };
 
-  const toggleTarget = (id: string) =>
-    setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
-
   const submit = async () => {
+    if (submitting.current || !valid) return;
+    submitting.current = true;
     setBusy(true);
     setError(null);
-    setDone(null);
-    const body: ReviewVerdictBody = { action: mode, note: note.trim() || undefined };
-    if (mode === 'disapprove') {
-      body.verdict_type = type;
-      body.scope = scope;
-      body.target_findings = scope === 'findings' ? targets : undefined;
-      body.cause = cause ?? undefined;
-      body.structured_note = { concluded, should_have_concluded: should, input_or_rule: inputOrRule };
-    }
     try {
+      const body = toVerdictBody(draft);
       const r = await adminReviewVerdict(caseId, body);
-      setDone(`Recorded: ${humanize(r.state)}${r.phase2_route ? ` · Phase 2 route: ${humanize(r.phase2_route)}` : ''}`);
-      setNote('');
-      setConcluded('');
-      setShould('');
-      setInputOrRule('');
-      setCause(null);
-      setTargets([]);
-      onSubmitted();
+      onRecorded(
+        {
+          verdict_id: r.verdict_id,
+          verdict: r.verdict,
+          notes: body.note ?? null,
+          cause: r.cause,
+          structured_note: body.structured_note ?? null,
+          target_findings: body.target_findings ?? null,
+          reviewer_masked: viewerMasked,
+          captured_at: new Date().toISOString(),
+        },
+        r.state,
+      );
     } catch (e: unknown) {
+      // the server's 422 list (or any failure) — the draft is untouched, so nothing is lost
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
 
-  const modeBtn = (m: Mode, label: string, cls: string) => (
+  const modeBtn = (m: VerdictMode, label: string, cls: string) => (
     <button
       key={m}
+      type="button"
+      aria-pressed={draft.mode === m}
       onClick={() => {
-        setMode(m);
-        void claim();
+        set({ mode: m });
+        intend();
       }}
-      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === m ? cls : 'border border-white/15 text-white/60 hover:bg-white/5'}`}
+      className={`min-h-[44px] rounded-lg px-3 text-xs font-semibold ${
+        draft.mode === m ? cls : 'border border-white/15 text-white/60 hover:bg-white/5'
+      }`}
     >
       {label}
     </button>
   );
-  const area = 'w-full rounded-lg border border-white/15 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-white/30';
+  const area =
+    'w-full rounded-lg border border-white/15 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-white/30';
 
   return (
     <div className="space-y-4">
@@ -129,64 +138,103 @@ export function VerdictPanel({
           <SectionLabel>Verdict</SectionLabel>
           {review ? <StatePill state={review.state} /> : <span className="text-[11px] text-white/40">not in queue</span>}
         </div>
-        {pending ? (
+
+        {claim.kind === 'unclaimed' ? (
           <button
-            onClick={() => void claim()}
-            className="mb-3 w-full rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+            type="button"
+            onClick={() => onClaim(false)}
+            className="mb-3 min-h-[44px] w-full rounded-lg border border-white/15 px-3 text-xs text-white/70 hover:bg-white/5"
           >
             Start review · assign to me
           </button>
         ) : null}
-        {claimNote ? <p className="mb-2 text-[11px] text-amber">{claimNote}</p> : null}
+        {claim.kind === 'mine' ? (
+          <p className="mb-3 text-[11px] text-sage-soft">Reviewing as {viewerMasked ?? 'you'}</p>
+        ) : null}
+        {claim.kind === 'other' ? (
+          <div className="mb-3 rounded-lg border border-amber/40 p-2 text-[11px] text-amber">
+            Claimed by {claim.reviewerMasked ?? 'another reviewer'}.
+            <button
+              type="button"
+              onClick={() => onClaim(true)}
+              className="ml-2 min-h-[44px] rounded-lg border border-amber/40 px-2 font-semibold hover:bg-white/5"
+            >
+              Take over?
+            </button>
+          </div>
+        ) : null}
+
         <div className="mb-3 flex flex-wrap gap-2">
           {modeBtn('approve', 'Approve', 'bg-sage text-white')}
           {modeBtn('disapprove', 'Disapprove…', 'bg-rose text-white')}
           {modeBtn('cant_verify', "Can't verify", 'bg-white/15 text-white')}
         </div>
 
-        {mode === 'disapprove' ? (
+        {draft.mode === 'disapprove' ? (
           <div className="space-y-3 text-sm">
             <label className="block text-xs text-white/60">
               Type
-              <select value={type} onChange={(e) => setType(e.target.value as DisapprovalType)} className="mt-1 w-full rounded-lg border border-white/15 bg-navy-soft px-2 py-1.5 text-sm text-white">
-                {TYPES.map((t) => (
+              <select
+                value={draft.type ?? ''}
+                onChange={(e) => set({ type: (e.target.value || null) as DisapprovalType | null })}
+                className="mt-1 min-h-[44px] w-full rounded-lg border border-white/15 bg-navy-soft px-2 text-sm text-white"
+              >
+                <option value="">Choose…</option>
+                {DISAPPROVAL_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>
                 ))}
               </select>
+              <Hint text={hint('type')} />
             </label>
-            <div className="text-xs text-white/60">
-              Scope
+
+            <fieldset className="text-xs text-white/60">
+              <legend>Scope</legend>
               <div className="mt-1 flex gap-3">
-                <label className="flex items-center gap-1">
-                  <input type="radio" checked={scope === 'whole_case'} onChange={() => setScope('whole_case')} /> whole case
+                <label className="flex min-h-[44px] items-center gap-1">
+                  <input type="radio" name="scope" checked={draft.scope === 'whole_case'} onChange={() => set({ scope: 'whole_case' })} /> whole
+                  case
                 </label>
-                <label className="flex items-center gap-1">
-                  <input type="radio" checked={scope === 'findings'} onChange={() => setScope('findings')} /> selected findings
+                <label className="flex min-h-[44px] items-center gap-1">
+                  <input type="radio" name="scope" checked={draft.scope === 'findings'} onChange={() => set({ scope: 'findings' })} /> selected
+                  findings{draft.targets.length ? ` (${draft.targets.length})` : ''}
                 </label>
               </div>
-              {scope === 'findings' ? (
-                <div className="mt-2 space-y-1">
+              {draft.scope === 'findings' ? (
+                <div className="mt-1 space-y-1">
                   {findings.length ? (
                     findings.map((f) => (
                       <label key={f.finding_id} className="flex items-center gap-2 text-white/80">
-                        <input type="checkbox" checked={targets.includes(f.finding_id)} onChange={() => toggleTarget(f.finding_id)} />
+                        <input
+                          type="checkbox"
+                          checked={draft.targets.includes(f.finding_id)}
+                          onChange={() => onDraft(toggleTarget(draft, f.finding_id))}
+                        />
                         {f.label}
                       </label>
                     ))
                   ) : (
-                    <p className="text-white/40">This run has no findings to select.</p>
+                    <p className="text-white/40">This run has no findings to select — use whole case.</p>
                   )}
+                  <p className="text-[11px] text-white/40">You can also tick a finding on its card.</p>
                 </div>
               ) : null}
-            </div>
-            <div className="text-xs text-white/60">
-              Cause · exactly one
+              <Hint text={hint('scope') ?? hint('targets')} />
+            </fieldset>
+
+            <fieldset className="text-xs text-white/60">
+              <legend>Cause · exactly one</legend>
               <div className="mt-1 space-y-1">
                 {CAUSES.map((c) => (
                   <label key={c.value} className="flex items-start gap-2 text-white/80">
-                    <input type="radio" className="mt-1" checked={cause === c.value} onChange={() => setCause(c.value)} />
+                    <input
+                      type="radio"
+                      name="cause"
+                      className="mt-1"
+                      checked={draft.cause === c.value}
+                      onChange={() => set({ cause: c.value as DisapprovalCause })}
+                    />
                     <span>
                       {c.label}
                       <span className="block text-[11px] text-white/40">{c.hint}</span>
@@ -194,45 +242,56 @@ export function VerdictPanel({
                   </label>
                 ))}
               </div>
-            </div>
+              <Hint text={hint('cause')} />
+            </fieldset>
+
             <label className="block text-xs text-white/60">
               Tyndale concluded…
-              <textarea value={concluded} onChange={(e) => setConcluded(e.target.value)} rows={2} className={`mt-1 ${area}`} />
+              <textarea value={draft.concluded} onChange={(e) => set({ concluded: e.target.value })} rows={2} className={`mt-1 ${area}`} />
+              <Hint text={hint('concluded')} />
             </label>
             <label className="block text-xs text-white/60">
               It should have concluded…
-              <textarea value={should} onChange={(e) => setShould(e.target.value)} rows={2} className={`mt-1 ${area}`} />
+              <textarea value={draft.shouldHave} onChange={(e) => set({ shouldHave: e.target.value })} rows={2} className={`mt-1 ${area}`} />
+              <Hint text={hint('shouldHave')} />
             </label>
             <label className="block text-xs text-white/60">
               Which input or rule…
-              <textarea value={inputOrRule} onChange={(e) => setInputOrRule(e.target.value)} rows={2} className={`mt-1 ${area}`} />
+              <textarea value={draft.inputOrRule} onChange={(e) => set({ inputOrRule: e.target.value })} rows={2} className={`mt-1 ${area}`} />
+              <Hint text={hint('inputOrRule')} />
             </label>
           </div>
         ) : null}
 
         <label className="mt-3 block text-xs text-white/60">
-          <span className="font-semibold uppercase tracking-widest text-amber">Analyst notes · internal — never shown to users</span>
+          Reviewer note · optional — no patient identifiers needed (the case link carries context)
           <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
+            value={draft.note}
+            onChange={(e) => set({ note: e.target.value })}
+            onFocus={intend}
             rows={3}
-            placeholder={mode === 'cant_verify' ? 'What was missing? (optional)' : 'Optional'}
+            placeholder={draft.mode === 'cant_verify' ? 'What was missing?' : ''}
             className={`mt-1 ${area}`}
           />
         </label>
-        {mode === 'cant_verify' ? (
+        {draft.mode === 'cant_verify' ? (
           <p className="mt-1 text-[11px] text-white/40">Excluded from the approval rate.</p>
         ) : null}
 
         <button
+          type="button"
           onClick={submit}
-          disabled={busy}
-          className="mt-3 w-full rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/15 disabled:opacity-40"
+          disabled={busy || !valid}
+          aria-disabled={busy || !valid}
+          className="mt-3 min-h-[44px] w-full rounded-lg bg-white/10 px-3 text-sm font-semibold text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? 'Recording…' : 'Record verdict'}
+          {busy ? 'Recording…' : valid ? 'Record verdict' : 'Complete the fields above to record'}
         </button>
-        {error ? <p className="mt-2 text-xs text-rose">{error}</p> : null}
-        {done ? <p className="mt-2 text-xs text-sage-soft">{done}</p> : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-xs text-rose-soft">
+            {error}
+          </p>
+        ) : null}
       </Card>
 
       <Card>
@@ -240,10 +299,14 @@ export function VerdictPanel({
         {verdicts.length ? (
           <ul className="space-y-2 text-xs">
             {verdicts.map((v) => (
-              <li key={v.verdict_id} className="rounded-lg bg-white/5 p-2">
+              <li
+                key={v.verdict_id}
+                className={`rounded-lg p-2 ${v.verdict_id === justRecordedId ? 'border border-sage/60 bg-sage/10' : 'bg-white/5'}`}
+              >
                 <p className="font-semibold text-white/80">
-                  {humanize(v.verdict)}
+                  {verdictLabel(v.verdict)}
                   {v.cause ? <span className="text-white/50"> · {humanize(v.cause)}</span> : null}
+                  {v.verdict_id === justRecordedId ? <span className="ml-2 text-sage-soft">recorded just now</span> : null}
                 </p>
                 <p className="text-white/40">
                   {v.reviewer_masked ?? '—'} · {when(v.captured_at)}
@@ -251,9 +314,18 @@ export function VerdictPanel({
                 </p>
                 {v.structured_note ? (
                   <dl className="mt-1 space-y-0.5 text-white/60">
-                    <div><dt className="inline text-white/40">concluded: </dt><dd className="inline">{v.structured_note.concluded}</dd></div>
-                    <div><dt className="inline text-white/40">should have: </dt><dd className="inline">{v.structured_note.should_have_concluded}</dd></div>
-                    <div><dt className="inline text-white/40">input/rule: </dt><dd className="inline">{v.structured_note.input_or_rule}</dd></div>
+                    <div>
+                      <dt className="inline text-white/40">concluded: </dt>
+                      <dd className="inline">{v.structured_note.concluded}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-white/40">should have: </dt>
+                      <dd className="inline">{v.structured_note.should_have_concluded}</dd>
+                    </div>
+                    <div>
+                      <dt className="inline text-white/40">input/rule: </dt>
+                      <dd className="inline">{v.structured_note.input_or_rule}</dd>
+                    </div>
                   </dl>
                 ) : null}
                 {v.notes ? <p className="mt-1 italic text-white/50">{v.notes}</p> : null}
