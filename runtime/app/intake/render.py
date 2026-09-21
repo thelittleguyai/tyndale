@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from app.agents.context_loader import load_orchestration_script, orchestration_step
 from app.db.models.case_files import CaseFile
 from app.ingestion.bill_heuristics import ITEMIZED_REQUEST_SCRIPT
@@ -28,6 +30,8 @@ from app.intake.planner import (
 )
 from app.intake.snapshot import COVERAGE_TYPE_OPTIONS, IntakeState
 from app.intake.timeline import MONTH_NAMES, build_timeline
+
+log = structlog.get_logger(__name__)
 
 _FRIENDLY_DOC_TYPE = {
     "insurance_card": "an insurance card",
@@ -47,7 +51,19 @@ def _renderable(text: str | None) -> str | None:
 
 
 def step(key: str, **variables: Any) -> str | None:
-    return _renderable(orchestration_step(key, **{k: str(v) for k, v in variables.items()}))
+    """Render one registry key, or None. STRICT about variables: the thread's loader answers an
+    unfilled ``{var}`` with its graceful-degradation line ("…that part is too blurry for me to
+    trust…"), which is right in a thread and WRONG on an intake screen — the attest screen
+    shipped showing it as its intro. A slot that cannot be rendered honestly is omitted."""
+    raw = load_orchestration_script().get(key)
+    if raw is None:
+        return None
+    given = {k: str(v) for k, v in variables.items() if v is not None and str(v) != ""}
+    unfilled = {s.strip("{}") for s in _slots(raw)} - set(given)
+    if unfilled:
+        log.warning("intake.copy_variable_unfilled", key=key, unfilled=sorted(unfilled))
+        return None
+    return _renderable(orchestration_step(key, **given))
 
 
 def group_copy(group: str, **variables: Any) -> dict[str, str]:
@@ -171,14 +187,20 @@ def _data_for(screen: Screen, case: CaseFile, i: PlannerInputs, g: GapList, prop
         # machinery (agents/attest.py + routes/attest.py); this screen only hosts them.
         from app.agents.attest import RELATIONSHIPS, attest_edge_signals
 
+        # Every attest key is rendered with the variables the existing machinery defines
+        # (agents.attest.attest_variables) — several carry {patient_name}.
+        from app.agents.attest import attest_variables
+        from app.sources.extraction import plausible_extracted_name
+
+        v = attest_variables(case, first_name=i.account_first_name)
         return {
             "declined": i.attest_status == "declined",
-            "patient_name": i.patient_name,
-            "intro": step("attest.intro", patient_name=i.patient_name or "someone else"),
-            "confirm": step("attest.confirm"),
-            "decline_ack": step("attest.decline_ack"),
-            "relationships": [{"value": r, "label": step(f"attest.menu_{r}")} for r in RELATIONSHIPS],
-            "edge_prompts": [t for s in attest_edge_signals(case) if (t := step(f"attest.edge_{s}"))],
+            "patient_name": i.patient_name if plausible_extracted_name(i.patient_name) else None,
+            "intro": step("attest.intro", **v),
+            "confirm": step("attest.confirm", **v),
+            "decline_ack": step("attest.decline_ack", **v),
+            "relationships": [{"value": r, "label": step(f"attest.menu_{r}", **v)} for r in RELATIONSHIPS],
+            "edge_prompts": [t for s in attest_edge_signals(case) if (t := step(f"attest.edge_{s}", **v))],
         }
     if sid == "confirmations":
         # ONE card per fact the engine emitted — never capped, never padded (§A4-5).

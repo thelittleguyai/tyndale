@@ -10,6 +10,7 @@ import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 
 import type { IntakeScreen } from '@tyndale/shared';
 
+import { ChatMarkdown } from '../chat/Markdown';
 import { Button, Card } from '../ui';
 import { PressableScale } from '../ui/PressableScale';
 import { useThemeColors } from '../../theme/useThemeColors';
@@ -33,8 +34,19 @@ export interface IntakeBodyProps {
 
 const c = (screen: IntakeScreen, slot: string): string | undefined => screen.copy[slot];
 
-function Body({ text }: { text?: string | null }) {
-  return text ? <Text className="mt-3 text-body leading-6 text-secondary">{text}</Text> : null;
+/** `markdown`: the line is Brock's THREAD copy (the attest intro carries **bold**) — draw it with
+ *  the thread's own renderer rather than showing the asterisks. */
+function Body({ text, markdown }: { text?: string | null; markdown?: boolean }) {
+  if (!text) return null;
+  const cls = 'text-body leading-6 text-secondary';
+  if (markdown) {
+    return (
+      <View className="mt-3">
+        <ChatMarkdown text={text} className={cls} />
+      </View>
+    );
+  }
+  return <Text className={`mt-3 ${cls}`}>{text}</Text>;
 }
 
 /** Every `gloss_*` slot the screen carries — the term is explained where it is first used. */
@@ -306,21 +318,21 @@ function Attest({ screen, busy, onAttest, onAttestDecline, onExit }: IntakeBodyP
   if (data.declined) {
     return (
       <View>
-        <Body text={data.decline_ack} />
+        <Body text={data.decline_ack} markdown />
         <Button label={c(screen, 'back_home') ?? ''} onPress={onExit} fullWidth className="mt-6" />
       </View>
     );
   }
   return (
     <View>
-      <Body text={data.intro} />
+      <Body text={data.intro} markdown />
       {(data.edge_prompts ?? []).map((p) => <Body key={p} text={p} />)}
       <View className="mt-5 gap-2" accessibilityRole="radiogroup">
         {(data.relationships ?? []).map((r) => (
           <Option key={r.value} label={r.label ?? r.value} selected={picked === r.value} onPress={() => setPicked(r.value)} testID={`intake-attest-${r.value}`} />
         ))}
       </View>
-      <Body text={data.confirm} />
+      <Body text={data.confirm} markdown />
       <Button label={c(screen, 'primary') ?? ''} onPress={() => picked && onAttest(picked)} disabled={busy || !picked} fullWidth className="mt-5" testID="intake-attest-confirm" />
       {/* the decline path is always offered — refusing closes the flow honestly (F1) */}
       <Button label={c(screen, 'decline') ?? ''} variant="secondary" onPress={onAttestDecline} disabled={busy} fullWidth className="mt-3" testID="intake-attest-decline" />

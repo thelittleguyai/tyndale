@@ -833,6 +833,15 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
                 items = (screen.get("data") or {}).get("line_items") or []
                 state = answer(sid, "continue", {"confirmations": [
                     {"line_item_id": li["line_item_id"], "response": "yes"} for li in items]})
+            elif sid == "attest":
+                # A synthetic patient is rarely the runner's own name. The screen HOSTS the existing
+                # attest API, so the harness answers it the way the app does — through that route.
+                rel = spec.get("attest_relationship", "other")
+                at = client.post(f"{base_url}/v1/case/{case_id}/attest", json={"relationship": rel}, timeout=120)
+                if at.status_code != 200:
+                    fails.append(f"attest → {at.status_code}: {at.text[:160]}")
+                    break
+                state = client.get(f"{base_url}/v1/intake/state", params={"case_file_id": case_id}, timeout=60).json()
             elif sid in _GUIDED_ACK:
                 state = answer(sid, "ack")
             elif screen.get("skippable") and sid in spec.get("skip", []):

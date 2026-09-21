@@ -216,6 +216,12 @@ async def test_a_name_mismatch_hosts_the_existing_attest_machinery(client: Async
     data = state["screen"]["data"]
     assert len(data["relationships"]) == 7 and all(r["label"] for r in data["relationships"])  # attest.menu_*
     assert data["confirm"] and data["decline_ack"]  # the confirm line + the decline path, both present
+    # …and they are the RIGHT lines. `attest.intro` / `attest.confirm` carry variables; unfilled,
+    # the thread loader substitutes its degradation line, and this screen shipped reading "…that
+    # part is too blurry for me to trust…" as its intro. Both people are named, as in the thread.
+    assert "MARGARET OTHERPERSON" in data["intro"] and "registered to" in data["intro"]
+    assert "authorized to manage medical bills for MARGARET OTHERPERSON" in data["confirm"]
+    assert "blurry" not in json.dumps(state["screen"])
     r = await client.post("/v1/intake/answer", json={"case_file_id": str(cf.case_file_id), "screen": "attest"})
     assert r.status_code == 422  # answered through POST /v1/case/{id}/attest — the audited route
 
@@ -529,4 +535,34 @@ async def test_an_unfinished_guided_case_resumes_on_the_guided_route_everywhere(
     rec = (await client.get("/v1/record")).json()
     sub = next(c for c in rec["sub_cases"] if c["case_file_id"] == cfid)
     assert sub["resume"] == "intake" and sub["label"] == orchestration_step("intake.resume.case_label")
+
+
+def test_a_guided_string_with_an_unfilled_variable_is_omitted_never_degraded():
+    """render.step() is strict. The thread's loader answers an unfilled {var} with a graceful
+    "I couldn't read that part" line — correct in a thread, wrong on an intake screen."""
+    from app.intake.render import step
+
+    assert step("attest.intro", patient_name="Pat Doe") is None  # first_name not given
+    assert step("attest.intro", patient_name="Pat Doe", first_name="") is None  # empty is not filled
+    full = step("attest.intro", patient_name="Pat Doe", first_name="Amy")
+    assert full and "Pat Doe" in full and "Amy" in full
+    assert step("intake.no.such.key") is None
+
+
+@pytest.mark.asyncio
+async def test_a_medicare_card_is_not_asked_who_is_your_insurer(client: AsyncClient):
+    """The dry run of the handoff scenario: the card's weak payer read ("MEDICARE HEALTH
+    INSURANCE") raised the insurer ask BEFORE the coverage-type question. While the evidence
+    points away from a commercial plan that ask waits; it returns if the user says "a job"."""
+    card = _doc("insurance_card", ocr_text="MEDICARE HEALTH INSURANCE\nName: PAT DOE\nMedicare Number: 1EG4-TE5-MK73\nEntitled to: HOSPITAL (PART A)  MEDICAL (PART B)")
+    cf = await _case(documents=[card], intake_state={"acked": ["welcome"], "skipped": ["bill", "eob"]})
+    state = (await client.get("/v1/intake/state", params={"case_file_id": str(cf.case_file_id)})).json()
+    assert state["current_step"] == "coverage_type"
+    assert (await _answer(client, cf.case_file_id, "coverage_type", choice="medicare"))["current_step"] == "handoff"
+
+    # the same card, but the user says it is a job plan: now commercial → the insurer ask returns,
+    # pre-filled with what the card said
+    cf2 = await _case(documents=[dict(card, document_id=str(uuid.uuid4()))], intake_state={"acked": ["welcome"], "skipped": ["bill", "eob"]})
+    nxt = await _answer(client, cf2.case_file_id, "coverage_type", choice="job_or_bought")
+    assert nxt["current_step"] == "insurer"
 

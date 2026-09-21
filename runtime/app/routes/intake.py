@@ -183,8 +183,16 @@ def _apply_regime_detection(case: CaseFile) -> None:
     asks — detection is never guessed into a silent default."""
     if (case.regime_detection or {}).get("verified"):
         return
-    detection = detect_regime(signals_from_fields(case.coverage or {}, _document_types(case)))
-    if detection.regime is not None and detection.confidence == "high":
+    # A LOW-confidence card read is still evidence about WHICH KIND of coverage this is (a card
+    # that says "MEDICARE HEALTH INSURANCE" should lead to the coverage-type question, not to
+    # "who is your insurer?"). It can suggest a candidate; it can never verify a regime.
+    fields = dict(case.coverage or {})
+    weak_payer = (IntakeState(case).get("card_reads") or {}).get("payer_name")
+    weak_only = bool(weak_payer and not fields.get("payer_name"))
+    if weak_only:
+        fields["payer_name"] = weak_payer
+    detection = detect_regime(signals_from_fields(fields, _document_types(case)))
+    if detection.regime is not None and detection.confidence == "high" and not weak_only:
         detection.verified = True
         case.coverage_regime = detection.regime
     else:

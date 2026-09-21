@@ -10,10 +10,12 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.wrongdoc import AUDITABLE_TYPES, classify_wrong_document
 from app.db.models.case_files import CaseFile
+from app.db.models.users import User
 from app.ingestion.bill_heuristics import detect_summary_bill
 from app.intake.planner import (
     BILL_TYPES,
@@ -167,6 +169,9 @@ async def gather_inputs(
         return effective.get(key) is not None or bool(p.get("not_sure"))
 
     line_items = [li for li in (case.line_items or []) if isinstance(li, dict)]
+    first_name = (
+        await session.execute(select(User.first_name).where(User.user_id == case.user_id))
+    ).scalar_one_or_none()
     return PlannerInputs(
         bill_count=bill_count,
         bill_is_summary=_bill_is_summary(case),
@@ -178,6 +183,7 @@ async def gather_inputs(
         provider=case.provider_name,
         date_of_service=case.date_of_service,
         patient_name=case.patient_name,
+        account_first_name=(first_name or "").strip() or None,
         sbc_on_file=sbc_present or any(t in SBC_TYPES for t in types),
         plan_proposal=plan_proposal,
         missing_cost_share=tuple(missing_cost_share_inputs(effective)),

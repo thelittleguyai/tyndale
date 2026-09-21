@@ -120,6 +120,7 @@ class PlannerInputs:
     date_of_service: datetime.date | None = None
     billed_total: float | None = None
     patient_name: str | None = None
+    account_first_name: str | None = None  # display only (the attest intro names both people)
     # plan rules
     sbc_on_file: bool = False
     plan_proposal: bool = False
@@ -385,7 +386,18 @@ def _applies(screen_id: str, i: PlannerInputs, g: GapList) -> bool:  # noqa: PLR
         # "it's already on your bill" (§B7) — no ask
         return not i.card_present and not (i.payer_known and i.member_id_known) and "card" not in i.skipped
     if screen_id == "insurer":
-        return s("payer") == "unresolved" and (i.card_present or "card" in i.skipped)
+        # Not while the evidence points AWAY from a commercial plan: a Medicare card's "insurer"
+        # is Medicare — the coverage-type ask comes first and usually exits. If the user then
+        # says "through a job", the population is settled commercial and this ask comes back.
+        suspected = population_of(i.regime_candidate)
+        plausibly_commercial = i.population == "commercial" or (
+            i.population is None and suspected in (None, "commercial")
+        )
+        return (
+            s("payer") == "unresolved"
+            and (i.card_present or "card" in i.skipped)
+            and plausibly_commercial
+        )
     if screen_id == "coverage_type":
         return s("coverage_type") == "unresolved"
     if screen_id == "plan_rules_confirm":

@@ -190,8 +190,11 @@ describe('attest-and-proceed, hosted (§B13)', () => {
     const onAttest = jest.fn();
     const onAttestDecline = jest.fn();
     const rel = ['spouse_partner', 'parent_guardian', 'adult_child_caregiver', 'healthcare_poa', 'court_guardian', 'executor', 'other'];
-    const s = screen({ id: 'attest', kind: 'attest', copy: { primary: 'I confirm', decline: "I can't confirm this" }, data: { declined: false, intro: 'This bill is for someone else.', confirm: 'I am allowed to act for them.', relationships: rel.map((r) => ({ value: r, label: r })) } });
-    const { getByTestId } = render(<IntakeBody {...props(s, { onAttest, onAttestDecline })} />);
+    const s = screen({ id: 'attest', kind: 'attest', copy: { primary: 'I confirm', decline: "I can't confirm this" }, data: { declined: false, intro: 'This bill is for **Pat Doe**, and your account is registered to **Amy**.', confirm: 'I am allowed to act for them.', relationships: rel.map((r) => ({ value: r, label: r })) } });
+    const { getByTestId, getByText, toJSON } = render(<IntakeBody {...props(s, { onAttest, onAttestDecline })} />);
+    // the intro is Brock's thread copy: its **bold** is DRAWN, never shown as asterisks
+    expect(getByText('Pat Doe')).toBeTruthy();
+    expect(JSON.stringify(toJSON())).not.toContain('**');
     fireEvent.press(getByTestId('intake-attest-confirm'));
     expect(onAttest).not.toHaveBeenCalled(); // a relationship must be on the record first
     fireEvent.press(getByTestId('intake-attest-spouse_partner'));
