@@ -131,11 +131,35 @@ def _scan_audit_markers(
     return fails, ledgered
 
 
+def _scan_extract_markers(extract: dict | None, markers=None) -> list[str]:
+    """Failures for any marker in the EXTRACT result (the whole payload as one blob — line
+    items, translations, document text previews). Same token-boundary rule as the audit scan."""
+    eblob = json.dumps(extract or {}).lower()
+    return [
+        f"FIXTURE MARKER {marker!r} leaked into the extract result"
+        for marker in (markers or FIXTURE_MARKERS)
+        if _marker_hits(marker, eblob)
+    ]
+
+
+def _marker_pattern(marker: str) -> str:
+    r"""The token-boundary regex for one marker.
+
+    LEADING boundary `(?<![0-9A-Za-z.])`: the marker must not continue a longer token —
+    "05821" is not in "105821.00", nor in "1.05821".
+    TRAILING boundary `(?![0-9A-Za-z]|\.\d)`: not followed by an alphanumeric, and not by a
+    DECIMAL CONTINUATION ("02417.50" is a number, not the code). A bare "." is NOT a boundary
+    violation: "…billed CPT 02417." is the most natural place for a fabricated code to land,
+    and the pre-2026-09-18 lookahead `(?![0-9A-Za-z.])` made every sentence-final marker a
+    non-hit (deep review C1)."""
+    return rf"(?<![0-9A-Za-z.]){re.escape(marker)}(?![0-9A-Za-z]|\.\d)"
+
+
 def _marker_hits(marker: str, blob: str) -> bool:
-    """Token-boundary marker match (audit 2026-08-27 item 5): a marker must not fire inside
-    a longer number or id ("05821" is not in "105821.00") — the canary only sings when the
-    marker stands alone as a code-like token."""
-    return re.search(rf"(?<![0-9A-Za-z.]){re.escape(marker)}(?![0-9A-Za-z.])", blob, re.IGNORECASE) is not None
+    """Token-boundary marker match (audit 2026-08-27 item 5; trailing boundary fixed
+    2026-09-18): the canary sings when the marker stands alone as a code-like token,
+    including at the end of a sentence."""
+    return re.search(_marker_pattern(marker), blob, re.IGNORECASE) is not None
 
 POLL_TIMEOUT_S = 600
 POLL_INTERVAL_S = 4
@@ -528,10 +552,7 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             fails.append("reached encounter_verification_pending — expected an honest failure state")
     # Anti-fabrication: no fixture line items may leak, INCLUDING on the extraction_failed path
     # (this is what the old unreadable_document assertion missed — it only checked the audit).
-    eblob = json.dumps(extract).lower()
-    for marker in FIXTURE_MARKERS:
-        if _marker_hits(marker, eblob):
-            fails.append(f"FIXTURE MARKER {marker!r} leaked into the extract result")
+    fails.extend(_scan_extract_markers(extract))
     if audit is not None:
         if exp.get("incomplete_reason", "unset") != "unset":
             got = audit.get("incomplete_reason")
