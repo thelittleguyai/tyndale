@@ -116,7 +116,8 @@ jobs:
               --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" \
               --query "length([?properties.template.containers[0].image=='$IMAGE:${{ github.sha }}' && properties.active && properties.trafficWeight==\`100\` && starts_with(properties.runningState, 'Running')])" \
               -o tsv 2>/dev/null || echo 0)
-            code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' https://app.tyndaleapp.net/ || echo 000)
+            # curl's -w prints 000 itself when the request fails — no fallback echo (it doubled it)
+            code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' https://app.tyndaleapp.net/ || true)
             echo "[$i/24] new revision serving=$serving  GET / -> $code"
             if [ "${serving:-0}" -ge 1 ] && [ "$code" = "200" ]; then ready=yes; break; fi
             sleep 5
