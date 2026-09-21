@@ -26,7 +26,7 @@ import type {
   ExtractResult,
   FeedbackAck,
   FeedbackEvent,
-  IntakeCompletionSummary,
+  IntakeRunResponse,
   IntakeStateResponse,
   IntakeStepAck,
   LineItemConfirmation,
@@ -610,15 +610,19 @@ export async function logout(): Promise<void> {
   await cfetch(`${BASE_URL}/v1/auth/logout`, { method: 'POST', credentials: 'include' });
 }
 
-// --- Intake wizard (Phase CO-1A) --------------------------------------------
+// --- Guided intake (doc 40) — the server's Intake Planner drives every screen ---
 
 export type {
   ConfirmationPrompt,
   IntakeCapturedData,
-  IntakeCompletionSummary,
+  IntakeExample,
+  IntakeHelp,
+  IntakeProgress,
+  IntakeResume,
+  IntakeRunResponse,
+  IntakeScreen,
   IntakeStatus,
   IntakeStateResponse,
-  IntakeStep,
   IntakeStepAck,
 } from '@tyndale/shared';
 
@@ -632,67 +636,109 @@ async function intakeJson<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** GET /v1/intake/state — resume point + captured/missing (creates the user's
- * first case file if they have none — the new-user entry point). */
-export async function getIntakeState(caseFileId?: string): Promise<IntakeStateResponse> {
-  const q = caseFileId ? `?case_file_id=${encodeURIComponent(caseFileId)}` : '';
-  const res = await cfetch(`${BASE_URL}/v1/intake/state${q}`);
-  if (!res.ok) throw new Error(`intake state failed: ${res.status} ${await res.text()}`);
+/** GET /v1/intake/state — the screen to draw (doc 40). With a case id: that case (`screen`
+ *  asks for a specific one — the readiness edit links). With none: the user's unfinished guided
+ *  case as a "pick up where you left off" landing, else the welcome; nothing is created.
+ *  `latest` is the CO-1A seam Settings' coverage-type row uses (most recent case, created if none). */
+export async function getIntakeState(
+  caseFileId?: string,
+  opts: { screen?: string; latest?: boolean } = {},
+): Promise<IntakeStateResponse> {
+  const q = new URLSearchParams();
+  if (caseFileId) q.set('case_file_id', caseFileId);
+  if (opts.screen) q.set('screen', opts.screen);
+  if (opts.latest) q.set('latest', 'true');
+  const qs = q.toString();
+  const res = await cfetch(`${BASE_URL}/v1/intake/state${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`getIntakeState ${res.status}`);
   return (await res.json()) as IntakeStateResponse;
 }
 
-/** POST /v1/intake/step/{step}/manual-entry — persist a step's typed fields. */
-export async function intakeManualEntry(
-  step: string,
-  fields: Record<string, unknown>,
+/** POST /v1/intake/start — open a guided case (this is what records intake_mode='guided'). */
+export async function startIntake(): Promise<IntakeStepAck> {
+  return intakeJson('/v1/intake/start', {});
+}
+
+/** POST /v1/intake/answer — one answer from one screen; the response IS the next state. */
+export async function answerIntake(
   caseFileId: string,
+  screen: string,
+  action: string = 'continue',
+  values: Record<string, unknown> = {},
 ): Promise<IntakeStepAck> {
-  return intakeJson(`/v1/intake/step/${encodeURIComponent(step)}/manual-entry`, {
-    case_file_id: caseFileId,
-    ...fields,
+  return intakeJson('/v1/intake/answer', { case_file_id: caseFileId, screen, action, values });
+}
+
+/** POST /v1/intake/run — READY → run the audit → the existing reveal. */
+export async function runIntake(caseFileId: string): Promise<IntakeRunResponse> {
+  return intakeJson('/v1/intake/run', { case_file_id: caseFileId });
+}
+
+/**
+ * POST /v1/intake/handoff — the guided route's other exit: a coverage type Phase 1 does not carry
+ * leaves for the chat-first flow. The server closes the guided intake for the case and says where
+ * chat-first picks it up. Idempotent (the upload screen calls it again once a document lands).
+ */
+export async function handoffIntake(caseFileId: string): Promise<IntakeRunResponse> {
+  return intakeJson('/v1/intake/handoff', { case_file_id: caseFileId });
+}
+
+/** POST /v1/intake/help/email — "Email me these steps" (the one server send path). */
+export async function emailIntakeHelp(
+  documentType: string,
+  caseFileId?: string | null,
+  screen?: string,
+): Promise<{ sent: boolean; message: string | null }> {
+  return intakeJson('/v1/intake/help/email', {
+    document_type: documentType,
+    case_file_id: caseFileId ?? null,
+    screen: screen ?? null,
   });
 }
 
-/** POST /v1/intake/step/{step}/skip — advance, persist nothing. */
-export async function intakeSkipStep(step: string, caseFileId: string): Promise<IntakeStepAck> {
-  return intakeJson(`/v1/intake/step/${encodeURIComponent(step)}/skip`, {
-    case_file_id: caseFileId,
-  });
+/** POST /v1/case/{id}/attest — the relationship, on the record (the EXISTING audited route;
+ *  the guided intake's attest screen is its first client — the thread only shows the ask). */
+export async function attestCase(caseFileId: string, relationship: string): Promise<void> {
+  await intakeJson(`/v1/case/${encodeURIComponent(caseFileId)}/attest`, { relationship });
+}
+
+/** POST /v1/case/{id}/attest/decline — closes the flow honestly; no audit runs. */
+export async function declineAttest(caseFileId: string): Promise<void> {
+  await intakeJson(`/v1/case/${encodeURIComponent(caseFileId)}/attest/decline`, {});
 }
 
 /** POST /v1/intake/step/insurance-card/extract — OCR a card; returns low-confidence
- * fields as trivial yes/no confirmations. */
+ *  fields as confirmations. The planner then skips whatever the card answered. */
 export async function intakeExtractInsuranceCard(
   documentId: string,
-  caseFileId: string,
+  caseFileId?: string,
 ): Promise<IntakeStepAck> {
   return intakeJson('/v1/intake/step/insurance-card/extract', {
-    case_file_id: caseFileId,
     document_id: documentId,
+    case_file_id: caseFileId,
   });
 }
 
-/** POST /v1/intake/plan-proposal/confirm — accept a Plan-Library-proposed design (DL-87).
- * The proposal is presented as "your plan" for confirmation; provenance stays internal. */
+/** POST /v1/intake/plan-proposal/confirm — accept a Plan-Library-proposed design (DL-87). */
 export async function confirmPlanProposal(
   planLibraryId: string,
-  caseFileId: string,
-): Promise<IntakeStateResponse> {
+  caseFileId?: string,
+): Promise<IntakeStepAck> {
   return intakeJson('/v1/intake/plan-proposal/confirm', {
-    case_file_id: caseFileId,
     plan_library_id: planLibraryId,
+    case_file_id: caseFileId,
   });
 }
 
 /** POST /v1/intake/plan-proposal/reject — "something's off"; optionally send corrections. */
 export async function rejectPlanProposal(
   planLibraryId: string,
-  caseFileId: string,
+  caseFileId?: string,
   correctedDesign?: Record<string, unknown>,
-): Promise<IntakeStateResponse> {
+): Promise<IntakeStepAck> {
   return intakeJson('/v1/intake/plan-proposal/reject', {
-    case_file_id: caseFileId,
     plan_library_id: planLibraryId,
+    case_file_id: caseFileId,
     corrected_design: correctedDesign ?? {},
   });
 }
@@ -707,22 +753,6 @@ export async function intakeConfirmRegime(
     case_file_id: caseFileId,
     coverage_regime: regime,
   });
-}
-
-/** POST /v1/intake/visit-context — store the free-text "what were you seen for". */
-export async function setVisitContext(
-  visitContext: string,
-  caseFileId: string,
-): Promise<IntakeStepAck> {
-  return intakeJson('/v1/intake/visit-context', {
-    case_file_id: caseFileId,
-    visit_context: visitContext,
-  });
-}
-
-/** POST /v1/intake/complete — validate + mark complete, return the summary. */
-export async function completeIntake(caseFileId: string): Promise<IntakeCompletionSummary> {
-  return intakeJson('/v1/intake/complete', { case_file_id: caseFileId });
 }
 
 // ─── Chat (Phase CO-10) ──────────────────────────────────────────────────────

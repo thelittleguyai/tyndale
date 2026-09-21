@@ -3,11 +3,12 @@
  * with the check-a-bill CTA and no unbuilt-feature claims; (c) the check-in card's route
  * chips persist via the call-outcome path. (b) pills are covered in home-case-pills.test.
  */
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 
 import DashboardScreen from '../app/(app)/index';
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), replace: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn() }) }));
 jest.mock('react-native-svg', () => ({ SvgXml: () => null }));
 jest.mock('../lib/auth', () => ({ useSignOut: () => jest.fn() }));
 jest.mock('../lib/intake-deferred', () => ({ clearIntakeDeferred: jest.fn() }));
@@ -32,6 +33,7 @@ const base = {
 };
 
 const mockGetDashboard = jest.fn();
+const mockGetSurfaceCopy = jest.fn();
 const mockRecordCallOutcome = jest.fn().mockResolvedValue(undefined);
 const mockSubmitFeedback = jest.fn().mockResolvedValue({});
 jest.mock('../lib/api-client', () => ({
@@ -41,7 +43,7 @@ jest.mock('../lib/api-client', () => ({
   getUserProfile: jest.fn().mockResolvedValue({ user_type: 'member' }),
   listConversations: jest.fn().mockResolvedValue({ conversations: [] }),
   createConversation: jest.fn().mockResolvedValue({ conversation_id: 'c1' }),
-  getSurfaceCopy: jest.fn().mockResolvedValue({}),
+  getSurfaceCopy: () => mockGetSurfaceCopy(),
   submitFeedback: (...a: unknown[]) => mockSubmitFeedback(...a),
   recordCallOutcome: (...a: unknown[]) => mockRecordCallOutcome(...a),
   makeFeedbackEvent: (p: object) => ({ event_id: 'e', timestamp: 't', ...p }),
@@ -50,6 +52,9 @@ jest.mock('../lib/api-client', () => ({
 
 beforeEach(() => {
   mockGetDashboard.mockReset();
+  mockGetSurfaceCopy.mockReset();
+  mockGetSurfaceCopy.mockResolvedValue({});
+  mockPush.mockClear();
   mockRecordCallOutcome.mockClear();
   mockSubmitFeedback.mockClear();
 });
@@ -91,3 +96,74 @@ it('check-in card: a route chip records the call outcome', async () => {
   );
   expect(mockSubmitFeedback).not.toHaveBeenCalled(); // a route is NOT an outcome (H6)
 });
+
+// ─── doc 40 §D: intake_mode routing + guided surface visibility (data, not code) ────────────
+describe('guided mode', () => {
+  const guided = {
+    ...base,
+    intake_mode: 'guided',
+    hidden_surfaces: ['freeform_chat_entry', 'quick_actions_grid'], // the provisional default
+    guided_resume_case_id: null,
+  };
+
+  it('chat-first: nothing changes — every entry point is there and "Check a bill" opens upload', async () => {
+    mockGetDashboard.mockResolvedValue({ ...base, intake_mode: 'chat_first', hidden_surfaces: [] });
+    const { getByTestId } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('quick-actions-grid')).toBeTruthy());
+    expect(within(getByTestId('quick-actions-grid')).getByText('Chat with Tyndale')).toBeTruthy();
+    expect(getByTestId('floating-chat')).toBeTruthy();
+    fireEvent.press(getByTestId('header-check-bill'));
+    expect(mockPush).toHaveBeenCalledWith('/upload');
+  });
+
+  it('an older server (no intake_mode in the payload) reads as chat-first', async () => {
+    mockGetDashboard.mockResolvedValue(base);
+    const { getByTestId } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('quick-actions-grid')).toBeTruthy());
+    fireEvent.press(getByTestId('header-check-bill'));
+    expect(mockPush).toHaveBeenCalledWith('/upload');
+  });
+
+  it('guided: hidden surfaces are ABSENT (never disabled) and "Check a bill" enters /intake', async () => {
+    mockGetDashboard.mockResolvedValue(guided);
+    const { getByTestId, queryByTestId, queryByText } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('banner-title')).toBeTruthy());
+    expect(queryByTestId('quick-actions-grid')).toBeNull();
+    expect(queryByTestId('floating-chat')).toBeNull();
+    expect(queryByText('Chat with Tyndale')).toBeNull();
+    fireEvent.press(getByTestId('header-check-bill')); // still the way in — never a dead end
+    expect(mockPush).toHaveBeenCalledWith('/intake');
+  });
+
+  it('the hidden set is DATA: a guided user with nothing hidden keeps the grid, pointed at /intake', async () => {
+    mockGetDashboard.mockResolvedValue({ ...guided, hidden_surfaces: [] });
+    const { getByTestId } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('quick-actions-grid')).toBeTruthy());
+    expect(getByTestId('floating-chat')).toBeTruthy();
+    fireEvent.press(within(getByTestId('quick-actions-grid')).getByText('Check a bill'));
+    expect(mockPush).toHaveBeenCalledWith('/intake');
+  });
+
+  it('an unfinished guided case shows the resume card — registry words, straight back into that case', async () => {
+    mockGetSurfaceCopy.mockResolvedValue({
+      resume_title: 'Pick up where you left off.',
+      resume_body: 'Your bill check is saved. A few more steps and I can run it.',
+      resume_primary: 'Keep going',
+    });
+    mockGetDashboard.mockResolvedValue({ ...guided, guided_resume_case_id: 'cf-9' });
+    const { getByTestId, getByText } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('guided-resume-card')).toBeTruthy());
+    expect(getByText('Pick up where you left off.')).toBeTruthy();
+    fireEvent.press(getByTestId('guided-resume-go'));
+    expect(mockPush).toHaveBeenCalledWith('/intake?case=cf-9');
+  });
+
+  it('holds no guided copy of its own: without the registry strings the card is absent, not improvised', async () => {
+    mockGetDashboard.mockResolvedValue({ ...guided, guided_resume_case_id: 'cf-9' });
+    const { getByTestId, queryByTestId } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('banner-title')).toBeTruthy());
+    expect(queryByTestId('guided-resume-card')).toBeNull();
+    expect(getByTestId('header-check-bill')).toBeTruthy(); // the same case opens from here
+  });
+});
+

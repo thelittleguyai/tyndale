@@ -1,7 +1,22 @@
 import { isCaseWorkRoute, shouldRedirectToWizard } from '../lib/intake-gate';
 
 describe('intake gate — 2026-07-06 re-gating regression', () => {
-  const base = { intakeStatus: 'not_started', hasCases: false, deferred: false, pathname: '/' };
+  // doc 40 §D: the guided route is for GUIDED users — every rule below is about them.
+  const base = {
+    intakeStatus: 'not_started',
+    hasCases: false,
+    deferred: false,
+    pathname: '/',
+    intakeMode: 'guided' as const,
+  };
+
+  it('never sends a CHAT-FIRST user into /intake — their front door is "Check a bill" → upload', () => {
+    // CO-1A gated every brand-new user through its wizard whatever their mode. That wizard is
+    // gone; an older server (no intake_mode in the payload) reads as chat-first.
+    expect(shouldRedirectToWizard({ ...base, intakeMode: 'chat_first' })).toBe(false);
+    expect(shouldRedirectToWizard({ ...base, intakeMode: undefined })).toBe(false);
+  });
+
 
   it('routes a brand-new user (no cases, not complete) into the wizard', () => {
     expect(shouldRedirectToWizard(base)).toBe(true);

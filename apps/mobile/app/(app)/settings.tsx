@@ -423,7 +423,7 @@ export default function SettingsScreen() {
             intake uses, same confirm path (user_declared, verified). */}
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push('/intake/coverage-regime-confirm?from=settings')}
+          onPress={() => router.push('/coverage-type' as never)}
           className="flex-row items-center justify-between py-1"
           testID="coverage-type-row"
         >

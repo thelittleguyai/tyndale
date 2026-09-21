@@ -29,8 +29,14 @@ export function shouldRedirectToWizard(args: {
   hasCases: boolean;
   deferred: boolean;
   pathname: string | null;
+  /** The front door this user gets (doc 40 §D). Absent on an older server → 'chat_first'. */
+  intakeMode?: 'guided' | 'chat_first';
 }): boolean {
-  const { intakeStatus, hasCases, deferred, pathname } = args;
+  const { intakeStatus, hasCases, deferred, pathname, intakeMode } = args;
+  // The guided route is for GUIDED users. CO-1A sent every brand-new user through its wizard
+  // whatever their mode; that wizard is gone (doc 40 replaced it with the planner-driven
+  // /intake), and a chat-first user's front door is the dashboard's "Check a bill" → upload.
+  if (intakeMode !== 'guided') return false;
   if (isCaseWorkRoute(pathname)) return false; // a running audit / Record / sub-case is never gated
   if (intakeStatus === 'complete') return false; // completed intake → never re-gate
   if (hasCases) return false; // any case history → never trap; Save & exit exits

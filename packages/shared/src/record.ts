@@ -27,7 +27,8 @@ export interface SubCaseRow {
     | 'verifying'
     | 'in_progress';
   label: string;
-  resume: 'summary' | 'thread';
+  /** 'intake' = still on the guided route (doc 40) — resumes at /intake?case=<id>. */
+  resume: 'summary' | 'thread' | 'intake';
   three_number: ThreeNumberBrief | null; // null → the row shows needs-documents, not {0,0,0}
   open_item_count: number;
   next_deadline: DeadlineInfo | null;

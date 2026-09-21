@@ -52,7 +52,8 @@ export interface ActiveCase {
   case_file_id: string;
   status: string;
   label: string;
-  resume: 'encounter' | 'results';
+  /** 'intake' = a case still on the guided route (doc 40) — resumes at /intake?case=<id>. */
+  resume: 'encounter' | 'results' | 'intake';
   days_open: number;
   next_deadline_date: string | null; // ISO YYYY-MM-DD
   next_deadline_label: string | null;

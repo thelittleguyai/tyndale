@@ -24,7 +24,13 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Camera as CameraIcon, FileText, Lock, Plus, X } from 'lucide-react-native';
 
-import { extractLineItems, getSurfaceCopy, uploadDocuments, type SurfaceCopy } from '../../lib/api-client';
+import {
+  extractLineItems,
+  getSurfaceCopy,
+  handoffIntake,
+  uploadDocuments,
+  type SurfaceCopy,
+} from '../../lib/api-client';
 import {
   ACCEPTED_UPLOAD_HINT,
   MAX_UPLOAD_FILE_BYTES,
@@ -52,7 +58,12 @@ export default function UploadScreen() {
   const router = useRouter();
   // When present, attach to an existing case (e.g. "Add a document" from the needs_documents
   // checklist) instead of opening a new one.
-  const { caseId, expect } = useLocalSearchParams<{ caseId?: string; expect?: string }>();
+  const { caseId, expect, returnTo, handoff } = useLocalSearchParams<{
+    caseId?: string;
+    expect?: string;
+    returnTo?: string;
+    handoff?: string;
+  }>();
   const [queue, setQueue] = useState<Queued[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +154,20 @@ export default function UploadScreen() {
     setProgress(`Uploading ${queue.length} document${queue.length === 1 ? '' : 's'}…`);
     try {
       const res = await uploadDocuments(queue.map((q) => q.file), caseId, expect);
+      if (caseId && returnTo?.startsWith('/intake')) {
+        // Opened from the guided intake (doc 40): go back, and let the PLANNER decide what this
+        // document changes. Only an in-app /intake path is honoured — never an arbitrary URL.
+        router.replace(returnTo as never);
+        return;
+      }
+      if (caseId && handoff) {
+        // A guided case handed to the chat-first flow BEFORE it had a document (doc 40 §A4-4):
+        // it has never been audited, so the results screen would wait forever. The server says
+        // where chat-first picks it up now that a document is on it.
+        const next = await handoffIntake(caseId);
+        router.replace(next.next_route as never);
+        return;
+      }
       if (caseId) {
         // Adding to an existing case (needs_documents checklist): the server re-runs the audit if
         // this completes the set. Return to the case's results screen — it polls the new status.

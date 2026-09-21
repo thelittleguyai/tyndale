@@ -17,7 +17,7 @@
  * dashboard renders end-to-end without any sign-in plumbing here.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -122,6 +122,11 @@ export default function DashboardScreen() {
 
   // "Chat with AI Assistant" opens a thread directly: resume the most recent
   // freeform conversation, or create one — skipping the conversation-list page.
+  // doc 40 §D — which front door THIS user gets, and which entry points to leave out. Both come
+  // from the dashboard payload; an older server sends neither, which reads as chat-first / none.
+  const checkBillRoute = data?.intake_mode === 'guided' ? '/intake' : '/upload';
+  const hidden = useMemo(() => new Set<string>(data?.hidden_surfaces ?? []), [data?.hidden_surfaces]);
+
   const openChat = useCallback(async () => {
     try {
       const list = await listConversations({ mode: 'freeform', limit: 1 });
@@ -149,7 +154,7 @@ export default function DashboardScreen() {
       className="flex-1 bg-page"
       contentContainerStyle={{ paddingBottom: 96 }}
     >
-      <Header />
+      <Header checkBillRoute={checkBillRoute} />
 
       <ScreenView wide className="px-5 pt-3">
         {/* Welcome banner (mockup item 2) — registry copy whose subline states only REAL
@@ -164,8 +169,9 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
-        {data?.intake_status === 'in_progress' ? (
-          <FinishSetupCard currentStep={data.intake_current_step} />
+        {/* "pick up where you left off" (doc 40 §C7): an unfinished GUIDED case */}
+        {data?.guided_resume_case_id ? (
+          <FinishSetupCard caseId={data.guided_resume_case_id} copy={homeCopy} />
         ) : null}
 
         {/* B5 (round-2) — the check-in leads the screen: "how did the call go?" is the first
@@ -188,31 +194,38 @@ export default function DashboardScreen() {
         {/* Quick actions (mockup item 6) — BUILT features only. The mockup's Estimate
             Costs / Find a Doctor / Plan a Visit are §5 expanded-scope, not started: dead
             buttons are worse than absent ones, so they are gone, not "coming soon". */}
-        <Text className="mb-3 mt-6 text-xs text-faint">
-          Quick actions
-        </Text>
-        <View className="flex-row flex-wrap gap-3">
-          <QuickActionTile
-            title="Check a bill"
-            subtitle="Upload a bill or EOB and I'll audit every charge."
-            Icon={FileText}
-            onPress={() => router.push('/upload')}
-          />
-          <QuickActionTile
-            title="Chat with Tyndale"
-            subtitle="Ask anything about a bill, a denial, or your coverage."
-            Icon={MessageSquare}
-            onPress={openChat}
-          />
-          {data?.coverage_connection_enabled ? (
-            <QuickActionTile
-              title="Connect your plan"
-              subtitle="Link your insurance so audits use your real coverage terms."
-              Icon={ShieldCheck}
-              onPress={() => router.push('/settings')}
-            />
-          ) : null}
-        </View>
+        {/* doc 40 §D: which entry points a GUIDED user sees is DATA (`hidden_surfaces`, from
+            the server's GUIDED_HIDDEN_SURFACES). Hidden means ABSENT — never a disabled tile.
+            With the grid gone, the header's "+ Check a bill" is still the way in. */}
+        {hidden.has('quick_actions_grid') ? null : (
+          <View testID="quick-actions-grid">
+            <Text className="mb-3 mt-6 text-xs text-faint">Quick actions</Text>
+            <View className="flex-row flex-wrap gap-3">
+              <QuickActionTile
+                title="Check a bill"
+                subtitle="Upload a bill or EOB and I'll audit every charge."
+                Icon={FileText}
+                onPress={() => router.push(checkBillRoute as never)}
+              />
+              {hidden.has('freeform_chat_entry') ? null : (
+                <QuickActionTile
+                  title="Chat with Tyndale"
+                  subtitle="Ask anything about a bill, a denial, or your coverage."
+                  Icon={MessageSquare}
+                  onPress={openChat}
+                />
+              )}
+              {data?.coverage_connection_enabled && !hidden.has('connect_plan_tile') ? (
+                <QuickActionTile
+                  title="Connect your plan"
+                  subtitle="Link your insurance so audits use your real coverage terms."
+                  Icon={ShieldCheck}
+                  onPress={() => router.push('/settings')}
+                />
+              ) : null}
+            </View>
+          </View>
+        )}
 
         {/* Benefit bars (mockup, conditional): ONLY real attested/extracted values — a
             missing meter renders nothing (never a bar from a prior), and each bar names
@@ -251,6 +264,7 @@ export default function DashboardScreen() {
     {/* Persistent chat entry (mockup item 1): floats above the scroll, routes to freeform. */}
     {/* <480 the pill compacts to an icon bubble: the labeled quick-action card is right
         there, and the full pill overlays content at phone widths (viewport sweep note). */}
+    {hidden.has('freeform_chat_entry') ? null : (
     <PressableScale
       onPress={openChat}
       accessibilityRole="button"
@@ -265,6 +279,7 @@ export default function DashboardScreen() {
         <Text className="text-body font-bold text-on-accent">Chat with Tyndale</Text>
       )}
     </PressableScale>
+    )}
     </View>
   );
 }
@@ -394,32 +409,39 @@ function OutcomeButton({
   );
 }
 
-// ─── Finish-setup resume card (Save & exit follow-up) ───────────────────────
-// Shown when the user deferred intake mid-wizard: a gentle path back in.
-function FinishSetupCard({ currentStep }: { currentStep: string | null }) {
+// ─── Guided-intake resume card (doc 40 §C7) ──────────────────────────────────
+// An unfinished guided bill check: a gentle path back in. Its words are REGISTRY copy (the
+// `home` surface → intake.resume.*) — the app holds no guided strings, so the card renders once
+// they arrive. Until then (or if the fetch fails) "+ Check a bill" still opens the same case.
+// Guided surfaces hold the doc 40 floor: 16px text, 44px targets.
+function FinishSetupCard({ caseId, copy }: { caseId: string; copy: SurfaceCopy }) {
   const tc = useThemeColors();
   const router = useRouter();
-  const target =
-    currentStep && currentStep !== 'welcome' && currentStep !== 'complete'
-      ? `/intake/${currentStep}`
-      : '/intake/welcome';
+  if (!copy.resume_title || !copy.resume_primary) return null;
+  // ONE route — the server's planner decides which screen this case is at.
+  const target = `/intake?case=${caseId}`;
   return (
-    <View className="mt-4 flex-row items-center gap-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card">
+    <View
+      className="mt-4 flex-row items-center gap-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card"
+      testID="guided-resume-card"
+    >
       <View className="h-9 w-9 items-center justify-center rounded-md bg-accent-tint">
         <CheckCircle2 size={18} color={tc.accent} />
       </View>
       <View className="flex-1">
-        <Text className="text-body font-bold text-primary">Finish setting up</Text>
-        <Text className="mt-0.5 text-xs leading-5 text-secondary">
-          Your intake is saved where you left off — a few more steps unlock your full
-          dashboard.
-        </Text>
+        <Text className="text-body font-bold text-primary">{copy.resume_title}</Text>
+        {copy.resume_body ? (
+          <Text className="mt-0.5 text-body text-secondary">{copy.resume_body}</Text>
+        ) : null}
       </View>
       <PressableScale
         onPress={() => router.push(target as never)}
+        accessibilityRole="button"
+        accessibilityLabel={copy.resume_primary}
         className="min-h-[44px] items-center justify-center rounded-lg bg-accent px-3 py-2 hover:bg-accent"
+        testID="guided-resume-go"
       >
-        <Text className="text-xs font-bold text-on-accent">Resume</Text>
+        <Text className="text-body font-bold text-on-accent">{copy.resume_primary}</Text>
       </PressableScale>
     </View>
   );
@@ -502,7 +524,7 @@ function ActiveCasesSection({
 // The separate admin console (CO-9) lives at its own IP-allowlisted subdomain.
 const ADMIN_CONSOLE_URL = 'https://admin.tyndaleapp.net';
 
-function Header() {
+function Header({ checkBillRoute }: { checkBillRoute: string }) {
   const tc = useThemeColors();
   const router = useRouter();
   const signOut = useSignOut();
@@ -559,7 +581,7 @@ function Header() {
           </Pressable>
         ) : null}
         <PressableScale
-          onPress={() => router.push('/upload')}
+          onPress={() => router.push(checkBillRoute as never)}
           accessibilityRole="button"
           accessibilityLabel="Check a bill"
           className="min-h-[44px] flex-row items-center gap-1 rounded-full bg-accent px-3.5 py-1.5"

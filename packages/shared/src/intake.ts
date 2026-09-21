@@ -5,22 +5,93 @@
  * owner; this is the typed mirror for the Expo wizard.
  */
 
-export const INTAKE_STEPS = [
-  'welcome',
-  'insurance-card',
-  'coverage-regime-confirm',
-  'coverage-details',
-  'benefits',
-  'deductible',
-  'oop-max',
-  'bills',
-  'eobs',
-  'visit-context',
-  'complete',
-] as const;
-
-export type IntakeStep = (typeof INTAKE_STEPS)[number];
+// There is NO step list any more (doc 40 §A4). CO-1A's INTAKE_STEPS / IntakeStep /
+// SKIPPABLE_STEPS are gone: the server's Intake Planner picks the next screen after every
+// capture, and the client draws the `screen` it is handed. `current_step` is that pick — a
+// screen id from the runtime's SCREEN_REGISTRY, or 'READY'.
 export type IntakeStatus = 'not_started' | 'in_progress' | 'complete';
+
+/** The renderer the client uses for a screen. A closed set — an unknown kind renders the
+ *  generic info layout, so a server ahead of the app degrades instead of crashing. */
+export type IntakeScreenKind =
+  | 'info'
+  | 'handoff'
+  | 'capture'
+  | 'coach'
+  | 'summary'
+  | 'choice'
+  | 'fields'
+  | 'plan_confirm'
+  | 'timeline'
+  | 'attest'
+  | 'progress'
+  | 'confirmations'
+  | 'readiness'
+  | 'ready';
+
+export type IntakeProgressGroup =
+  | 'bill'
+  | 'card'
+  | 'plan_rules'
+  | 'eob'
+  | 'timeline'
+  | 'about_you'
+  | 'confirmations';
+
+export interface IntakeExample {
+  ask: string;
+  title: string | null;
+  callouts: string[];
+  asset: { kind: 'external_pdf'; url: string; publisher: string };
+  source_line: string | null;
+  glosses: Record<string, string>;
+}
+
+export interface IntakeHelp {
+  document_type: string;
+  scope: 'payer' | 'generic';
+  payer_name: string | null;
+  title: string | null;
+  note: string | null;
+  steps: string[];
+  verified: boolean;
+  can_email: boolean;
+}
+
+/** One screen, as the planner hands it over. `copy` is registry text keyed by slot — the app
+ *  holds no intake copy. `example` / `help` are PRESENT only when there is something behind them. */
+export interface IntakeScreen {
+  id: string;
+  kind: IntakeScreenKind;
+  progress_group: IntakeProgressGroup | null;
+  copy: Record<string, string>;
+  data: Record<string, unknown>;
+  skippable: boolean;
+  example?: IntakeExample;
+  help?: IntakeHelp;
+}
+
+export interface IntakeProgress {
+  segments: { group: IntakeProgressGroup; filled: boolean; label: string | null }[];
+  filled: number;
+  total: number;
+  /** "1 of 7 — nice start". Null before anything lands; never a bare "Step N of M". */
+  line: string | null;
+  /** Set when a segment is held by the high-water mark alone (a document was reclassified). */
+  note: string | null;
+  glosses: Record<string, string | null>;
+  high_water: string[];
+}
+
+export interface IntakeResume {
+  case_file_id: string;
+  title: string | null;
+  body: string | null;
+  primary: string | null;
+  new: string | null;
+  /** States the REAL sign-in link lifetime. */
+  link_expiry: string | null;
+}
 
 /**
  * The 14 canonical coverage regimes (Brock 2026-07-06). Mirrors runtime app/plan_types.py
@@ -56,18 +127,6 @@ export interface CoverageAttributes {
   dsnp?: boolean | null;
   governmental_fully_insured?: boolean | null;
 }
-
-/** Steps the user may skip (graceful degradation — equal-weight in the UI). */
-export const SKIPPABLE_STEPS: ReadonlySet<IntakeStep> = new Set<IntakeStep>([
-  'insurance-card',
-  'coverage-regime-confirm',
-  'coverage-details',
-  'benefits',
-  'deductible',
-  'oop-max',
-  'eobs',
-  'visit-context',
-]);
 
 export interface ConfirmationPrompt {
   field: string;
@@ -114,22 +173,36 @@ export interface PlanProposal {
 }
 
 export interface IntakeStateResponse {
-  case_file_id: string;
+  /** Null until POST /v1/intake/start — opening the landing creates nothing. */
+  case_file_id: string | null;
   intake_status: IntakeStatus;
-  current_step: IntakeStep;
-  completed_steps: IntakeStep[];
+  intake_mode: 'guided' | 'chat_first';
+  /** The planner's pick: a screen id, or 'READY'. */
+  current_step: string;
+  /** The filled progress groups. */
+  completed_steps: string[];
+  screen: IntakeScreen;
+  progress: IntakeProgress;
+  /** intake.chrome.* — save & exit, see an example, help me find it, errors. */
+  chrome: Record<string, string>;
+  /** "Pick up where you left off" — only when the user returns with an unfinished case. */
+  resume?: IntakeResume | null;
   captured_data: IntakeCapturedData;
   missing_items: string[];
-  /** CO-12C: a pending PlanLibrary proposal to confirm before prompting for an SBC. */
   plan_proposal?: PlanProposal | null;
 }
 
-export interface IntakeStepAck {
-  case_file_id: string;
-  intake_status: IntakeStatus;
-  current_step: IntakeStep;
-  completed_steps: IntakeStep[];
+/** Every intake write returns the NEXT state — the client never decides where to go. */
+export interface IntakeStepAck extends IntakeStateResponse {
   confirmations: ConfirmationPrompt[];
+}
+
+export interface IntakeRunResponse {
+  case_file_id: string;
+  status: string;
+  /** The existing reveal/thread — the guided route builds no results UI. */
+  next_route: string;
+  conversation_id: string | null;
 }
 
 export interface IntakeCompletionSummary {

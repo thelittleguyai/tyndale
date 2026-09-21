@@ -8,6 +8,8 @@
 import type { ActiveCase } from '@tyndale/shared';
 
 export function activeCaseRoute(c: Pick<ActiveCase, 'case_file_id' | 'resume'>): string {
+  // doc 40: a case still on the guided route resumes THERE — the planner owns its next screen.
+  if (c.resume === 'intake') return `/intake?case=${c.case_file_id}`;
   return c.resume === 'encounter'
     ? `/audit/${c.case_file_id}/encounter`
     : `/audit/${c.case_file_id}`;

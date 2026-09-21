@@ -148,6 +148,12 @@ function RecordRow({
   );
 }
 
+/** Where a Record row resumes. 'intake' = still on the guided route (doc 40): the planner owns it. */
+export function subCaseRoute(c: Pick<SubCaseRow, 'case_file_id' | 'resume'>): string {
+  if (c.resume === 'intake') return `/intake?case=${c.case_file_id}`;
+  return c.resume === 'summary' ? `/case/${c.case_file_id}` : `/audit/${c.case_file_id}/thread`;
+}
+
 export function RecordSection({
   record,
   onChanged,
@@ -157,9 +163,7 @@ export function RecordSection({
 }) {
   const router = useRouter();
   const go = (c: SubCaseRow) =>
-    router.push(
-      (c.resume === 'summary' ? `/case/${c.case_file_id}` : `/audit/${c.case_file_id}/thread`) as never,
-    );
+    router.push(subCaseRoute(c) as never);
   return (
     <View>
       <Text className="mb-2 mt-6 text-caption font-medium text-secondary">Your record</Text>

@@ -1,17 +1,23 @@
+/**
+ * Settings → Coverage type (2026-08-19, item 3). The 14-regime ladder with the detected candidate
+ * preselected; confirming marks the regime verified (user_declared).
+ *
+ * This WAS a step of the CO-1A intake wizard (`/intake/coverage-regime-confirm?from=settings`).
+ * Doc 40 replaced that wizard with the planner-driven `/intake`, whose own coverage ask is the
+ * plain five-option screen — so this editor now lives with the surface that still uses it, and
+ * carries no wizard chrome (it had a "Step 3 of 11" bar in Settings).
+ */
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { router } from 'expo-router';
 
-import type { CoverageRegime } from '@tyndale/shared';
+import type { CoverageRegime, RegimeDetection } from '@tyndale/shared';
 
-import { intakeConfirmRegime, intakeSkipStep } from '../../lib/api-client';
-import {
-  SAVE_ERROR_MESSAGE,
-  WizardLoading,
-  WizardShell,
-  goToStep,
-  useWizard,
-} from '../../lib/intake-ui';
+import { getIntakeState, intakeConfirmRegime } from '../../lib/api-client';
+import { Button } from '../../components/ui';
+import { PressableScale } from '../../components/ui/PressableScale';
+import { Screen } from '../../components/ui/Screen';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 // Plain-language labels for the 14 coverage regimes (Brock 2026-07-06, DL-90). The user confirms
 // which one applies so their bills are audited under the right population's rules — never
@@ -34,88 +40,79 @@ const REGIME_OPTIONS: { value: CoverageRegime; label: string; hint: string }[] =
   { value: 'self_pay', label: "I don't have insurance", hint: "You're paying for this yourself" },
 ];
 
-export default function CoverageRegimeConfirmStep() {
-  // from=settings (2026-08-19, item 3): the SAME ladder serves the Settings "Coverage
-  // type" row — same detection preselect, same confirm path (user_declared, verified).
-  // The only difference is flow control: save returns to Settings instead of advancing
-  // the wizard, and skip (a wizard concept) is hidden.
-  const { from } = useLocalSearchParams<{ from?: string }>();
-  const fromSettings = from === 'settings';
-  const { state, caseId, loading, error } = useWizard();
-  const detection = state?.captured_data.regime_detection ?? null;
+export default function CoverageTypeScreen() {
+  const tc = useThemeColors();
+  const [caseId, setCaseId] = useState<string | null>(null);
+  const [detection, setDetection] = useState<RegimeDetection | null>(null);
   const [selected, setSelected] = useState<CoverageRegime | ''>('');
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Preselect the detected candidate once it loads (the user can change it).
   useEffect(() => {
-    if (detection?.candidate) setSelected((s) => s || detection.candidate!);
-  }, [detection?.candidate]);
+    let alive = true;
+    // `latest`: the user's most recent case (created if they have none) — coverage type is
+    // stored per case, and Settings edits the one the next audit will read.
+    getIntakeState(undefined, { latest: true })
+      .then((s) => {
+        if (!alive) return;
+        setCaseId(s.case_file_id);
+        setDetection(s.captured_data.regime_detection ?? null);
+        const current = s.captured_data.coverage_regime ?? s.captured_data.regime_detection?.candidate;
+        if (current) setSelected(current);
+      })
+      .catch(() => alive && setError("We couldn't load your coverage type — check your connection and try again."))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  if (loading) return <WizardLoading />;
-
-  const onContinue = async () => {
+  const onSave = async () => {
     if (!caseId || !selected) return;
     setBusy(true);
-    setSaveErr(null);
+    setError(null);
     try {
       await intakeConfirmRegime(selected, caseId);
-      if (fromSettings) {
-        router.back();
-        return;
-      }
-      goToStep('coverage-details');
+      router.back();
     } catch {
-      setSaveErr(SAVE_ERROR_MESSAGE);
+      setError("We couldn't save that — check your connection and try again.");
       setBusy(false);
     }
   };
 
-  const onSkip = async () => {
-    if (!caseId) return;
-    setBusy(true);
-    setSaveErr(null);
-    try {
-      await intakeSkipStep('coverage-regime-confirm', caseId);
-      goToStep('coverage-details');
-    } catch {
-      setSaveErr(SAVE_ERROR_MESSAGE);
-      setBusy(false);
-    }
-  };
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-page">
+        <ActivityIndicator color={tc.accent} />
+      </View>
+    );
+  }
 
-  // A soft hint when detection had a confident-enough guess to lead with.
   const detectedLabel =
-    detection?.candidate &&
-    REGIME_OPTIONS.find((o) => o.value === detection.candidate)?.label;
+    detection?.candidate && REGIME_OPTIONS.find((o) => o.value === detection.candidate)?.label;
 
   return (
-    <WizardShell
-      step="coverage-regime-confirm"
-      title="How are you covered?"
-      subtitle={
-        detectedLabel
+    <Screen className="flex-1 bg-page" contentContainerStyle={{ padding: 20, paddingTop: 24, paddingBottom: 48 }}>
+      <PressableScale onPress={() => router.back()} className="mb-5 min-h-[44px] justify-center self-start">
+        <Text className="text-body text-secondary">← Settings</Text>
+      </PressableScale>
+      <Text className="text-2xl font-bold text-primary">How are you covered?</Text>
+      <Text className="mb-5 mt-2 text-body leading-6 text-secondary">
+        {detectedLabel
           ? `From your card, this looks like ${detectedLabel}. Tap to confirm or change it.`
-          : "Let's confirm your coverage type so I apply the right billing rules."
-      }
-      why="Commercial, Medicare, Medicaid, and military coverage each follow different billing and appeal rules. Getting this right means the numbers and the next steps I give you are accurate."
-      onContinue={onContinue}
-      continueLabel={selected ? 'Confirm' : 'Choose one to continue'}
-      busy={busy}
-      error={error ?? saveErr}
-      skippable={!fromSettings}
-      onSkip={fromSettings ? undefined : onSkip}
-    >
-      <View className="gap-2">
+          : "Let's confirm your coverage type so I apply the right billing rules."}
+      </Text>
+      <View className="gap-2" accessibilityRole="radiogroup">
         {REGIME_OPTIONS.map((opt) => {
           const active = selected === opt.value;
           return (
-            <Pressable
+            <PressableScale
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
               key={opt.value}
               onPress={() => setSelected(opt.value)}
-              className={`rounded-2xl border p-4 ${
+              className={`min-h-[44px] rounded-2xl border p-4 ${
                 active ? 'border-accent bg-accent-tint' : 'border-hairline bg-surface'
               }`}
             >
@@ -123,10 +120,18 @@ export default function CoverageRegimeConfirmStep() {
                 {opt.label}
               </Text>
               <Text className="mt-0.5 text-[13px] leading-5 text-secondary">{opt.hint}</Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
-    </WizardShell>
+      {error ? <Text className="mt-3 text-body text-danger">{error}</Text> : null}
+      <Button
+        label={busy ? 'Saving…' : selected ? 'Confirm' : 'Choose one to continue'}
+        onPress={onSave}
+        disabled={busy || !selected}
+        fullWidth
+        className="mt-6"
+      />
+    </Screen>
   );
 }

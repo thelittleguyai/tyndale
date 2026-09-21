@@ -18,7 +18,12 @@ import { isIntakeDeferred } from '../../lib/intake-deferred';
 import { isCaseWorkRoute, shouldRedirectToWizard } from '../../lib/intake-gate';
 import { themeColors, useThemeColors } from '../../theme/useThemeColors';
 
-type IntakeGate = { status: string; step: string | null; hasCases: boolean };
+type IntakeGate = {
+  status: string;
+  step: string | null;
+  hasCases: boolean;
+  mode: 'guided' | 'chat_first';
+};
 
 export default function AppLayout() {
   const tc = useThemeColors();
@@ -44,8 +49,10 @@ export default function AppLayout() {
           status: d.intake_status,
           step: d.intake_current_step,
           hasCases: d.has_cases,
+          mode: d.intake_mode ?? 'chat_first',
         }))
-        .catch(() => ({ status: 'complete', step: null, hasCases: true }) as IntakeGate),
+        // fail OPEN, and as chat-first: a dashboard error must never push someone into a route
+        .catch(() => ({ status: 'complete', step: null, hasCases: true, mode: 'chat_first' }) as IntakeGate),
     ])
       .then(([pdone, ig]) => {
         if (!alive) return;
@@ -88,13 +95,11 @@ export default function AppLayout() {
       hasCases: intake.hasCases,
       deferred: isIntakeDeferred(),
       pathname,
+      intakeMode: intake.mode,
     })
   ) {
-    const target =
-      intake.step && intake.step !== 'welcome' && intake.step !== 'complete'
-        ? `/intake/${intake.step}`
-        : '/intake/welcome';
-    return <Redirect href={target as never} />;
+    // ONE route: the server's planner decides which screen a returning user sees.
+    return <Redirect href={'/intake' as never} />;
   }
 
   return (

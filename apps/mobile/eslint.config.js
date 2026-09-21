@@ -15,7 +15,8 @@ const { defineConfig } = require('eslint/config');
 const A11Y_ATTR = '/^(accessibilityRole|role|accessible|aria-hidden|accessibilityElementsHidden|importantForAccessibility)$/';
 
 module.exports = defineConfig([
-  { ignores: ['dist/**', 'node_modules/**', '.expo/**', 'expo-env.d.ts', 'nativewind-env.d.ts'] },
+  // dist-*/ = scratch `expo export` builds (gitignored since the 2026-08-27 audit) — never lint a bundle
+  { ignores: ['dist/**', 'dist-*/**', 'node_modules/**', '.expo/**', 'expo-env.d.ts', 'nativewind-env.d.ts'] },
   expoConfig,
   comments.recommended,
   {
