@@ -26,7 +26,7 @@ from app.intake.planner import (
     progress,
     readiness,
 )
-from app.intake.snapshot import COVERAGE_TYPE_OPTIONS
+from app.intake.snapshot import COVERAGE_TYPE_OPTIONS, IntakeState
 from app.intake.timeline import MONTH_NAMES, build_timeline
 
 _FRIENDLY_DOC_TYPE = {
@@ -139,10 +139,18 @@ def _data_for(screen: Screen, case: CaseFile, i: PlannerInputs, g: GapList, prop
         return {"options": [{"value": v, "slot": v} for v in ("yes", "no", "not_sure")]}
     if sid == "insurer":
         cov = i.coverage or {}
-        return {"fields": [
-            {"name": "payer_name", "slot": "field_payer", "value": cov.get("payer_name"), "input": "text"},
-            {"name": "member_id", "slot": "field_member_id", "value": cov.get("member_id"), "input": "text"},
-        ]}
+        # a LOW-confidence card read is offered for the user to confirm or fix — never merged
+        # silently, never discarded (routes/intake._read_new_cards)
+        weak = IntakeState(case).get("card_reads") or {}
+
+        def _field(name: str, slot: str) -> dict:
+            known = cov.get(name)
+            return {"name": name, "slot": slot, "value": known or weak.get(name), "input": "text",
+                    "suggested": bool(not known and weak.get(name)),
+                    # the answer route needs the insurer's name; the member ID is "if you have it"
+                    "required": name == "payer_name"}
+
+        return {"fields": [_field("payer_name", "field_payer"), _field("member_id", "field_member_id")]}
     if sid in ("deductible_met", "oop_met"):
         name = "deductible_met" if sid == "deductible_met" else "oop_max_met"
         return {"fields": [{"name": name, "slot": "field_amount", "value": (i.coverage or {}).get(name),
@@ -205,6 +213,11 @@ def render_screen(
             copy[slot] = text
     if screen.id == "timeline":
         copy.update(_timeline_copy(data))
+    if screen.id == "insurer":
+        # "I could not find it" would be untrue beside a field I pre-filled from the card
+        read_it = copy.pop("body_suggested", None)
+        if read_it and any(f.get("suggested") for f in data.get("fields", [])):
+            copy["body"] = read_it
 
     out: dict[str, Any] = {
         "id": screen.id,

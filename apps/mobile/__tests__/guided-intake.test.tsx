@@ -83,6 +83,42 @@ describe('a way out always says what it costs', () => {
     expect(act).toHaveBeenCalledWith('skip');
   });
 
+  it('a low-confidence card read arrives PRE-FILLED — the user confirms or fixes it, then saves', () => {
+    const act = jest.fn();
+    const s = screen({
+      id: 'insurer', kind: 'fields', skippable: true,
+      copy: { body: 'This is what I read on your card. Fix anything that is wrong, then save.', field_payer: 'Insurer name', field_member_id: 'Member ID, if you have it', primary: 'Save' },
+      data: { fields: [
+        { name: 'payer_name', slot: 'field_payer', value: 'ACME Health Co', input: 'text', suggested: true },
+        { name: 'member_id', slot: 'field_member_id', value: null, input: 'text', suggested: false },
+      ] },
+    });
+    const { getByTestId } = render(<IntakeBody {...props(s, { act })} />);
+    expect(getByTestId('intake-field-payer_name').props.value).toBe('ACME Health Co');
+    fireEvent.changeText(getByTestId('intake-field-payer_name'), 'Acme Health Company');
+    fireEvent.press(getByTestId('intake-fields-save'));
+    expect(act).toHaveBeenCalledWith('continue', { payer_name: 'Acme Health Company', member_id: '' });
+  });
+
+  it('never offers a save the server will refuse — the required field must be filled', () => {
+    const act = jest.fn();
+    const s = screen({
+      id: 'insurer', kind: 'fields', skippable: true,
+      copy: { field_payer: 'Insurer name', field_member_id: 'Member ID, if you have it', primary: 'Save' },
+      data: { fields: [
+        { name: 'payer_name', slot: 'field_payer', value: null, input: 'text', required: true },
+        { name: 'member_id', slot: 'field_member_id', value: null, input: 'text', required: false },
+      ] },
+    });
+    const { getByTestId } = render(<IntakeBody {...props(s, { act })} />);
+    fireEvent.changeText(getByTestId('intake-field-member_id'), 'W123456');
+    fireEvent.press(getByTestId('intake-fields-save'));
+    expect(act).not.toHaveBeenCalled(); // a member ID alone is not an answer to "who is your insurer?"
+    fireEvent.changeText(getByTestId('intake-field-payer_name'), 'Aetna');
+    fireEvent.press(getByTestId('intake-fields-save'));
+    expect(act).toHaveBeenCalledWith('continue', { payer_name: 'Aetna', member_id: 'W123456' });
+  });
+
   it('a choice with "I\'m not sure" says what not knowing costs', () => {
     const act = jest.fn();
     const s = screen({

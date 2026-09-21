@@ -1000,6 +1000,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] I could not find it on your papers. Type it the way it looks on a letter from them.
 
+## intake.insurer.body_suggested
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (shown INSTEAD of body when the card gave a low-confidence read — the fields arrive pre-filled) -->
+[A] This is what I read on your card. Fix anything that is wrong, then save.
+
 ## intake.insurer.field_payer
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
 [A] Insurer name

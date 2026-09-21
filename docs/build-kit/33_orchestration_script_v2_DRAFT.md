@@ -313,6 +313,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.card.skip_consequence` | packet §B7 | That's okay. It may be on your bill. If not, I will ask you to type your insurer's name. |
 | `intake.insurer.title` | eng | Who is your insurer? |
 | `intake.insurer.body` | eng | I could not find it on your papers. Type it the way it looks on a letter from them. |
+| `intake.insurer.body_suggested` | eng | This is what I read on your card. Fix anything that is wrong, then save. |
 | `intake.insurer.field_payer` | co1a | Insurer name |
 | `intake.insurer.field_member_id` | co1a | Member ID, if you have it |
 | `intake.insurer.primary` | eng | Save |

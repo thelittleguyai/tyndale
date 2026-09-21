@@ -813,7 +813,17 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
                 state = answer(sid)
             elif sid in spec.get("answers", {}):
                 a = spec["answers"][sid]
-                state = answer(sid, a.get("action", "continue"), a.get("values"))
+                values = a.get("values")
+                if a.get("prefilled"):
+                    # "confirm what you read": the screen must ARRIVE with the named fields filled
+                    # (a low-confidence card read, offered — never discarded, never silent)
+                    got = {f["name"]: f.get("value") for f in (screen.get("data") or {}).get("fields", [])}
+                    missing = [n for n in a["prefilled"] if not got.get(n)]
+                    if missing:
+                        fails.append(f"{sid}: expected {missing} pre-filled from the documents, got {got}")
+                        break
+                    values = {n: got[n] for n in a["prefilled"]}
+                state = answer(sid, a.get("action", "continue"), values)
             elif sid == "reading":
                 deadline = time.monotonic() + 600
                 while time.monotonic() < deadline and state["current_step"] == "reading":

@@ -422,7 +422,25 @@ async def test_a_card_never_overwrites_what_the_user_typed_and_a_weak_read_still
                        intake_state={"acked": ["welcome", "bill_summary"], "skipped": ["eob"]})
     state = (await client.get("/v1/intake/state", params={"case_file_id": str(weak.case_file_id)})).json()
     assert not ((await _reload(weak.case_file_id)).coverage or {}).get("payer_name")
-    assert state["current_step"] == "insurer"  # the honest fallback: ask, with the fields to fill
+    assert state["current_step"] == "insurer"  # the honest fallback: ask — never a silent value…
+    # …and never thrown away: the weak read arrives pre-filled for the user to confirm or fix,
+    # under a body that does not claim "I could not find it"
+    fields = {f["name"]: f for f in state["screen"]["data"]["fields"]}
+    assert fields["payer_name"]["value"] == "ACME Health Co" and fields["payer_name"]["suggested"]
+    assert fields["member_id"]["value"] == "A12345678" and fields["member_id"]["suggested"]
+    assert state["screen"]["copy"]["body"].startswith("This is what I read on your card.")
+    assert "body_suggested" not in state["screen"]["copy"]
+    saved = await _answer(client, weak.case_file_id, "insurer", payer_name="ACME Health Co", member_id="A12345678")
+    assert saved["current_step"] != "insurer"
+    assert (await _reload(weak.case_file_id)).coverage["payer_name"] == "ACME Health Co"
+
+    # no card read at all → the original ask, empty fields, the original body
+    bare = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT)],
+                       intake_state={"acked": ["welcome", "bill_summary"], "skipped": ["eob", "card"]})
+    state = (await client.get("/v1/intake/state", params={"case_file_id": str(bare.case_file_id)})).json()
+    assert state["current_step"] == "insurer"
+    assert all(f["value"] is None and not f["suggested"] for f in state["screen"]["data"]["fields"])
+    assert state["screen"]["copy"]["body"].startswith("I could not find it")
 
 
 # ── the handoff is an EXIT: it closes the guided route and chat-first takes the case ─────

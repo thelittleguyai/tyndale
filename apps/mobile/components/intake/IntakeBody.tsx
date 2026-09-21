@@ -155,11 +155,16 @@ function Choice({ screen, busy, act }: IntakeBodyProps) {
 
 function Fields({ screen, busy, act }: IntakeBodyProps) {
   const tc = useThemeColors();
-  const fields = ((screen.data as { fields?: { name: string; slot: string; value?: unknown; input: string }[] }).fields ?? []);
+  const fields = ((screen.data as { fields?: { name: string; slot: string; value?: unknown; input: string; required?: boolean }[] }).fields ?? []);
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.name, f.value == null ? '' : String(f.value)])),
   );
   const notSure = c(screen, 'not_sure');
+  // never offer a save the server will refuse: every field it marks required must be filled
+  // (no field marked → any one value is an answer)
+  const filled = (name: string) => Boolean((values[name] ?? '').trim());
+  const required = fields.filter((f) => f.required);
+  const canSave = required.length ? required.every((f) => filled(f.name)) : fields.some((f) => filled(f.name));
   return (
     <View>
       <Body text={c(screen, 'body')} />
@@ -183,9 +188,10 @@ function Fields({ screen, busy, act }: IntakeBodyProps) {
       <Button
         label={c(screen, 'primary') ?? ''}
         onPress={() => act('continue', values)}
-        disabled={busy || !fields.some((f) => (values[f.name] ?? '').trim())}
+        disabled={busy || !canSave}
         fullWidth
         className="mt-6"
+        testID="intake-fields-save"
       />
       {notSure ? (
         <View className="mt-3">

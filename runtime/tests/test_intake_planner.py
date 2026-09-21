@@ -71,6 +71,19 @@ def test_a_card_that_named_the_payer_means_no_which_insurer_screen():
     assert "card" not in _walk(from_bill)
 
 
+def test_i_dont_have_my_card_leads_to_typing_the_insurer_not_to_silence():
+    """§B7: "I don't have my card" → type insurer + member ID, or it's already on your bill/EOB.
+    Skipping the card used to mark the payer gap skipped, so the typed ask never appeared."""
+    no_card = _with(card_present=False, payer_known=False, member_id_known=False, skipped=frozenset({"card"}))
+    assert "insurer" in _walk(no_card)
+    # already on the bill/EOB → nothing to type
+    on_the_bill = _with(card_present=False, payer_known=True, member_id_known=True, skipped=frozenset({"card"}))
+    assert "insurer" not in _walk(on_the_bill)
+    # and skipping the typed ask too is an honest "unknown", surfaced at readiness
+    both = _with(card_present=False, payer_known=False, skipped=frozenset({"card", "insurer"}))
+    assert "insurer" not in _walk(both)
+
+
 def test_an_eob_stack_that_resolves_the_accumulators_retires_the_manual_screens():
     resolved = _with(completeness_confirmed=True, eobs_undated=0)
     assert resolved.accumulators_resolved

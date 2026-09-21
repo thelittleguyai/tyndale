@@ -266,6 +266,9 @@ async def _plan(
     return state, inputs, picked
 
 
+_CARD_FIELD = {"payer": "payer_name"}  # the extractor's confirmation names → coverage keys
+
+
 async def _read_new_cards(case: CaseFile) -> None:
     """Every insurance card on the case is read ONCE, as soon as the planner next looks at the
     case: high-confidence fields land in coverage (so "which insurer?" is never asked of someone
@@ -278,19 +281,27 @@ async def _read_new_cards(case: CaseFile) -> None:
         if isinstance(d, dict) and d.get("document_type") == "insurance_card"
         and d.get("document_id") and str(d["document_id"]) not in done
     ]  # fmt: skip
+    weak: dict[str, str] = dict(st.get("card_reads") or {})
     for d in fresh:
         try:
             fields = await extract_insurance_card(case.documents or [], str(d["document_id"]))
             high = fields.high_confidence_coverage()
+            unsure = {_CARD_FIELD.get(c["field"], c["field"]): str(c["read_value"]) for c in fields.confirmations()}
         except Exception as e:  # noqa: BLE001 — an unreadable card must never block the intake
             log.warning("intake.card_read_failed", case_file_id=str(case.case_file_id), error=str(e))
-            high = {}
+            high, unsure = {}, {}
         if high:
             # never overwrite what the user typed or a prior document supplied
             case.coverage = {**high, **{k: v for k, v in (case.coverage or {}).items() if v is not None}}
+        # A low-confidence read is never a silent value — and never thrown away either: the
+        # `insurer` screen shows it for the user to confirm or fix (CO-1A's confirmation
+        # prompts, kept; this is not the §A9 scanning work).
+        weak.update({k: v for k, v in unsure.items() if k in ("payer_name", "member_id") and v})
         done.add(str(d["document_id"]))
     if fresh:
         st.set("cards_read", sorted(done))
+        if weak:
+            st.set("card_reads", weak)
 
 
 async def _emit_shown(case: CaseFile, screen_id: str, inputs: ip.PlannerInputs) -> None:

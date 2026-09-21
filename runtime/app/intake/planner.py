@@ -259,9 +259,11 @@ def gap_list(i: PlannerInputs) -> GapList:
         Gap("eob", "claim", _state(i.eob_count > 0, "eob" in sk), "document",
             limits="intake.limits.no_eob", screen="eob")
     )
-    # "which insurer?" is NEVER asked when a document already named it (§A4-3).
+    # "which insurer?" is NEVER asked when a document already named it (§A4-3). Skipping the
+    # CARD does not skip this: "I don't have my card" → type the insurer (§B7). Only skipping
+    # the insurer ask itself leaves the payer unknown.
     gaps.append(
-        Gap("payer", "claim", _state(i.payer_known, "insurer" in sk or "card" in sk),
+        Gap("payer", "claim", _state(i.payer_known, "insurer" in sk),
             "document" if i.payer_known else None,
             limits="intake.limits.no_payer", screen="card" if not i.card_present else "insurer")
     )
