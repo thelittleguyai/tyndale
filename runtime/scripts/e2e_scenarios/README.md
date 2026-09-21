@@ -59,8 +59,9 @@ identities are refused by the human-review queue — a sweep never lands in a re
 `POST /v1/admin/test-cleanup` (same gate as test-token: 404 in production and without the
 shared secret / an admin session; synthetic suffix only): cases, stored documents, threads,
 findings, review rows, feedback, analytics. **FAILED scenarios' cases are kept** (and so the
-identity) — `--inspect <case_file_id>` still works; finish later with
-`E2E_SYNTH_EMAIL=<that address> … --dev --cleanup-only`. The workflow passes `--cleanup` and
+identity). Cases are owner-only, so a later `--inspect` — or the finishing teardown — must act
+as that run's identity (every report prints it): workflow inputs `identity=<address>` with
+`inspect=<case ids>` or `cleanup_only=true`; locally, `E2E_SYNTH_EMAIL=<address>`. The workflow passes `--cleanup` and
 runs `--cleanup-only` as an always-run safety net (crash / timeout / cancel); both passes honour
 the keep list the run wrote. The audit log is never touched.
 

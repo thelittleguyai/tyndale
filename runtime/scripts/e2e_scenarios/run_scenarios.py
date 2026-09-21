@@ -1006,6 +1006,9 @@ def main() -> int:
     passed = sum(1 for r in results if r["pass"])
     log("=" * 78)
     log(f"RESULT: {passed}/{len(results)} scenarios passed")
+    # Cases are owner-only and every run has its own identity — a later --inspect (or a
+    # finishing --cleanup-only) must act as THIS one: workflow input `identity`.
+    log(f"identity: {SYNTH_EMAIL}")
     if args.cleanup:
         keep = _failed_case_ids(results)
         try:
@@ -1015,7 +1018,8 @@ def main() -> int:
         _teardown(base_url, SYNTH_EMAIL, keep)
         if keep:
             log(f"  kept for forensics: {', '.join(keep)}")
-            log(f"  finish later with: E2E_SYNTH_EMAIL={SYNTH_EMAIL} … run_scenarios.py --dev --cleanup-only")
+            log(f"  inspect:  gh workflow run e2e-scenarios.yml -f identity={SYNTH_EMAIL} -f inspect={','.join(keep)}")
+            log(f"  finish:   gh workflow run e2e-scenarios.yml -f identity={SYNTH_EMAIL} -f cleanup_only=true")
     return 0 if passed == len(results) else 1
 
 

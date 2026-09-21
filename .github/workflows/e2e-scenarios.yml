@@ -25,6 +25,15 @@ on:
         description: 'READ-ONLY: comma-separated case_file_ids to inspect (no uploads, no audits)'
         required: false
         default: ''
+      identity:
+        description: 'Act as THIS synthetic identity (a previous run prints it: e2e-runner+<run id>@e2e.tyndale.test). Needed to inspect or finish tearing down that run — cases are owner-only. Blank = this run mints its own.'
+        required: false
+        default: ''
+      cleanup_only:
+        description: 'No scenarios: only tear down the identity above (or this run''s own)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -56,7 +65,9 @@ jobs:
       - name: Install dependencies (incl. the harness dev group)
         run: uv sync --frozen
       - name: Run scenarios against dev
+        if: ${{ !inputs.cleanup_only }}
         env:
+          E2E_SYNTH_EMAIL: ${{ inputs.identity }}
           # Prefer the stable Key Vault shared secret (set once via `terraform output`);
           # E2E_ADMIN_TOKEN is a fallback (a 7-day admin session token).
           TYNDALE_E2E_SECRET: ${{ secrets.E2E_TEST_SECRET }}
@@ -86,6 +97,7 @@ jobs:
         # list the run wrote, so a failed scenario's case survives both passes.
         if: ${{ always() && inputs.inspect == '' }}
         env:
+          E2E_SYNTH_EMAIL: ${{ inputs.identity }}
           TYNDALE_E2E_SECRET: ${{ secrets.E2E_TEST_SECRET }}
           TYNDALE_ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
         run: uv run python scripts/e2e_scenarios/run_scenarios.py --dev --cleanup-only
