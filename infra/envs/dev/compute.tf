@@ -189,6 +189,12 @@ resource "azurerm_container_app" "runtime" {
       }
       # Human Review Phase 1 (2026-09-18): the sample dial's env default + the five
       # always-enqueue triggers. Config, not code — see doc 39 §7-2d.
+      # Stranded-audit healer threshold floor (deep review C2) — the boot sweep reads it here,
+      # the stuck_audits cron reads the same variable in crons.tf.
+      env {
+        name  = "AUDIT_RECONCILE_STALE_SECONDS"
+        value = tostring(var.audit_reconcile_stale_seconds)
+      }
       env {
         name  = "REVIEW_SAMPLE_PCT"
         value = tostring(var.review_sample_pct)

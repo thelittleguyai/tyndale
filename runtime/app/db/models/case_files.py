@@ -138,6 +138,21 @@ class CaseFile(Base):
     # terminal screen: 'needs_documents' (user-actionable — findings produced, three-number
     # blocked on missing inputs) | 'system_error' (budget/citation/provider). NULL otherwise.
     audit_incomplete_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Stranded-audit healer (deep review C2, 2026-09-18). ``audit_heartbeat_at`` is bumped by the
+    # orchestrator when an audit goes running and at every phase boundary — staleness is measured
+    # against IT, not updated_at (which nothing refreshes mid-run). The reconcile_* trio is the
+    # healer's per-row claim: a token stamped while the row is still audit_running, so the
+    # terminal write can be a compare-and-swap and a half-finished heal is re-pickable.
+    audit_heartbeat_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    reconcile_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    reconcile_token: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reconcile_claimed_at: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     # Member-initiated soft-delete ("remove this case", for junk / mistaken uploads with no
     # findings). NULL = live. Set together: timestamp + the acting user. Every user-scoped list
     # query (GET /cases, GET /dashboard) filters soft_deleted_at IS NULL; the row is retained

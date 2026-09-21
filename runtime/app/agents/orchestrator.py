@@ -20,7 +20,7 @@ from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
@@ -91,18 +91,50 @@ def tripwire_entries(case) -> list[dict]:
 
 
 async def _set_status(
-    case_file_id: str, status: str, *, incomplete_reason: str | None = None
-) -> None:
+    case_file_id: str,
+    status: str,
+    *,
+    incomplete_reason: str | None = None,
+    expected_status: str | None = None,
+    expected_reconcile_token: UUID | None = None,
+) -> bool:
     """Set the case status and, atomically, its audit_incomplete_reason. The reason is always
     written (default None), so any non-incomplete transition (audit_running, audit_complete, a
-    re-audit) clears a stale reason — only an audit_incomplete transition carries one."""
+    re-audit) clears a stale reason — only an audit_incomplete transition carries one.
+
+    Returns True when the transition was applied. Every ordinary caller is UNCONDITIONAL (the
+    owner of a run is entitled to its own terminal write). ``expected_status`` — and, for the
+    stranded-audit healer, ``expected_reconcile_token`` — turn the write into a compare-and-swap
+    under a row lock: if the case has moved on (a live replica finished the audit between the
+    healer's claim and this follow-up), NOTHING is written, no side effect fires, and the caller
+    gets False (deep review C2 — the healer used to stomp audit_complete back to system_error)."""
     user_id = None
     was_system_error = False
     async with AsyncSessionLocal() as s:
         cf = (
-            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+            await s.execute(
+                select(CaseFile)
+                .where(CaseFile.case_file_id == UUID(case_file_id))
+                .with_for_update()
+            )
         ).scalar_one_or_none()
+        guarded = expected_status is not None or expected_reconcile_token is not None
+        if cf is None and guarded:
+            return False
         if cf is not None:
+            if expected_status is not None and cf.status != expected_status:
+                log.warning(
+                    "orchestrator.set_status.refused",
+                    case_file_id=case_file_id, wanted=status,
+                    expected_status=expected_status, actual_status=cf.status,
+                )
+                return False
+            if expected_reconcile_token is not None and cf.reconcile_token != expected_reconcile_token:
+                log.warning(
+                    "orchestrator.set_status.refused",
+                    case_file_id=case_file_id, wanted=status, reason="reconcile_token_mismatch",
+                )
+                return False
             # §10.4's promise trigger: remember whether this case was sitting in the
             # system_error state BEFORE this transition overwrites it.
             was_system_error = (
@@ -110,8 +142,58 @@ async def _set_status(
             )
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
+            if status == "audit_running":
+                # A fresh run: first heartbeat, and a clean slate for the healer.
+                cf.audit_heartbeat_at = datetime.now(timezone.utc)
+                cf.reconcile_attempts = 0
+            if expected_reconcile_token is None:
+                # An owner's own write voids any healer claim on the row (the healer's later
+                # CAS then fails on the token as well as the status). The healer's guarded
+                # write KEEPS its token until its side effects are done — that is what makes a
+                # heal that died mid-way re-pickable.
+                cf.reconcile_token = None
+                cf.reconcile_claimed_at = None
             user_id = cf.user_id
             await s.commit()
+    await _status_side_effects(case_file_id, status, incomplete_reason, user_id, was_system_error)
+    return True
+
+
+async def _heartbeat(case_file_id: str) -> None:
+    """Bump the running audit's heartbeat (phase boundaries). One tiny UPDATE, only while the
+    case is still audit_running; updated_at is deliberately left alone. Never raises — a missed
+    beat must not fail an audit (the threshold is 3x the budget for exactly that reason)."""
+    try:
+        async with AsyncSessionLocal() as s:
+            await s.execute(
+                update(CaseFile)
+                .where(
+                    CaseFile.case_file_id == UUID(case_file_id),
+                    CaseFile.status == "audit_running",
+                )
+                .values(
+                    audit_heartbeat_at=datetime.now(timezone.utc),
+                    updated_at=CaseFile.updated_at,
+                )
+            )
+            await s.commit()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("orchestrator.heartbeat.failed", case_file_id=case_file_id, error=str(exc))
+
+
+async def _status_side_effects(
+    case_file_id: str,
+    status: str,
+    incomplete_reason: str | None,
+    user_id,
+    was_system_error: bool,
+    *,
+    skip_review_enqueue: bool = False,
+) -> None:
+    """Everything that follows a committed status transition — the thread projection, the
+    lifecycle event, the review-queue offer, the emails. Split from _set_status so the healer
+    can REPLAY them for a row whose previous heal died after the flip (every step is
+    idempotent; ``skip_review_enqueue`` is for a replay that finds the run already enqueued)."""
     # Chat-first event bridge (DL-91) — render the transition into the case thread. Flag-gated +
     # error-swallowing inside; a no-op when ENABLE_CHAT_FIRST_AUDIT is off. Lazy import (the bridge
     # is hooked from here, so it must not be imported at module load).
@@ -125,7 +207,7 @@ async def _set_status(
         await _emit_lifecycle_event(case_file_id, status, incomplete_reason, user_id)
     # Human Review Phase 1 (doc 39 §7-2d): every terminal run is offered to the reviewer queue
     # from this same chokepoint. Policy + triggers live in app.review.queue; it never raises.
-    if status in ("audit_complete", "audit_incomplete"):
+    if status in ("audit_complete", "audit_incomplete") and not skip_review_enqueue:
         from app.review import queue as review_queue
 
         await review_queue.on_terminal(case_file_id, status, incomplete_reason)
@@ -224,6 +306,7 @@ async def _run_real_agents(
     stage_ms["bill_detective_ms"] = bd_ms
     stage_ms["math_person_ms"] = mp_ms
     stage_ms["agents_parallel_wall_ms"] = _ms(wall)  # ≈ max(bd,mp) — the concurrency saving
+    await _heartbeat(case_file_id)  # phase boundary: agents done
     budget_stopped = bd.budget_stopped or mp.budget_stopped
     log.info(
         "orchestrator.bill_detective.done",
@@ -246,6 +329,7 @@ async def _run_real_agents(
             )
             await s.commit()
         stage_ms["lead_planner_ms"] = _ms(t)
+        await _heartbeat(case_file_id)  # phase boundary: summary composed
         composed = lp.final_text
         budget_stopped = budget_stopped or lp.budget_stopped
         log.info(
@@ -260,6 +344,7 @@ async def _run_real_agents(
     t = time.monotonic()
     composed = await _ground_prose(case_file_id, composed, budget, bd.final_text, mp.final_text)
     stage_ms["prose_grounding_ms"] = _ms(t)
+    await _heartbeat(case_file_id)  # phase boundary: grounding done
 
     return composed, budget_stopped, stage_ms
 
@@ -1568,6 +1653,7 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
     # the same discrepancy finding a production run would. The no-EOB guard inside
     # keeps it a no-op for cases without EOB data (all existing fixture tests).
     accumulator = await _run_accumulator_cross_check(case_file_id)
+    await _heartbeat(case_file_id)  # phase boundary: cross-check done, agents next
 
     # Item 1: run under the wall-clock + regen budget, always resolve to a TERMINAL status
     # (never leave the case stuck in audit_running), and record the run's timing/regens.

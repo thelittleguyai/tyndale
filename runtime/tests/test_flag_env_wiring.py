@@ -155,6 +155,8 @@ def test_cron_jobs_carry_what_the_crons_actually_read():
         "ENABLE_CHAT_FIRST_AUDIT",
         "REVIEW_SAMPLE_PCT",
         "REVIEW_TRIGGER_SYSTEM_ERROR",
+        # the healer's staleness floor — the cron runs the same sweep as the boot path
+        "AUDIT_RECONCILE_STALE_SECONDS",
     }
     missing = needed - _cron_env_names()
     assert missing == set(), f"cron job env missing: {sorted(missing)}"
@@ -165,3 +167,12 @@ def test_review_sample_dial_is_env_wired():
     it explicitly (env in compute.tf + a terraform variable), like the flags."""
     assert "REVIEW_SAMPLE_PCT" in _tf_env_names()
     assert 'variable "review_sample_pct"' in VARIABLES_TF.read_text(encoding="utf-8")
+
+
+def test_reconcile_stale_threshold_is_env_wired_for_runtime_and_cron():
+    """Deep review C2: the healer's threshold floor is an INT (the bool sweep doesn't see it)
+    and is read by TWO containers — the runtime's boot sweep and the stuck_audits cron. A flip
+    in tfvars must reach both, or they disagree about which audits are dead."""
+    assert "AUDIT_RECONCILE_STALE_SECONDS" in _tf_env_names()
+    assert "AUDIT_RECONCILE_STALE_SECONDS" in _cron_env_names()
+    assert 'variable "audit_reconcile_stale_seconds"' in VARIABLES_TF.read_text(encoding="utf-8")

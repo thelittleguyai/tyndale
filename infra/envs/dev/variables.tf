@@ -437,3 +437,9 @@ variable "review_trigger_material_disagreement" {
   default     = true
   description = "Always enqueue runs where the EOB-claimed and Tyndale-computed member responsibility disagree above materiality (AUDIT_FLAG)."
 }
+
+variable "audit_reconcile_stale_seconds" {
+  type        = number
+  default     = 1800
+  description = "Floor (seconds) for how stale a running audit's HEARTBEAT must be before the stranded-audit healer treats it as dead; the effective threshold is max(3 x audit budget, this). Wired to BOTH the runtime (boot sweep) and the cron container (stuck_audits) so they agree."
+}

@@ -344,6 +344,12 @@ class Settings(BaseSettings):
     audit_wall_clock_budget_seconds: int = 600
     # Per-run cap on total Stop-gate citation regenerations (belt to the per-agent <=3).
     audit_max_regenerations: int = 3
+    # Stranded-audit healer (deep review C2): an audit_running case is considered dead only when
+    # its HEARTBEAT is older than max(3 x audit_wall_clock_budget_seconds, this floor). The old
+    # rule (budget + 5 min against updated_at, which nothing refreshed mid-run) could "heal" a
+    # slow-but-live audit under load. Env-wired for the runtime AND the cron container — both run
+    # the sweep and must agree.
+    audit_reconcile_stale_seconds: int = 1800  # env: AUDIT_RECONCILE_STALE_SECONDS
 
     def foundry_model(self, model_id: str) -> str:
         """Map an Anthropic model id to its Foundry deployment name. Deployments are

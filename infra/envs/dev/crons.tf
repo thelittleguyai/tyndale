@@ -164,6 +164,10 @@ resource "azurerm_container_app_job" "cron" {
         value = tostring(var.enable_chat_first_audit)
       }
       env {
+        name  = "AUDIT_RECONCILE_STALE_SECONDS"
+        value = tostring(var.audit_reconcile_stale_seconds)
+      }
+      env {
         name  = "REVIEW_SAMPLE_PCT"
         value = tostring(var.review_sample_pct)
       }
