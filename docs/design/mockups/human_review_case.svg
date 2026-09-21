@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" font-family="Helvetica, Arial, sans-serif">
+  <rect width="1200" height="760" fill="#FAF7F0"/>
+  <!-- Top nav -->
+  <rect width="1200" height="52" fill="#1D2A38"/>
+  <circle cx="34" cy="26" r="12" fill="#3E5C57"/>
+  <text x="56" y="31" fill="#FAF7F0" font-size="15" font-weight="bold">Tyndale Admin</text>
+  <text x="200" y="31" fill="#8fa1b3" font-size="13">← Review queue</text>
+
+  <!-- Case header -->
+  <text x="32" y="90" fill="#1D2A38" font-size="20" font-weight="bold">Riverton Imaging · MRI left knee + office visit</text>
+  <text x="32" y="110" fill="#6b7683" font-size="12">u·2f9a · run Sep 2, 14:22 · bill + EOB · confidence high · reviewer: Brock (viewing logged)</text>
+  <rect x="1020" y="76" width="88" height="24" rx="12" fill="#e8eef4"/>
+  <text x="1035" y="92" fill="#2C6E8F" font-size="11" font-weight="bold">in review</text>
+
+  <!-- LEFT: documents -->
+  <rect x="32" y="128" width="240" height="560" rx="12" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="154" fill="#6b7683" font-size="11" font-weight="bold">SOURCE DOCUMENTS</text>
+  <rect x="48" y="166" width="94" height="118" rx="6" fill="#f4efe4" stroke="#e4ddd0"/>
+  <rect x="56" y="176" width="78" height="6" rx="3" fill="#cfc7b8"/>
+  <rect x="56" y="188" width="66" height="5" rx="2.5" fill="#ddd6c8"/>
+  <rect x="56" y="199" width="72" height="5" rx="2.5" fill="#ddd6c8"/>
+  <rect x="56" y="216" width="78" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="56" y="226" width="78" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="56" y="236" width="60" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="48" y="290" width="54" height="18" rx="9" fill="#e7f1ec"/>
+  <text x="57" y="303" fill="#2E7D5B" font-size="10" font-weight="bold">BILL · 2p</text>
+  <rect x="162" y="166" width="94" height="118" rx="6" fill="#f4efe4" stroke="#e4ddd0"/>
+  <rect x="170" y="176" width="78" height="6" rx="3" fill="#cfc7b8"/>
+  <rect x="170" y="188" width="70" height="5" rx="2.5" fill="#ddd6c8"/>
+  <rect x="170" y="204" width="78" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="170" y="214" width="78" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="170" y="224" width="52" height="4" rx="2" fill="#e6dfd2"/>
+  <rect x="162" y="290" width="52" height="18" rx="9" fill="#e8eef4"/>
+  <text x="171" y="303" fill="#2C6E8F" font-size="10" font-weight="bold">EOB · 3p</text>
+  <text x="48" y="336" fill="#2C6E8F" font-size="11">Open viewer · OCR text toggle</text>
+  <line x1="48" y1="352" x2="256" y2="352" stroke="#eee8db"/>
+  <text x="48" y="376" fill="#6b7683" font-size="11" font-weight="bold">EXTRACTION</text>
+  <text x="48" y="396" fill="#4a5560" font-size="11">4 line items · exact-match OCR</text>
+  <text x="48" y="412" fill="#4a5560" font-size="11">identity: Jordan T. · attested ✓</text>
+  <line x1="48" y1="430" x2="256" y2="430" stroke="#eee8db"/>
+  <text x="48" y="454" fill="#6b7683" font-size="11" font-weight="bold">USER JOURNEY</text>
+  <text x="48" y="474" fill="#4a5560" font-size="11">deductible met: $1,750</text>
+  <text x="48" y="490" fill="#9aa4ad" font-size="10">user-entered · Sep 2</text>
+  <text x="48" y="510" fill="#4a5560" font-size="11">outcome: none recorded yet</text>
+
+  <!-- CENTER: what Tyndale did -->
+  <rect x="288" y="128" width="560" height="560" rx="12" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <!-- tabs -->
+  <text x="308" y="156" fill="#1D2A38" font-size="13" font-weight="bold">Analysis</text>
+  <rect x="304" y="162" width="62" height="3" rx="1.5" fill="#2E7D5B"/>
+  <text x="392" y="156" fill="#9aa4ad" font-size="13">Conversation</text>
+  <text x="498" y="156" fill="#9aa4ad" font-size="13">Results &amp; journey</text>
+  <text x="632" y="156" fill="#9aa4ad" font-size="13">Data &amp; provenance</text>
+
+  <!-- three numbers -->
+  <rect x="308" y="178" width="520" height="96" rx="10" fill="#f7f4ec" stroke="#eee8db"/>
+  <text x="324" y="200" fill="#6b7683" font-size="10" font-weight="bold">THE THREE NUMBERS · AS SHOWN TO USER</text>
+  <text x="324" y="228" fill="#6b7683" font-size="11">Billed</text>
+  <text x="324" y="250" fill="#8b6b57" font-size="17" font-weight="bold" text-decoration="line-through">$2,347.18</text>
+  <text x="470" y="228" fill="#6b7683" font-size="11">Insurer says</text>
+  <text x="470" y="250" fill="#1D2A38" font-size="17" font-weight="bold">$1,184.60</text>
+  <text x="628" y="228" fill="#6b7683" font-size="11">Tyndale computed</text>
+  <text x="628" y="250" fill="#2E7D5B" font-size="17" font-weight="bold">$795.60</text>
+
+  <!-- finding 1 (selected) -->
+  <rect x="308" y="290" width="520" height="112" rx="10" fill="#FFFFFF" stroke="#2E7D5B" stroke-width="1.5"/>
+  <rect x="308" y="290" width="6" height="112" rx="3" fill="#2E7D5B"/>
+  <rect x="326" y="304" width="98" height="20" rx="10" fill="#e7f1ec"/>
+  <text x="336" y="318" fill="#2E7D5B" font-size="10" font-weight="bold">PROVIDER · $389.00</text>
+  <rect x="432" y="304" width="86" height="20" rx="10" fill="#eef2ee"/>
+  <text x="442" y="318" fill="#3E5C57" font-size="10" font-weight="bold">selected ✓</text>
+  <text x="326" y="346" fill="#1D2A38" font-size="14" font-weight="bold">Duplicate charge — 73721 billed twice, one service</text>
+  <text x="326" y="366" fill="#4a5560" font-size="11">BASIS: 73721 ×2 on bill p.1 · EOB shows one adjudicated line</text>
+  <rect x="326" y="376" width="96" height="18" rx="9" fill="#e8eef4"/>
+  <text x="336" y="389" fill="#2C6E8F" font-size="10">📄 bill p.1, ln 3–4</text>
+  <rect x="430" y="376" width="82" height="18" rx="9" fill="#e8eef4"/>
+  <text x="440" y="389" fill="#2C6E8F" font-size="10">📄 EOB p.2</text>
+  <text x="524" y="389" fill="#9aa4ad" font-size="10">confidence 0.94</text>
+
+  <!-- finding 2 -->
+  <rect x="308" y="414" width="520" height="96" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <rect x="326" y="428" width="86" height="20" rx="10" fill="#e8eef4"/>
+  <text x="336" y="442" fill="#2C6E8F" font-size="10" font-weight="bold">PAYER · $28.40</text>
+  <text x="326" y="468" fill="#1D2A38" font-size="14" font-weight="bold">Coinsurance applied at 30% — plan says 20%</text>
+  <text x="326" y="488" fill="#4a5560" font-size="11">BASIS: EOB coins. line vs SBC §cost-sharing · responsible_party: payer</text>
+
+  <!-- analyst notes -->
+  <rect x="308" y="524" width="520" height="76" rx="10" fill="#f7f4ec" stroke="#eee8db"/>
+  <text x="324" y="546" fill="#6b7683" font-size="10" font-weight="bold">ANALYST NOTES · INTERNAL — NEVER SHOWN TO USERS</text>
+  <text x="324" y="566" fill="#4a5560" font-size="11">"73721 family check: no upcoding signal. Second 73721 line carries the</text>
+  <text x="324" y="582" fill="#4a5560" font-size="11">same DOS + modifier — duplicate, not bilateral. Coins math per SBC."</text>
+
+  <!-- RIGHT: verdict panel -->
+  <rect x="864" y="128" width="310" height="560" rx="12" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="882" y="154" fill="#6b7683" font-size="11" font-weight="bold">VERDICT</text>
+  <rect x="882" y="166" width="274" height="36" rx="18" fill="#2E7D5B"/>
+  <text x="984" y="189" fill="#FFFFFF" font-size="14" font-weight="bold">Approve</text>
+  <rect x="882" y="208" width="274" height="36" rx="18" fill="#FFFFFF" stroke="#b0483b" stroke-width="1.5"/>
+  <text x="972" y="231" fill="#b0483b" font-size="14" font-weight="bold">Disapprove…</text>
+  <rect x="882" y="250" width="274" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="944" y="270" fill="#6b7683" font-size="12" font-weight="bold">Can't verify  ·  excluded from rate</text>
+
+  <!-- disapprove expanded -->
+  <line x1="882" y1="286" x2="1156" y2="286" stroke="#eee8db"/>
+  <text x="882" y="310" fill="#6b7683" font-size="11" font-weight="bold">DISAPPROVAL · DRAFT</text>
+  <text x="882" y="332" fill="#4a5560" font-size="11">Type</text>
+  <rect x="882" y="340" width="130" height="26" rx="13" fill="#f8e9e7"/>
+  <text x="895" y="358" fill="#b0483b" font-size="11" font-weight="bold">partially_correct</text>
+  <rect x="1020" y="340" width="112" height="26" rx="13" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="1032" y="358" fill="#9aa4ad" font-size="11">missed_finding</text>
+  <text x="882" y="386" fill="#4a5560" font-size="11">Scope: Finding 1 · Cause (required):</text>
+  <rect x="882" y="392" width="112" height="20" rx="10" fill="#e8eef4"/>
+  <text x="892" y="406" fill="#2C6E8F" font-size="10" font-weight="bold">reasoning_error ✓</text>
+  <text x="1002" y="406" fill="#9aa4ad" font-size="10">content_gap · bad_input · stale</text>
+  <text x="882" y="418" fill="#4a5560" font-size="11">Concluded → should have → which input/rule</text>
+  <rect x="882" y="422" width="274" height="64" rx="8" fill="#f7f4ec" stroke="#eee8db"/>
+  <text x="894" y="442" fill="#4a5560" font-size="11">Second 73721 has modifier -RT/-LT —</text>
+  <text x="894" y="458" fill="#4a5560" font-size="11">bilateral study, not a duplicate. Needs a</text>
+  <text x="894" y="474" fill="#4a5560" font-size="11">modifier-pair exception in dup check.</text>
+
+  <!-- rule candidate -->
+  <rect x="882" y="502" width="274" height="140" rx="10" fill="#eef4f7" stroke="#2C6E8F"/>
+  <text x="898" y="524" fill="#2C6E8F" font-size="11" font-weight="bold">⚙ DRAFT A RULE FROM THIS</text>
+  <text x="898" y="546" fill="#4a5560" font-size="11">rule_class: provider_coding</text>
+  <text x="898" y="562" fill="#4a5560" font-size="11">rule_type: duplicate_exception</text>
+  <text x="898" y="578" fill="#4a5560" font-size="11">responsible_party: provider</text>
+  <text x="898" y="594" fill="#4a5560" font-size="11">applicable_codes: 73721 (+family)</text>
+  <rect x="898" y="606" width="140" height="26" rx="13" fill="#2C6E8F"/>
+  <text x="914" y="624" fill="#FFFFFF" font-size="11" font-weight="bold">Save candidate →</text>
+  <text x="1046" y="624" fill="#9aa4ad" font-size="10">to Brock's queue</text>
+
+  <text x="882" y="668" fill="#9aa4ad" font-size="10">Nothing auto-activates. Candidates await the</text>
+  <text x="882" y="681" fill="#9aa4ad" font-size="10">content owner's authoring pass, then normal ingestion.</text>
+
+  <text x="32" y="726" fill="#9aa4ad" font-size="11">Mockup v2 (2026-09-18, Brock §2a–2c applied) · Human Review case workspace · three-way verdict · cause routes the fix · verdicts append-only, UUID actor, audit-logged · 2026-09-03</text>
+</svg>

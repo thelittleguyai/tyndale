@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 974" font-family="Helvetica, Arial, sans-serif">
+  <title>Human Review — the reviewer queue (as shipped, Phase 1)</title>
+  <rect width="1200" height="974" fill="#FAF7F0"/>
+  <!-- Top nav -->
+  <rect width="1200" height="52" fill="#1D2A38"/>
+  <circle cx="34" cy="26" r="12" fill="#3E5C57"/>
+  <text x="56" y="31" fill="#FAF7F0" font-size="15" font-weight="bold">Tyndale Admin</text>
+  <text x="200" y="31" fill="#8fa1b3" font-size="13">Cases</text>
+  <text x="330" y="31" fill="#8fa1b3" font-size="13">Analytics</text>
+  <text x="410" y="31" fill="#8fa1b3" font-size="13">Knowledge</text>
+  <text x="500" y="31" fill="#8fa1b3" font-size="13">System</text>
+  <text x="262" y="31" fill="#FFFFFF" font-size="13" font-weight="bold">Review</text>
+  <rect x="252" y="38" width="52" height="3" rx="1.5" fill="#2E7D5B"/>
+  <!-- Title + health strip: four cells; BOTH rate cells carry the can't-verify caveat -->
+  <text x="32" y="92" fill="#1D2A38" font-size="24" font-weight="bold">Human review</text>
+  <text x="32" y="112" fill="#6b7683" font-size="13">Every audited run, reviewed by a person before it counts.</text>
+  <rect x="464" y="60" width="170" height="76" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="476" y="78" fill="#6b7683" font-size="10">AWAITING REVIEW</text>
+  <text x="476" y="101" fill="#1D2A38" font-size="19" font-weight="bold">17</text>
+  <text x="476" y="116" fill="#9aa4ad" font-size="9.5">unreviewed + re-review</text>
+  <text x="476" y="128" fill="#9aa4ad" font-size="9.5">2 more in review</text>
+  <rect x="644" y="60" width="170" height="76" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="656" y="78" fill="#6b7683" font-size="10">MEDIAN AGE</text>
+  <text x="656" y="101" fill="#1D2A38" font-size="19" font-weight="bold">1.2 days</text>
+  <text x="656" y="116" fill="#9aa4ad" font-size="9.5">pending runs</text>
+  <rect x="824" y="60" width="170" height="76" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="836" y="78" fill="#6b7683" font-size="10">APPROVAL RATE · 7D</text>
+  <text x="836" y="101" fill="#2E7D5B" font-size="19" font-weight="bold">89%</text>
+  <text x="836" y="116" fill="#9aa4ad" font-size="9.5">8 approved · 1 disapproved</text>
+  <text x="836" y="128" fill="#9aa4ad" font-size="9.5">can't-verify excluded</text>
+  <rect x="1004" y="60" width="170" height="76" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="1016" y="78" fill="#6b7683" font-size="10">APPROVAL RATE · 30D</text>
+  <text x="1016" y="101" fill="#2E7D5B" font-size="19" font-weight="bold">91%</text>
+  <text x="1016" y="116" fill="#9aa4ad" font-size="9.5">61 approved · 6 disapproved</text>
+  <text x="1016" y="128" fill="#9aa4ad" font-size="9.5">can't-verify excluded</text>
+  <!-- Sampling dial (§7-2d): runtime-mutable, audit-logged; the triggers fire regardless of it -->
+  <rect x="32" y="150" width="1142" height="40" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="175" fill="#6b7683" font-size="10" font-weight="bold">SAMPLING</text>
+  <text x="124" y="175" fill="#4a5560" font-size="12">review</text>
+  <rect x="166" y="159" width="46" height="22" rx="5" fill="#FFFFFF" stroke="#c9c1b2"/>
+  <text x="203" y="175" fill="#1D2A38" font-size="12" text-anchor="end">100</text>
+  <text x="220" y="175" fill="#4a5560" font-size="12">% of completed runs</text>
+  <rect x="350" y="159" width="52" height="22" rx="8" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="363" y="174" fill="#9aa4ad" font-size="11">Save</text>
+  <text x="1158" y="175" fill="#6b7683" font-size="11" text-anchor="end">always enqueued: first case · low confidence · system error · canary · material disagreement</text>
+  <!-- State filter: count pills. No "Rule candidates" pill — that tab is Phase 2 (doc 39 §5). -->
+  <rect x="32" y="204" width="102" height="30" rx="15" fill="#3E5C57"/>
+  <text x="45" y="223" fill="#FFFFFF" font-size="12" font-weight="bold">Pending · 19</text>
+  <rect x="142" y="204" width="120" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="155" y="223" fill="#4a5560" font-size="12">Unreviewed · 14</text>
+  <rect x="270" y="204" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="283" y="223" fill="#4a5560" font-size="12">In review · 2</text>
+  <rect x="386" y="204" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="399" y="223" fill="#4a5560" font-size="12">Approved · 61</text>
+  <rect x="502" y="204" width="120" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="515" y="223" fill="#4a5560" font-size="12">Disapproved · 6</text>
+  <rect x="630" y="204" width="127" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="643" y="223" fill="#4a5560" font-size="12">Can't verify · 3</text>
+  <rect x="765" y="204" width="108" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="778" y="223" fill="#4a5560" font-size="12">Re-review · 3</text>
+  <rect x="881" y="204" width="76" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="894" y="223" fill="#4a5560" font-size="12">All · 89</text>
+  <rect x="1022" y="204" width="152" height="30" rx="15" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="1038" y="223" fill="#6b7683" font-size="12">Filter: confidence ▾</text>
+  <!-- Table header: NO assignee column (§7-2e — no assignment machinery in Phase 1) -->
+  <text x="48" y="262" fill="#6b7683" font-size="11">CASE</text>
+  <text x="360" y="262" fill="#6b7683" font-size="11">USER</text>
+  <text x="440" y="262" fill="#6b7683" font-size="11">RUN</text>
+  <text x="590" y="262" fill="#6b7683" font-size="11">AUDIT RESULT</text>
+  <text x="735" y="262" fill="#6b7683" font-size="11">CONFIDENCE</text>
+  <text x="845" y="262" fill="#6b7683" font-size="11">STATE</text>
+  <text x="1000" y="262" fill="#6b7683" font-size="11">FLAGS</text>
+  <line x1="32" y1="270" x2="1174" y2="270" stroke="#e4ddd0"/>
+  <!-- Unreviewed -->
+  <rect x="32" y="278" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="302" fill="#1D2A38" font-size="14" font-weight="bold">University Medical Center</text>
+  <text x="48" y="320" fill="#6b7683" font-size="11.5">service date not extracted</text>
+  <rect x="48" y="326" width="40" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="338" fill="#4a5560" font-size="10">Bill</text>
+  <text x="96" y="338" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·41d0 #1</text>
+  <text x="360" y="306" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·8c41</text>
+  <text x="440" y="306" fill="#4a5560" font-size="12">audit incomplete</text>
+  <text x="440" y="323" fill="#9aa4ad" font-size="10.5">needs documents · 1.6d ago</text>
+  <text x="590" y="306" fill="#1D2A38" font-size="12">0 findings</text>
+  <text x="590" y="323" fill="#9aa4ad" font-size="11">— identified</text>
+  <rect x="735" y="292" width="66" height="22" rx="11" fill="#FBEBD8"/>
+  <text x="748" y="307" fill="#884E1B" font-size="11" font-weight="bold">MEDIUM</text>
+  <rect x="845" y="292" width="92" height="22" rx="11" fill="#FBEBD8"/>
+  <text x="858" y="307" fill="#884E1B" font-size="11" font-weight="bold">Unreviewed</text>
+  <rect x="1000" y="294" width="72" height="18" rx="9" fill="#E1EBEF"/>
+  <text x="1006" y="305" fill="#225670" font-size="10" font-weight="bold">first case</text>
+  <!-- In review -->
+  <rect x="32" y="356" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#3E5C57" stroke-width="1.5"/>
+  <text x="48" y="380" fill="#1D2A38" font-size="14" font-weight="bold">Riverton Imaging</text>
+  <text x="48" y="398" fill="#6b7683" font-size="11.5">Aug 30, 2026</text>
+  <rect x="48" y="404" width="128" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="416" fill="#4a5560" font-size="10">Itemized bill + EOB</text>
+  <text x="184" y="416" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·69ae #1</text>
+  <text x="360" y="384" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·2f9a</text>
+  <text x="440" y="384" fill="#4a5560" font-size="12">audit complete</text>
+  <text x="440" y="401" fill="#9aa4ad" font-size="10.5">1.2d ago</text>
+  <text x="590" y="384" fill="#1D2A38" font-size="12">2 findings</text>
+  <text x="590" y="401" fill="#9aa4ad" font-size="11">$389 identified</text>
+  <rect x="735" y="370" width="52" height="22" rx="11" fill="#E2EDE8"/>
+  <text x="748" y="385" fill="#246247" font-size="11" font-weight="bold">HIGH</text>
+  <rect x="845" y="370" width="85" height="22" rx="11" fill="#E1EBEF"/>
+  <text x="858" y="385" fill="#225670" font-size="11" font-weight="bold">In review</text>
+  <text x="845" y="408" fill="#9aa4ad" font-size="10">claimed by u·b7c2</text>
+  <rect x="1000" y="372" width="54" height="18" rx="9" fill="#ECEEF0"/>
+  <text x="1006" y="383" fill="#4a5560" font-size="10" font-weight="bold">sampled</text>
+  <!-- Unreviewed -->
+  <rect x="32" y="434" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="458" fill="#1D2A38" font-size="14" font-weight="bold">St. Anne Regional</text>
+  <text x="48" y="476" fill="#6b7683" font-size="11.5">Aug 27, 2026</text>
+  <rect x="48" y="482" width="164" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="494" fill="#4a5560" font-size="10">Itemized bill + EOB + SBC</text>
+  <text x="220" y="494" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·0b3e #1</text>
+  <text x="360" y="462" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·77b0</text>
+  <text x="440" y="462" fill="#4a5560" font-size="12">audit complete</text>
+  <text x="440" y="479" fill="#9aa4ad" font-size="10.5">22h ago</text>
+  <text x="590" y="462" fill="#1D2A38" font-size="12">1 finding</text>
+  <text x="590" y="479" fill="#9aa4ad" font-size="11">$1,212 identified</text>
+  <rect x="735" y="448" width="52" height="22" rx="11" fill="#E2EDE8"/>
+  <text x="748" y="463" fill="#246247" font-size="11" font-weight="bold">HIGH</text>
+  <rect x="845" y="448" width="92" height="22" rx="11" fill="#FBEBD8"/>
+  <text x="858" y="463" fill="#884E1B" font-size="11" font-weight="bold">Unreviewed</text>
+  <rect x="1000" y="450" width="72" height="18" rx="9" fill="#E1EBEF"/>
+  <text x="1006" y="461" fill="#225670" font-size="10" font-weight="bold">first case</text>
+  <rect x="1077" y="450" width="90" height="18" rx="9" fill="#FBEBD8"/>
+  <text x="1083" y="461" fill="#884E1B" font-size="10" font-weight="bold">EOB ≠ Tyndale</text>
+  <!-- Re-review -->
+  <rect x="32" y="512" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="536" fill="#1D2A38" font-size="14" font-weight="bold">Maple Grove Family Medicine</text>
+  <text x="48" y="554" fill="#6b7683" font-size="11.5">Aug 12, 2026</text>
+  <rect x="48" y="560" width="75" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="572" fill="#4a5560" font-size="10">Bill + EOB</text>
+  <text x="131" y="572" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·9f21 #2</text>
+  <text x="360" y="540" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·2f9a</text>
+  <text x="440" y="540" fill="#4a5560" font-size="12">audit complete</text>
+  <text x="440" y="557" fill="#9aa4ad" font-size="10.5">re-run · 3.1d ago</text>
+  <text x="590" y="540" fill="#1D2A38" font-size="12">1 finding</text>
+  <text x="590" y="557" fill="#9aa4ad" font-size="11">$28 identified</text>
+  <rect x="735" y="526" width="66" height="22" rx="11" fill="#FBEBD8"/>
+  <text x="748" y="541" fill="#884E1B" font-size="11" font-weight="bold">MEDIUM</text>
+  <rect x="845" y="526" width="85" height="22" rx="11" fill="#FBEBD8"/>
+  <text x="858" y="541" fill="#884E1B" font-size="11" font-weight="bold">Re-review</text>
+  <text x="845" y="564" fill="#9aa4ad" font-size="10">new EOB · run #1 was disapproved</text>
+  <rect x="1000" y="528" width="54" height="18" rx="9" fill="#ECEEF0"/>
+  <text x="1006" y="539" fill="#4a5560" font-size="10" font-weight="bold">sampled</text>
+  <!-- Can't verify -->
+  <rect x="32" y="590" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="614" fill="#1D2A38" font-size="14" font-weight="bold">Bill review</text>
+  <text x="48" y="632" fill="#6b7683" font-size="11.5">service date not extracted</text>
+  <rect x="48" y="638" width="87" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="650" fill="#4a5560" font-size="10">Unclassified</text>
+  <text x="143" y="650" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·c7aa #1</text>
+  <text x="360" y="618" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·c113</text>
+  <text x="440" y="618" fill="#4a5560" font-size="12">audit incomplete</text>
+  <text x="440" y="635" fill="#9aa4ad" font-size="10.5">system error · 2h ago</text>
+  <text x="590" y="618" fill="#1D2A38" font-size="12">0 findings</text>
+  <text x="590" y="635" fill="#9aa4ad" font-size="11">— identified</text>
+  <rect x="735" y="604" width="46" height="22" rx="11" fill="#F7E0E0"/>
+  <text x="748" y="619" fill="#9A3232" font-size="11" font-weight="bold">LOW</text>
+  <rect x="845" y="604" width="105" height="22" rx="11" fill="#ECEEF0"/>
+  <text x="858" y="619" fill="#4a5560" font-size="11" font-weight="bold">Can't verify</text>
+  <text x="845" y="642" fill="#9aa4ad" font-size="10">unable to verify · u·b7c2</text>
+  <rect x="1000" y="606" width="84" height="18" rx="9" fill="#F7E0E0"/>
+  <text x="1006" y="617" fill="#9A3232" font-size="10" font-weight="bold">system error</text>
+  <!-- Disapproved -->
+  <rect x="32" y="668" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="692" fill="#1D2A38" font-size="14" font-weight="bold">Lakeside Orthopedics</text>
+  <text x="48" y="710" fill="#6b7683" font-size="11.5">Aug 8, 2026</text>
+  <rect x="48" y="716" width="128" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="728" fill="#4a5560" font-size="10">Itemized bill + EOB</text>
+  <text x="184" y="728" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·5d12 #1</text>
+  <text x="360" y="696" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·91e4</text>
+  <text x="440" y="696" fill="#4a5560" font-size="12">audit complete</text>
+  <text x="440" y="713" fill="#9aa4ad" font-size="10.5">6.0d ago</text>
+  <text x="590" y="696" fill="#1D2A38" font-size="12">1 finding</text>
+  <text x="590" y="713" fill="#9aa4ad" font-size="11">$240 identified</text>
+  <rect x="735" y="682" width="52" height="22" rx="11" fill="#E2EDE8"/>
+  <text x="748" y="697" fill="#246247" font-size="11" font-weight="bold">HIGH</text>
+  <rect x="845" y="682" width="99" height="22" rx="11" fill="#F7E0E0"/>
+  <text x="858" y="697" fill="#9A3232" font-size="11" font-weight="bold">Disapproved</text>
+  <text x="845" y="720" fill="#9aa4ad" font-size="10">wrong · reasoning error · u·a41d</text>
+  <rect x="1000" y="684" width="48" height="18" rx="9" fill="#F7E0E0"/>
+  <text x="1006" y="695" fill="#9A3232" font-size="10" font-weight="bold">canary</text>
+  <!-- Approved -->
+  <rect x="32" y="746" width="1142" height="70" rx="10" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="48" y="770" fill="#1D2A38" font-size="14" font-weight="bold">Utah Valley Sleep Center</text>
+  <text x="48" y="788" fill="#6b7683" font-size="11.5">Aug 9, 2026</text>
+  <rect x="48" y="794" width="93" height="17" rx="6" fill="#FFFFFF" stroke="#e4ddd0"/>
+  <text x="56" y="806" fill="#4a5560" font-size="10">Itemized bill</text>
+  <text x="149" y="806" fill="#9aa4ad" font-size="10" font-family="Menlo, Consolas, monospace">c·e310 #1</text>
+  <text x="360" y="774" fill="#4a5560" font-size="12" font-family="Menlo, Consolas, monospace">u·c113</text>
+  <text x="440" y="774" fill="#4a5560" font-size="12">audit complete</text>
+  <text x="440" y="791" fill="#9aa4ad" font-size="10.5">5.4d ago</text>
+  <text x="590" y="774" fill="#1D2A38" font-size="12">0 findings</text>
+  <text x="590" y="791" fill="#9aa4ad" font-size="11">— identified</text>
+  <rect x="735" y="760" width="52" height="22" rx="11" fill="#E2EDE8"/>
+  <text x="748" y="775" fill="#246247" font-size="11" font-weight="bold">HIGH</text>
+  <rect x="845" y="760" width="79" height="22" rx="11" fill="#E2EDE8"/>
+  <text x="858" y="775" fill="#246247" font-size="11" font-weight="bold">Approved</text>
+  <text x="845" y="798" fill="#9aa4ad" font-size="10">correct · u·a41d</text>
+  <rect x="1000" y="762" width="54" height="18" rx="9" fill="#ECEEF0"/>
+  <text x="1006" y="773" fill="#4a5560" font-size="10" font-weight="bold">sampled</text>
+  <!-- Footer -->
+  <text x="32" y="846" fill="#6b7683" font-size="12">One row per audited RUN (#2 = a re-run; the prior verdict is kept and linked). Title + service date come from the same plausibility-gated</text>
+  <text x="32" y="864" fill="#6b7683" font-size="12">source as the member's own Record row — a case with no plausible provider reads "Bill review", never a misread ledger label. No email on this page.</text>
+  <text x="32" y="890" fill="#6b7683" font-size="12">Queue policy (§7-2d): 100% of completed runs, dial-able down; the five triggers always enqueue. Who claimed or decided a run sits under its state —</text>
+  <text x="32" y="908" fill="#6b7683" font-size="12">there is no assignee column and no assignment machinery in Phase 1 (§7-2e). Rule candidates are Phase 2 and have no pill here yet.</text>
+  <text x="32" y="936" fill="#9aa4ad" font-size="11">Mockup · Human Review queue · REGENERATED 2026-09-21 to match the shipped Phase 1 (doc 39 §1). The sketch uses the light palette; the console itself</text>
+  <text x="32" y="951" fill="#9aa4ad" font-size="11">is the dark navy admin theme. Pill colours are the shipped AA pairs (&lt;ramp&gt;.deep on &lt;ramp&gt;.soft).</text>
+</svg>
