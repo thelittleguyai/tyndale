@@ -8,6 +8,8 @@
  *
  * `prefers-reduced-motion` renders the static presentation unchanged. No animation library:
  * CSS keyframes + one IntersectionObserver to start when the card is actually on screen.
+ * The four keyframes live in app/globals.css as `tyn-mock-*`: keyframe names are GLOBAL, so
+ * they are namespaced, and a <style> in the component body re-injected them on every render.
  * Deliberately NOT the prototype's looping stateful demo — and no glass: current tokens only.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -36,7 +38,7 @@ export function AuditMock() {
   }, []);
 
   const row = (i: number) =>
-    play ? { animation: `mock-row 0.55s ease-out ${900 + i * 550}ms both` } : undefined;
+    play ? { animation: `tyn-mock-row 0.55s ease-out ${900 + i * 550}ms both` } : undefined;
 
   return (
     <div
@@ -44,21 +46,6 @@ export function AuditMock() {
       className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-elev ring-1 ring-black/5 sm:p-7"
       data-animated={play || undefined}
     >
-      <style>{`
-        @keyframes mock-doc {
-          0% { opacity: 0; transform: translateY(-14px) scale(0.96); }
-          22% { opacity: 1; transform: translateY(0) scale(1); }
-          78% { opacity: 1; }
-          100% { opacity: 0; transform: translateY(4px); visibility: hidden; }
-        }
-        @keyframes mock-row {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes mock-strike { from { width: 0; } to { width: 100%; } }
-        @keyframes mock-fade { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
-
       {/* Documents stacking in — an overlay that plays once and vanishes; absolutely
           positioned so it can never move the layout beneath it. */}
       {play ? (
@@ -67,7 +54,7 @@ export function AuditMock() {
             <span
               key={label}
               className="rounded-md border border-line-soft bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink/60 shadow-sm"
-              style={{ animation: `mock-doc 1.5s ease-in-out ${i * 180}ms both` }}
+              style={{ animation: `tyn-mock-doc 1.5s ease-in-out ${i * 180}ms both` }}
             >
               {label}
             </span>
@@ -98,7 +85,7 @@ export function AuditMock() {
               className="absolute left-0 top-1/2 h-[1.5px] bg-ink/30"
               style={
                 play
-                  ? { animation: 'mock-strike 0.4s ease-out 1550ms both' }
+                  ? { animation: 'tyn-mock-strike 0.4s ease-out 1550ms both' }
                   : { width: '100%' }
               }
             />
@@ -122,7 +109,7 @@ export function AuditMock() {
 
       <p
         className="mt-4 text-xs leading-relaxed text-ink/45"
-        style={play ? { animation: 'mock-fade 0.6s ease-out 2600ms both' } : undefined}
+        style={play ? { animation: 'tyn-mock-fade 0.6s ease-out 2600ms both' } : undefined}
       >
         Every difference is a finding, cited to your plan documents and published rates.
       </p>

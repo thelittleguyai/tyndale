@@ -117,7 +117,8 @@ const TRUST: TrustItem[] = [
   },
 ];
 
-/** Illustrative three-number audit card (clearly labeled as an example). */
+/** The landing page. The hero's illustrative three-number audit card (clearly labeled as an
+ *  example) is components/audit-mock.tsx — this comment used to describe it from here. */
 export default function HomePage() {
   return (
     <>
@@ -458,14 +459,14 @@ function GroundingBand() {
 
 /** B4 · Total recovered for members. */
 function SavingsBand() {
-  {/* SUBSTANTIATION PENDING (Brock) — see build-kit standing queue; swap to sourced figure
-      or confirmed-outcomes counter when ruled. Do not change the rendered figure here. */}
   return (
     <section className="bg-cream-soft">
       <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-24">
         <p className="text-base font-semibold uppercase tracking-[0.14em] text-sage-deep">
           Recovered for members
         </p>
+        {/* SUBSTANTIATION PENDING (Brock) — see build-kit standing queue; swap to sourced figure
+            or confirmed-outcomes counter when ruled. Do not change the rendered figure here. */}
         <p className="mt-3 text-5xl font-bold tracking-tight text-sage-deep sm:text-6xl">
           $504,100
         </p>
@@ -554,7 +555,10 @@ function CleanBillBand() {
   );
 }
 
-/** B7/B8 · Our Story — a SMALL band across the page (a large cofounder block was rejected). */
+/** Round-2 closing band (2026-08-28) — "Tyndale is just getting started": pill, H2, body and
+ *  the hero's own CTA. The chip says what is true of the PRODUCT ("Cited where it counts · every
+ *  finding in your audit traces to a source") and is deliberately silent about page statistics:
+ *  the page's one figure, in SavingsBand, is still unsourced. */
 function BetaBand() {
   return (
     <section className="bg-teal-deep">
@@ -588,6 +592,7 @@ function BetaBand() {
   );
 }
 
+/** B7/B8 · Our Story — a SMALL band across the page (a large cofounder block was rejected). */
 function OurStoryBand() {
   return (
     <section className="bg-cream">
