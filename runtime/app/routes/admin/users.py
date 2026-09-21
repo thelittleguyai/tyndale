@@ -71,11 +71,27 @@ async def _case_counts(session: AsyncSession, user_ids: list) -> dict:
     return {uid: n for uid, n in rows}
 
 
+def _intake_mode_view(u: User) -> dict:
+    """The front door this user gets, and why (doc 40 §D): the admin override, the one-time
+    cohort decision, and what they resolve to under the CURRENT env default."""
+    from app.config import get_settings
+    from app.intake.mode import resolve_intake_mode
+
+    mode, source = resolve_intake_mode(u, get_settings())
+    return {
+        "override": u.intake_mode,
+        "cohort": u.intake_cohort,
+        "resolved": mode,
+        "source": source,
+    }
+
+
 def _user_summary(u: User, case_count: int) -> dict:
     return {
         "user_id": str(u.user_id),
         "email": u.email,
         "user_type": u.user_type,
+        "intake_mode": _intake_mode_view(u),
         "status": _status(u),
         "created_at": iso(u.created_at),
         "last_admin_action_at": iso(u.last_admin_action_at),
@@ -142,6 +158,7 @@ async def user_detail(
         "user_id": str(u.user_id),
         "email": u.email,
         "user_type": u.user_type,
+        "intake_mode": _intake_mode_view(u),
         "status": _status(u),
         "is_blocked": u.is_blocked,
         "blocked_at": iso(u.blocked_at),
@@ -163,6 +180,7 @@ async def user_detail(
                 "case_file_id": str(c.case_file_id),
                 "status": c.status,
                 "intake_status": c.intake_status,
+                "intake_mode": c.intake_mode,
                 "created_at": iso(c.created_at),
             }
             for c in cases[:5]
@@ -336,6 +354,36 @@ async def set_role(
     )
     await session.commit()
     return {"ok": True, "user_id": str(u.user_id), "user_type": u.user_type}
+
+
+class SetIntakeModeRequest(BaseModel):
+    # null CLEARS the override: the user falls back to their cohort, then the env default.
+    intake_mode: Literal["guided", "chat_first"] | None
+
+
+@router.post("/admin/users/{user_id}/set-intake-mode")
+async def set_intake_mode(
+    user_id: str,
+    req: SetIntakeModeRequest,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Per-user override of the intake front door (doc 40 §D) — the top of the resolution
+    order (override → cohort → env default). It changes which route the user's NEXT "Check a
+    bill" takes; cases already open keep the mode that created them. Audit-logged."""
+    u = await _load_user(session, user_id)
+    previous = u.intake_mode
+    u.intake_mode = req.intake_mode
+    _touch(u)
+    await audit_admin_action(
+        session,
+        admin=admin,
+        action="set_intake_mode",
+        target_user_id=u.user_id,
+        extra={"from": previous, "to": req.intake_mode},
+    )
+    await session.commit()
+    return {"ok": True, "user_id": str(u.user_id), "intake_mode": _intake_mode_view(u)}
 
 
 # --------------------------------------------------------------------------- #

@@ -241,6 +241,24 @@ resource "azurerm_container_app_job" "cron" {
         name  = "AUTH_SUCCESS_REDIRECT"
         value = "https://app.${var.dns_zone_name}"
       }
+      # Guided intake (doc 40 §D). The crons carry these too: the reconcile/nudge paths read
+      # case state the planner wrote, and a tfvars flip must reach both containers.
+      env {
+        name  = "INTAKE_MODE_DEFAULT"
+        value = var.intake_mode_default
+      }
+      env {
+        name  = "INTAKE_MODE_COHORT_PCT"
+        value = tostring(var.intake_mode_cohort_pct)
+      }
+      env {
+        name  = "GUIDED_HIDDEN_SURFACES"
+        value = var.guided_hidden_surfaces
+      }
+      env {
+        name  = "UNLOCK_GATE_MODE"
+        value = var.unlock_gate_mode
+      }
     }
   }
 

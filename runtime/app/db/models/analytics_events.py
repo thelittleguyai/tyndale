@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime
 import uuid
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Index, Text, func, text
+from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,6 +28,10 @@ class AnalyticsEvent(Base):
         Index("idx_analytics_events_case", "case_file_id"),
         # Idempotency: at most one row per non-null dedupe_key.
         Index("uq_analytics_events_dedupe", "dedupe_key", unique=True),
+        CheckConstraint(
+            "intake_mode IS NULL OR intake_mode IN ('guided', 'chat_first')",
+            name="ck_analytics_events_intake_mode",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -57,3 +61,8 @@ class AnalyticsEvent(Base):
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
     dedupe_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The front door of the case this event belongs to (doc 40 §D, migration 0054) — stamped by
+    # the emitter from case_files.intake_mode, never by a call site, so EVERY case-scoped event
+    # carries it and both routes are comparable on any metric. Null = not case-scoped. A column,
+    # not a property: each event's `properties` stays exactly what its call site declared.
+    intake_mode: Mapped[str | None] = mapped_column(Text, nullable=True)

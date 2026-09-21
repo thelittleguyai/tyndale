@@ -91,13 +91,16 @@ def _case_line(cf: CaseFile | None) -> dict[str, Any]:
     extracted service date — so the reviewer and the user are looking at the same label.
     There is deliberately no free-text 'service description': nothing gated produces one."""
     if cf is None:
-        return {"provider": None, "service_date": None, "document_set": []}
+        return {"provider": None, "service_date": None, "document_set": [], "intake_mode": None}
     from app.routes.record import _row_provider, _row_service_date
 
     return {
         "provider": _row_provider(cf),
         "service_date": _row_service_date(cf),
         "document_set": _document_set(cf),
+        # doc 40 §D: both front doors are measured in ONE queue — this is the route that
+        # opened the case ('guided' | 'chat_first'), and the queue filters on it.
+        "intake_mode": cf.intake_mode,
     }
 
 
@@ -173,6 +176,7 @@ async def review_queue_list(
     confidence: str | None = Query(None, description="comma-separated bands"),
     has_system_error: bool | None = Query(None),
     canary: bool | None = Query(None),
+    intake_mode: str | None = Query(None, description="guided | chat_first — the case's front door"),
     since: datetime.datetime | None = Query(None, description="enqueued_at >= (ISO)"),
     until: datetime.datetime | None = Query(None, description="enqueued_at < (ISO)"),
     limit: int = Query(50, ge=1, le=200),
@@ -204,6 +208,12 @@ async def review_queue_list(
         conds.append(CaseReview.system_error.is_(has_system_error))
     if canary is not None:
         conds.append(CaseReview.canary_flag.is_(canary))
+    if intake_mode:
+        from app.intake.mode import INTAKE_MODES
+
+        if intake_mode not in INTAKE_MODES:
+            raise HTTPException(status_code=422, detail=f"unknown intake_mode: {intake_mode!r}")
+        conds.append(CaseFile.intake_mode == intake_mode)
     if since is not None:
         conds.append(CaseReview.enqueued_at >= since)
     if until is not None:

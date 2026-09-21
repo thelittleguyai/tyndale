@@ -32,6 +32,14 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("user_type IN ('user', 'admin')", name="ck_users_user_type"),
+        CheckConstraint(
+            "intake_mode IS NULL OR intake_mode IN ('guided', 'chat_first')",
+            name="ck_users_intake_mode",
+        ),
+        CheckConstraint(
+            "intake_cohort IS NULL OR intake_cohort IN ('guided', 'default')",
+            name="ck_users_intake_cohort",
+        ),
         Index("idx_users_is_blocked", "is_blocked", postgresql_where=text("is_blocked = TRUE")),
         Index("idx_users_soft_deleted_at", "soft_deleted_at"),
     )
@@ -114,3 +122,9 @@ class User(Base):
     # "summary": <text>}. Regenerated ONLY when the hash changes, so the line reads the same on
     # every load until the user's cases actually change (kills per-load regeneration cost/drift).
     welcome_summary_cache: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Guided intake (doc 40 §D, migration 0054). intake_mode is an ADMIN OVERRIDE; intake_cohort
+    # is the one-time cohort decision ('guided' | 'default'), stamped at first sign-in so a later
+    # move of the cohort dial never flips someone mid-journey. Resolution order lives in
+    # app.intake.mode.resolve_intake_mode: override → cohort → env default.
+    intake_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intake_cohort: Mapped[str | None] = mapped_column(Text, nullable=True)

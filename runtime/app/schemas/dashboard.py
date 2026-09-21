@@ -124,6 +124,15 @@ class DashboardPayload(BaseModel):
     # DL-91 D5: when true, the client shows the Tyndale Record (sub-case rows) in place of the
     # ad-hoc Open Cases list. Reflects the server's enable_record_view flag.
     record_enabled: bool = False
+    # Guided intake (doc 40 §D): which front door THIS user gets — 'guided' sends "Check a bill"
+    # into /intake, 'chat_first' leaves everything as it was. `intake_mode_source` says why
+    # (override | cohort | default). `hidden_surfaces` is the closed list of entry points the
+    # client must leave OUT for this user (absent, never disabled); empty for chat-first.
+    intake_mode: str = "chat_first"
+    intake_mode_source: str = "default"
+    hidden_surfaces: list[str] = Field(default_factory=list)
+    # The guided case this user left unfinished, if any — the "pick up where you left off" card.
+    guided_resume_case_id: str | None = None
 
 
 class CasesListPayload(BaseModel):

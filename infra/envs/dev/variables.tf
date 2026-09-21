@@ -438,6 +438,42 @@ variable "review_trigger_material_disagreement" {
   description = "Always enqueue runs where the EOB-claimed and Tyndale-computed member responsibility disagree above materiality (AUDIT_FLAG)."
 }
 
+variable "intake_mode_default" {
+  type        = string
+  default     = "chat_first"
+  description = "Guided intake (doc 40 §D): the front door a user gets when they have no admin override and no cohort assignment — chat_first | guided."
+  validation {
+    condition     = contains(["chat_first", "guided"], var.intake_mode_default)
+    error_message = "intake_mode_default must be chat_first or guided."
+  }
+}
+
+variable "intake_mode_cohort_pct" {
+  type        = number
+  default     = 0
+  description = "Percentage (0-100) of NEW users assigned the guided front door at first sign-in. Deterministic by user-id hash and decided once, so moving this dial never flips a user mid-journey."
+  validation {
+    condition     = var.intake_mode_cohort_pct >= 0 && var.intake_mode_cohort_pct <= 100
+    error_message = "intake_mode_cohort_pct must be between 0 and 100."
+  }
+}
+
+variable "guided_hidden_surfaces" {
+  type        = string
+  default     = "freeform_chat_entry,quick_actions_grid"
+  description = "PROVISIONAL (doc 40 open question 1): comma-separated entry points a GUIDED user does not see. Known: freeform_chat_entry, quick_actions_grid, connect_plan_tile. Hidden means absent. Empty string = hide nothing."
+}
+
+variable "unlock_gate_mode" {
+  type        = string
+  default     = "free_beta"
+  description = "PROVISIONAL (doc 40 open question 2): what the unlock moment does while billing is dark — free_beta (honest interim line, proceeds) | block (no proceed path; testing) | billing (the future real gate)."
+  validation {
+    condition     = contains(["free_beta", "block", "billing"], var.unlock_gate_mode)
+    error_message = "unlock_gate_mode must be free_beta, block or billing."
+  }
+}
+
 variable "audit_reconcile_stale_seconds" {
   type        = number
   default     = 1800

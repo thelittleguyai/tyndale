@@ -388,7 +388,11 @@ async def upload(
         and case.audit_incomplete_reason == "needs_documents"
     )
     if case is None:
-        case = CaseFile(user_id=user.user_id, status="open", documents=documents)
+        # An upload that opens a case IS the chat-first front door (doc 40 §D) — the guided
+        # route creates its case in routes/intake.py and uploads into it by id.
+        case = CaseFile(
+            user_id=user.user_id, status="open", documents=documents, intake_mode="chat_first"
+        )
         session.add(case)
     else:
         case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation

@@ -436,6 +436,8 @@ export type ConfidenceBand = 'high' | 'medium' | 'low' | 'unknown';
 export type DisapprovalCause = 'content_gap' | 'reasoning_error' | 'bad_input' | 'stale_data_source';
 export type DisapprovalType = 'partially_correct' | 'wrong' | 'missed_finding' | 'hallucinated' | 'partial';
 
+export type IntakeMode = 'guided' | 'chat_first';
+
 export interface ReviewQueueItem {
   review_id: string;
   case_file_id: string;
@@ -445,6 +447,8 @@ export interface ReviewQueueItem {
   service_date: string | null;
   /** Distinct classified document types on the case, e.g. ['Itemized bill', 'EOB']. */
   document_set: string[];
+  /** The front door that opened the case (doc 40 §D) — both routes share this queue. */
+  intake_mode: IntakeMode | null;
   run_seq: number;
   state: ReviewState;
   terminal_status: string;
@@ -570,6 +574,7 @@ export interface ReviewWorkspace {
     provider: string | null;
     service_date: string | null;
     document_set: string[];
+    intake_mode: IntakeMode | null;
     status: string;
     incomplete_reason: string | null;
     intake_status: string | null;

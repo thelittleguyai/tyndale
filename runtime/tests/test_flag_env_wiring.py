@@ -33,6 +33,8 @@ import ast
 import pathlib
 import re
 
+import pytest
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 CONFIG_PY = REPO / "runtime/app/config.py"
 COMPUTE_TF = REPO / "infra/envs/dev/compute.tf"
@@ -393,3 +395,33 @@ def test_audit_budget_is_env_wired_for_runtime_and_cron():
     assert "AUDIT_WALL_CLOCK_BUDGET_SECONDS" in _tf_env_names()
     assert "AUDIT_WALL_CLOCK_BUDGET_SECONDS" in _cron_env_names()
     assert 'variable "audit_wall_clock_budget_seconds"' in VARIABLES_TF.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "env_name",
+    ["INTAKE_MODE_DEFAULT", "INTAKE_MODE_COHORT_PCT", "GUIDED_HIDDEN_SURFACES", "UNLOCK_GATE_MODE"],
+)
+def test_guided_intake_settings_are_env_wired_for_runtime_and_cron(env_name):
+    """Doc 40 §D. None of the four is a bool, so the sweep above cannot see them — pinned here.
+    BOTH containers: the API resolves a user's front door and renders the unlock moment, and
+    the cron paths (reconcile, nudge) project the same case state the planner wrote. A tfvars
+    flip that reached one container and not the other is the 67885b7 failure shape."""
+    assert env_name in _tf_env_names(), f"{env_name} is not wired to the runtime container"
+    assert env_name in _cron_env_names(), f"{env_name} is not wired to the cron container"
+    assert f'variable "{env_name.lower()}"' in VARIABLES_TF.read_text(encoding="utf-8")
+
+
+def test_the_two_provisional_defaults_are_the_documented_ones():
+    """Two open decisions ship as data (doc 40 open questions 1 and 2). The code default, the
+    terraform default and the documented default must be the same value — a disagreement
+    would mean the env you deploy is not the behaviour you reviewed."""
+    from app.config import Settings
+
+    fields = Settings.model_fields
+    tf = VARIABLES_TF.read_text(encoding="utf-8")
+    for name in ("guided_hidden_surfaces", "unlock_gate_mode", "intake_mode_default"):
+        default = fields[name].default
+        block = tf[tf.index(f'variable "{name}"') :]
+        block = block[: block.index("\n}\n")]
+        assert f'default     = "{default}"' in block, (name, default)
+    assert fields["intake_mode_cohort_pct"].default == 0

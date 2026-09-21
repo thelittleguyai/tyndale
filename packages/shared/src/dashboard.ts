@@ -87,6 +87,20 @@ export interface DashboardPayload {
   status_forward_greeting: string | null;
   /** DL-91 D5: when true, show the Tyndale Record view in place of the ad-hoc Open Cases list. */
   record_enabled?: boolean;
+  /**
+   * Guided intake (doc 40 §D): which front door THIS user gets. 'guided' sends "Check a bill"
+   * into /intake; 'chat_first' leaves every entry point as it was. Absent on an older server.
+   */
+  intake_mode?: IntakeMode;
+  /** Why: an admin override, the one-time cohort decision, or the env default. */
+  intake_mode_source?: 'override' | 'cohort' | 'default';
+  /**
+   * Entry points the client must leave OUT for this user — absent, never disabled. A closed
+   * list (HideableSurface); empty for chat-first users.
+   */
+  hidden_surfaces?: HideableSurface[];
+  /** The guided case this user left unfinished, if any — "pick up where you left off". */
+  guided_resume_case_id?: string | null;
 }
 
 export interface CaseSummary {
@@ -105,3 +119,8 @@ export interface CoverageDetailPayload {
   source_document_ids: string[];
   confidence: Record<string, unknown>;
 }
+
+export type IntakeMode = 'guided' | 'chat_first';
+
+/** Mirrors runtime app/intake/mode.py HIDEABLE_SURFACES. */
+export type HideableSurface = 'freeform_chat_entry' | 'quick_actions_grid' | 'connect_plan_tile';

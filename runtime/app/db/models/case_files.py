@@ -49,6 +49,9 @@ class CaseFile(Base):
             name="ck_case_files_intake_status",
         ),
         CheckConstraint(
+            "intake_mode IN ('guided', 'chat_first')", name="ck_case_files_intake_mode"
+        ),
+        CheckConstraint(
             "audit_incomplete_reason IS NULL OR "
             "audit_incomplete_reason IN ('needs_documents', 'system_error')",
             name="ck_case_files_audit_incomplete_reason",
@@ -118,6 +121,12 @@ class CaseFile(Base):
         Text, nullable=False, server_default=text("'not_started'")
     )
     intake_current_step: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The front door that CREATED this case (doc 40 §D, migration 0054): 'guided' when the
+    # Intake Planner opened it, 'chat_first' when an upload did. Carried into the Human Review
+    # queue and every case-scoped analytics event so both routes are measured in one place.
+    intake_mode: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'chat_first'")
+    )
     visit_context: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Sprint B (DL-82): the case's coverage regime + detection metadata
     # (method/confidence/evidence/verified). The audit orchestrator reads

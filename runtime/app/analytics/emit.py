@@ -41,6 +41,23 @@ def get_drop_counts() -> dict[str, int]:
 ANONYMOUS_EVENTS: frozenset[str] = frozenset({"access_request_received"})
 
 
+async def _intake_mode_of(session, case_file_id: uuid.UUID | None) -> str | None:
+    """The front door of the case an event belongs to (doc 40 §D). Stamped HERE, once, for
+    every case-scoped event — so no call site can forget it and no event's `properties`
+    changes shape. One indexed primary-key read inside the write's own session."""
+    if case_file_id is None:
+        return None
+    from sqlalchemy import select
+
+    from app.db.models.case_files import CaseFile
+
+    return (
+        await session.execute(
+            select(CaseFile.intake_mode).where(CaseFile.case_file_id == case_file_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def emit(
     event_name: str,
     *,
@@ -72,6 +89,7 @@ async def emit(
                     properties=props,
                     occurred_at=occurred_at,
                     actor_user_id=actor_user_id,
+                    intake_mode=await _intake_mode_of(s, case_file_id),
                 )
             )
             await s.commit()
@@ -108,6 +126,7 @@ async def emit_idempotent(
                     case_file_id=case_file_id,
                     properties=props,
                     dedupe_key=dedupe_key,
+                    intake_mode=await _intake_mode_of(s, case_file_id),
                 )
                 .on_conflict_do_nothing(index_elements=["dedupe_key"])
             )

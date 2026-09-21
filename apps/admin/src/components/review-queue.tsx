@@ -16,6 +16,7 @@ import {
   Card,
   DocumentSetChip,
   FlagChips,
+  IntakeModeChip,
   StatePill,
   age,
   caseTitle,
@@ -63,6 +64,7 @@ export function ReviewQueue() {
   const [band, setBand] = useState<string>('');
   const [systemError, setSystemError] = useState(false);
   const [canary, setCanary] = useState(false);
+  const [route, setRoute] = useState<string>('');
   const [items, setItems] = useState<ReviewQueueItem[]>([]);
   const [counts, setCounts] = useState<Record<ReviewState, number> | null>(null);
   const [health, setHealth] = useState<ReviewHealth | null>(null);
@@ -85,6 +87,7 @@ export function ReviewQueue() {
     if (band) params.confidence = band;
     if (systemError) params.has_system_error = true;
     if (canary) params.canary = true;
+    if (route) params.intake_mode = route;
     adminReviewQueue(params, ctl.signal)
       .then((r) => {
         setItems(r.items);
@@ -100,7 +103,7 @@ export function ReviewQueue() {
         clearTimeout(timer);
         if (inFlight.current === ctl) setLoading(false);
       });
-  }, [state, band, systemError, canary]);
+  }, [state, band, systemError, canary, route]);
 
   useEffect(() => {
     load();
@@ -170,6 +173,12 @@ export function ReviewQueue() {
             </option>
           ))}
         </select>
+        {/* doc 40 §D: both front doors land in this one queue — filter to compare them */}
+        <select value={route} onChange={(e) => setRoute(e.target.value)} aria-label="Filter by intake route" className={select}>
+          <option value="">Any intake route</option>
+          <option value="guided">Guided intake</option>
+          <option value="chat_first">Chat-first</option>
+        </select>
         <label className="flex items-center gap-1 text-white/60">
           <input type="checkbox" checked={systemError} onChange={(e) => setSystemError(e.target.checked)} />
           system error
@@ -224,6 +233,7 @@ export function ReviewQueue() {
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-2">
                     <DocumentSetChip set={it.document_set} />
+                    <IntakeModeChip mode={it.intake_mode} />
                     <span className="whitespace-nowrap font-mono text-[11px] text-white/40">
                       {shortId(it.case_file_id)} #{it.run_seq}
                     </span>

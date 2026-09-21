@@ -17,6 +17,7 @@ import {
   Card,
   DocumentSetChip,
   FlagChips,
+  IntakeModeChip,
   KeyValues,
   NotRecorded,
   Phase2Placeholder,
@@ -861,6 +862,7 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
               {ws.review ? ` · run #${ws.review.run_seq}` : ''}
             </span>
             <DocumentSetChip set={ws.case.document_set} />
+            <IntakeModeChip mode={ws.case.intake_mode} />
           </p>
           <p className="mt-1 text-sm text-white/60">
             {humanize(ws.case.status)}

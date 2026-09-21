@@ -404,6 +404,24 @@ resource "azurerm_container_app" "runtime" {
         name        = "GOOGLE_CLIENT_SECRET"
         secret_name = "google-oauth-client-secret"
       }
+      # Guided intake (doc 40 §D). Appended LAST on purpose: env lists are positional, so an
+      # insert mid-list renders every later entry as a rename in the plan.
+      env {
+        name  = "INTAKE_MODE_DEFAULT"
+        value = var.intake_mode_default
+      }
+      env {
+        name  = "INTAKE_MODE_COHORT_PCT"
+        value = tostring(var.intake_mode_cohort_pct)
+      }
+      env {
+        name  = "GUIDED_HIDDEN_SURFACES"
+        value = var.guided_hidden_surfaces
+      }
+      env {
+        name  = "UNLOCK_GATE_MODE"
+        value = var.unlock_gate_mode
+      }
       # Skipped entirely when no SendGrid key is supplied -> runtime logs the
       # link. Same gating condition as the secret block + KV secret.
       dynamic "env" {

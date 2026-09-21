@@ -91,6 +91,20 @@ export function serviceDate(value: string | null | undefined): string | null {
   return month ? `${month} ${Number(m[3])}, ${m[1]}` : value;
 }
 
+/** Which front door opened the case (doc 40 §D). Both routes are reviewed in this one queue so
+ *  the approval rate can be compared between them; null is a pre-0054 payload — render nothing. */
+export function IntakeModeChip({ mode }: { mode: 'guided' | 'chat_first' | null | undefined }) {
+  if (!mode) return null;
+  return (
+    <span
+      title="The intake route that opened this case"
+      className="inline-block rounded-lg border border-white/15 px-2 py-0.5 font-sans text-[11px] text-white/70"
+    >
+      {mode === 'guided' ? 'guided intake' : 'chat-first'}
+    </span>
+  );
+}
+
 /** "Itemized bill + EOB" — which documents the run had. Says so when there are none. */
 export function DocumentSetChip({ set }: { set: string[] | null | undefined }) {
   const has = !!set?.length;

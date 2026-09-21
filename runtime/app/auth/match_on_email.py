@@ -58,5 +58,16 @@ async def find_or_create_user_by_email(
     )
     session.add(user)
     await session.flush()  # populate user.user_id
-    log.info("auth.match_on_email.created", user_id=str(user.user_id), user_type=default_user_type)
+    # First sign-in is where the guided-intake cohort is decided — once, deterministically,
+    # and stored (doc 40 §D; app.intake.mode). A brand-new row is "new" by definition.
+    from app.config import get_settings
+    from app.intake.mode import ensure_cohort
+
+    ensure_cohort(user, get_settings(), is_new=True)
+    log.info(
+        "auth.match_on_email.created",
+        user_id=str(user.user_id),
+        user_type=default_user_type,
+        intake_cohort=user.intake_cohort,
+    )
     return user

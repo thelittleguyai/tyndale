@@ -29,6 +29,7 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
+from app.intake.mode import ensure_cohort, hidden_surfaces, resolve_intake_mode
 from app.schemas.case_file import as_dict
 from app.schemas.dashboard import (
     ActiveCase,
@@ -454,6 +455,20 @@ async def get_dashboard(
     # one. (urow loaded once above — audit item 6 dropped the duplicate fetch.)
     banner_name = ((urow.first_name or "").strip() if urow else "") or user.first_name or "there"
 
+    # Which front door (doc 40 §D). The cohort is decided ONCE: at first sign-in for new rows
+    # (auth.match_on_email), and here — lazily — for rows that predate the column. Someone who
+    # already has cases is not "new" and is never sampled into the guided cohort.
+    settings = get_settings()
+    intake_mode, intake_mode_source = settings.intake_mode_default, "default"
+    if urow is not None:
+        if ensure_cohort(urow, settings, is_new=len(cases) == 0):
+            await session.commit()
+        intake_mode, intake_mode_source = resolve_intake_mode(urow, settings)
+    unfinished = [
+        c for c in cases if c.intake_mode == "guided" and c.intake_status == "in_progress"
+    ]
+    resume = max(unfinished, key=lambda c: c.created_at, default=None)
+
     return DashboardPayload(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
         banner=HomeBanner(**_compose_banner(banner_name, cases)),
@@ -471,4 +486,8 @@ async def get_dashboard(
         status_forward_greeting=greeting,
         record_enabled=get_settings().enable_record_view,
         coverage_connection_enabled=bool(get_settings().enable_coverage_connection),
+        intake_mode=intake_mode,
+        intake_mode_source=intake_mode_source,
+        hidden_surfaces=hidden_surfaces(intake_mode, settings),
+        guided_resume_case_id=str(resume.case_file_id) if resume is not None else None,
     )
