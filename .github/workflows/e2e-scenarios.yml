@@ -52,6 +52,12 @@ on:
         type: boolean
         required: false
         default: false
+      intake_mode:
+        description: 'guided = ALSO run the scenarios that drive the guided front door (/v1/intake/*, doc 40). chat_first = skip them.'
+        type: choice
+        options: [guided, chat_first]
+        required: false
+        default: guided
 
 permissions:
   contents: read
@@ -87,6 +93,7 @@ jobs:
           E2E_SYNTH_EMAIL: ${{ inputs.identity }}
           ONLY: ${{ inputs.only }}
           INSPECT: ${{ inputs.inspect }}
+          INTAKE_MODE: ${{ inputs.intake_mode }}
           GITHUB_TOKEN: ${{ github.token }}  # deploy interlock (read-only: actions: read)
           # Prefer the stable Key Vault shared secret (set once via `terraform output`);
           # E2E_ADMIN_TOKEN is a fallback (a 7-day admin session token).
@@ -95,6 +102,9 @@ jobs:
         run: |
           # Inputs arrive via env (never interpolated into the script) and become an argv array.
           ARGS=(--dev --chat-first --record)
+          # Both front doors are swept by default (doc 40 §D): a guided scenario opens its case
+          # through /v1/intake/start, so the case records intake_mode='guided' by construction.
+          if [ "${INTAKE_MODE:-guided}" = "guided" ]; then ARGS+=(--intake-mode guided); fi
           if [ -n "${ONLY:-}" ]; then
             IFS=',' read -r -a only <<< "$ONLY"
             for s in "${only[@]}"; do

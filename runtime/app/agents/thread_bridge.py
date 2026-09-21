@@ -86,6 +86,11 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "verification_map_fallback", "verification_map_partial_fallback",
         # checklist item completion ack (image-3 item 4; interim seed, PROPOSED)
         "checklist_item_ack",
+        # the first-case unlock moment (dark unless ENABLE_FIRST_CASE_UNLOCK); which strings
+        # render depends on unlock_gate_mode, so every branch must exist (doc 40 open question 2)
+        "unlock.card", "unlock.value_list", "unlock.reassurance",
+        "intake.unlock.headline", "intake.unlock.proceed", "intake.unlock.free_beta",
+        "intake.unlock.blocked",
         # checklist "What is this?" explainers (image-3 item 3; interim seeds, PROPOSED)
         "explainer_eob", "explainer_itemized_bill", "explainer_sbc", "explainer_deductible",
         "explainer_deductible_met", "explainer_oop_max", "explainer_oop_met",
@@ -548,6 +553,7 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         )
     elif status == "audit_complete":
         await _ensure_three_number_moment(session, conv, case, ensure)
+        await _ensure_unlock_moment(session, conv, case, ensure)
         await _ensure_reconcile_state(session, conv, case, ensure)
         done = orchestration_step("completion")
         await ensure("completion", "system_message", {"text": done, "tone": "neutral"}, done)
@@ -710,6 +716,54 @@ def _x3_qualifier(a, disclosure) -> dict | None:
         "form": "point",
         "same_unit": True,
     }
+
+
+async def _ensure_unlock_moment(session, conv, case, ensure) -> None:
+    """The first-case unlock moment (§7.1). Dark unless ENABLE_FIRST_CASE_UNLOCK is on — this
+    was a flag with nothing behind it until 2026-09-21. What it DOES is `unlock_gate_mode`
+    (PROVISIONAL — Phil decides; doc 40 open question 2):
+
+      free_beta  the moment renders with an honest interim line and PROCEEDS to the plan. The
+                 headline is the price-free seed: Brock's §7.1 line says "$4.99, one time", and
+                 rendering a price nobody is charged would be a false statement.
+      block      the moment renders with NO proceed path (a testing aid: it hides the way in,
+                 it does not gate the route).
+      billing    the authored §7.1 strings, price included. Billing is dark, so there is nothing
+                 to buy and no proceed path until that work lands — not a Phase-1 default.
+
+    Only when there is a gap to pursue: an unlock with nothing behind it is not a moment."""
+    settings = get_settings()
+    if not settings.enable_first_case_unlock:
+        return
+    from app.agents.orchestrator import _assemble_result  # lazy — avoids the import cycle
+
+    a = (await _assemble_result(str(case.case_file_id), composed="")).audit
+    if a is None or a.eob_member_responsibility is None:
+        return
+    gap = round(a.eob_member_responsibility - a.tyndale_computed, 2)
+    if gap <= 0:
+        return
+    mode = settings.unlock_gate_mode
+    gap_str = f"${gap:,.2f}"
+    if mode == "billing":
+        headline = orchestration_step("unlock.card", gap=gap_str)
+        footnote = orchestration_step("unlock.reassurance")
+    else:
+        headline = orchestration_step("intake.unlock.headline", gap=gap_str)
+        footnote = orchestration_step(
+            "intake.unlock.free_beta" if mode == "free_beta" else "intake.unlock.blocked"
+        )
+    # §7.1 authors the value list as ONE string — "✓ a · ✓ b · ✓ c"; the card renders its own ticks
+    points = [
+        p.replace("✓", "").strip() for p in orchestration_step("unlock.value_list").split("·") if p.strip()
+    ]
+    await ensure(
+        "moment:first_case_unlock", "moment_card",
+        {"variant": "first_case_unlock", "headline": headline, "value_points": points,
+         "footnote": footnote, "gate_mode": mode, "proceeds": mode == "free_beta",
+         "proceed_label": orchestration_step("intake.unlock.proceed") if mode == "free_beta" else None,
+         "next_route": f"/case/{case.case_file_id}" if mode == "free_beta" else None},
+    )
 
 
 async def _ensure_three_number_moment(session, conv, case, ensure) -> None:

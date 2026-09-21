@@ -49,6 +49,24 @@ Local runs (`run_scenarios.py` without `--dev`) need neither — the dev-user st
 CI: the `E2E Scenarios` workflow (`workflow_dispatch`, never scheduled — real Claude token cost)
 runs against dev using those repo secrets.
 
+## Two front doors (doc 40, 2026-09-21)
+
+A scenario with an `"intake"` block is driven through the GUIDED route — `POST /v1/intake/start`,
+then the harness reads the planner's `screen` and reacts to it exactly as the app does: it
+uploads where the scenario maps files to a capture screen (`intake.uploads`), answers where it
+has an answer (`intake.answers`), skips what it is told to (`intake.skip`), and FAILS if the
+planner raises a screen the scenario has no answer for. What it asserts is the planner:
+`expect_never` (screens this case already answers — a card that named the payer must not raise
+`insurer`), `expect_screens` / `expect_final` (`READY` → `POST /v1/intake/run` → the shared audit
+and the usual `expect` block; or `handoff`), and that every finding names a side (§C14).
+
+Run them with **`--intake-mode guided`** (workflow input `intake_mode`, default `guided`); without
+it they are reported as skipped. No server flag is involved: a case opened through
+`/v1/intake/start` records `intake_mode='guided'` by construction, so both routes land in the
+same Human Review queue. They need the REAL pipeline — locally the stub OCR types every upload
+`unclassified`, and the planner (correctly) keeps asking for a bill. Today:
+`guided_intake_commercial`, `guided_intake_noncommercial_handoff`.
+
 ## A sweep, end to end (2026-09-18)
 
 **Duration.** A full sweep is **~80 minutes** — 23 scenarios, each a multi-minute real audit —

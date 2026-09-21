@@ -1,0 +1,100 @@
+{
+  "name": "guided_intake_commercial",
+  "description": "The GUIDED front door (doc 40), commercial: bill + EOB + card + SBC through /v1/intake/*, the planner choosing every screen. Asserts the skip-when-known rules end to end \u2014 the card names the payer (no 'which insurer'), the SBC is on file and carries its Coverage Period (no plan-rules ask, no plan-year ask), the confirmed EOB stack resolves the accumulators (no manual deductible / out-of-pocket asks) \u2014 then READY \u2192 the SHARED audit and reveal, with every finding attributed to a side (\u00a7C14). Needs --intake-mode guided.",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "E2E-GUIDED-001",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99213",
+          "description": "Office visit, established pt",
+          "charge": 185,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "E2E-CLM-GUIDED",
+      "service_date": "2026-03-14",
+      "line_items": [
+        {
+          "code": "99213",
+          "billed": 185,
+          "allowed": 120,
+          "plan_paid": 96,
+          "member_resp": 24
+        }
+      ],
+      "member_responsibility": 24
+    },
+    {
+      "type": "insurance_card",
+      "filename": "card.pdf",
+      "member_id": "SYN-777123456"
+    },
+    {
+      "type": "sbc",
+      "filename": "sbc.pdf",
+      "period": "01/01/2026 - 12/31/2026"
+    }
+  ],
+  "intake": {
+    "uploads": {
+      "bill": [
+        "bill.pdf"
+      ],
+      "eob": [
+        "eob.pdf"
+      ],
+      "card": [
+        "card.pdf"
+      ],
+      "plan_rules": [
+        "sbc.pdf"
+      ]
+    },
+    "answers": {
+      "bill_summary": {
+        "action": "no"
+      },
+      "coverage_type": {
+        "values": {
+          "choice": "job_or_bought"
+        }
+      },
+      "timeline": {
+        "action": "yes"
+      },
+      "other_insurance": {
+        "values": {
+          "choice": "no"
+        }
+      }
+    },
+    "skip": [],
+    "expect_never": [
+      "insurer",
+      "plan_year",
+      "deductible_met",
+      "oop_met",
+      "handoff",
+      "bill_itemized"
+    ],
+    "expect_final": "READY"
+  },
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "terminal": [
+      "audit_complete",
+      "audit_incomplete"
+    ],
+    "no_fixture": true
+  }
+}

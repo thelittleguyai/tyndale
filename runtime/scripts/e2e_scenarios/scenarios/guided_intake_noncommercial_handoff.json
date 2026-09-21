@@ -1,0 +1,43 @@
+{
+  "name": "guided_intake_noncommercial_handoff",
+  "description": "The GUIDED front door (doc 40), a population Phase 1 does not carry: an Original Medicare card. A card alone is medium-confidence evidence, so the planner ASKS (infer first, then ask) \u2014 the plain coverage-type screen \u2014 and on 'Medicare' exits with ONE honest line and hands off to the chat-first flow. No dead end, no half-built branch, and the case stays open. Needs --intake-mode guided.",
+  "documents": [
+    {
+      "type": "medicare_card",
+      "filename": "medicare_card.pdf"
+    }
+  ],
+  "intake": {
+    "uploads": {
+      "card": [
+        "medicare_card.pdf"
+      ]
+    },
+    "answers": {
+      "coverage_type": {
+        "values": {
+          "choice": "medicare"
+        }
+      }
+    },
+    "skip": [
+      "bill",
+      "eob"
+    ],
+    "expect_screens": [
+      "bill",
+      "eob",
+      "card",
+      "coverage_type",
+      "handoff"
+    ],
+    "expect_final": "handoff",
+    "expect_copy_contains": "For Medicare, I check your bill in our chat."
+  },
+  "encounter": {
+    "default": "yes"
+  },
+  "expect": {
+    "no_fixture": true
+  }
+}

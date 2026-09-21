@@ -217,7 +217,11 @@ def authenticate(
             headers=headers,
             timeout=30,
         )
-        if resp.status_code >= 500:
+        # …except the one 503 that IS an answer: a local runtime with no AUTH_SECRET cannot sign
+        # a session at all. Retrying that four times and giving up broke the local dev-stub
+        # fallback below (introduced with the retry, 2026-09-18; found running the guided
+        # scenarios locally, 2026-09-21).
+        if resp.status_code >= 500 and "cannot mint token" not in resp.text:
             raise RuntimeError(f"test-token {resp.status_code}: {resp.text[:200]}")
         return resp
 
@@ -752,9 +756,102 @@ def _record_aggregate_checks(client: httpx.Client, base_url: str) -> dict:
             "pass": not fails, "fails": fails}
 
 
+# ── the guided front door (doc 40) ─────────────────────────────────────────────────────────
+# A scenario with an "intake" block is driven through /v1/intake/* instead of a bare upload:
+# the harness never decides what comes next — it reads the planner's screen and reacts to it,
+# exactly as the app does. What it asserts is the planner's behaviour: the screens it raised,
+# the ones it must NEVER raise for this case, and where it ended (READY → the shared audit, or
+# the handoff). `intake.uploads` maps a capture screen to the generated files it gets.
+_GUIDED_ACK = {"welcome", "facts_only", "readiness"}
+
+
+def _guided_upload(client, base_url, case_id: str, paths, expect: str | None):
+    files = [("files", (p.name, p.read_bytes(), _MIME_BY_SUFFIX.get(p.suffix.lower(), "application/octet-stream"))) for p in paths]
+    data = {"case_file_id": case_id, **({"expected_type": expect} if expect else {})}
+    return client.post(f"{base_url}/v1/upload", files=files, data=data, timeout=120)
+
+
+def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]) -> tuple[str, list[str], list[str], dict]:
+    """→ (case_id, screens_seen, failures, last_state)."""
+    spec = scenario["intake"]
+    by_name = {p.name: p for p in paths}
+    fails: list[str] = []
+    seen: list[str] = []
+    r = client.post(f"{base_url}/v1/intake/start", timeout=60)
+    if r.status_code != 200:
+        return "", seen, [f"intake/start {r.status_code}: {r.text[:160]}"], {}
+    state = r.json()
+    case_id = state["case_file_id"]
+    uploaded: set[str] = set()
+
+    def answer(screen: str, action: str = "continue", values: dict | None = None) -> dict:
+        rr = client.post(f"{base_url}/v1/intake/answer", timeout=120,
+                         json={"case_file_id": case_id, "screen": screen, "action": action, "values": values or {}})
+        if rr.status_code != 200:
+            fails.append(f"answer {screen}/{action} → {rr.status_code}: {rr.text[:160]}")
+            raise RuntimeError("guided answer failed")
+        return rr.json()
+
+    try:
+        for _ in range(40):
+            sid = state["current_step"]
+            if not seen or seen[-1] != sid:
+                seen.append(sid)
+            screen = state.get("screen") or {}
+            if sid in ("READY", "handoff"):
+                break
+            if sid in spec.get("uploads", {}) and sid not in uploaded:
+                docs = [by_name[n] for n in spec["uploads"][sid]]
+                up = _guided_upload(client, base_url, case_id, docs, (screen.get("data") or {}).get("expect"))
+                if up.status_code != 200:
+                    fails.append(f"guided upload on {sid} → {up.status_code}")
+                    break
+                uploaded.add(sid)
+                if sid == "card":  # the card is READ, so the planner can skip what it answered
+                    doc_id = up.json()["uploads"][0]["document_id"]
+                    client.post(f"{base_url}/v1/intake/step/insurance-card/extract", timeout=120,
+                                json={"case_file_id": case_id, "document_id": doc_id})
+                state = answer(sid)
+            elif sid in spec.get("answers", {}):
+                a = spec["answers"][sid]
+                state = answer(sid, a.get("action", "continue"), a.get("values"))
+            elif sid == "reading":
+                deadline = time.monotonic() + 600
+                while time.monotonic() < deadline and state["current_step"] == "reading":
+                    time.sleep(5)
+                    state = client.get(f"{base_url}/v1/intake/state", params={"case_file_id": case_id}, timeout=60).json()
+            elif sid == "confirmations":
+                items = (screen.get("data") or {}).get("line_items") or []
+                state = answer(sid, "continue", {"confirmations": [
+                    {"line_item_id": li["line_item_id"], "response": "yes"} for li in items]})
+            elif sid in _GUIDED_ACK:
+                state = answer(sid, "ack")
+            elif screen.get("skippable") and sid in spec.get("skip", []):
+                state = answer(sid, "skip")
+            else:
+                fails.append(f"the planner raised '{sid}' and the scenario has no answer for it")
+                break
+    except RuntimeError:
+        pass
+
+    for must_not in spec.get("expect_never", []):
+        if must_not in seen:
+            fails.append(f"planner raised '{must_not}' — this case already answers it")
+    want = spec.get("expect_screens")
+    if want and seen != want:
+        fails.append(f"screens {seen} != expected {want}")
+    if spec.get("expect_final") and (not seen or seen[-1] != spec["expect_final"]):
+        fails.append(f"ended at {seen[-1] if seen else None!r}, expected {spec['expect_final']!r}")
+    needle = spec.get("expect_copy_contains")
+    if needle and needle not in json.dumps(state.get("screen") or {}):
+        fails.append(f"final screen copy lacks {needle!r}")
+    return case_id, seen, fails, state
+
+
 def run_scenario(
     client: httpx.Client, base_url: str, scenario: dict, workdir: pathlib.Path,
     *, chat_first: bool = False, no_placeholders: bool = False, record: bool = False,
+    intake_mode: str | None = None,
 ) -> dict:
     name = scenario["name"]
     exp = scenario.get("expect", {})
@@ -762,6 +859,31 @@ def run_scenario(
     case_id = ""
     try:
         paths = generate_for_scenario(scenario, workdir / name)
+
+        if scenario.get("intake"):
+            if intake_mode != "guided":
+                return {"name": name, "case_id": "", "terminal": "skipped:needs --intake-mode guided",
+                        "timings": timings, "pass": True, "fails": []}
+            t = time.monotonic()
+            case_id, seen, fails, state = _run_guided(client, base_url, scenario, paths)
+            timings["intake_s"] = round(time.monotonic() - t, 1)
+            terminal = f"guided:{seen[-1] if seen else 'none'}"
+            if not fails and seen and seen[-1] == "READY":
+                run = client.post(f"{base_url}/v1/intake/run", json={"case_file_id": case_id}, timeout=120)
+                if run.status_code != 200:
+                    fails.append(f"intake/run {run.status_code}: {run.text[:160]}")
+                else:
+                    t = time.monotonic()
+                    terminal = _poll_status(client, base_url, case_id)
+                    timings["audit_s"] = round(time.monotonic() - t, 1)
+                    audit = _get_audit(client, base_url, case_id)
+                    fails += _check(scenario, terminal, {"status": terminal, "line_items": []}, audit)
+                    # §C14 — "checking both sides" has to LAND: every finding names a side
+                    for f in (audit or {}).get("findings") or []:
+                        if f.get("responsible_party") not in ("provider", "payer", "either"):
+                            fails.append(f"finding {f.get('category')!r} carries no responsible_party")
+            return {"name": name, "case_id": case_id, "terminal": terminal, "timings": timings,
+                    "pass": not fails, "fails": fails}
 
         t = time.monotonic()
         up_status, case_id = _upload(client, base_url, paths)
@@ -1041,6 +1163,11 @@ def main() -> int:
     ap.add_argument("--chat-first", action="store_true",
                     help="also assert the chat-first thread matches engine state (DL-91; target "
                          "server must have ENABLE_CHAT_FIRST_AUDIT on)")
+    ap.add_argument("--intake-mode", choices=["guided", "chat_first"], default="chat_first",
+                    help="guided: ALSO run the scenarios that carry an `intake` block, driven "
+                         "through /v1/intake/* the way the app is (doc 40). They are skipped "
+                         "otherwise. The case records intake_mode='guided' because of HOW it was "
+                         "opened — no server flag is needed.")
     ap.add_argument("--assert-no-placeholders", action="store_true",
                     help="fail if [PLACEHOLDER-eng] copy appears in the thread (staging config)")
     ap.add_argument("--record", action="store_true",
@@ -1127,7 +1254,8 @@ def main() -> int:
         results, stopped = _run_all(
             scenarios,
             lambda s: run_scenario(client, base_url, s, workdir, chat_first=args.chat_first,
-                                   no_placeholders=args.assert_no_placeholders, record=args.record),
+                                   no_placeholders=args.assert_no_placeholders, record=args.record,
+                                   intake_mode=args.intake_mode),
         )
         # Suite-level Record check: after every upload, the multi-upload user's Record must hold
         # ≥2 sub-cases with honest aggregates (DL-91 §5). Skipped unless we ran real scenarios

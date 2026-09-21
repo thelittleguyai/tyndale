@@ -259,6 +259,13 @@ resource "azurerm_container_app_job" "cron" {
         name  = "UNLOCK_GATE_MODE"
         value = var.unlock_gate_mode
       }
+      # The unlock moment is projected by the thread bridge — which the reconcile cron also
+      # runs — so its flag must reach this container too (the derived parity test caught this
+      # the moment the bridge started reading it, 2026-09-21).
+      env {
+        name  = "ENABLE_FIRST_CASE_UNLOCK"
+        value = tostring(var.enable_first_case_unlock)
+      }
     }
   }
 

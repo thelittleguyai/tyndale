@@ -283,7 +283,59 @@ def make_bill_photo(
     img.save(path, "JPEG", quality=70)
 
 
+def make_sbc(
+    path: Path, *, period: str = "01/01/2026 - 12/31/2026", deductible: int = 2000, oop_max: int = 6000,
+    coinsurance: int = 20, **_: Any,
+) -> None:
+    """A Summary of Benefits and Coverage in the CMS template's own words — the "Coverage Period"
+    line the guided timeline anchors on (never an assumed January 1) and the cost-share rows."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica", 11)
+    _lines(
+        c,
+        [
+            "Summary of Benefits and Coverage: What this Plan Covers & What You Pay for Covered Services",
+            f"Coverage Period: {period}",
+            f"{PAYER}: Synthetic PPO 2000        Coverage for: Individual | Plan Type: PPO",
+            "",
+            "Important Questions                     Answers",
+            f"What is the overall deductible?         ${deductible:,} / individual",
+            "Are there other deductibles for specific services?   No.",
+            f"What is the out-of-pocket limit for this plan?   ${oop_max:,} / individual",
+            "",
+            "Common Medical Event      Network Provider        Out-of-Network Provider",
+            f"Primary care visit        {coinsurance}% coinsurance         40% coinsurance",
+            f"Emergency room care       {coinsurance}% coinsurance         {coinsurance}% coinsurance",
+        ],
+    )
+    c.showPage()
+    c.save()
+
+
+def make_medicare_card(path: Path, *, mbi: str = "1EG4-TE5-MK73", **_: Any) -> None:
+    """An Original Medicare card (CMS's published sample MBI). The classifier's card heuristic
+    keys on "Member ID", so the synthetic card carries that label beside the Medicare Number."""
+    c = canvas.Canvas(str(path), pagesize=letter)
+    c.setFont("Helvetica", 11)
+    _lines(
+        c,
+        [
+            "MEDICARE HEALTH INSURANCE",
+            "",
+            f"Name/Nombre: {PATIENT}",
+            f"Medicare Number / Member ID: {mbi}",
+            "Entitled to/Con derecho a:   PART A   PART B",
+            "Coverage starts/Cobertura empieza:  03-01-2016",
+            "1-800-MEDICARE (1-800-633-4227)",
+        ],
+    )
+    c.showPage()
+    c.save()
+
+
 _MAKERS = {
+    "sbc": make_sbc,
+    "medicare_card": make_medicare_card,
     "bill": make_bill,
     "bill_photo": make_bill_photo,
     "eob": make_eob,
