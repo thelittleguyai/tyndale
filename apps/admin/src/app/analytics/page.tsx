@@ -118,7 +118,7 @@ function StatusBoard({ status }: { status: AdminAnalytics['status'] }) {
             Object.entries(status.drop_counts).map(([k, n]) => (
               <div key={k} className="flex items-center justify-between py-0.5 text-sm">
                 <span className="text-white/70">{k}</span>
-                <span className="text-rose">{n}</span>
+                <span className="text-rose-soft">{n}</span>
               </div>
             ))
           )}
@@ -176,7 +176,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-rose">Failed to load: {error}</p> : null}
+      {error ? <p className="text-sm text-rose-soft">Failed to load: {error}</p> : null}
       {!data && !error ? <p className="text-sm text-white/50">Loading…</p> : null}
 
       {data ? (

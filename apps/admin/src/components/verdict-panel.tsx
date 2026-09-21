@@ -38,7 +38,7 @@ export type ClaimView =
   | { kind: 'decided' };
 
 function Hint({ text }: { text?: string }) {
-  return text ? <p className="mt-1 text-[11px] text-amber">{text}</p> : null;
+  return text ? <p className="mt-1 text-[11px] text-amber-soft">{text}</p> : null;
 }
 
 export function VerdictPanel({
@@ -152,7 +152,7 @@ export function VerdictPanel({
           <p className="mb-3 text-[11px] text-sage-soft">Reviewing as {viewerMasked ?? 'you'}</p>
         ) : null}
         {claim.kind === 'other' ? (
-          <div className="mb-3 rounded-lg border border-amber/40 p-2 text-[11px] text-amber">
+          <div className="mb-3 rounded-lg border border-amber/40 p-2 text-[11px] text-amber-soft">
             Claimed by {claim.reviewerMasked ?? 'another reviewer'}.
             <button
               type="button"

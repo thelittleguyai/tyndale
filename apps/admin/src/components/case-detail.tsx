@@ -69,7 +69,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     }
   };
 
-  if (error) return <p className="text-sm text-rose">{error}</p>;
+  if (error) return <p className="text-sm text-rose-soft">{error}</p>;
   if (!detail || !prov) return <p className="text-sm text-white/40">Loading case…</p>;
 
   return (

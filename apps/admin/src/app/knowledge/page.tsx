@@ -23,7 +23,7 @@ export default function KnowledgePage() {
   return (
     <AdminShell>
       <h1 className="mb-5 text-2xl font-bold">Knowledge base</h1>
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
       {loading ? (
         <p className="text-sm text-white/40">Loading…</p>
       ) : (

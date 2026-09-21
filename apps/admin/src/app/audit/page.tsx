@@ -92,7 +92,7 @@ export default function AuditPage() {
         <span className="text-xs text-white/40">{total} matched</span>
       </div>
 
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
       <div className="overflow-hidden rounded-xl border border-white/10">
         <table className="w-full text-left text-sm">
           <thead className="bg-white/5 text-xs uppercase tracking-wide text-white/45">

@@ -39,7 +39,7 @@ export default function ChunkPage() {
   if (error && !chunk)
     return (
       <AdminShell>
-        <p className="text-sm text-rose">{error}</p>
+        <p className="text-sm text-rose-soft">{error}</p>
       </AdminShell>
     );
   if (!chunk)
@@ -85,7 +85,7 @@ export default function ChunkPage() {
               {JSON.stringify(provenance, null, 2)}
             </pre>
           </div>
-          {error ? <p className="text-xs text-rose">{error}</p> : null}
+          {error ? <p className="text-xs text-rose-soft">{error}</p> : null}
           <button
             disabled={busy || partition !== 'staging'}
             onClick={promote}

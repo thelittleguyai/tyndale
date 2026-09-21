@@ -76,3 +76,32 @@ derived tints for chip fill and hover.
 A1, A2, A4, A7 — the four base hexes. Applying them means updating `design-tokens.ts` **and**
 the two Tailwind configs that redeclare the palette (`apps/mobile`, `apps/web-marketing`),
 plus regenerating the companion shades. One commit once he answers.
+
+## Addendum 2026-09-21 — the state-accent ramps (amber, rose) · FOR BROCK
+
+Not §A colours (the five brand hexes are untouched) — these are the engineering-derived state
+accents. The 2026-09-18 deep review found the Human Review pills rendering rose text on
+rose-soft at **3.51:1**. Measuring every pill pair turned up a second, worse one nobody had
+listed: amber-deep on amber-soft at **3.21:1** — and *every* consumer of `amber.deep` used it
+exactly that way (review pills, the marketing audit-mock "Example" chip, the legal draft banner).
+
+**The ramp contract**, which sage (6.01) and citation (6.58) already met: on an accent ramp,
+`deep` is the text step for a `soft` pill and clears AA on it.
+
+| token | was | now | on its `soft` |
+|---|---|---|---|
+| `amber.deep` | `#C26F26` | `#884E1B` (same hue 28°, L 45% → 32%) | 3.21 → **5.70** |
+| `rose.deep` | — (new step) | `#9A3232` (rose's hue 0°, L 55% → 40%) | **5.80** |
+
+DEFAULT `rose` (`#C75252`) stays as a fill/border colour, but it is **never a text colour**: it
+fails AA on every surface we have (4.41 white, 4.13 cream, 3.69 navy-deep, 2.68 navy-soft). Text
+uses `rose-soft` on the dark console (12.94) and `rose-deep` on light (6.82 on cream).
+
+Guards (`runtime/tests/test_design_token_guards.py`): the ramp contract is derived from
+`design-tokens.ts`; soft pills are derived from the web apps' source; bare `text-rose` is banned
+with the "fails everywhere" claim computed in the test. All three were red before this change.
+
+**Your call, not blocking:** if you want a different amber/rose for these steps, any value that
+keeps `deep`-on-`soft` ≥ 4.5 passes. **Known and NOT fixed here** (older console pages, outside
+the review surface): bare `text-sage` on the navy console is 3.26:1 (22 sites) and `text-amber`
+inside a navy-soft card is 4.44:1.

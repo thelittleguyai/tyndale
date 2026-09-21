@@ -9,7 +9,7 @@ import { adminCronRuns, adminTriggerCron, type AdminCronRun } from '@/lib/api-cl
 
 function statusPill(s: string): string {
   if (s === 'success') return 'bg-sage/20 text-sage';
-  if (s === 'failed') return 'bg-rose/20 text-rose';
+  if (s === 'failed') return 'bg-rose/20 text-rose-soft';
   return 'bg-amber/20 text-amber';
 }
 
@@ -53,7 +53,7 @@ export default function CronDetailPage() {
           Trigger now
         </button>
       </div>
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
       {msg ? <p className="mb-3 text-xs text-sage">{msg}</p> : null}
 
       <div className="overflow-hidden rounded-xl border border-white/10">

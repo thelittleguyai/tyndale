@@ -194,7 +194,7 @@ export function ReviewQueue() {
         <span className="ml-auto text-white/40">{loading ? 'Loading…' : `${items.length} runs`}</span>
       </div>
 
-      {error ? <p className="text-sm text-rose">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-soft">{error}</p> : null}
 
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-left text-sm">

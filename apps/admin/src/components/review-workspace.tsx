@@ -173,7 +173,7 @@ function FindingCard({
         )}
       </div>
       <div className="mt-2 rounded-lg border border-amber/40 p-2 text-[11px]">
-        <p className="font-semibold uppercase tracking-widest text-amber">Analyst notes · internal — never shown to users</p>
+        <p className="font-semibold uppercase tracking-widest text-amber-soft">Analyst notes · internal — never shown to users</p>
         {/* the AGENT'S reasoning, or "not recorded". A reviewer's verdict note never appears here. */}
         <p className="mt-1 whitespace-pre-wrap text-white/70">{f.analyst_notes ?? <NotRecorded />}</p>
       </div>

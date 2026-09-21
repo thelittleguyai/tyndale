@@ -21,14 +21,14 @@ const STATE_CLASS: Record<ReviewState, string> = {
   in_review: 'bg-citation-soft text-citation-deep',
   re_review: 'bg-amber-soft text-amber-deep',
   approved: 'bg-sage-soft text-sage-deep',
-  disapproved: 'bg-rose-soft text-rose',
+  disapproved: 'bg-rose-soft text-rose-deep',
   cant_verify: 'bg-white/10 text-white/60',
 };
 
 const BAND_CLASS: Record<ConfidenceBand, string> = {
   high: 'bg-sage-soft text-sage-deep',
   medium: 'bg-amber-soft text-amber-deep',
-  low: 'bg-rose-soft text-rose',
+  low: 'bg-rose-soft text-rose-deep',
   unknown: 'bg-white/10 text-white/60',
 };
 
@@ -56,8 +56,8 @@ export function FlagChips({
   sampled: boolean;
 }) {
   const chips: { label: string; cls: string }[] = [];
-  if (flags.canary) chips.push({ label: 'canary', cls: 'bg-rose-soft text-rose' });
-  if (flags.system_error) chips.push({ label: 'system error', cls: 'bg-rose-soft text-rose' });
+  if (flags.canary) chips.push({ label: 'canary', cls: 'bg-rose-soft text-rose-deep' });
+  if (flags.system_error) chips.push({ label: 'system error', cls: 'bg-rose-soft text-rose-deep' });
   if (flags.material_disagreement) chips.push({ label: 'EOB ≠ Tyndale', cls: 'bg-amber-soft text-amber-deep' });
   if (flags.first_case) chips.push({ label: 'first case', cls: 'bg-citation-soft text-citation-deep' });
   if (!chips.length && sampled) chips.push({ label: 'sampled', cls: 'bg-white/10 text-white/50' });

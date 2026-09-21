@@ -19,7 +19,7 @@ export function CaseList({ limit }: { limit?: number }) {
   }, [limit]);
 
   if (loading) return <p className="text-sm text-white/40">Loading cases…</p>;
-  if (error) return <p className="text-sm text-rose">{error}</p>;
+  if (error) return <p className="text-sm text-rose-soft">{error}</p>;
   if (!cases.length) return <p className="text-sm text-white/40">No cases yet.</p>;
 
   return (

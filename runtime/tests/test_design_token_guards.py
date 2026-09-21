@@ -158,6 +158,16 @@ AA_PAIRS = [
     ("dark citation/surface", "#7FB6D3", DARK_SURFACE),
     ("dark warning/page", "#FAC775", DARK_PAGE),
     ("dark danger/page", "#E5776C", DARK_PAGE),
+    # The admin console (navy) + its soft state pills — deep review 2026-09-18: rose text on
+    # rose-soft rendered 3.51:1. The derived checks below find NEW pairs; these pin the values.
+    ("rose-deep on rose-soft (disapproved / low / canary pills)", "#9A3232", "#F7E0E0"),
+    ("amber-deep on amber-soft (unreviewed / re-review / medium pills)", "#884E1B", "#FBEBD8"),
+    ("sage-deep on sage-soft (approved / high pills)", "#246247", "#E2EDE8"),
+    ("citation-deep on citation-soft (in-review pill)", "#225670", "#E1EBEF"),
+    ("rose-soft on navy-deep (console error text)", "#F7E0E0", "#17212C"),
+    ("rose-soft on navy-soft (error text inside a card)", "#F7E0E0", "#2A3946"),
+    ("amber-soft on navy-soft (caution text inside a card)", "#FBEBD8", "#2A3946"),
+    ("rose-deep on cream (marketing sign-in error)", "#9A3232", LIGHT_PAGE),
 ]
 
 
@@ -165,6 +175,93 @@ AA_PAIRS = [
 def test_every_text_pair_clears_wcag_aa(label, fg, bg):
     ratio = contrast(fg, bg)
     assert ratio >= 4.5, f"{label}: {ratio:.2f}:1 — below WCAG AA (4.5:1)"
+
+
+# --- 3b. the pairs nobody remembered to list ---------------------------------
+# AA_PAIRS is a hand-kept list, and the rose-on-rose-soft pills shipped BECAUSE nobody added
+# them to it. These three derive their cases from the sources instead.
+def _accent_ramps() -> dict[str, dict[str, str]]:
+    """`name: { DEFAULT: '#..', deep: '#..', soft: '#..' }` rows of the shared `colors` block."""
+    text = SHARED.read_text(encoding="utf-8")
+    block = text[text.index("export const colors = {") : text.index("} as const;", text.index("export const colors = {"))]
+    ramps: dict[str, dict[str, str]] = {}
+    for name, body in re.findall(r"^\s{2}(\w+): \{([^{}]*)\}", block, re.M):
+        steps = {k: v.upper() for k, v in re.findall(r"(\w+):\s*'(#[0-9A-Fa-f]{6})'", body)}
+        if steps:
+            ramps[name] = steps
+    return ramps
+
+
+def _tailwind_colours(cfg: pathlib.Path) -> dict[str, str]:
+    """`rose-deep` → hex, as Tailwind resolves class suffixes from a config's colors block."""
+    text = cfg.read_text(encoding="utf-8")
+    out: dict[str, str] = {}
+    for name, body in re.findall(r"^\s+(\w+): \{([^{}]*)\},?$", text, re.M):
+        for step, value in re.findall(r"(\w+):\s*'(#[0-9A-Fa-f]{6})'", body):
+            out[name if step == "DEFAULT" else f"{name}-{step}"] = value.upper()
+    for name, value in re.findall(r"^\s+(\w+): '(#[0-9A-Fa-f]{6})',?$", text, re.M):
+        out[name] = value.upper()
+    return out
+
+
+def test_every_accent_ramp_keeps_the_deep_on_soft_contract():
+    """On a ramp whose `soft` is a light tint, `deep` IS the text colour for a soft pill —
+    so it must clear AA on it. (ink/navy are dark surface ramps: their `soft` is not a tint,
+    and the luminance test below is what excludes them, not a list.)"""
+    checked = []
+    for name, steps in _accent_ramps().items():
+        if "deep" not in steps or "soft" not in steps or _luminance(steps["soft"]) < 0.6:
+            continue
+        checked.append(name)
+        ratio = contrast(steps["deep"], steps["soft"])
+        assert ratio >= 4.5, f"{name}.deep on {name}.soft: {ratio:.2f}:1 — below WCAG AA"
+    assert {"sage", "amber", "rose", "citation"} <= set(checked), checked
+
+
+_APP_PALETTES = {
+    "apps/admin": REPO / "apps/admin/tailwind.config.ts",
+    "apps/web-marketing": REPO / "apps/web-marketing/tailwind.config.ts",
+}
+_LITERAL = re.compile(r"'[^'\n]*'|\"[^\"\n]*\"|`[^`]*`")
+
+
+def test_every_soft_pill_in_the_web_apps_clears_aa():
+    """A string literal that sets BOTH `bg-<x>-soft` and a `text-<colour>` is a pill whose
+    contrast is fully decided in that literal — resolve it through the app's own palette."""
+    failures: list[str] = []
+    seen = 0
+    for app, cfg in _APP_PALETTES.items():
+        palette = _tailwind_colours(cfg)
+        for path in (REPO / app / "src").rglob("*.tsx"):
+            for literal in _LITERAL.findall(path.read_text(encoding="utf-8")):
+                bgs = [c for c in re.findall(r"(?<![\w:-])bg-([a-z]+-soft)(?![\w/-])", literal) if c in palette]
+                fgs = [c for c in re.findall(r"(?<![\w:-])text-([a-z]+(?:-[a-z]+)?)(?![\w/-])", literal) if c in palette]
+                for bg in bgs:
+                    for fg in fgs:
+                        seen += 1
+                        ratio = contrast(palette[fg], palette[bg])
+                        if ratio < 4.5:
+                            failures.append(f"{path.relative_to(REPO)}: text-{fg} on bg-{bg} = {ratio:.2f}:1")
+    assert seen >= 8, f"the scan found only {seen} pills — did the class convention change?"
+    assert not failures, "soft pills below WCAG AA:\n  " + "\n  ".join(sorted(set(failures)))
+
+
+def test_default_rose_is_never_a_text_colour():
+    """DEFAULT rose fails AA as text on EVERY surface the palette has (computed here, not
+    asserted from memory) — so a bare `text-rose` has no correct placement: `text-rose-soft`
+    on the dark console, `text-rose-deep` on a light page or a rose-soft pill."""
+    palette = _tailwind_colours(_APP_PALETTES["apps/admin"])
+    surfaces = ("navy-deep", "navy", "navy-soft", "surface", "cream", "rose-soft")
+    best = max(contrast(palette["rose"], palette[s]) for s in surfaces)
+    assert best < 4.5, "rose now clears AA somewhere — relax this ban deliberately, with the pair in AA_PAIRS"
+    offenders = [
+        f"{path.relative_to(REPO)}:{i}"
+        for app in _APP_PALETTES
+        for path in (REPO / app / "src").rglob("*.tsx")
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"(?<![\w:-])text-rose(?![\w/-])", line)
+    ]
+    assert offenders == [], "bare text-rose (max %.2f:1 on any surface):\n  %s" % (best, "\n  ".join(offenders))
 
 
 def test_money_figure_regression_is_actually_fixed():

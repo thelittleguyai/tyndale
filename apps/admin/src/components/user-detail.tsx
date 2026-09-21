@@ -84,7 +84,7 @@ export function UserDetail({ userId }: { userId: string }) {
     }
   };
 
-  if (error && !user) return <p className="text-sm text-rose">{error}</p>;
+  if (error && !user) return <p className="text-sm text-rose-soft">{error}</p>;
   if (!user) return <p className="text-sm text-white/40">Loading…</p>;
 
   const pill =
@@ -92,7 +92,7 @@ export function UserDetail({ userId }: { userId: string }) {
       ? 'bg-sage/20 text-sage'
       : user.status === 'blocked'
         ? 'bg-amber/20 text-amber'
-        : 'bg-rose/20 text-rose';
+        : 'bg-rose/20 text-rose-soft';
   const deleteReady = action === 'delete' && confirmText === `DELETE ${user.email}`;
 
   const open = (k: ActionKey) => {
@@ -107,7 +107,7 @@ export function UserDetail({ userId }: { userId: string }) {
       onClick={() => open(k)}
       className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
         danger
-          ? 'border border-rose/40 text-rose hover:bg-rose/10'
+          ? 'border border-rose/40 text-rose-soft hover:bg-rose/10'
           : primary
             ? 'bg-teal-deep text-white'
             : 'border border-white/15 text-white/70 hover:bg-white/5'
@@ -219,7 +219,7 @@ export function UserDetail({ userId }: { userId: string }) {
               <>
                 <p className="mb-2 text-xs text-white/60">
                   Anonymizes the email + revokes sessions (case files + audit trail are kept). Type{' '}
-                  <span className="text-rose">DELETE {user.email}</span> to confirm.
+                  <span className="text-rose-soft">DELETE {user.email}</span> to confirm.
                 </p>
                 <input
                   value={confirmText}
@@ -230,7 +230,7 @@ export function UserDetail({ userId }: { userId: string }) {
             ) : (
               <p className="mb-3 text-sm text-white/60">Confirm this action?</p>
             )}
-            {error ? <p className="mb-2 text-xs text-rose">{error}</p> : null}
+            {error ? <p className="mb-2 text-xs text-rose-soft">{error}</p> : null}
             <div className="flex gap-2">
               <button
                 onClick={() => setAction(null)}

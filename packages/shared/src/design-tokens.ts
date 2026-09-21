@@ -39,8 +39,17 @@ export const colors = {
   teal: { DEFAULT: brand.teal, deep: '#304844', soft: '#E4E8E7', tint: '#F3F5F5' },
   // `sage` is the money/savings ramp (A4). Derived shades regenerated from the new base.
   sage: { DEFAULT: brand.money, deep: '#246247', soft: '#E2EDE8', tint: '#F2F7F5' },
-  amber: { DEFAULT: '#E08A3C', deep: '#C26F26', soft: '#FBEBD8' },
-  rose: { DEFAULT: '#C75252', soft: '#F7E0E0' },
+  /**
+   * State accents. Ramp contract (guarded by test_design_token_guards): on every accent ramp,
+   * `deep` is the TEXT step for a `soft` pill and clears WCAG AA (4.5:1) on it — the contract
+   * sage (6.01) and citation (6.58) always met. 2026-09-21: amber.deep re-derived in-hue from
+   * #C26F26 (3.21 on soft — every consumer used it as text on soft) to #884E1B (5.70), and
+   * rose.deep added (#9A3232, 5.80). DEFAULT rose is a FILL/BORDER colour only: as text it
+   * fails AA on every surface we have (4.41 on white, 3.69 on navy-deep) — use `rose.deep` on
+   * light, `rose.soft` on dark.
+   */
+  amber: { DEFAULT: '#E08A3C', deep: '#884E1B', soft: '#FBEBD8' },
+  rose: { DEFAULT: '#C75252', deep: '#9A3232', soft: '#F7E0E0' },
   /**
    * Citation / source chips — checklist A6. A dedicated SEMANTIC slot, not an accent reuse:
    * `[B]` voice-tier strings may only render WITH their citation chip (orchestration script

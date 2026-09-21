@@ -62,7 +62,7 @@ export default function GapsPage() {
   return (
     <AdminShell>
       <h1 className="mb-5 text-2xl font-bold">Knowledge gaps</h1>
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card title="Open gaps">

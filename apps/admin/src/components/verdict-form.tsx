@@ -142,7 +142,7 @@ export function VerdictForm({
         className={inputClass}
       />
 
-      {error ? <p className="mb-2 text-xs text-rose">{error}</p> : null}
+      {error ? <p className="mb-2 text-xs text-rose-soft">{error}</p> : null}
 
       <button
         disabled={busy}

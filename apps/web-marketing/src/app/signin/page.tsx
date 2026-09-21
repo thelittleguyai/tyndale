@@ -122,7 +122,7 @@ export default function SignInPage() {
           </>
         )}
 
-        {error ? <p className="mt-4 text-center text-sm text-rose">{error}</p> : null}
+        {error ? <p className="mt-4 text-center text-sm text-rose-deep">{error}</p> : null}
       </div>
 
       <p className="mt-10 max-w-sm text-center text-xs text-ink/50">

@@ -13,7 +13,7 @@ const PAGE = 50;
 function statusPill(s: string): string {
   if (s === 'active') return 'bg-sage/20 text-sage';
   if (s === 'blocked') return 'bg-amber/20 text-amber';
-  return 'bg-rose/20 text-rose';
+  return 'bg-rose/20 text-rose-soft';
 }
 
 export function UserList() {
@@ -72,7 +72,7 @@ export function UserList() {
         </select>
       </div>
 
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
       {loading ? (
         <p className="text-sm text-white/40">Loading…</p>
       ) : (

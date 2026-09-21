@@ -18,7 +18,7 @@ function Tile({ label, value, ok }: { label: string; value: string; ok: boolean 
       ? 'bg-white/10 text-white/50'
       : ok
         ? 'bg-sage/20 text-sage'
-        : 'bg-rose/20 text-rose';
+        : 'bg-rose/20 text-rose-soft';
   return (
     <div className="rounded-2xl border border-white/10 bg-navy-soft p-4">
       <p className="text-xs uppercase tracking-wide text-white/40">{label}</p>
@@ -77,7 +77,7 @@ export default function SystemPage() {
   return (
     <AdminShell>
       <h1 className="mb-5 text-2xl font-bold">System</h1>
-      {error ? <p className="mb-3 text-sm text-rose">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm text-rose-soft">{error}</p> : null}
       {!health ? (
         <p className="text-sm text-white/40">Loading…</p>
       ) : (
@@ -113,7 +113,7 @@ export default function SystemPage() {
                 <span
                   className={
                     health.last_claude_call.status === 'error'
-                      ? 'text-rose'
+                      ? 'text-rose-soft'
                       : health.last_claude_call.status === 'ok'
                         ? 'text-sage'
                         : 'text-white/50'
@@ -206,7 +206,7 @@ export default function SystemPage() {
             {health.recent_errors.length ? (
               health.recent_errors.map((e) => (
                 <div key={e.event_id} className="border-b border-white/5 py-1 text-xs last:border-0">
-                  <span className="text-rose">{e.outcome}</span>{' '}
+                  <span className="text-rose-soft">{e.outcome}</span>{' '}
                   <span className="text-white/60">{e.event_type}</span>{' '}
                   <span className="text-white/40">{e.error ?? ''}</span>
                 </div>
