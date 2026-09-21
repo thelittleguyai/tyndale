@@ -289,3 +289,18 @@ def test_the_429_budget_stops_the_run_cleanly_instead_of_sleeping_for_hours():
     results, stopped = _run_all(scenarios, run_one, active=lambda: [], budget=budget)
     assert ran == ["a"] and "rate-limit budget spent" in stopped
     assert [r.get("skipped", False) for r in results] == [False, True, True]
+
+
+def test_the_harness_never_sends_a_real_address_to_the_delete_endpoint(monkeypatch):
+    """The cleanup endpoint refuses non-synthetic addresses (400) — and the harness refuses before
+    it calls, so a typo'd E2E_SYNTH_EMAIL / `identity` input can't even be transmitted."""
+    assert run_scenarios._is_synthetic("e2e-runner+35383490200-1@e2e.tyndale.test")
+    assert run_scenarios._is_synthetic("  E2E-Runner@E2E.TYNDALE.TEST ")
+    for bad in ("phil@example.com", "x@e2e.tyndale.test.evil.com", "", None):
+        assert not run_scenarios._is_synthetic(bad)
+
+    called: list[str] = []
+    monkeypatch.setenv("TYNDALE_E2E_SECRET", "s3cret")
+    monkeypatch.setattr(run_scenarios.httpx, "Client", lambda **k: called.append("client") or None)
+    assert run_scenarios._teardown("https://api.example", "phil@example.com", []) is None
+    assert called == []  # no client was ever constructed — nothing left the process

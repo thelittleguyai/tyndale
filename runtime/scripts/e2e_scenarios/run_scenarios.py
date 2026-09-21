@@ -968,6 +968,13 @@ def _run_all(scenarios: list[dict], run_one, *, active=_active_deploys, budget=N
     return results, None
 
 
+SYNTH_SUFFIX = "@e2e.tyndale.test"
+
+
+def _is_synthetic(email: str | None) -> bool:
+    return bool(email) and email.strip().lower().endswith(SYNTH_SUFFIX)
+
+
 def _failed_case_ids(results: list[dict]) -> list[str]:
     """Case ids of the scenarios that did NOT pass — the teardown keeps these (and so the run's
     identity) so `--inspect <case_file_id>` forensics still work after the run."""
@@ -988,6 +995,11 @@ def _teardown(base_url: str, email: str, keep_case_ids: list[str]) -> dict | Non
     OWN client: after authenticate() the scenario client carries the synthetic user's cookie,
     which the endpoint (shared secret or ADMIN session) rightly refuses. Never raises — a
     teardown problem is logged, it does not change a sweep's verdict."""
+    if not _is_synthetic(email):
+        # Defence in depth: the endpoint refuses this too (400), but an E2E_SYNTH_EMAIL typo or a
+        # real address in the `identity` input must never even be SENT to a delete endpoint.
+        log(f"teardown: REFUSED — {email!r} is not a {SYNTH_SUFFIX} identity")
+        return None
     secret = os.environ.get("TYNDALE_E2E_SECRET")
     admin_token = os.environ.get("TYNDALE_ADMIN_TOKEN")
     if not (secret or admin_token):

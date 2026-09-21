@@ -49,23 +49,55 @@ Local runs (`run_scenarios.py` without `--dev`) need neither — the dev-user st
 CI: the `E2E Scenarios` workflow (`workflow_dispatch`, never scheduled — real Claude token cost)
 runs against dev using those repo secrets.
 
-## Identity + teardown (2026-09-18)
+## A sweep, end to end (2026-09-18)
 
-Each run mints its own synthetic user, `e2e-runner+<run id>@e2e.tyndale.test` (the
-20-uploads/hour cap is per identity, so runs don't inherit each other's spend). Synthetic
-identities are refused by the human-review queue — a sweep never lands in a reviewer's list.
+**Duration.** A full sweep is **~80 minutes** — 23 scenarios, each a multi-minute real audit —
+and the job is capped at **150 minutes** so a stalled run can never sit for GitHub's 6-hour
+default. Run a subset with `--only` (workflow input `only`) when you don't need all of it.
 
-`--cleanup` tears the run's identity down at the end via the dev-only
-`POST /v1/admin/test-cleanup` (same gate as test-token: 404 in production and without the
-shared secret / an admin session; synthetic suffix only): cases, stored documents, threads,
-findings, review rows, feedback, analytics. **FAILED scenarios' cases are kept** (and so the
-identity). Cases are owner-only, so a later `--inspect` — or the finishing teardown — must act
-as that run's identity (every report prints it): workflow inputs `identity=<address>` with
-`inspect=<case ids>` or `cleanup_only=true`; locally, `E2E_SYNTH_EMAIL=<address>`. The workflow passes `--cleanup` and
-runs `--cleanup-only` as an always-run safety net (crash / timeout / cancel); both passes honour
-the keep list the run wrote. The audit log is never touched.
+**Identity — one synthetic user per run AND per attempt.** Each run authenticates as
+`e2e-runner+<run id>-<attempt>@e2e.tyndale.test` (a UTC timestamp locally). The 20-uploads/hour
+cap is per identity, so runs don't inherit each other's spend — and because "Re-run jobs" keeps
+the run id, the attempt is part of the tag too. Every report prints the identity. Override it
+with **`E2E_SYNTH_EMAIL=<address>`** (workflow input `identity`) to act as a *previous* run —
+cases are owner-only, so that is the only way to `--inspect` its cases or finish its teardown.
+Synthetic identities are refused by the human-review queue: a sweep never lands in a
+reviewer's list.
+
+**Rate limits.** A full sweep grazes the upload cap near the end. A 429 is waited out once per
+upload (`Retry-After`, ≤ 15 min), from a **30-minute per-run budget**; past it the run stops
+at the next scenario boundary with the remaining scenarios reported `SKIP` — a clean summary
+instead of sleeping toward the hard kill.
+
+**Deploy interlock — the sweep yields.** A dev runtime deploy swaps the Container App revision
+and kills in-flight audits, so the two must not overlap — and a deploy must never wait or be
+dropped. The harness watches the `deploy-runtime` workflow through the Actions API
+(`GITHUB_TOKEN` + `actions: read`, provided by the workflow): it waits up to 20 minutes for an
+in-flight deploy before uploading anything, re-checks at **every scenario boundary**, and if a
+deploy has begun it stops — report, teardown, **exit code 3**, a warning annotation — for you to
+re-dispatch once the deploy is done. Nothing that ran is marked failed by a yield. Locally (no
+token) the interlock is off, and it fails open on an API error. Two things it cannot see:
+`terraform apply` (it rolls the runtime too — don't apply mid-sweep) and a scale-to-zero cold
+start, which the preflight absorbs (it warms `/health` with retries and retries a 5xx on
+`test-token`, the 30–60 s cutover after a deploy "completes").
+
+**Teardown.** `--cleanup` removes the run's identity at the end through the dev-only
+`POST /v1/admin/test-cleanup` — cases, stored documents, threads, findings, review rows,
+feedback, analytics; never the audit log. It is gated exactly like `test-token` (404 in
+production and without the shared secret / an admin session) and refuses any address without
+the synthetic suffix, as does the harness before it even calls. **FAILED scenarios' cases are
+kept** — and therefore the identity — so forensics still work:
+
+```bash
+gh workflow run e2e-scenarios.yml -f identity=<address> -f inspect=<case_file_id>[,<id>…]
+gh workflow run e2e-scenarios.yml -f identity=<address> -f cleanup_only=true   # finish it
+```
+
+The workflow passes `--cleanup` on the run and then runs `--cleanup-only` in an `if: always()`
+step as the safety net for a crash, a timeout or a cancel; both honour the keep list the run
+wrote, and an `inspect` run never tears anything down.
 
 ## Cost
 
 Each scenario runs a real audit on dev (multi-minute, real Claude tokens). ~22 audits per full
-run. Trigger on demand, not on a schedule.
+run, ~80 minutes. Trigger on demand, not on a schedule.
