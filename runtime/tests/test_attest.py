@@ -171,6 +171,10 @@ async def test_attestation_persists_through_the_encrypted_envelope(client: Async
     case_id, uid = await _case_needing_attest(client)
     r = await client.post(f"/v1/case/{case_id}/attest", json={"relationship": "adult_child_caregiver"})
     assert r.status_code == 200
+    # The confirm line is §3.1's, with the patient FILLED IN. Unfilled, the loader substitutes
+    # its degradation line ("…too blurry for me to trust…") — which is what this field carried.
+    said = r.json()["confirmation"]
+    assert "authorized to manage medical bills for Robert Fluegel" in said and "blurry" not in said
 
     rows = await _attestation_rows(case_id)
     assert len(rows) == 1
@@ -195,6 +199,10 @@ async def test_decline_closes_the_case_gracefully_and_is_also_logged(client: Asy
     assert body["attest_status"] == "declined"
     assert body["case_status"] == "attest_declined"
     assert body["confirmation"]  # an honest message, never empty
+    # …and the RIGHT message: §3.2's decline line with the patient filled in, not the loader's
+    # "too blurry" degradation line an unfilled {patient_name} used to produce.
+    assert "If Robert Fluegel wants to look at this" in body["confirmation"]
+    assert "blurry" not in body["confirmation"]
 
     async with AsyncSessionLocal() as s:
         case = (
@@ -307,3 +315,49 @@ def test_nameless_profile_never_triggers_and_the_suite_identity_does():
     # The suite's OWN documents must NOT trigger — middle initials are noise (worked example).
     own = case(patient="JORDAN Q. TESTPATIENT")
     assert evaluate_attest_state(own, suite) is False
+
+
+# --- attest copy carries variables: every render site must fill them ------------------------
+def test_every_attest_key_renders_clean_with_attest_variables():
+    """Five attest keys carry {patient_name} (and the intro {first_name}). Rendered bare, the
+    loader substitutes its degradation line — so "…that part is too blurry for me to trust…"
+    was being served as the EXECUTOR menu option, the decline message and the attest route's
+    confirmation. `attest_variables` is the one definition of what these keys need."""
+    from app.agents.attest import attest_variables
+    from app.agents.context_loader import load_orchestration_script, orchestration_step
+
+    class _C:
+        patient_name = "Robert Fluegel"
+
+    v = attest_variables(_C(), first_name="Amy")
+    degraded = orchestration_step("generic_degraded")
+    keys = [k for k in load_orchestration_script() if k.startswith("attest.")]
+    assert len(keys) >= 12
+    for k in keys:
+        out = orchestration_step(k, **v)
+        assert "{" not in out and out != degraded and "blurry" not in out, (k, out)
+    assert orchestration_step("attest.menu_executor", **v) == "Executor/administrator of Robert Fluegel's estate"
+
+    class _Furniture:  # never ledger furniture as a name — a neutral referent instead
+        patient_name = "ACCOUNT SUMMARY"
+
+    assert attest_variables(_Furniture())["patient_name"] == "the patient"
+    assert attest_variables(_Furniture())["first_name"] == "there"
+
+
+def test_no_render_site_serves_an_attest_key_bare():
+    """The bug was at the CALL SITES, so guard those: any `orchestration_step("attest.…")` in
+    the runtime must pass the variables (the thread intro fills its own, deliberately)."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "app"
+    bare = []
+    for path in root.rglob("*.py"):
+        src = path.read_text(encoding="utf-8")
+        for m in re.finditer(r"orchestration_step\(\s*f?[\"\']attest\.[^)]*\)", src, flags=re.S):
+            call = m.group(0)
+            if "attest_variables" not in call and "_attest_vars" not in call and "patient_name=" not in call:
+                bare.append(f"{path.relative_to(root)}: {call[:80]}")
+    assert not bare, bare
+

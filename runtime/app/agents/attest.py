@@ -142,3 +142,19 @@ def attest_edge_signals(case: CaseFile, *, patient_deceased: bool = False) -> li
     if patient_deceased:
         signals.append("deceased")
     return signals
+
+
+def attest_variables(case: CaseFile, *, first_name: str | None = None) -> dict[str, str]:
+    """The variables `attest.*` copy carries — pass them on EVERY render of an attest key.
+
+    Five keys need ``{patient_name}`` (the intro, the confirm line, the executor option, the
+    decline ack, the teen edge) and the intro also ``{first_name}``. Rendered bare, the script
+    loader substitutes its degradation line (script §0 rule 2) — which is how "…that part is too
+    blurry for me to trust…" was being served as a relationship-menu option, as the decline
+    message and as the attest route's confirmation (found 2026-09-21 building the guided attest
+    screen). The name is used only when it is a plausible NAME — never ledger furniture."""
+    from app.sources.extraction import plausible_extracted_name
+
+    patient = case.patient_name if plausible_extracted_name(case.patient_name) else None
+    return {"patient_name": patient or "the patient", "first_name": (first_name or "").strip() or "there"}
+

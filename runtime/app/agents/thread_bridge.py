@@ -391,7 +391,7 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     # guard: an existing case with a name mismatch and no attestation gets the prompt on next
     # open, never silently grandfathered. The attest entry renders BEFORE encounter
     # verification, and the verification cards hold until attested.
-    from app.agents.attest import RELATIONSHIPS, evaluate_attest_state
+    from app.agents.attest import RELATIONSHIPS, attest_variables, evaluate_attest_state
     from app.db.models.users import User
 
     attest_user = (
@@ -419,7 +419,8 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
                     else None
                 ),
                 "menu": [
-                    {"key": k, "label": orchestration_step(f"attest.menu_{k}")}
+                    # the executor option carries {patient_name} — see attest_variables
+                    {"key": k, "label": orchestration_step(f"attest.menu_{k}", **attest_variables(case))}
                     for k in RELATIONSHIPS
                 ],
                 "decline_key": "not_authorized",
@@ -427,7 +428,9 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
             intro,
         )
     if status == "attest_declined":
-        text = orchestration_step("attest.decline_ack")
+        from app.agents.attest import attest_variables as _attest_vars
+
+        text = orchestration_step("attest.decline_ack", **_attest_vars(case))
         await ensure("terminal:attest_declined", "system_message", {"text": text, "tone": "neutral"}, text)
         return  # closed gracefully — nothing downstream renders
 

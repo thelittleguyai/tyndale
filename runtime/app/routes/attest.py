@@ -17,7 +17,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.attest import RELATIONSHIPS, attest_edge_signals
+from app.agents.attest import RELATIONSHIPS, attest_edge_signals, attest_variables
 from app.agents.context_loader import orchestration_step
 from app.analytics.emit import emit
 from app.auth import CurrentUser, current_user
@@ -100,8 +100,10 @@ async def attest(
         case_file_id=case_file_id,
         attest_status="attested",
         case_status=case.status,
-        confirmation=orchestration_step("attest.confirm"),
-        edge_prompts=[orchestration_step(_EDGE_KEY[s]) for s in signals],
+        # attest copy carries {patient_name}: rendered bare, the loader answers with its
+        # degradation line ("…too blurry for me to trust…") — which is what these fields carried.
+        confirmation=orchestration_step("attest.confirm", **attest_variables(case)),
+        edge_prompts=[orchestration_step(_EDGE_KEY[s], **attest_variables(case)) for s in signals],
     )
 
 
@@ -128,5 +130,5 @@ async def attest_decline(
         case_file_id=case_file_id,
         attest_status="declined",
         case_status="attest_declined",
-        confirmation=orchestration_step("attest.decline_ack"),
+        confirmation=orchestration_step("attest.decline_ack", **attest_variables(case)),
     )
