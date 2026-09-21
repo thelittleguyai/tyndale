@@ -616,3 +616,1128 @@ drift guard (nothing to compare against).
 ## dashboard.headline_open
 <!-- UNMAPPED — open-case card headline with no documents yet. Same status. -->
 [A] "Case open — awaiting documents"
+
+## §G · Guided intake (doc 40) — PROPOSED interim seeds
+
+Every string the guided `/intake` route renders (doc 40 §A2/§A6/§C10/§C12). **None of this is
+Brock's authored copy yet.** Each value is a shippable INTERIM seed — taken from the packet's
+own lines where it gives one (rewritten to grade 5 where needed), from the CO-1A wizard's
+strings otherwise — marked UNMAPPED and PROPOSED for his authoring pass in
+`docs/build-kit/33_orchestration_script_v2_DRAFT.md` ("Guided intake"). Excluded from the drift
+guard (nothing to compare against) and INCLUDED in the grade-5 guard
+(`tests/test_intake_reading_level.py`): every `intake.*` value must score ≤ 5.9 Flesch–Kincaid,
+and a glossed term (deductible, coinsurance, EOB, out-of-pocket, SBC, MSN, itemized) may appear
+only on a screen that carries its `gloss_<term>` key. Key shape: `intake.<screen>.<slot>`.
+Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summary_not_itemized`
+(§5.2), `wrongdoc.*` (§5.3), `attest.*` (§3), `system_error*` / `cap_collision` (§10).
+
+
+## — intake.chrome · on every guided screen
+
+## intake.chrome.save_exit
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Save and exit
+
+## intake.chrome.saved
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C7 line -->
+[A] Saved. You can stop now and come back later.
+
+## intake.chrome.see_example
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] See an example
+
+## intake.chrome.help_find
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A5 line -->
+[A] Help me find it
+
+## intake.chrome.email_steps
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A5 line -->
+[A] Email me these steps
+
+## intake.chrome.email_sent
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Sent. Check your email.
+
+## intake.chrome.email_failed
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I could not send that email. The steps are still here on this page.
+
+## intake.chrome.continue
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Continue
+
+## intake.chrome.back
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Back
+
+## intake.chrome.close
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Close
+
+## intake.chrome.open_sample
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Open the sample
+
+## intake.chrome.load_error
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] I could not load this step. Your work is saved. Please try again.
+
+## intake.chrome.save_error
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] I could not save that. Check your connection and try again.
+
+## intake.chrome.retry
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Try again
+
+
+## — intake.progress · the progress bar (§A8)
+
+## intake.progress.started
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] {filled} of {total} — nice start
+
+## intake.progress.going
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] {filled} of {total} done
+
+## intake.progress.all
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] All {total} done
+
+## intake.progress.kept_note
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] I moved one of your papers to a new group. Your progress stays the same.
+
+## intake.progress.label_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] Bill
+
+## intake.progress.label_card
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] Card
+
+## intake.progress.label_plan_rules
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] Plan rules
+
+## intake.progress.label_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] EOB
+
+## intake.progress.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
+
+## intake.progress.label_timeline
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] Timeline
+
+## intake.progress.label_about_you
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] About you
+
+## intake.progress.label_confirmations
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A8 line -->
+[A] Quick checks
+
+
+## — intake.resume · save and resume (§C7)
+
+## intake.resume.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C7 line -->
+[A] Pick up where you left off.
+
+## intake.resume.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your work is saved. Next up: {group_label}.
+
+## intake.resume.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Keep going
+
+## intake.resume.new
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Start a new bill
+
+## intake.resume.link_expiry
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C7 line -->
+[A] To come back, ask for a new sign-in link. Each link works for {minutes} minutes.
+
+
+## — intake.welcome · #1 landing
+
+## intake.welcome.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Let's check your bill.
+
+## intake.welcome.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I will ask for a few papers, one at a time. I read them for you, so there is little to type.
+
+## intake.welcome.doctrine
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B1 line -->
+[A] I do not assume the bill is right. I do not assume your insurer is right. I check both.
+
+## intake.welcome.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Start with my bill
+
+
+## — intake.handoff · exit — a population Phase 1 does not carry
+
+## intake.handoff.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Let's finish this in chat.
+
+## intake.handoff.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] This step-by-step path is built for job and self-bought plans so far. For {population_label}, I check your bill in our chat. Nothing you added is lost.
+
+## intake.handoff.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Go to chat
+
+## intake.handoff.label_medicare
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Medicare
+
+## intake.handoff.label_medicare_advantage
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] a Medicare plan
+
+## intake.handoff.label_medicaid
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Medicaid
+
+## intake.handoff.label_dual
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Medicare with Medicaid
+
+## intake.handoff.label_self_pay
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] a bill with no insurance
+
+## intake.handoff.label_tricare_va
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] TRICARE or VA coverage
+
+## intake.handoff.label_other
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] your kind of plan
+
+
+## — intake.bill · #2–3 the bill
+
+## intake.bill.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B2 line -->
+[A] Take a photo of your bill.
+
+## intake.bill.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The itemized bill works best. A photo or a file both work.
+
+## intake.bill.gloss_itemized
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Itemized means each charge is on its own line, with a short code next to it.
+
+## intake.bill.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add my bill
+
+## intake.bill.no_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B2 line -->
+[A] I don't have the bill
+
+## intake.bill.no_bill_note
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B2 line -->
+[A] That's okay. We can start with your insurer's statement.
+
+
+## — intake.bill_itemized · #3 summary-bill coaching (body = §5.2's dataquality_summary_not_itemized, reused)
+
+## intake.bill_itemized.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C5 line -->
+[A] This bill is a summary.
+
+## intake.bill_itemized.gloss_itemized
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Itemized means each charge is on its own line, with a short code next to it.
+
+## intake.bill_itemized.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add the itemized bill
+
+## intake.bill_itemized.secondary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Keep going with this bill
+
+## intake.bill_itemized.secondary_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I can still check the totals. I can't check each charge.
+
+
+## — intake.bill_summary · #5 read-back + other bills for this visit (§C1)
+
+## intake.bill_summary.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B5 line -->
+[A] Here is what I read.
+
+## intake.bill_summary.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Take a look. If something is wrong, add a clearer photo.
+
+## intake.bill_summary.row_provider
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] From
+
+## intake.bill_summary.row_date
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Date of visit
+
+## intake.bill_summary.row_patient
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Name on the bill
+
+## intake.bill_summary.row_account
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Account number
+
+## intake.bill_summary.row_missing
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I could not read this
+
+## intake.bill_summary.other_bills
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B5 line -->
+[A] Did you get other bills for this same visit?
+
+## intake.bill_summary.other_bills_why
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C1 line -->
+[A] One hospital visit can bring many bills. The doctor, the lab and the hospital may each send one. I check them as one.
+
+## intake.bill_summary.yes
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Yes, add another bill
+
+## intake.bill_summary.no
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No, that's all
+
+## intake.bill_summary.fix
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Something is off
+
+
+## — intake.eob · #6 EOB
+
+## intake.eob.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] Now your Explanation of Benefits (EOB).
+
+## intake.eob.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
+
+## intake.eob.other_name
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] It may have a different name on your insurer's website.
+
+## intake.eob.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] It shows what your insurer paid and what it says you owe. I check that math too.
+
+## intake.eob.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add my EOB
+
+## intake.eob.skip
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B6 line -->
+[A] I don't have it
+
+## intake.eob.skip_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B6 line -->
+[A] I can still check the hospital's charges. But I can't check your insurer's math. That is where the bigger mistakes often are.
+
+
+## — intake.card · #7 card
+
+## intake.card.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B7 line -->
+[A] Next, your insurance card.
+
+## intake.card.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Take a photo of the front and the back. It tells me which plan you have.
+
+## intake.card.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add my card
+
+## intake.card.skip
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B7 line -->
+[A] I don't have my card
+
+## intake.card.skip_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B7 line -->
+[A] That's okay. It may be on your bill. If not, I will ask you to type your insurer's name.
+
+
+## — intake.insurer · which insurer — only when no document named it
+
+## intake.insurer.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Who is your insurer?
+
+## intake.insurer.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I could not find it on your papers. Type it the way it looks on a letter from them.
+
+## intake.insurer.field_payer
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Insurer name
+
+## intake.insurer.field_member_id
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Member ID, if you have it
+
+## intake.insurer.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Save
+
+## intake.insurer.skip
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Skip for now
+
+
+## — intake.coverage_type · kind of coverage — only when detection could not tell
+
+## intake.coverage_type.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] How do you get your health insurance?
+
+## intake.coverage_type.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] This tells me which rules apply to your bill.
+
+## intake.coverage_type.opt_job_or_bought
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Through a job, or I bought it myself
+
+## intake.coverage_type.opt_medicare
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Medicare
+
+## intake.coverage_type.opt_medicaid
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Medicaid
+
+## intake.coverage_type.opt_military_va
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] TRICARE or VA
+
+## intake.coverage_type.opt_none
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] I don't have insurance
+
+## intake.coverage_type.opt_not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+
+## — intake.plan_rules · #8 plan rules (SBC)
+
+## intake.plan_rules.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] Now your plan's rulebook.
+
+## intake.plan_rules.gloss_sbc
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook.
+
+## intake.plan_rules.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] It is a few pages long. Your insurer's website has it. So does the benefits office at your job.
+
+## intake.plan_rules.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add my SBC
+
+## intake.plan_rules.skip
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C9 line -->
+[A] I can't find it
+
+## intake.plan_rules.skip_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B8 line -->
+[A] Without it, I will show your share as a range, not one number.
+
+
+## — intake.plan_rules_confirm · #8 Plan Library variant — confirm this matches
+
+## intake.plan_rules_confirm.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B8 line -->
+[A] I may already have your plan's rules.
+
+## intake.plan_rules_confirm.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B8 line -->
+[A] I have these on file for {payer}. Do they match your plan?
+
+## intake.plan_rules_confirm.gloss_sbc
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook.
+
+## intake.plan_rules_confirm.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.plan_rules_confirm.gloss_out_of_pocket
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The out-of-pocket limit is the most you pay in one plan year.
+
+## intake.plan_rules_confirm.gloss_coinsurance
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Coinsurance is your share of the cost after the deductible.
+
+## intake.plan_rules_confirm.row_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Deductible
+
+## intake.plan_rules_confirm.row_oop
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Out-of-pocket limit
+
+## intake.plan_rules_confirm.row_coinsurance
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Coinsurance
+
+## intake.plan_rules_confirm.yes
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Yes, these match
+
+## intake.plan_rules_confirm.no
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] No, something is off
+
+
+## — intake.plan_year · #10 plan year
+
+## intake.plan_year.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B10 line -->
+[A] When does your plan year start?
+
+## intake.plan_year.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Many plans start in January, but not all. Your deductible starts over on that day.
+
+## intake.plan_year.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.plan_year.opt_not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+
+## — intake.timeline · #11–12 the EOB timeline (§A7)
+
+## intake.timeline.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Your EOBs this plan year.
+
+## intake.timeline.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
+
+## intake.timeline.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.timeline.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Your deductible adds up over the year. So I need each EOB from the start of your plan year up to this visit.
+
+## intake.timeline.visit_marker
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Your visit
+
+## intake.timeline.after_visit
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] After your visit. It does not change this bill.
+
+## intake.timeline.no_date
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I could not read a date on this one.
+
+## intake.timeline.gap
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] I don't see one for {month}.
+
+## intake.timeline.gap_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Without it, I'll show your share as a range.
+
+## intake.timeline.confirm
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] I count {n} EOBs, {start} to {end}, none for anyone else on your plan. Is that all of them?
+
+## intake.timeline.confirm_one
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] I count one EOB, from {start}, and none for anyone else on your plan. Is that the only one?
+
+## intake.timeline.confirm_family
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] I count {n} EOBs, {start} to {end}, for {members} people on your plan. Is that all of them?
+
+## intake.timeline.confirm_yes
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Yes, that's all
+
+## intake.timeline.confirm_no
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No, there are more
+
+## intake.timeline.add_more
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add another EOB
+
+
+## — intake.deductible_met · manual deductible ask — only when the EOBs cannot say
+
+## intake.deductible_met.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] How much of your deductible had you paid?
+
+## intake.deductible_met.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.deductible_met.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I mean before this visit, in this plan year. Your insurer's website shows it.
+
+## intake.deductible_met.field_amount
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Amount paid so far
+
+## intake.deductible_met.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Save
+
+## intake.deductible_met.not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+## intake.deductible_met.not_sure_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] We don't know what you'd already paid by then, so we won't guess. I will show your share as a range.
+
+
+## — intake.oop_met · manual out-of-pocket ask — only when the EOBs cannot say
+
+## intake.oop_met.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] How much counted toward your out-of-pocket limit?
+
+## intake.oop_met.gloss_out_of_pocket
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The out-of-pocket limit is the most you pay in one plan year.
+
+## intake.oop_met.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I mean before this visit, in this plan year. Your insurer's website shows it.
+
+## intake.oop_met.field_amount
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Amount paid so far
+
+## intake.oop_met.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Save
+
+## intake.oop_met.not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+## intake.oop_met.not_sure_consequence
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] We don't know what you'd already paid by then, so we won't guess. I will show your share as a range.
+
+
+## — intake.attest · #13 who was it for → attest-and-proceed (attest.* keys do the talking)
+
+## intake.attest.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B13 line -->
+[A] Who is this bill for?
+
+## intake.attest.back_home
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Back to home
+
+
+## — intake.other_insurance · #14 other insurance
+
+## intake.other_insurance.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B14 line -->
+[A] Do you have a second health plan?
+
+## intake.other_insurance.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B14 line -->
+[A] Some people are on two plans. If you are, I check it. I don't assume it pays the rest.
+
+## intake.other_insurance.yes
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Yes
+
+## intake.other_insurance.no
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No
+
+## intake.other_insurance.not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+
+## — intake.reading · #4 reading it
+
+## intake.reading.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B4 line -->
+[A] Reading your bill.
+
+## intake.reading.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] This takes a minute or two. You can leave and come back. Your work is saved.
+
+
+## — intake.facts_only · #15 facts only
+
+## intake.facts_only.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B15 line -->
+[A] A few quick facts about your visit.
+
+## intake.facts_only.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B15 line -->
+[A] I only ask what happened. I never ask if the care was right. That is between you and your doctor.
+
+## intake.facts_only.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Okay
+
+
+## — intake.confirmations · #16 confirmations
+
+## intake.confirmations.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B16 line -->
+[A] Did these happen?
+
+## intake.confirmations.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Each one is a charge on your bill, in plain words. Tell me if it happened.
+
+## intake.confirmations.yes
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] Yes
+
+## intake.confirmations.no
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: carried from the CO-1A wizard, rewritten toward grade 5 -->
+[A] No
+
+## intake.confirmations.not_sure
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B16 line -->
+[A] I'm not sure
+
+## intake.confirmations.not_sure_note
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B16 line -->
+[A] That's fine. I will mark it as not settled.
+
+## intake.confirmations.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Done
+
+
+## — intake.readiness · #17 readiness — the planner's summary
+
+## intake.readiness.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B17 line -->
+[A] Here is what I have.
+
+## intake.readiness.body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B17 line -->
+[A] You can run the check now. Or add what is missing first, for a sharper answer.
+
+## intake.readiness.resolved
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Have it
+
+## intake.readiness.unresolved
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Missing
+
+## intake.readiness.skipped
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Skipped
+
+## intake.readiness.edit
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B17 line -->
+[A] Change
+
+## intake.readiness.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Check my bill
+
+## intake.readiness.cannot_run
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Add a bill or an insurer statement first. I need one of them to check.
+
+## intake.readiness.item_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your bill
+
+## intake.readiness.item_itemized_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] A bill with each charge listed
+
+## intake.readiness.item_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your insurer's statement
+
+## intake.readiness.item_payer
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your insurer
+
+## intake.readiness.item_plan_rules
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your plan's rulebook
+
+## intake.readiness.item_plan_year_start
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] When your plan year starts
+
+## intake.readiness.item_eob_completeness
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] All your insurer statements
+
+## intake.readiness.item_deductible_met
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] What you had paid before this visit
+
+## intake.readiness.item_oop_max_met
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] What counted toward your yearly limit
+
+## intake.readiness.item_coverage_type
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your kind of coverage
+
+## intake.readiness.item_attestation
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Who the bill is for
+
+## intake.readiness.item_other_insurance
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] A second health plan
+
+## intake.readiness.item_encounter_facts
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Facts about your visit
+
+
+## — intake.limits · what an unresolved item limits (readiness lines)
+
+## intake.limits.no_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No bill yet. I can only check your insurer's statement.
+
+## intake.limits.summary_bill
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C5 line -->
+[A] This bill shows totals only. I can't check each charge.
+
+## intake.limits.no_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B6 line -->
+[A] No insurer statement. I can't check your insurer's math.
+
+## intake.limits.no_payer
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I don't know your insurer. Some plan rules can't be checked.
+
+## intake.limits.no_plan_rules
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B8 line -->
+[A] No plan rulebook. Your share becomes a range.
+
+## intake.limits.no_plan_year
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] I don't know when your plan year starts. I can't place your visit in the year.
+
+## intake.limits.incomplete_eobs
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
+[A] Some insurer statements may be missing. Your share becomes a range.
+
+## intake.limits.no_accumulator
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] I don't know what you had paid so far. Your share becomes a range.
+
+## intake.limits.no_coverage_type
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I don't know your kind of coverage. I will use the common rules.
+
+## intake.limits.no_other_insurance
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] I don't know if you have a second plan.
+
+## intake.limits.no_confirmations
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Visit facts are not checked yet. Some charges stay open.
+
+
+## — intake.analysis · #18 analysis
+
+## intake.analysis.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B18 line -->
+[A] Checking your bill.
+
+## intake.analysis.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.analysis.step_read
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Reading your papers
+
+## intake.analysis.step_position
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B18 line -->
+[A] Working out where your deductible stood
+
+## intake.analysis.step_provider
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B18 line -->
+[A] Checking the bill's side
+
+## intake.analysis.step_payer
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B18 line -->
+[A] Checking your insurer's side
+
+## intake.analysis.leave
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] This can take a few minutes. You can leave. I will keep working.
+
+
+## — intake.unlock · the unlock moment while billing is dark
+
+## intake.unlock.headline
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: §7.1's unlock.card WITHOUT its price clause — rendered while no one is charged (unlock_gate_mode free_beta / block) -->
+[A] {gap} of this should not be yours to pay. Your plan to fix it is ready.
+
+## intake.unlock.proceed
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] See my plan
+
+## intake.unlock.free_beta
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: prompt item 8 -->
+[A] Free while we're in beta.
+
+## intake.unlock.blocked
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] This step is not open yet.
+
+
+## — intake.example · example registry callouts (§A3)
+
+## intake.example.gloss_sbc
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook.
+
+## intake.example.gloss_msn
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An MSN is the Medicare Summary Notice. Medicare mails it to show what it paid.
+
+## intake.example.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.example.gloss_out_of_pocket
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The out-of-pocket limit is the most you pay in one plan year.
+
+## intake.example.source_federal
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] This sample comes from the U.S. government. It is not your plan.
+
+## intake.example.sbc_title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] A sample SBC
+
+## intake.example.sbc_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Top right: the coverage period. The first date is when your plan year starts.
+
+## intake.example.sbc_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] First row: the overall deductible, for one person and for a family.
+
+## intake.example.sbc_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Third row: other deductibles, like one just for drugs.
+
+## intake.example.sbc_4
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Fourth row: the out-of-pocket limit. It lists one number in the network and one out of it.
+
+## intake.example.sbc_5
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Page 2: two columns of costs. One is for network doctors. One is for doctors outside it.
+
+## intake.example.sbc_6
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Last page: three made-up patients. They show how the plan splits a real bill.
+
+## intake.example.msn_title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] A sample MSN
+
+## intake.example.msn_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Top of page 1: the words "This is not a bill."
+
+## intake.example.msn_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Page 1: the box named "Your Deductible Status." It shows how much you have met.
+
+## intake.example.msn_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Page 1: "Total You May Be Billed" for this period.
+
+## intake.example.msn_4
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Page 3: the claims table. The last column is the most the doctor may bill you.
+
+## intake.example.msn_5
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
+[A] Last page: how to appeal, and the date you must do it by.
+
+
+## — intake.help · "Help me find it" — generic fallbacks (§A5)
+
+## intake.help.title
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A5 line -->
+[A] Where to find it
+
+## intake.help.generic_note
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A5 line -->
+[A] These are general steps. Your insurer's website may use other names.
+
+## intake.help.payer_note
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A5 line -->
+[A] These steps are for {payer}.
+
+## intake.help.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
+
+## intake.help.gloss_sbc
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook.
+
+## intake.help.gloss_deductible
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->
+[A] The deductible is the amount you pay before insurance starts paying.
+
+## intake.help.gloss_out_of_pocket
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The out-of-pocket limit is the most you pay in one plan year.
+
+## intake.help.gloss_itemized
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Itemized means each charge is on its own line, with a short code next to it.
+
+## intake.help.email_subject
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Your steps from Tyndale
+
+## intake.help.email_intro
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Here are the steps you asked for. Come back to Tyndale when you have it.
+
+## intake.help.eob_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Sign in to your insurer's website or app.
+
+## intake.help.eob_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Look for Claims. It may be called Claims and Payments.
+
+## intake.help.eob_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Find the claim with your visit date. Open it.
+
+## intake.help.eob_4
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Look for a link that says EOB, or View Statement. Save it as a file.
+
+## intake.help.eob_5
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No luck? Call the number on the back of your card. Ask them to mail or email the EOB.
+
+## intake.help.sbc_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Sign in to your insurer's website or app.
+
+## intake.help.sbc_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Look for Plan Documents or Benefits.
+
+## intake.help.sbc_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Open the file named Summary of Benefits and Coverage. Save it.
+
+## intake.help.sbc_4
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Got your plan at work? Your benefits office has it too. They must give it to you when you ask.
+
+## intake.help.insurance_card_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Check your wallet, or a drawer with your mail from the insurer.
+
+## intake.help.insurance_card_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No card? Sign in to your insurer's app. Look for ID Card. You can save a copy.
+
+## intake.help.insurance_card_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Still no card? Your bill or EOB may show the insurer and your member ID.
+
+## intake.help.itemized_bill_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Call the billing number on your bill.
+
+## intake.help.itemized_bill_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Ask for the itemized bill, with every charge and its code.
+
+## intake.help.itemized_bill_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Give them your account number and your visit date.
+
+## intake.help.itemized_bill_4
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] They can mail it, email it, or post it on their website. There is no charge.
+
+## intake.help.accumulators_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Sign in to your insurer's website or app.
+
+## intake.help.accumulators_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Look for Deductible, or Plan Balances. It is often on the first page.
+
+## intake.help.accumulators_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Write down the amount you have paid so far, and the date it shows.
+
+## intake.help.plan_year_1
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] Look at the top of your SBC. Find the words Coverage Period.
+
+## intake.help.plan_year_2
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] The first date is the day your plan year starts.
+
+## intake.help.plan_year_3
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
+[A] No SBC? Your benefits office or your insurer can tell you the date.

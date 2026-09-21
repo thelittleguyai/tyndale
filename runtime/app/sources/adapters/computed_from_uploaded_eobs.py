@@ -121,19 +121,37 @@ def compute_accumulator(
     oop_applied = 0.0
     dated_count = 0
     with_applied = 0
+    # In-network and out-of-network accumulate SEPARATELY on most plans (doc 40 §A7). An EOB
+    # carries `network` ("in" | "out") only when its own text said so; unmarked EOBs are
+    # `unknown`. Tracked per bucket here; the HEADLINE totals below are unchanged (every EOB, as
+    # before) until the engine decides how to treat a plan's out-of-network accumulator — so
+    # this adds information without moving any audit's numbers.
+    by_network: dict[str, dict[str, float]] = {
+        k: {"deductible_applied": 0.0, "oop_applied": 0.0, "eobs": 0} for k in ("in", "out", "unknown")
+    }
     for dt, eob in rows:
         if dt is not None:
             dated_count += 1
         d = as_float(eob.get("amount_applied_to_deductible"))
         o = as_float(eob.get("amount_applied_to_oop"))
+        bucket = by_network[eob.get("network") if eob.get("network") in ("in", "out") else "unknown"]
+        bucket["eobs"] += 1
         if d is not None:
             ded_applied += d
+            bucket["deductible_applied"] = round(bucket["deductible_applied"] + d, 2)
         if o is not None:
             oop_applied += o
+            bucket["oop_applied"] = round(bucket["oop_applied"] + o, 2)
         if d is not None or o is not None:
             with_applied += 1
     ded_applied = round(ded_applied, 2)
     oop_applied = round(oop_applied, 2)
+    if by_network["out"]["eobs"]:
+        assumptions.append(
+            f"{int(by_network['out']['eobs'])} out-of-network EOB(s) are counted in the headline "
+            "totals; a plan with a separate out-of-network accumulator has met less in-network "
+            "than shown (see buckets.individual_out_of_network)"
+        )
 
     # 4. Remaining (only when coverage exposes the cap).
     ded_cap = as_float(coverage.get("deductible_amount"))
@@ -163,11 +181,22 @@ def compute_accumulator(
         "eobs_counted": len(rows),
         "plan_year": plan_year,
         "buckets": {
+            # unchanged: the single bucket the audit computes with (every counted EOB)
             "individual_in_network": {
                 "deductible_applied": ded_applied,
                 "oop_applied": oop_applied,
-            }
+            },
+            # doc 40 §A7 — present only when an EOB said it was out-of-network
+            **(
+                {"individual_out_of_network": {
+                    "deductible_applied": by_network["out"]["deductible_applied"],
+                    "oop_applied": by_network["out"]["oop_applied"],
+                }}
+                if by_network["out"]["eobs"]
+                else {}
+            ),
         },
+        "by_network": by_network,
     }
     return AccumulatorComputation(data=data, assumptions=assumptions, confidence=confidence)
 

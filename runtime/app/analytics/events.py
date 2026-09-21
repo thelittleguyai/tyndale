@@ -88,6 +88,20 @@ _ATTRIB_MEDIUMS = ("cpc", "organic", "social", "email", "referral", "affiliate",
 # --- the registry -----------------------------------------------------------
 # name -> EventSpec. Grouped by dashboard panel. server_only defaults True; the few client-only
 # (presentation) events set it False so they may arrive via POST /v1/events.
+# Guided intake (doc 40). Mirrors app.intake.planner.SCREEN_IDS / POPULATIONS — pinned equal by
+# tests/test_intake_planner.py, so a new screen cannot ship without its funnel event being valid.
+_INTAKE_SCREENS = (
+    "welcome", "handoff", "bill", "bill_itemized", "bill_summary", "eob", "card", "insurer",
+    "coverage_type", "plan_rules_confirm", "plan_rules", "plan_year", "timeline",
+    "deductible_met", "oop_met", "attest", "other_insurance", "reading", "facts_only",
+    "confirmations", "readiness", "ready",
+)  # fmt: skip
+_INTAKE_ACTIONS = ("continue", "skip", "ack", "yes", "no", "not_sure", "fix", "other")
+_INTAKE_POPULATIONS = (
+    "commercial", "medicare", "medicare_advantage", "medicaid", "dual", "self_pay",
+    "tricare_va", "other",
+)  # fmt: skip
+
 REGISTRY: dict[str, EventSpec] = {
     # §1 Funnel (server-known) ------------------------------------------------
     "upload_started": EventSpec({"file_count": num_prop()}),
@@ -185,6 +199,30 @@ REGISTRY: dict[str, EventSpec] = {
     # Acquisition (sanitized enums only) --------------------------------------
     "signup_attribution": EventSpec(
         {"source": enum_prop(*_ATTRIB_SOURCES), "medium": enum_prop(*_ATTRIB_MEDIUMS)}
+    ),
+    # Guided intake funnel (doc 40 §D, 2026-09-21). Enum + counts ONLY: which screen, which
+    # action, how long it sat — never a value the user entered, never a document's content.
+    # Every one is case-scoped, so the emitter stamps the intake_mode column on all of them.
+    "intake_started": EventSpec(),
+    "intake_screen_shown": EventSpec({"screen": enum_prop(*_INTAKE_SCREENS)}),
+    "intake_screen_action": EventSpec(
+        {
+            "screen": enum_prop(*_INTAKE_SCREENS),
+            "action": enum_prop(*_INTAKE_ACTIONS),
+            "elapsed": enum_prop("lt_10s", "lt_1m", "lt_5m", "lt_1h", "gt_1h", "unknown"),
+        }
+    ),
+    # a population the Phase-1 route does not carry → one line, then chat-first (§A4-4)
+    "intake_handoff": EventSpec({"population": enum_prop(*_INTAKE_POPULATIONS)}),
+    "intake_audit_started": EventSpec({"unresolved": num_prop()}),
+    "intake_help_emailed": EventSpec(
+        {
+            "document_type": enum_prop(
+                "eob", "sbc", "insurance_card", "itemized_bill", "accumulators", "plan_year", "other"
+            ),
+            "scope": enum_prop("payer", "generic"),
+            "sent": bool_prop(),
+        }
     ),
     # Billing-dependent — registered now, emitted nowhere until billing lands -
     "unlock_viewed": EventSpec(not_yet_live=True),

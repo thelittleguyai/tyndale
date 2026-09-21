@@ -77,11 +77,17 @@ async def test_returning_complete_user_skips_intake(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_returning_mid_wizard_resumes_at_current_step(client: AsyncClient):
+async def test_returning_mid_intake_resumes_where_the_planner_says_not_where_a_pointer_says(
+    client: AsyncClient,
+):
+    """CO-1A resumed at a STORED step name. The stored value is now only a record of the last
+    pick: the screen is recomputed from what the case actually has, so a stale pointer
+    ("benefits" is no longer a screen at all) can never strand a returning user."""
     cfid = await _fresh_case(intake_status="in_progress", intake_current_step="benefits")
     body = (await client.get("/v1/intake/state", params={"case_file_id": cfid})).json()
     assert body["intake_status"] == "in_progress"
-    assert body["current_step"] == "benefits"
+    assert body["current_step"] == "welcome" == body["screen"]["id"]  # an empty case starts at the start
+    assert (await _case(cfid)).intake_current_step == "welcome"
 
 
 @pytest.mark.asyncio
@@ -92,10 +98,9 @@ async def test_save_and_exit_preserves_state(client: AsyncClient):
         json={"case_file_id": cfid, "payer": "Aetna", "member_id": "W123456789"},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["current_step"] == "benefits"  # advanced past coverage-details
-    # Re-entry (a fresh GET) shows the persisted progress + data.
+    # Re-entry (a fresh GET) shows the same screen + the persisted data — every write commits.
     body = (await client.get("/v1/intake/state", params={"case_file_id": cfid})).json()
-    assert body["current_step"] == "benefits"
+    assert body["current_step"] == r.json()["current_step"]
     assert body["captured_data"]["coverage"]["payer_name"] == "Aetna"
     assert body["captured_data"]["coverage"]["member_id"] == "W123456789"
 
@@ -121,7 +126,6 @@ async def test_skip_step_advances_without_persisting_step_data(client: AsyncClie
     cfid = await _fresh_case()
     r = await client.post("/v1/intake/step/oop-max/skip", json={"case_file_id": cfid})
     assert r.status_code == 200, r.text
-    assert r.json()["current_step"] == "bills"  # advanced past oop-max
     cf = await _case(cfid)
     assert (cf.coverage or {}).get("oop_max_amount") is None  # nothing persisted for the step
 

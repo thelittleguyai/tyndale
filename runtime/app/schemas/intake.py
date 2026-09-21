@@ -9,34 +9,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# Canonical step order. The frontend route names match these exactly. The
-# coverage-regime-confirm step (Sprint B, DL-82) sits right after the card so the
-# regime is settled before benefits are captured under the wrong population's rules.
-INTAKE_STEPS: list[str] = [
-    "welcome",
-    "insurance-card",
-    "coverage-regime-confirm",
-    "coverage-details",
-    "benefits",
-    "deductible",
-    "oop-max",
-    "bills",
-    "eobs",
-    "visit-context",
-    "complete",
-]
-
-# Steps the user may skip (graceful degradation — equal-weight in the UI).
-SKIPPABLE_STEPS: set[str] = {
-    "insurance-card",
-    "coverage-regime-confirm",
-    "coverage-details",
-    "benefits",
-    "deductible",
-    "oop-max",
-    "eobs",
-    "visit-context",
-}
+# There is NO canonical step order any more (doc 40 §A4): the Intake Planner picks the next
+# screen from app.intake.planner.SCREEN_REGISTRY after every capture. `current_step` on the
+# wire is the planner's pick — a registry screen id, or "READY".
 
 
 class ConfirmationPrompt(BaseModel):
@@ -74,25 +49,78 @@ class PlanProposal(BaseModel):
     summary: str
 
 
-class IntakeStateResponse(BaseModel):
+class IntakeProgress(BaseModel):
+    """The segmented bar (§A8). It never regresses: `segments[].filled` includes the persisted
+    high-water mark, and `note` explains a segment a reclassified document no longer backs."""
+
+    segments: list[dict[str, Any]] = Field(default_factory=list)
+    filled: int = 0
+    total: int = 7
+    line: str | None = None  # "1 of 7 — nice start"; never a bare "Step N of M"
+    note: str | None = None
+    glosses: dict[str, Any] = Field(default_factory=dict)
+    high_water: list[str] = Field(default_factory=list)
+
+
+class IntakeResume(BaseModel):
+    """"Pick up where you left off" (§C7) — shown when the user returns to /intake with an
+    unfinished guided case. `link_expiry` states the REAL magic-link lifetime."""
+
     case_file_id: str
+    title: str | None = None
+    body: str | None = None
+    primary: str | None = None
+    new: str | None = None
+    link_expiry: str | None = None
+
+
+class IntakeStateResponse(BaseModel):
+    # None until the user starts (POST /intake/start): opening the landing creates nothing.
+    case_file_id: str | None = None
     intake_status: str  # not_started | in_progress | complete
-    current_step: str
-    completed_steps: list[str] = Field(default_factory=list)
+    intake_mode: str = "guided"
+    current_step: str  # the planner's pick: a SCREEN_REGISTRY id, or "READY"
+    completed_steps: list[str] = Field(default_factory=list)  # filled progress groups
+    # The screen to draw: id, kind, copy (registry strings), data, example?, help?, skippable.
+    screen: dict[str, Any] = Field(default_factory=dict)
+    progress: IntakeProgress = Field(default_factory=IntakeProgress)
+    chrome: dict[str, str] = Field(default_factory=dict)
+    resume: IntakeResume | None = None
     captured_data: CapturedData
     missing_items: list[str] = Field(default_factory=list)
-    # CO-12C: a pending PlanLibrary proposal to confirm before prompting for an SBC.
+    # CO-12C: a pending PlanLibrary proposal (rendered by the plan_rules_confirm screen).
     plan_proposal: PlanProposal | None = None
 
 
-class StepAck(BaseModel):
-    """Returned by step manual-entry / skip / visit-context / extract."""
+class StepAck(IntakeStateResponse):
+    """Returned by every intake write. It IS the next state — the client never decides where
+    to go, it draws `screen`. `confirmations` carries low-confidence card fields (P1)."""
+
+    confirmations: list[ConfirmationPrompt] = Field(default_factory=list)
+
+
+class IntakeAnswerRequest(BaseModel):
+    """One answer from one screen. `action`: continue | skip | ack | yes | no | not_sure | fix.
+    `values` is screen-specific and validated by the route against that screen's fields."""
 
     case_file_id: str
-    intake_status: str
-    current_step: str
-    completed_steps: list[str] = Field(default_factory=list)
-    confirmations: list[ConfirmationPrompt] = Field(default_factory=list)
+    screen: str
+    action: str = "continue"
+    values: dict[str, Any] = Field(default_factory=dict)
+
+
+class IntakeRunResponse(BaseModel):
+    case_file_id: str
+    status: str
+    # Where the app goes next — the EXISTING reveal/thread; the guided route builds no results UI.
+    next_route: str
+    conversation_id: str | None = None
+
+
+class HelpEmailRequest(BaseModel):
+    case_file_id: str | None = None
+    document_type: str
+    screen: str | None = None
 
 
 class VisitContextRequest(BaseModel):

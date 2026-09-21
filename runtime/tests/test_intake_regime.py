@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
-from app.routes.intake import _next_step
+from app.intake.planner import SCREEN_IDS
 
 
 async def _dev_user_id() -> uuid.UUID:
@@ -50,9 +50,12 @@ async def _state(client: AsyncClient, cfid: str) -> dict:
     return (await client.get("/v1/intake/state", params={"case_file_id": cfid})).json()
 
 
-def test_step_sits_after_insurance_card():
-    assert _next_step("insurance-card") == "coverage-regime-confirm"
-    assert _next_step("coverage-regime-confirm") == "coverage-details"
+def test_the_coverage_type_ask_sits_after_the_card_and_before_the_plan_rules():
+    """There is no fixed step list any more (doc 40 §A4) — the ORDER of the screen registry is
+    what is left of it, and the population still has to be settled before benefits are
+    captured under the wrong population's rules (the reason this step existed, DL-82)."""
+    order = list(SCREEN_IDS)
+    assert order.index("card") < order.index("coverage_type") < order.index("plan_rules")
 
 
 async def test_detection_populates_on_manual_entry(client: AsyncClient):
@@ -90,7 +93,8 @@ async def test_confirm_sets_verified_and_advances(client: AsyncClient):
         json={"case_file_id": cfid, "coverage_regime": "medicare_advantage"},
     )
     assert r.status_code == 200
-    assert r.json()["current_step"] == "coverage-details"  # advanced
+    # a verified NON-commercial regime exits the Phase-1 guided route (doc 40 §A4-4)
+    assert r.json()["current_step"] == "handoff"
     cap = (await _state(client, cfid))["captured_data"]
     assert cap["coverage_regime"] == "medicare_advantage"
     assert cap["regime_detection"]["verified"] is True
@@ -129,6 +133,6 @@ async def test_skip_advances_without_setting_regime(client: AsyncClient):
         "/v1/intake/step/coverage-regime-confirm/skip", json={"case_file_id": cfid}
     )
     assert r.status_code == 200
-    assert r.json()["current_step"] == "coverage-details"
+    assert r.json()["current_step"] in SCREEN_IDS  # the planner's pick, not "the next step"
     cap = (await _state(client, cfid))["captured_data"]
     assert cap["coverage_regime"] is None

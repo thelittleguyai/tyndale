@@ -207,6 +207,285 @@ the copy route until you author it (engineering fallbacks render in the app):
 * `reveal.gap_callout` `[A]` — the E3 gap framing on the three-number reveal; suppressed
   server-side on clean/negative/unknown gaps.
 
+## Guided intake (doc 40) — PROPOSED, interim engineering seeds (2026-09-21)
+
+*Status: INTERIM. Every string the guided `/intake` route renders is LIVE in the registry as a
+shippable seed under `intake.<screen>.<slot>` — none is `[PLACEHOLDER-eng]`, all are `[A]`
+(none cites law), all are marked UNMAPPED until you author or approve them. Where your packet
+gives a line (§A2 glosses, §B6 and §B8 consequence lines, §A7 completeness confirmation and gap
+consequence, §A6 "we won't guess", §A8 "nice start", §B1 doctrine line, §B15 facts-only) the
+seed is YOUR line, rewritten only as far as grade 5 required; the rest are rewritten CO-1A
+strings or engineering seeds. The "from" column says which.*
+
+*Two rules are enforced in CI on these keys from day one (§A6): ≤ 5.9 Flesch–Kincaid (strings
+under 7 words use a label rule instead — no word over 3 syllables — because the formula is not
+defined on a button), and a glossed term may appear only on a screen that also carries its
+`gloss_<term>` key. If you author a line that fails, CI names the key and the score.*
+
+*Reused rather than duplicated: `upload_trust_microcopy` (your §1.2) is the trust line at every
+capture (§C10); `dataquality_summary_not_itemized` (your §5.2) is the body of the summary-bill
+coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are the edge states
+(§C12). Open for you: the four `wrongdoc.*` branches still share one string.*
+
+| key | from | seed |
+|---|---|---|
+| `intake.chrome.save_exit` | co1a | Save and exit |
+| `intake.chrome.saved` | packet §C7 | Saved. You can stop now and come back later. |
+| `intake.chrome.see_example` | packet §A3 | See an example |
+| `intake.chrome.help_find` | packet §A5 | Help me find it |
+| `intake.chrome.email_steps` | packet §A5 | Email me these steps |
+| `intake.chrome.email_sent` | eng | Sent. Check your email. |
+| `intake.chrome.email_failed` | eng | I could not send that email. The steps are still here on this page. |
+| `intake.chrome.continue` | co1a | Continue |
+| `intake.chrome.back` | eng | Back |
+| `intake.chrome.close` | eng | Close |
+| `intake.chrome.open_sample` | eng | Open the sample |
+| `intake.chrome.load_error` | co1a | I could not load this step. Your work is saved. Please try again. |
+| `intake.chrome.save_error` | co1a | I could not save that. Check your connection and try again. |
+| `intake.chrome.retry` | eng | Try again |
+| `intake.progress.started` | packet §A8 | {filled} of {total} — nice start |
+| `intake.progress.going` | eng | {filled} of {total} done |
+| `intake.progress.all` | eng | All {total} done |
+| `intake.progress.kept_note` | packet §A8 | I moved one of your papers to a new group. Your progress stays the same. |
+| `intake.progress.label_bill` | packet §A8 | Bill |
+| `intake.progress.label_card` | packet §A8 | Card |
+| `intake.progress.label_plan_rules` | packet §A8 | Plan rules |
+| `intake.progress.label_eob` | packet §A8 | EOB |
+| `intake.progress.gloss_eob` | packet §A2 | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
+| `intake.progress.label_timeline` | packet §A8 | Timeline |
+| `intake.progress.label_about_you` | packet §A8 | About you |
+| `intake.progress.label_confirmations` | packet §A8 | Quick checks |
+| `intake.resume.title` | packet §C7 | Pick up where you left off. |
+| `intake.resume.body` | eng | Your work is saved. Next up: {group_label}. |
+| `intake.resume.primary` | eng | Keep going |
+| `intake.resume.new` | eng | Start a new bill |
+| `intake.resume.link_expiry` | packet §C7 | To come back, ask for a new sign-in link. Each link works for {minutes} minutes. |
+| `intake.welcome.title` | eng | Let's check your bill. |
+| `intake.welcome.body` | eng | I will ask for a few papers, one at a time. I read them for you, so there is little to type. |
+| `intake.welcome.doctrine` | packet §B1 | I do not assume the bill is right. I do not assume your insurer is right. I check both. |
+| `intake.welcome.primary` | eng | Start with my bill |
+| `intake.handoff.title` | eng | Let's finish this in chat. |
+| `intake.handoff.body` | eng | This step-by-step path is built for job and self-bought plans so far. For {population_label}, I check your bill in our chat. Nothing you added is lost. |
+| `intake.handoff.primary` | eng | Go to chat |
+| `intake.handoff.label_medicare` | eng | Medicare |
+| `intake.handoff.label_medicare_advantage` | eng | a Medicare plan |
+| `intake.handoff.label_medicaid` | eng | Medicaid |
+| `intake.handoff.label_dual` | eng | Medicare with Medicaid |
+| `intake.handoff.label_self_pay` | eng | a bill with no insurance |
+| `intake.handoff.label_tricare_va` | eng | TRICARE or VA coverage |
+| `intake.handoff.label_other` | eng | your kind of plan |
+| `intake.bill.title` | packet §B2 | Take a photo of your bill. |
+| `intake.bill.body` | eng | The itemized bill works best. A photo or a file both work. |
+| `intake.bill.gloss_itemized` | eng | Itemized means each charge is on its own line, with a short code next to it. |
+| `intake.bill.primary` | eng | Add my bill |
+| `intake.bill.no_bill` | packet §B2 | I don't have the bill |
+| `intake.bill.no_bill_note` | packet §B2 | That's okay. We can start with your insurer's statement. |
+| `intake.bill_itemized.title` | packet §C5 | This bill is a summary. |
+| `intake.bill_itemized.gloss_itemized` | eng | Itemized means each charge is on its own line, with a short code next to it. |
+| `intake.bill_itemized.primary` | eng | Add the itemized bill |
+| `intake.bill_itemized.secondary` | eng | Keep going with this bill |
+| `intake.bill_itemized.secondary_consequence` | eng | I can still check the totals. I can't check each charge. |
+| `intake.bill_summary.title` | packet §B5 | Here is what I read. |
+| `intake.bill_summary.body` | eng | Take a look. If something is wrong, add a clearer photo. |
+| `intake.bill_summary.row_provider` | eng | From |
+| `intake.bill_summary.row_date` | eng | Date of visit |
+| `intake.bill_summary.row_patient` | eng | Name on the bill |
+| `intake.bill_summary.row_account` | eng | Account number |
+| `intake.bill_summary.row_missing` | eng | I could not read this |
+| `intake.bill_summary.other_bills` | packet §B5 | Did you get other bills for this same visit? |
+| `intake.bill_summary.other_bills_why` | packet §C1 | One hospital visit can bring many bills. The doctor, the lab and the hospital may each send one. I check them as one. |
+| `intake.bill_summary.yes` | eng | Yes, add another bill |
+| `intake.bill_summary.no` | eng | No, that's all |
+| `intake.bill_summary.fix` | eng | Something is off |
+| `intake.eob.title` | packet §A2 | Now your Explanation of Benefits (EOB). |
+| `intake.eob.gloss_eob` | packet §A2 | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
+| `intake.eob.other_name` | packet §A2 | It may have a different name on your insurer's website. |
+| `intake.eob.body` | eng | It shows what your insurer paid and what it says you owe. I check that math too. |
+| `intake.eob.primary` | eng | Add my EOB |
+| `intake.eob.skip` | packet §B6 | I don't have it |
+| `intake.eob.skip_consequence` | packet §B6 | I can still check the hospital's charges. But I can't check your insurer's math. That is where the bigger mistakes often are. |
+| `intake.card.title` | packet §B7 | Next, your insurance card. |
+| `intake.card.body` | co1a | Take a photo of the front and the back. It tells me which plan you have. |
+| `intake.card.primary` | eng | Add my card |
+| `intake.card.skip` | packet §B7 | I don't have my card |
+| `intake.card.skip_consequence` | packet §B7 | That's okay. It may be on your bill. If not, I will ask you to type your insurer's name. |
+| `intake.insurer.title` | eng | Who is your insurer? |
+| `intake.insurer.body` | eng | I could not find it on your papers. Type it the way it looks on a letter from them. |
+| `intake.insurer.field_payer` | co1a | Insurer name |
+| `intake.insurer.field_member_id` | co1a | Member ID, if you have it |
+| `intake.insurer.primary` | eng | Save |
+| `intake.insurer.skip` | co1a | Skip for now |
+| `intake.coverage_type.title` | co1a | How do you get your health insurance? |
+| `intake.coverage_type.body` | co1a | This tells me which rules apply to your bill. |
+| `intake.coverage_type.opt_job_or_bought` | eng | Through a job, or I bought it myself |
+| `intake.coverage_type.opt_medicare` | eng | Medicare |
+| `intake.coverage_type.opt_medicaid` | eng | Medicaid |
+| `intake.coverage_type.opt_military_va` | eng | TRICARE or VA |
+| `intake.coverage_type.opt_none` | co1a | I don't have insurance |
+| `intake.coverage_type.opt_not_sure` | eng | I'm not sure |
+| `intake.plan_rules.title` | packet §A2 | Now your plan's rulebook. |
+| `intake.plan_rules.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
+| `intake.plan_rules.body` | eng | It is a few pages long. Your insurer's website has it. So does the benefits office at your job. |
+| `intake.plan_rules.primary` | eng | Add my SBC |
+| `intake.plan_rules.skip` | packet §C9 | I can't find it |
+| `intake.plan_rules.skip_consequence` | packet §B8 | Without it, I will show your share as a range, not one number. |
+| `intake.plan_rules_confirm.title` | packet §B8 | I may already have your plan's rules. |
+| `intake.plan_rules_confirm.body` | packet §B8 | I have these on file for {payer}. Do they match your plan? |
+| `intake.plan_rules_confirm.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
+| `intake.plan_rules_confirm.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.plan_rules_confirm.gloss_out_of_pocket` | eng | The out-of-pocket limit is the most you pay in one plan year. |
+| `intake.plan_rules_confirm.gloss_coinsurance` | eng | Coinsurance is your share of the cost after the deductible. |
+| `intake.plan_rules_confirm.row_deductible` | co1a | Deductible |
+| `intake.plan_rules_confirm.row_oop` | co1a | Out-of-pocket limit |
+| `intake.plan_rules_confirm.row_coinsurance` | co1a | Coinsurance |
+| `intake.plan_rules_confirm.yes` | co1a | Yes, these match |
+| `intake.plan_rules_confirm.no` | co1a | No, something is off |
+| `intake.plan_year.title` | packet §B10 | When does your plan year start? |
+| `intake.plan_year.body` | packet §A7 | Many plans start in January, but not all. Your deductible starts over on that day. |
+| `intake.plan_year.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.plan_year.opt_not_sure` | eng | I'm not sure |
+| `intake.timeline.title` | packet §A7 | Your EOBs this plan year. |
+| `intake.timeline.gloss_eob` | packet §A2 | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
+| `intake.timeline.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.timeline.body` | packet §A7 | Your deductible adds up over the year. So I need each EOB from the start of your plan year up to this visit. |
+| `intake.timeline.visit_marker` | packet §A7 | Your visit |
+| `intake.timeline.after_visit` | packet §A7 | After your visit. It does not change this bill. |
+| `intake.timeline.no_date` | eng | I could not read a date on this one. |
+| `intake.timeline.gap` | packet §A7 | I don't see one for {month}. |
+| `intake.timeline.gap_consequence` | packet §A7 | Without it, I'll show your share as a range. |
+| `intake.timeline.confirm` | packet §A7 | I count {n} EOBs, {start} to {end}, none for anyone else on your plan. Is that all of them? |
+| `intake.timeline.confirm_one` | packet §A7 | I count one EOB, from {start}, and none for anyone else on your plan. Is that the only one? |
+| `intake.timeline.confirm_family` | packet §A7 | I count {n} EOBs, {start} to {end}, for {members} people on your plan. Is that all of them? |
+| `intake.timeline.confirm_yes` | eng | Yes, that's all |
+| `intake.timeline.confirm_no` | eng | No, there are more |
+| `intake.timeline.add_more` | eng | Add another EOB |
+| `intake.deductible_met.title` | co1a | How much of your deductible had you paid? |
+| `intake.deductible_met.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.deductible_met.body` | eng | I mean before this visit, in this plan year. Your insurer's website shows it. |
+| `intake.deductible_met.field_amount` | co1a | Amount paid so far |
+| `intake.deductible_met.primary` | eng | Save |
+| `intake.deductible_met.not_sure` | eng | I'm not sure |
+| `intake.deductible_met.not_sure_consequence` | packet §A6 | We don't know what you'd already paid by then, so we won't guess. I will show your share as a range. |
+| `intake.oop_met.title` | co1a | How much counted toward your out-of-pocket limit? |
+| `intake.oop_met.gloss_out_of_pocket` | eng | The out-of-pocket limit is the most you pay in one plan year. |
+| `intake.oop_met.body` | eng | I mean before this visit, in this plan year. Your insurer's website shows it. |
+| `intake.oop_met.field_amount` | co1a | Amount paid so far |
+| `intake.oop_met.primary` | eng | Save |
+| `intake.oop_met.not_sure` | eng | I'm not sure |
+| `intake.oop_met.not_sure_consequence` | packet §A6 | We don't know what you'd already paid by then, so we won't guess. I will show your share as a range. |
+| `intake.attest.title` | packet §B13 | Who is this bill for? |
+| `intake.attest.back_home` | eng | Back to home |
+| `intake.other_insurance.title` | packet §B14 | Do you have a second health plan? |
+| `intake.other_insurance.body` | packet §B14 | Some people are on two plans. If you are, I check it. I don't assume it pays the rest. |
+| `intake.other_insurance.yes` | eng | Yes |
+| `intake.other_insurance.no` | eng | No |
+| `intake.other_insurance.not_sure` | eng | I'm not sure |
+| `intake.reading.title` | packet §B4 | Reading your bill. |
+| `intake.reading.body` | eng | This takes a minute or two. You can leave and come back. Your work is saved. |
+| `intake.facts_only.title` | packet §B15 | A few quick facts about your visit. |
+| `intake.facts_only.body` | packet §B15 | I only ask what happened. I never ask if the care was right. That is between you and your doctor. |
+| `intake.facts_only.primary` | eng | Okay |
+| `intake.confirmations.title` | packet §B16 | Did these happen? |
+| `intake.confirmations.body` | eng | Each one is a charge on your bill, in plain words. Tell me if it happened. |
+| `intake.confirmations.yes` | co1a | Yes |
+| `intake.confirmations.no` | co1a | No |
+| `intake.confirmations.not_sure` | packet §B16 | I'm not sure |
+| `intake.confirmations.not_sure_note` | packet §B16 | That's fine. I will mark it as not settled. |
+| `intake.confirmations.primary` | eng | Done |
+| `intake.readiness.title` | packet §B17 | Here is what I have. |
+| `intake.readiness.body` | packet §B17 | You can run the check now. Or add what is missing first, for a sharper answer. |
+| `intake.readiness.resolved` | eng | Have it |
+| `intake.readiness.unresolved` | eng | Missing |
+| `intake.readiness.skipped` | eng | Skipped |
+| `intake.readiness.edit` | packet §B17 | Change |
+| `intake.readiness.primary` | eng | Check my bill |
+| `intake.readiness.cannot_run` | eng | Add a bill or an insurer statement first. I need one of them to check. |
+| `intake.readiness.item_bill` | eng | Your bill |
+| `intake.readiness.item_itemized_bill` | eng | A bill with each charge listed |
+| `intake.readiness.item_eob` | eng | Your insurer's statement |
+| `intake.readiness.item_payer` | eng | Your insurer |
+| `intake.readiness.item_plan_rules` | eng | Your plan's rulebook |
+| `intake.readiness.item_plan_year_start` | eng | When your plan year starts |
+| `intake.readiness.item_eob_completeness` | eng | All your insurer statements |
+| `intake.readiness.item_deductible_met` | eng | What you had paid before this visit |
+| `intake.readiness.item_oop_max_met` | eng | What counted toward your yearly limit |
+| `intake.readiness.item_coverage_type` | eng | Your kind of coverage |
+| `intake.readiness.item_attestation` | eng | Who the bill is for |
+| `intake.readiness.item_other_insurance` | eng | A second health plan |
+| `intake.readiness.item_encounter_facts` | eng | Facts about your visit |
+| `intake.limits.no_bill` | eng | No bill yet. I can only check your insurer's statement. |
+| `intake.limits.summary_bill` | packet §C5 | This bill shows totals only. I can't check each charge. |
+| `intake.limits.no_eob` | packet §B6 | No insurer statement. I can't check your insurer's math. |
+| `intake.limits.no_payer` | eng | I don't know your insurer. Some plan rules can't be checked. |
+| `intake.limits.no_plan_rules` | packet §B8 | No plan rulebook. Your share becomes a range. |
+| `intake.limits.no_plan_year` | packet §A7 | I don't know when your plan year starts. I can't place your visit in the year. |
+| `intake.limits.incomplete_eobs` | packet §A7 | Some insurer statements may be missing. Your share becomes a range. |
+| `intake.limits.no_accumulator` | packet §A6 | I don't know what you had paid so far. Your share becomes a range. |
+| `intake.limits.no_coverage_type` | eng | I don't know your kind of coverage. I will use the common rules. |
+| `intake.limits.no_other_insurance` | eng | I don't know if you have a second plan. |
+| `intake.limits.no_confirmations` | eng | Visit facts are not checked yet. Some charges stay open. |
+| `intake.analysis.title` | packet §B18 | Checking your bill. |
+| `intake.analysis.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.analysis.step_read` | eng | Reading your papers |
+| `intake.analysis.step_position` | packet §B18 | Working out where your deductible stood |
+| `intake.analysis.step_provider` | packet §B18 | Checking the bill's side |
+| `intake.analysis.step_payer` | packet §B18 | Checking your insurer's side |
+| `intake.analysis.leave` | eng | This can take a few minutes. You can leave. I will keep working. |
+| `intake.unlock.headline` | your §7.1 `unlock.card`, minus the price clause | {gap} of this should not be yours to pay. Your plan to fix it is ready. |
+| `intake.unlock.proceed` | eng | See my plan |
+| `intake.unlock.free_beta` | prompt item 8 | Free while we're in beta. |
+| `intake.unlock.blocked` | eng | This step is not open yet. |
+| `intake.example.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
+| `intake.example.gloss_msn` | packet §A2 | An MSN is the Medicare Summary Notice. Medicare mails it to show what it paid. |
+| `intake.example.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.example.gloss_out_of_pocket` | eng | The out-of-pocket limit is the most you pay in one plan year. |
+| `intake.example.source_federal` | packet §A3 | This sample comes from the U.S. government. It is not your plan. |
+| `intake.example.sbc_title` | packet §A3 | A sample SBC |
+| `intake.example.sbc_1` | packet §A3 | Top right: the coverage period. The first date is when your plan year starts. |
+| `intake.example.sbc_2` | packet §A3 | First row: the overall deductible, for one person and for a family. |
+| `intake.example.sbc_3` | packet §A3 | Third row: other deductibles, like one just for drugs. |
+| `intake.example.sbc_4` | packet §A3 | Fourth row: the out-of-pocket limit. It lists one number in the network and one out of it. |
+| `intake.example.sbc_5` | packet §A3 | Page 2: two columns of costs. One is for network doctors. One is for doctors outside it. |
+| `intake.example.sbc_6` | packet §A3 | Last page: three made-up patients. They show how the plan splits a real bill. |
+| `intake.example.msn_title` | packet §A3 | A sample MSN |
+| `intake.example.msn_1` | packet §A3 | Top of page 1: the words "This is not a bill." |
+| `intake.example.msn_2` | packet §A3 | Page 1: the box named "Your Deductible Status." It shows how much you have met. |
+| `intake.example.msn_3` | packet §A3 | Page 1: "Total You May Be Billed" for this period. |
+| `intake.example.msn_4` | packet §A3 | Page 3: the claims table. The last column is the most the doctor may bill you. |
+| `intake.example.msn_5` | packet §A3 | Last page: how to appeal, and the date you must do it by. |
+| `intake.help.title` | packet §A5 | Where to find it |
+| `intake.help.generic_note` | packet §A5 | These are general steps. Your insurer's website may use other names. |
+| `intake.help.payer_note` | packet §A5 | These steps are for {payer}. |
+| `intake.help.gloss_eob` | packet §A2 | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
+| `intake.help.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
+| `intake.help.gloss_deductible` | packet §A6 | The deductible is the amount you pay before insurance starts paying. |
+| `intake.help.gloss_out_of_pocket` | eng | The out-of-pocket limit is the most you pay in one plan year. |
+| `intake.help.gloss_itemized` | eng | Itemized means each charge is on its own line, with a short code next to it. |
+| `intake.help.email_subject` | eng | Your steps from Tyndale |
+| `intake.help.email_intro` | eng | Here are the steps you asked for. Come back to Tyndale when you have it. |
+| `intake.help.eob_1` | eng | Sign in to your insurer's website or app. |
+| `intake.help.eob_2` | eng | Look for Claims. It may be called Claims and Payments. |
+| `intake.help.eob_3` | eng | Find the claim with your visit date. Open it. |
+| `intake.help.eob_4` | eng | Look for a link that says EOB, or View Statement. Save it as a file. |
+| `intake.help.eob_5` | eng | No luck? Call the number on the back of your card. Ask them to mail or email the EOB. |
+| `intake.help.sbc_1` | eng | Sign in to your insurer's website or app. |
+| `intake.help.sbc_2` | eng | Look for Plan Documents or Benefits. |
+| `intake.help.sbc_3` | eng | Open the file named Summary of Benefits and Coverage. Save it. |
+| `intake.help.sbc_4` | eng | Got your plan at work? Your benefits office has it too. They must give it to you when you ask. |
+| `intake.help.insurance_card_1` | eng | Check your wallet, or a drawer with your mail from the insurer. |
+| `intake.help.insurance_card_2` | eng | No card? Sign in to your insurer's app. Look for ID Card. You can save a copy. |
+| `intake.help.insurance_card_3` | eng | Still no card? Your bill or EOB may show the insurer and your member ID. |
+| `intake.help.itemized_bill_1` | eng | Call the billing number on your bill. |
+| `intake.help.itemized_bill_2` | eng | Ask for the itemized bill, with every charge and its code. |
+| `intake.help.itemized_bill_3` | eng | Give them your account number and your visit date. |
+| `intake.help.itemized_bill_4` | eng | They can mail it, email it, or post it on their website. There is no charge. |
+| `intake.help.accumulators_1` | eng | Sign in to your insurer's website or app. |
+| `intake.help.accumulators_2` | eng | Look for Deductible, or Plan Balances. It is often on the first page. |
+| `intake.help.accumulators_3` | eng | Write down the amount you have paid so far, and the date it shows. |
+| `intake.help.plan_year_1` | eng | Look at the top of your SBC. Find the words Coverage Period. |
+| `intake.help.plan_year_2` | eng | The first date is the day your plan year starts. |
+| `intake.help.plan_year_3` | eng | No SBC? Your benefits office or your insurer can tell you the date. |
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

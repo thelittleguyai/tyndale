@@ -321,6 +321,16 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         # crashing the request; the document is still persisted so nothing is lost.
         "extraction_status": ocr.get("extraction_status") or "extracted",
     }
+    if document_type in _EXPECTED_FAMILIES["eob"]:
+        # The EOB timeline's data model (doc 40 §A7): WHOSE statement this is — a family plan's
+        # deductible accumulates across every covered member — and which accumulator it fed.
+        # Both are nullable: set only when the document itself says so. `source` is the typed
+        # TimelineSource seam (upload | email_forward | api); only upload exists today.
+        from app.sources.extraction import _network_status
+
+        entry["member"] = entry["patient_name"]
+        entry["network"] = _network_status(full_text)
+        entry["source"] = "upload"
     api_doc = UploadedDoc(
         document_id=document_id,
         filename=filename,

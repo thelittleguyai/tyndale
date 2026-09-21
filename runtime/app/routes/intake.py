@@ -1,19 +1,26 @@
-"""Guided intake wizard routes (Phase CO-1A).
+"""Guided intake routes — CO-1A's wizard, grown into the Intake Planner (doc 40, Phase 1).
 
-A hand-holding, step-by-step intake that is the SOLE source of the user's benefits
-state (DL-52 — no Stedi). Every captured field lands in the EXISTING
-case_files.coverage JSONB / visit_context column — no parallel intake schema.
+CO-1A advanced through a FIXED step list. That list is gone: every endpoint here answers with
+the PLANNER'S decision (``app.intake.planner`` — ``gap_list`` → ``next_screen`` over a screen
+registry), recomputed after every capture and answer. The client holds no sequence and no copy:
+it draws the ``screen`` it is handed (``app.intake.render``).
 
-Endpoints:
-  GET  /v1/intake/state                               — resume point + captured/missing
-  POST /v1/intake/step/{step}/manual-entry            — persist a step's typed fields
-  POST /v1/intake/step/{step}/skip                    — advance, persist nothing
-  POST /v1/intake/step/insurance-card/extract         — OCR a card, return low-conf confirmations
-  POST /v1/intake/visit-context                       — store the free-text "what were you seen for"
-  POST /v1/intake/complete                            — validate + mark complete, return summary
+Every captured fact still lands where it always did — ``case_files.coverage`` (DL-52, the sole
+source of the user's benefits state), ``attest_status``, ``encounter_confirmations``. The only new
+store is ``case_files.intake_state``: the planner's own bookkeeping (skips, acks, the progress
+high-water mark). Autosave is structural: every answer is one committed write, so "Save and exit"
+saves nothing extra — it just leaves.
 
-All operate on the user's active case file (get-or-create); callers may pass an
-explicit case_file_id (the wizard threads the one returned by /state).
+  GET  /v1/intake/state                  — the screen to draw (+ progress, resume). Creates NOTHING
+  POST /v1/intake/start                  — open a guided case (intake_mode='guided')
+  POST /v1/intake/answer                 — one answer from one screen → the next state
+  POST /v1/intake/run                    — READY → run the audit → hand off to the existing reveal
+  GET  /v1/intake/help                   — "Help me find it" (payer entry, else generic)
+  POST /v1/intake/help/email             — the same steps, by email (the one send path)
+  POST /v1/intake/step/{screen}/manual-entry | /skip, /step/insurance-card/extract,
+       /step/coverage-regime-confirm/confirm, /visit-context, /guided-answers, /bill-check,
+       /plan-proposal/confirm|reject, /complete, /benefits-doc-help — the CO-1A persistence
+       seams, kept: same writes, but each now returns the planner's next state.
 """
 
 from __future__ import annotations
@@ -22,13 +29,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+import structlog
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser, current_user
+from app.config import get_settings
 from app.db.models.case_files import CaseFile
 from app.db.models.plan_library import PlanLibraryEntry
+from app.db.models.users import User
 from app.db.session import get_session
 from app.ingestion.bill_heuristics import detect_summary_bill
 from app.ingestion.extract_documents import (
@@ -36,12 +46,20 @@ from app.ingestion.extract_documents import (
     _ocr_text_for,
     extract_insurance_card,
 )
+from app.intake import planner as ip
+from app.intake.render import group_copy, render_help, render_progress, render_screen, step
+from app.intake.snapshot import COVERAGE_TYPE_OPTIONS, IntakeState, gather_inputs
+from app.intake.timeline import eob_rows, plan_year_start_for
 from app.routes.upload import BENEFITS_DOC_ALIASES
 from app.schemas.intake import (
-    INTAKE_STEPS,
     CapturedData,
     CompletionSummary,
     ExtractRequest,
+    HelpEmailRequest,
+    IntakeAnswerRequest,
+    IntakeProgress,
+    IntakeResume,
+    IntakeRunResponse,
     IntakeStateResponse,
     PlanProposal,
     RegimeConfirmRequest,
@@ -55,6 +73,7 @@ from app.sources.regime_detection import (
     signals_from_fields,
 )
 
+log = structlog.get_logger(__name__)
 router = APIRouter(tags=["v1"])
 
 # Incoming manual-entry field name -> canonical case_files.coverage JSONB key.
@@ -112,19 +131,6 @@ def _uuid(value: str) -> uuid.UUID:
         return uuid.UUID(str(value))
     except (ValueError, AttributeError, TypeError) as e:
         raise HTTPException(status_code=422, detail="invalid case_file_id") from e
-
-
-def _next_step(step: str) -> str:
-    idx = INTAKE_STEPS.index(step)
-    return INTAKE_STEPS[min(idx + 1, len(INTAKE_STEPS) - 1)]
-
-
-def _current_step(case: CaseFile) -> str:
-    return case.intake_current_step or INTAKE_STEPS[0]
-
-
-def _completed_steps(case: CaseFile) -> list[str]:
-    return INTAKE_STEPS[: INTAKE_STEPS.index(_current_step(case))]
 
 
 def _doc_count(case: CaseFile, dtype: str) -> int:
@@ -203,31 +209,78 @@ def _captured_data(case: CaseFile) -> CapturedData:
     )
 
 
-def _state(case: CaseFile) -> IntakeStateResponse:
-    return IntakeStateResponse(
+_ELAPSED_BUCKETS = ((10, "lt_10s"), (60, "lt_1m"), (300, "lt_5m"), (3600, "lt_1h"))
+
+
+def _elapsed_bucket(since_iso: str | None) -> str:
+    try:
+        seconds = (datetime.now(timezone.utc) - datetime.fromisoformat(str(since_iso))).total_seconds()
+    except (TypeError, ValueError):
+        return "unknown"
+    return next((label for cap, label in _ELAPSED_BUCKETS if seconds < cap), "gt_1h")
+
+
+async def _plan(
+    session: AsyncSession, case: CaseFile, *, want_screen: str | None = None
+) -> tuple[IntakeStateResponse, ip.PlannerInputs, str]:
+    """THE chokepoint: snapshot → gap list → next screen → the wire state. Persists only what
+    the planner owns — the current screen, the progress high-water mark, intake_status."""
+    _apply_regime_detection(case)  # infer first, then ask (§A4-1)
+    proposal = await _pending_proposal(session, case)
+    inputs = await gather_inputs(session, case, plan_proposal=proposal is not None)
+    gaps = ip.gap_list(inputs)
+    picked = ip.next_screen(inputs, gaps)
+    # a readiness "edit" link asks for a specific screen — honoured only if this case has a use
+    # for it; anything else falls back to the planner's pick
+    screen_id = want_screen if (want_screen and ip.applicable(want_screen, inputs, gaps)) else picked
+    if case.attest_status == "declined":
+        screen_id = "attest"  # the decline ack; the flow is closed and says so
+
+    st = IntakeState(case)
+    live = ip.groups_satisfied(inputs, gaps)
+    st.raise_high_water(live)  # the bar never regresses
+    shown_changed = case.intake_current_step != picked
+    case.intake_current_step = picked
+    if case.intake_status == "not_started" and (inputs.bill_count or inputs.eob_count or st.acked):
+        case.intake_status = "in_progress"
+    if shown_changed:
+        st.set("screen_shown_at", datetime.now(timezone.utc).isoformat())
+
+    state = IntakeStateResponse(
         case_file_id=str(case.case_file_id),
         intake_status=case.intake_status,
-        current_step=_current_step(case),
-        completed_steps=_completed_steps(case),
+        intake_mode=case.intake_mode,
+        current_step=picked,
+        completed_steps=render_progress(inputs, gaps, st.high_water)["high_water"],
+        screen=render_screen(screen_id, case, inputs, gaps, proposal=proposal),
+        progress=IntakeProgress(**render_progress(inputs, gaps, st.high_water)),
+        chrome=group_copy("chrome"),
         captured_data=_captured_data(case),
         missing_items=_missing_items(case),
+        plan_proposal=proposal,
     )
+    if shown_changed and case.intake_mode == "guided":
+        await _emit_shown(case, picked, inputs)
+    return state, inputs, picked
 
 
-def _ack(case: CaseFile, confirmations: list[dict] | None = None) -> StepAck:
-    return StepAck(
-        case_file_id=str(case.case_file_id),
-        intake_status=case.intake_status,
-        current_step=_current_step(case),
-        completed_steps=_completed_steps(case),
-        confirmations=confirmations or [],
-    )
+async def _emit_shown(case: CaseFile, screen_id: str, inputs: ip.PlannerInputs) -> None:
+    """Funnel analytics: enum + counts only — never a value (§ item 8)."""
+    from app.analytics.emit import emit
+
+    await emit("intake_screen_shown", user_id=case.user_id, case_file_id=case.case_file_id,
+               properties={"screen": screen_id if screen_id in ip.SCREEN_IDS else "ready"})
+    if screen_id == "handoff":
+        await emit("intake_handoff", user_id=case.user_id, case_file_id=case.case_file_id,
+                   properties={"population": inputs.population or "other"})
 
 
-def _advance(case: CaseFile, from_step: str) -> None:
-    case.intake_current_step = _next_step(from_step)
-    if case.intake_status != "complete":
-        case.intake_status = "in_progress"
+async def _ack(
+    session: AsyncSession, case: CaseFile, confirmations: list[dict] | None = None
+) -> StepAck:
+    state, _, _ = await _plan(session, case)
+    await session.commit()
+    return StepAck(**state.model_dump(), confirmations=confirmations or [])
 
 
 async def _resolve_case(
@@ -237,6 +290,10 @@ async def _resolve_case(
     *,
     create: bool = False,
 ) -> CaseFile:
+    """The case an intake write is about. An explicit id is ownership-checked (404, never a
+    leak). With no id this is the CO-1A seam Settings still uses — the user's most recent case,
+    created if they have none; the GUIDED route never relies on it (it always passes the id
+    POST /intake/start returned)."""
     if case_file_id:
         cf = (
             await session.execute(
@@ -255,17 +312,59 @@ async def _resolve_case(
         )
     ).scalar_one_or_none()
     if cf is None and create:
-        cf = CaseFile(
-            user_id=user.user_id,
-            status="open",
-            intake_status="not_started",
-            intake_current_step=INTAKE_STEPS[0],
-        )
+        cf = CaseFile(user_id=user.user_id, status="open", intake_status="not_started")
         session.add(cf)
         await session.flush()
     if cf is None:
         raise HTTPException(status_code=404, detail="no case file for user")
     return cf
+
+
+async def _unfinished_guided_case(session: AsyncSession, user: CurrentUser) -> CaseFile | None:
+    return (
+        await session.execute(
+            select(CaseFile)
+            .where(CaseFile.user_id == user.user_id)
+            .where(CaseFile.intake_mode == "guided")
+            .where(CaseFile.intake_status == "in_progress")
+            .where(CaseFile.soft_deleted_at.is_(None))
+            .order_by(CaseFile.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+def _fresh_state() -> IntakeStateResponse:
+    """The landing, before anything exists. Opening /intake creates NO case — a user who looks
+    and leaves must not litter the Record (or the review queue) with empty ones."""
+    empty = ip.PlannerInputs()
+    gaps = ip.gap_list(empty)
+    return IntakeStateResponse(
+        case_file_id=None,
+        intake_status="not_started",
+        current_step="welcome",
+        screen=render_screen("welcome", CaseFile(documents=[], eobs=[], line_items=[]), empty, gaps),
+        progress=IntakeProgress(**render_progress(empty, gaps, [])),
+        chrome=group_copy("chrome"),
+        captured_data=CapturedData(),
+    )
+
+
+def _resume_block(case: CaseFile, state: IntakeStateResponse) -> IntakeResume:
+    """§C7. The expiry line states the REAL magic-link lifetime from Settings — never a promise
+    the auth layer does not keep (a long-lived resume link is a security decision, not copy)."""
+    group = state.screen.get("progress_group")
+    label = next(
+        (s.get("label") for s in state.progress.segments if s.get("group") == group), None
+    ) or step("intake.readiness.title")
+    return IntakeResume(
+        case_file_id=str(case.case_file_id),
+        title=step("intake.resume.title"),
+        body=step("intake.resume.body", group_label=label or ""),
+        primary=step("intake.resume.primary"),
+        new=step("intake.resume.new"),
+        link_expiry=step("intake.resume.link_expiry", minutes=get_settings().magic_link_ttl_minutes),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -318,26 +417,340 @@ async def _load_plan_entry(session: AsyncSession, plan_library_id: Any) -> PlanL
 
 
 # --------------------------------------------------------------------------- #
-# Routes
+# The planner's routes
 # --------------------------------------------------------------------------- #
 @router.get("/intake/state", response_model=IntakeStateResponse)
 async def get_intake_state(
     case_file_id: str | None = None,
+    screen: str | None = None,
+    latest: bool = False,
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> IntakeStateResponse:
-    """Resume point + what's captured/missing. Creates the user's first case file
-    (intake_status='not_started') if they have none — the new-user entry point.
-    Surfaces a PlanLibrary proposal (CO-12C) when the plan is identified but its
-    benefit design isn't captured yet — the propose-confirm rescue path."""
-    case = await _resolve_case(session, user, case_file_id, create=True)
-    proposal = await _pending_proposal(session, case)
+    """The screen to draw. With an id: that case (``screen=`` asks for a specific one — the
+    readiness edit links). With none: the user's unfinished guided case as a "pick up where you
+    left off" landing (§C7), else the welcome — and NOTHING is created. ``latest=true`` is the
+    CO-1A seam Settings' coverage-type row uses (most recent case, created if none)."""
+    if case_file_id or latest:
+        case = await _resolve_case(session, user, case_file_id, create=latest)
+        state, _, _ = await _plan(session, case, want_screen=screen)
+        await session.commit()
+        return state
+    case = await _unfinished_guided_case(session, user)
+    if case is None:
+        return _fresh_state()
+    state, _, _ = await _plan(session, case)
+    state.resume = _resume_block(case, state)
     await session.commit()
-    state = _state(case)
-    state.plan_proposal = proposal
     return state
 
 
+@router.post("/intake/start", response_model=StepAck)
+async def start_intake(
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> StepAck:
+    """Open a guided case. THIS is what stamps ``intake_mode='guided'`` — the front door is a
+    fact about how the case was opened, recorded where it happens (doc 40 §D)."""
+    case = CaseFile(
+        user_id=user.user_id, status="open", intake_status="in_progress", intake_mode="guided"
+    )
+    session.add(case)
+    await session.flush()
+    IntakeState(case).ack("welcome")
+    from app.analytics.emit import emit
+
+    ack = await _ack(session, case)
+    await emit("intake_started", user_id=user.user_id, case_file_id=case.case_file_id)
+    return ack
+
+
+def _money(value: Any, *, field: str) -> float:
+    try:
+        n = float(str(value).replace("$", "").replace(",", "").strip())
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=f"{field}: not a dollar amount") from e
+    if not 0 <= n <= 10_000_000:
+        raise HTTPException(status_code=422, detail=f"{field}: out of range")
+    return round(n, 2)
+
+
+def _user_entered(case: CaseFile, key: str, *, value: float | None, not_sure: bool = False) -> None:
+    """Write a user-attested coverage number with the SAME provenance shape the coverage
+    checklist writes (routes/audit.py coverage-input) — a later document that contradicts it is
+    the reconcile ladder's job, never a silent overwrite."""
+    cov = dict(case.coverage or {})
+    prov = dict(cov.get("user_input_provenance") or {})
+    prov[key] = {
+        "source": "user-entered",
+        "at": datetime.now(timezone.utc).isoformat(),
+        "not_sure": bool(not_sure),
+    }
+    if value is not None:
+        cov[key] = value
+    cov["user_input_provenance"] = prov
+    case.coverage = cov
+
+
+async def _apply_answer(  # noqa: PLR0912, PLR0915
+    session: AsyncSession, case: CaseFile, user: CurrentUser, req: IntakeAnswerRequest
+) -> None:
+    """One screen's answer → the store that owns it. Screens with no engine home (acks, skips,
+    the plain coverage-type answer) go to intake_state; everything else lands where CO-1A, the
+    checklist and the attest spine already put it."""
+    st = IntakeState(case)
+    sid, action, v = req.screen, req.action, req.values
+    if sid not in ip.SCREENS:
+        raise HTTPException(status_code=404, detail=f"unknown screen: {sid}")
+    screen = ip.SCREENS[sid]
+
+    if action == "skip":
+        if not screen.skippable:
+            raise HTTPException(status_code=422, detail=f"{sid} cannot be skipped")
+        if sid in ("deductible_met", "oop_met"):
+            _user_entered(case, "deductible_met" if sid == "deductible_met" else "oop_max_met",
+                          value=None, not_sure=True)
+        if sid == "bill_itemized":
+            st.ack(sid)  # "keep going with this bill" — coached once, never nagged
+        st.skip(sid)
+        return
+
+    if sid in ("welcome", "facts_only", "readiness", "reading"):
+        st.ack(sid)
+    elif sid in ("bill", "eob", "card", "plan_rules", "bill_itemized"):
+        st.unskip(sid)  # a capture happened (the upload itself is POST /v1/upload with this id)
+        if sid == "bill_itemized":
+            st.ack(sid)
+    elif sid == "bill_summary":
+        if action == "fix":
+            return  # the client re-opens capture; nothing to record
+        if action == "yes":  # other bills for this same visit → attach to the SAME case (§C1)
+            case.coverage = {**(case.coverage or {}), "has_sibling_claims": True}
+            st.set("expecting_more_bills", True)
+            return  # stays on the read-back until the user says "that's all"
+        case.coverage = {**(case.coverage or {}), "has_sibling_claims": bool(st.get("expecting_more_bills"))}
+        st.ack(sid)
+    elif sid == "insurer":
+        payer = str(v.get("payer_name") or "").strip()[:120]
+        member = str(v.get("member_id") or "").strip()[:64]
+        if not payer:
+            raise HTTPException(status_code=422, detail="payer_name is required")
+        case.coverage = {**(case.coverage or {}), "payer_name": payer, **({"member_id": member} if member else {})}
+    elif sid == "coverage_type":
+        choice = str(v.get("choice") or "")
+        if choice not in COVERAGE_TYPE_OPTIONS:
+            raise HTTPException(status_code=422, detail="unknown coverage type")
+        st.answer("coverage_type", choice)
+    elif sid == "plan_year":
+        choice = str(v.get("choice") or "")
+        if choice == "not_sure":
+            st.skip(sid)
+        else:
+            try:
+                month = int(choice)
+                assert 1 <= month <= 12
+            except (ValueError, AssertionError) as e:
+                raise HTTPException(status_code=422, detail="month must be 1–12") from e
+            start = plan_year_start_for(month, case.date_of_service)
+            case.coverage = {**(case.coverage or {}), "plan_effective_date": start,
+                             "plan_year": int(start[:4])}
+            st.unskip(sid)
+    elif sid == "timeline":
+        if action not in ("yes", "no"):
+            raise HTTPException(status_code=422, detail="answer yes or no")
+        # the EXISTING completeness signal CO-12B's accumulator reads — and the count it was
+        # given against, so adding an EOB afterwards asks again (locked 5d: EVERY time)
+        case.coverage = {**(case.coverage or {}), "all_plan_year_eobs_confirmed": action == "yes"}
+        st.set("completeness_at_count", len(eob_rows(case)))
+    elif sid in ("deductible_met", "oop_met"):
+        key = "deductible_met" if sid == "deductible_met" else "oop_max_met"
+        if action == "not_sure":
+            _user_entered(case, key, value=None, not_sure=True)
+        else:
+            _user_entered(case, key, value=_money(v.get(key), field=key))
+        st.unskip(sid)
+    elif sid == "other_insurance":
+        choice = str(v.get("choice") or action)
+        if choice not in ("yes", "no", "not_sure"):
+            raise HTTPException(status_code=422, detail="answer yes, no or not_sure")
+        if choice == "not_sure":
+            st.skip(sid)
+        else:
+            case.coverage = {**(case.coverage or {}), "has_secondary_coverage": choice == "yes"}
+    elif sid == "confirmations":
+        await _save_confirmations(case, v.get("confirmations") or [])
+    elif sid in ("attest", "plan_rules_confirm", "handoff"):
+        # attest → POST /v1/case/{id}/attest[/decline]; plan → /intake/plan-proposal/*; the
+        # handoff is an exit. Each is its own existing, audited route — not re-implemented here.
+        raise HTTPException(status_code=422, detail=f"{sid} is answered through its own route")
+
+
+async def _save_confirmations(case: CaseFile, raw: list) -> None:
+    """The encounter facts, through the EXISTING submit path (a "no" becomes an
+    encounter_mismatch finding there) — but WITHOUT starting the audit: on the guided route the
+    readiness screen comes first, and POST /intake/run is what runs it."""
+    from app.agents.orchestrator import submit_confirmations
+    from app.schemas.encounter import LineItemConfirmation
+
+    if case.attest_status == "required":
+        raise HTTPException(status_code=409, detail="attestation required before verification")
+    known = {li.get("line_item_id") for li in (case.line_items or []) if isinstance(li, dict)}
+    try:
+        confs = [LineItemConfirmation(**c) for c in raw]
+    except Exception as e:  # noqa: BLE001 — pydantic's message is the useful part
+        raise HTTPException(status_code=422, detail=f"bad confirmation: {e}") from e
+    if not confs or {c.line_item_id for c in confs} != known:
+        # never capped, never padded (§A4-5): one answer per fact the engine emitted
+        raise HTTPException(status_code=422, detail="answer every fact, and only those")
+    await submit_confirmations(str(case.case_file_id), confs)
+
+
+@router.post("/intake/answer", response_model=StepAck)
+async def answer(
+    req: IntakeAnswerRequest,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> StepAck:
+    case = await _resolve_case(session, user, req.case_file_id)
+    shown_at = IntakeState(case).get("screen_shown_at")
+    await _apply_answer(session, case, user, req)
+    await session.commit()  # autosave IS this commit — every answer, before anything else
+    await session.refresh(case)
+    from app.analytics.emit import emit
+    from app.analytics.events import coerce_enum
+
+    await emit(
+        "intake_screen_action",
+        user_id=user.user_id,
+        case_file_id=case.case_file_id,
+        properties={
+            "screen": req.screen,
+            "action": coerce_enum("intake_screen_action", "action", req.action),
+            "elapsed": _elapsed_bucket(shown_at),
+        },
+    )
+    ack = await _ack(session, case)
+    if ack.current_step == "reading":
+        _kick_extraction(case, background)
+    return ack
+
+
+def _kick_extraction(case: CaseFile, background: BackgroundTasks) -> None:
+    """The engine reads the bill (Bill Detective, translate mode) while the user keeps going —
+    once per case; the planner's `reading` screen polls /intake/state until the facts land."""
+    st = IntakeState(case)
+    if st.get("extraction_started_at"):
+        return
+    from app.agents.orchestrator import extract_line_items
+
+    st.set("extraction_started_at", datetime.now(timezone.utc).isoformat())
+    background.add_task(extract_line_items, str(case.case_file_id))
+
+
+@router.post("/intake/run", response_model=IntakeRunResponse)
+async def run_intake(
+    background: BackgroundTasks,
+    body: dict[str, Any] = Body(default_factory=dict),
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> IntakeRunResponse:
+    """READY → run the audit and hand off to the EXISTING results surfaces. The guided route
+    builds no results UI: the three numbers, the findings with their side attribution, the
+    unlock moment, the gameplan, call mode and chat are the shared components (§C2)."""
+    from app.agents.orchestrator import finalize_audit
+
+    case = await _resolve_case(session, user, body.get("case_file_id"))
+    state, inputs, picked = await _plan(session, case)
+    if picked != ip.READY:
+        raise HTTPException(status_code=409, detail=f"not ready: next is {picked}")
+    if not (inputs.bill_count or inputs.eob_count):
+        raise HTTPException(status_code=422, detail="add a bill or an insurer statement first")
+    case.intake_status = "complete"
+    case.intake_current_step = ip.READY
+    await session.commit()
+    cfid = str(case.case_file_id)
+
+    # The thread is the shared post-analysis surface (reveal, unlock, gameplan, chat): give the
+    # guided case the same one an upload gets. Flag-gated no-op when chat-first is off.
+    from app.agents.thread_bridge import bootstrap_thread
+
+    conversation_id = await bootstrap_thread(cfid)
+    background.add_task(finalize_audit, cfid)
+    from app.analytics.emit import emit
+
+    gaps = ip.gap_list(inputs)
+    await emit("intake_audit_started", user_id=user.user_id, case_file_id=case.case_file_id,
+               properties={"unresolved": len(gaps.open_keys())})
+    return IntakeRunResponse(
+        case_file_id=cfid,
+        status="audit_running",
+        next_route=f"/audit/{cfid}/thread" if conversation_id else f"/audit/{cfid}",
+        conversation_id=conversation_id,
+    )
+
+
+@router.get("/intake/help")
+async def intake_help(
+    document_type: str,
+    case_file_id: str | None = None,
+    screen: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> dict[str, Any]:
+    """"Help me find it" (§A5): the payer's own path when a document named the payer and the
+    corpus has it, else the generic steps."""
+    payer = None
+    if case_file_id:
+        case = await _resolve_case(session, user, case_file_id)
+        payer = (case.coverage or {}).get("payer_name")
+    found = render_help(payer, document_type, screen)
+    if found is None:
+        raise HTTPException(status_code=404, detail="no instructions for that document type")
+    return found
+
+
+@router.post("/intake/help/email")
+async def email_intake_help(
+    req: HelpEmailRequest,
+    session: AsyncSession = Depends(get_session),
+    user: CurrentUser = Depends(current_user),
+) -> dict[str, Any]:
+    """The same steps by email — users leave the app to go to the portal (locked 5c). ONE send
+    path (notify.email.send_product_email): the DL-47 PHI guard and the synthetic-suffix guard
+    both apply. The body is generic navigation steps + the payer's NAME — no claim, no amount,
+    no document content. SMS is not built and is not offered."""
+    from app.notify.email import FOOTER, send_product_email
+
+    payer = None
+    if req.case_file_id:
+        case = await _resolve_case(session, user, req.case_file_id)
+        payer = (case.coverage or {}).get("payer_name")
+    found = render_help(payer, req.document_type, req.screen)
+    if found is None:
+        raise HTTPException(status_code=404, detail="no instructions for that document type")
+    urow = (await session.execute(select(User).where(User.user_id == user.user_id))).scalar_one()
+    lines = [step("intake.help.email_intro") or "", "", found["title"] or "", found["note"] or "", ""]
+    lines += [f"{n}. {text}" for n, text in enumerate(found["steps"], start=1)]
+    sent = await send_product_email(
+        urow.email,
+        step("intake.help.email_subject") or "Your steps from Tyndale",
+        "\n".join([*lines, "", FOOTER]),
+        kind="intake_help",
+    )
+    from app.analytics.emit import emit
+    from app.analytics.events import coerce_enum
+
+    await emit("intake_help_emailed", user_id=user.user_id,
+               case_file_id=_uuid(req.case_file_id) if req.case_file_id else None,
+               properties={"document_type": coerce_enum("intake_help_emailed", "document_type", req.document_type),
+                           "scope": found["scope"], "sent": bool(sent)})
+    return {"sent": bool(sent), "message": step("intake.chrome.email_sent" if sent else "intake.chrome.email_failed")}
+
+
+# --------------------------------------------------------------------------- #
+# The CO-1A persistence seams — same writes; each now answers with the planner's next state
+# --------------------------------------------------------------------------- #
 @router.post("/intake/step/{step_name}/manual-entry", response_model=StepAck)
 async def manual_entry(
     step_name: str,
@@ -345,18 +758,17 @@ async def manual_entry(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> StepAck:
-    if step_name not in INTAKE_STEPS:
-        raise HTTPException(status_code=404, detail=f"unknown step: {step_name}")
+    """Persist typed coverage fields (card corrections, plan numbers). The step NAME no longer
+    decides anything — there is no sequence to advance — so any name is accepted."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
     merged = {
         _COVERAGE_ALIASES[k]: v for k, v in body.items() if k in _COVERAGE_ALIASES and v is not None
     }
     if merged:
         case.coverage = {**(case.coverage or {}), **merged}
-        _apply_regime_detection(case)  # typed payer/plan/member-id can sharpen the regime
-    _advance(case, step_name)
-    await session.commit()
-    return _ack(case)
+    if case.intake_status == "not_started":
+        case.intake_status = "in_progress"
+    return await _ack(session, case)
 
 
 @router.post("/intake/step/{step_name}/skip", response_model=StepAck)
@@ -366,12 +778,13 @@ async def skip_step(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> StepAck:
-    if step_name not in INTAKE_STEPS:
-        raise HTTPException(status_code=404, detail=f"unknown step: {step_name}")
+    """Skip a screen — persists nothing but the skip itself, and only for a screen the registry
+    marks skippable (a CO-1A step name that is not a registry screen is a no-op)."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
-    _advance(case, step_name)  # persists nothing for this step
-    await session.commit()
-    return _ack(case)
+    screen = ip.SCREENS.get(step_name)
+    if screen is not None and screen.skippable:
+        IntakeState(case).skip(step_name)
+    return await _ack(session, case)
 
 
 @router.post("/intake/step/insurance-card/extract", response_model=StepAck)
@@ -380,21 +793,17 @@ async def extract_insurance_card_step(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> StepAck:
-    """OCR an uploaded insurance card: persist high-confidence fields to coverage,
-    return low-confidence fields as trivial yes/no confirmations (P1)."""
+    """OCR an uploaded insurance card: persist high-confidence fields to coverage, return
+    low-confidence fields as trivial yes/no confirmations (P1). The planner then SKIPS whatever
+    the card answered — a card that named the payer means no "which insurer" screen."""
     case = await _resolve_case(session, user, req.case_file_id, create=True)
     fields = await extract_insurance_card(case.documents or [], req.document_id)
     high = fields.high_confidence_coverage()
     if high:
         case.coverage = {**(case.coverage or {}), **high}
-    # Detect the coverage regime off the freshly-extracted card (Sprint B). High-
-    # confidence card/document evidence auto-verifies; otherwise the regime-confirm
-    # step preselects the candidate and asks.
-    _apply_regime_detection(case)
-    if case.intake_status != "complete":
+    if case.intake_status == "not_started":
         case.intake_status = "in_progress"
-    await session.commit()
-    return _ack(case, confirmations=fields.confirmations())
+    return await _ack(session, case, confirmations=fields.confirmations())
 
 
 @router.post("/intake/step/coverage-regime-confirm/confirm", response_model=StepAck)
@@ -403,9 +812,10 @@ async def confirm_coverage_regime(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> StepAck:
-    """The verification-ladder answer to 'How are you covered?' — an explicit user
-    confirm sets the regime verified (Sprint B, DL-82). The generic /skip endpoint
-    still advances without setting a regime (leaves it for the audit's generic path)."""
+    """The verification-ladder answer to 'How are you covered?' — an explicit user confirm
+    sets the regime verified (Sprint B, DL-82). Settings' coverage-type row uses this; on the
+    guided route the plain-language coverage_type screen is the ask, and a non-commercial
+    regime confirmed here exits the route exactly as a detected one does."""
     if not is_valid_regime(req.coverage_regime):
         raise HTTPException(status_code=422, detail="invalid coverage_regime")
     case = await _resolve_case(session, user, req.case_file_id, create=True)
@@ -420,9 +830,7 @@ async def confirm_coverage_regime(
         "evidence": prior_evidence,
         "verified": True,
     }
-    _advance(case, "coverage-regime-confirm")
-    await session.commit()
-    return _ack(case)
+    return await _ack(session, case)
 
 
 @router.post("/intake/visit-context", response_model=StepAck)
@@ -433,9 +841,7 @@ async def set_visit_context(
 ) -> StepAck:
     case = await _resolve_case(session, user, req.case_file_id, create=True)
     case.visit_context = req.visit_context  # DL-54: stored verbatim; no CPT echoed back
-    _advance(case, "visit-context")
-    await session.commit()
-    return _ack(case)
+    return await _ack(session, case)
 
 
 @router.post("/intake/complete", response_model=CompletionSummary)
@@ -444,6 +850,8 @@ async def complete_intake(
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
 ) -> CompletionSummary:
+    """Mark intake complete WITHOUT running the audit (the CO-1A seam; the guided route uses
+    POST /intake/run). Still refuses an intake with nothing in it."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
     if _bills_count(case) == 0 and not _has_coverage(case):
         raise HTTPException(
@@ -451,7 +859,7 @@ async def complete_intake(
             detail="Add at least one medical bill or your coverage details before finishing.",
         )
     case.intake_status = "complete"
-    case.intake_current_step = "complete"
+    case.intake_current_step = ip.READY
     await session.commit()
 
     cov = case.coverage or {}
@@ -468,56 +876,51 @@ async def complete_intake(
         captured.append(f"{_eobs_count(case)} EOB(s)")
     if case.visit_context:
         captured.append("A description of your visit")
-
-    missing = _missing_items(case)
-    summary = "Got it. Here's what I have, and what would unlock more if you add it later."
     return CompletionSummary(
         case_file_id=str(case.case_file_id),
         intake_status=case.intake_status,
         captured=captured,
-        missing_items=missing,
-        summary=summary,
+        missing_items=_missing_items(case),
+        summary=step("intake.readiness.title") or "",
     )
 
 
-@router.post("/intake/plan-proposal/confirm", response_model=IntakeStateResponse)
+@router.post("/intake/plan-proposal/confirm", response_model=StepAck)
 async def confirm_plan_proposal(
     body: dict[str, Any] = Body(default_factory=dict),
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
-) -> IntakeStateResponse:
-    """Confirm a proposed plan-level design: write it through to coverage (canonical
-    store), point plan_current at the entry, and increment the entry's confidence."""
+) -> StepAck:
+    """Confirm a proposed plan-level design: write it through to coverage (canonical store),
+    point plan_current at the entry, and increment the entry's confidence. The planner then
+    finds the plan rules resolved — the SBC upload screen never appears."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
     entry = await _load_plan_entry(session, body.get("plan_library_id"))
     if entry is None:
         raise HTTPException(status_code=404, detail="plan_library entry not found")
     await plan_lib.confirm(session, entry, case)
-    if case.intake_status != "complete":
+    if case.intake_status == "not_started":
         case.intake_status = "in_progress"
-    await session.commit()
-    return _state(case)
+    return await _ack(session, case)
 
 
-@router.post("/intake/plan-proposal/reject", response_model=IntakeStateResponse)
+@router.post("/intake/plan-proposal/reject", response_model=StepAck)
 async def reject_plan_proposal(
     body: dict[str, Any] = Body(default_factory=dict),
     session: AsyncSession = Depends(get_session),
     user: CurrentUser = Depends(current_user),
-) -> IntakeStateResponse:
-    """Reject + (optionally) correct a proposed design: FORK a new PHI-stripped
-    plan_library entry rather than overwriting; write the corrected design to
-    coverage and archive the prior pointer into plan_history. `corrected_design` in
-    the body holds the user's edits (stripped to benefit-design keys on write)."""
+) -> StepAck:
+    """Reject + (optionally) correct a proposed design: FORK a new PHI-stripped plan_library
+    entry rather than overwriting; write the corrected design to coverage and archive the prior
+    pointer into plan_history. `corrected_design` holds the user's edits."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
     entry = await _load_plan_entry(session, body.get("plan_library_id"))
     if entry is None:
         raise HTTPException(status_code=404, detail="plan_library entry not found")
     await plan_lib.reject(session, entry, body.get("corrected_design") or {}, case)
-    if case.intake_status != "complete":
+    if case.intake_status == "not_started":
         case.intake_status = "in_progress"
-    await session.commit()
-    return _state(case)
+    return await _ack(session, case)
 
 
 # --------------------------------------------------------------------------- #
@@ -530,17 +933,18 @@ async def guided_answers(
     user: CurrentUser = Depends(current_user),
 ) -> StepAck:
     """Persist the §4 guided-flow answers into coverage: coordination of benefits
-    (has_secondary_coverage), plan effective date / plan year (anchors CO-12B's
-    plan-year filtering on real dates), sibling-claim capture, and the
-    all_plan_year_eobs_confirmed completeness signal CO-12B's accumulator reads."""
+    (has_secondary_coverage), plan effective date / plan year (anchors CO-12B's plan-year
+    filtering on real dates), sibling-claim capture, and the all_plan_year_eobs_confirmed
+    completeness signal CO-12B's accumulator reads."""
     case = await _resolve_case(session, user, body.get("case_file_id"), create=True)
     merged = {k: body[k] for k in _GUIDED_COVERAGE_KEYS if k in body and body[k] is not None}
     if merged:
         case.coverage = {**(case.coverage or {}), **merged}
-    if case.intake_status != "complete":
+        if "all_plan_year_eobs_confirmed" in merged:
+            IntakeState(case).set("completeness_at_count", len(eob_rows(case)))
+    if case.intake_status == "not_started":
         case.intake_status = "in_progress"
-    await session.commit()
-    return _ack(case)
+    return await _ack(session, case)
 
 
 @router.post("/intake/bill-check")
@@ -561,17 +965,12 @@ async def bill_check(
 async def benefits_doc_help(
     user: CurrentUser = Depends(current_user),
 ) -> dict[str, Any]:
-    """The benefits document goes by many names — surface them, plus the
-    'I can often get this another way' framing that routes to the PlanLibrary
-    propose path when the user can't find any."""
+    """The benefits document goes by many names — surface them (the SBC screen's "Help me find
+    it" carries the steps; this stays for the aliases)."""
+    help_ = render_help(None, "sbc") or {}
     return {
         "aliases": list(BENEFITS_DOC_ALIASES),
-        "help_copy": (
-            "I need your plan's benefits summary — it might be called any of these. "
-            "Upload whichever one you have."
-        ),
-        "cannot_find_copy": (
-            "No problem — I can often get this another way. Let me check what I have on "
-            "file for your plan, and you can confirm it."
-        ),
+        "help_copy": step("intake.plan_rules.body"),
+        "cannot_find_copy": step("intake.plan_rules.skip_consequence"),
+        "steps": help_.get("steps", []),
     }
