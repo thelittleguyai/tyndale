@@ -1,5 +1,12 @@
 # Tyndale — Project State (2026-08-17)
 
+> **Scoreboard re-counted 2026-09-21** (deep review 2026-09-18, docs group): §1 is current as of `b1289b2`,
+> counted from the tree and — for the jobs row — read from the dev resource group the same day; §2 gains
+> the Human Review paragraph. The rest of the NARRATIVE still describes the 08-17 snapshot: five more
+> weeks landed since (Human Review Phase 1, the stranded-audit healer, the canary re-pick, the e2e/CI
+> hardening, the workload-profile migration) — see `git log ce1531b..`, doc 39, and
+> `tyndale_deep_review_2026-09-18.md` at the workspace root.
+>
 > **Scoreboard re-counted 2026-08-27** (audit group 6): §1's figures and §6.3's checker
 > status are current as of `ce1531b`. The NARRATIVE sections still describe the 08-17
 > snapshot — ten days of work (capture/progress/identity fixes, the checklist completion
@@ -20,16 +27,17 @@ root) whose 7 findings + 3 nits are **all closed as of today**.
 
 ## 1 · The scoreboard
 
-| Measure | Value *(re-counted 2026-08-27)* |
+| Measure | Value *(re-counted 2026-09-21)* |
 |---|---|
-| Repo | 396 commits on main; 130 since 2026-08-17 |
-| Runtime | FastAPI monolith · 23 route modules · 48 agent/source modules · 50 migrations (0001–0050), chain verified from empty in CI |
-| Tests | Runtime: **1,118 collected** (1,110+ passing / 5 skipped) · Mobile: **135 tests / 29 jest suites**, typecheck clean · E2E harness: 22 synthetic scenarios + the record-aggregates check |
-| Copy registry | 136 key sections (120 tier-tagged values: 112 `[A]` · 6 `[C]` · 2 `[B]` — the PACE/program handoffs), zero placeholders, drift-guarded; 40 keys boot-gated via RENDER_PATH_KEYS |
+| Repo | 442 commits on main; 169 since 2026-08-17, 43 since the 08-27 re-count |
+| Runtime | FastAPI monolith · 34 route modules (23 top-level + 11 under `routes/admin/`) · **55 agent/source modules** (20 agents + 35 sources) · 53 migrations (0001–0053), chain verified from empty in CI |
+| Tests | Runtime: **1,296 collected** · Mobile: **136 tests / 29 jest suites**, typecheck clean · Admin: **21 vitest** (new 09-21; the console had none) · E2E harness: 22 synthetic scenarios + the record-aggregates check |
+| Lint | New 09-21: an ESLint gate on all three frontends (`eslint . --max-warnings 0`, a `lint` job in `typecheck.yml`) — there was none before |
+| Copy registry | 120 tier-tagged values (112 `[A]` · 6 `[C]` · 2 `[B]` — the PACE/program handoffs), zero placeholders, drift-guarded; 40 keys boot-gated via RENDER_PATH_KEYS — *unchanged since 08-27* |
 | Conformance | 08-11 sweep stands (63 PASS · 4 FAIL · 1 PARTIAL · 6 N-A-YET); B1/B3/C1/C5 checklist rows amended to the 08-18 rulings on 2026-08-27 |
 | Decisions | DL-01 – DL-92+ canonical in `docs/decision-log.md` (Cowork numbers new entries as they land) |
-| CI | 11 workflows; deploy-runtime now GATES on the reusable Runtime CI suite (2026-08-27); Runtime CI triggers cover the repo-wide guard scans |
-| Dev environment | All services healthy on `*.tyndaleapp.net`; 10 Container App Jobs green; qdrant seeded with 19 error-detection rules incl. the golden payer rule |
+| CI | **12 workflows** (+ `terraform-ci`: fmt + validate); deploy-runtime GATES on the reusable Runtime CI suite, which now runs **once** per push (the `scope` job routes it); the e2e sweep and deploys hold separate concurrency groups and the sweep yields to a deploy instead of cancelling one |
+| Dev environment | All services healthy on `*.tyndaleapp.net`; **11 Container App Jobs** (9 crons + migrations + seed), all `Succeeded`; qdrant seeded with 19 error-detection rules incl. the golden payer rule. *The 08-27 "10 jobs green" is superseded: `stuck_audits` (every 15 min, heals audits stranded in `audit_running`) is the eleventh. It was created by the 09-18 apply on the **`aci-helloworld` placeholder** and ran as a no-op until the next deploy rolled it — read 09-21, all nine crons + migrations are on `runtime:a2a8218`. **Any new or re-created job starts on the placeholder the same way** (DEV_TEST_DAY §0.3). The seed job is not rolled by deploys and sits on an older image by design.* |
 
 ## 2 · What the product does today (deployed, dev)
 
@@ -52,6 +60,24 @@ record at the tap (the outcome-capture denominator), and the dashboard follow-up
 everyone else. Sub-cases roll up into the Record view. Settings now includes the
 **statutory access/deletion request intake** (encrypted event, discloses nothing). The
 marketing site carries the full round-2 landing.
+
+**Human Review (Phase 1, shipped 2026-09-18 → 09-21; design + decisions in doc 39).** Every
+completed audit run lands in a reviewer queue at **Admin → Review** — 100% by default, behind
+a sampling dial an admin can turn down at runtime, with five always-enqueue triggers (first
+case, low confidence, system error, canary event, EOB-vs-Tyndale disagreement above
+materiality) that fire at any dial; synthetic e2e users are never enqueued. A reviewer
+claims a run explicitly and works it in one screen: the user's **documents** (stored file +
+OCR text, every open its own audit event), the **conversation** as the user saw it, the
+**analysis** (three numbers, the summary the user read, every finding with a "why" expander
+and citations that open their source), and a **Data & provenance** tab of what the run
+actually used. Three verdicts — approve · disapprove · can't verify — are append-only; a
+disapproval requires a type, a scope (whole case or selected findings), exactly one **cause**
+(`content_gap` · `reasoning_error` · `bad_input` · `stale_data_source`) and a structured note,
+enforced on every route including the legacy one. The **approval rate** (approved ÷ approved +
+disapproved; can't-verify excluded) is the live counterpart of the judge rubric. **Not built
+yet:** anything downstream of a disapproval — cause routing, rule candidates, eval stubs
+(Phase 2) — and telling a *user* their audit was corrected (Phase 3; the append-only message
+schema it needs is already in).
 
 ## 3 · Shipped since the deep review (2026-08-13 → today) — the delta Cowork hasn't seen
 
