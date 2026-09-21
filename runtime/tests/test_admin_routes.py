@@ -165,13 +165,25 @@ async def _verdict_row(verdict_id: str) -> AdminVerdict:
         ).scalar_one()
 
 
+# Deep review C3 (2026-09-18): the legacy verdict route is a strict alias of the review route,
+# so any DISAPPROVING verdict must carry §7-2b's cause + structured note (+ an explicit scope).
+_NOTE = {
+    "concluded": "what Tyndale concluded",
+    "should_have_concluded": "what it should have concluded",
+    "input_or_rule": "which input or rule",
+}
+
+
 @pytest.mark.asyncio
 async def test_admin_verdict_persists_with_target_findings(client: AsyncClient):
     cfid = await _fresh_case()
     fid = await _add_finding(cfid)
     r = await client.post(
         f"/v1/admin/cases/{cfid}/verdict",
-        json={"verdict": "hallucinated", "notes": "miscategorized", "target_findings": [fid]},
+        json={
+            "verdict": "hallucinated", "notes": "miscategorized", "target_findings": [fid],
+            "scope": "findings", "cause": "reasoning_error", "structured_note": _NOTE,
+        },
     )
     assert r.status_code == 200, r.text
     row = await _verdict_row(r.json()["verdict_id"])
@@ -185,7 +197,10 @@ async def test_admin_verdict_persists_with_target_response_only(client: AsyncCli
     cfid = await _fresh_case()
     r = await client.post(
         f"/v1/admin/cases/{cfid}/verdict",
-        json={"verdict": "partial", "target_response": "response-abc"},
+        json={
+            "verdict": "partial", "target_response": "response-abc",
+            "scope": "whole_case", "cause": "content_gap", "structured_note": _NOTE,
+        },
     )
     assert r.status_code == 200, r.text
     row = await _verdict_row(r.json()["verdict_id"])
@@ -222,7 +237,12 @@ async def test_admin_dashboard_returns_correct_counts(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_audit_event_written_on_verdict_submit(client: AsyncClient):
     cfid = await _fresh_case()
-    await client.post(f"/v1/admin/cases/{cfid}/verdict", json={"verdict": "missed_finding"})
+    r = await client.post(
+        f"/v1/admin/cases/{cfid}/verdict",
+        json={"verdict": "missed_finding", "scope": "whole_case", "cause": "content_gap",
+              "structured_note": _NOTE},
+    )
+    assert r.status_code == 200, r.text
     async with AsyncSessionLocal() as s:
         rows = (
             (
