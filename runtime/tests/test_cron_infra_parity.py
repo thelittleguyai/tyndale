@@ -80,3 +80,45 @@ def test_unscheduled_exceptions_are_real_and_documented():
     for name, reason in UNSCHEDULED_BY_DESIGN.items():
         assert name in CRON_REGISTRY, f"UNSCHEDULED_BY_DESIGN names {name!r}, which isn't registered"
         assert len(reason) > 40, f"{name} needs a real reason"
+
+
+# ── the deploy workflow's cron image roll finds jobs by terraform's name prefix ───────────
+def test_the_cron_image_roll_uses_the_prefix_terraform_names_the_jobs_with():
+    """deploy-runtime rolls every scheduled job to the new image by NAME PREFIX. The filter used
+    to carry two literals — one of them dead (`${CONTAINER_APP}-cron-` = tyndale-dev-runtime-cron-,
+    which no job has ever matched) — and nothing tied the live one to terraform. A prefix change
+    would have left every cron on its old image, silently (deep review 2/3)."""
+    import yaml
+
+    repo = pathlib.Path(__file__).resolve().parents[2]
+    main_tf = (repo / "infra/envs/dev/main.tf").read_text(encoding="utf-8")
+    variables_tf = (repo / "infra/envs/dev/variables.tf").read_text(encoding="utf-8")
+    crons_tf = CRONS_TF.read_text(encoding="utf-8")
+    workflow_text = (repo / ".github/workflows/deploy-runtime.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+
+    # terraform: name_prefix = "tyndale-${local.env}", env = var.environment (default "dev")
+    assert re.search(r'name_prefix\s*=\s*"tyndale-\$\{local\.env\}"', main_tf)
+    assert re.search(r"env\s*=\s*var\.environment", main_tf)
+    env_default = re.search(
+        r'variable "environment" \{.*?default\s*=\s*"([a-z]+)"', variables_tf, re.DOTALL
+    ).group(1)
+    tf_prefix = f"tyndale-{env_default}"
+    assert '"${local.name_prefix}-cron-${replace(each.key, "_", "-")}"' in crons_tf
+
+    env = workflow["env"]
+    assert env["NAME_PREFIX"] == tf_prefix
+    for key in ("CONTAINER_APP", "MIGRATION_JOB", "RESOURCE_GROUP"):
+        assert env[key].startswith(f"{tf_prefix}-"), f"{key} is not under the terraform name prefix"
+    roll = next(
+        s for s in workflow["jobs"]["deploy"]["steps"] if s.get("name") == "Update cron job images"
+    )["run"]
+    assert 'CRON_PREFIX="${NAME_PREFIX}-cron-"' in roll
+    assert "${CONTAINER_APP}-cron-" not in workflow_text  # the dead clause is gone
+    assert "tyndale-dev-cron-" not in roll  # no second hard-coded literal
+    assert "exit 1" in roll  # zero matches is an error, never a silent no-op
+
+    # every scheduled cron's job name really does start with that prefix (32-char truncation kept)
+    for name in _scheduled_cron_names():
+        job = f"{tf_prefix}-cron-{name.replace('_', '-')}"[:32]
+        assert job.startswith(f"{tf_prefix}-cron-")

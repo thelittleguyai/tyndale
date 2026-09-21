@@ -47,6 +47,11 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/tyndale/runtime
+  # terraform's local.name_prefix ("tyndale-${var.environment}", infra/envs/dev/main.tf). The
+  # scheduled jobs are named "<NAME_PREFIX>-cron-<name>" (crons.tf) and the roll below finds
+  # them by that prefix — runtime/tests/test_cron_infra_parity.py keeps the two in step, so a
+  # prefix change can't silently leave the crons on an old image.
+  NAME_PREFIX: tyndale-dev
   CONTAINER_APP: tyndale-dev-runtime
   MIGRATION_JOB: tyndale-dev-runtime-migrations
   RESOURCE_GROUP: tyndale-dev-rg
@@ -203,8 +208,16 @@ jobs:
       # start or wait — just point them at the new SHA for their next run.
       - name: Update cron job images
         run: |
-          for job in $(az containerapp job list --resource-group "$RESOURCE_GROUP" \
-              --query "[?starts_with(name, '${CONTAINER_APP}-cron-') || starts_with(name, 'tyndale-dev-cron-')].name" -o tsv); do
+          CRON_PREFIX="${NAME_PREFIX}-cron-"
+          JOBS=$(az containerapp job list --resource-group "$RESOURCE_GROUP" \
+              --query "[?starts_with(name, '${CRON_PREFIX}')].name" -o tsv)
+          if [ -z "$JOBS" ]; then
+            # Zero matches is never right (there are scheduled crons) — it means the prefix and
+            # terraform's job names have drifted, and the crons would quietly stay on an old image.
+            echo "::error::no container app jobs match '${CRON_PREFIX}*' — the cron image roll found nothing"
+            exit 1
+          fi
+          for job in $JOBS; do
             az containerapp job update --name "$job" --resource-group "$RESOURCE_GROUP" \
               --image "$IMAGE:${{ github.sha }}" --output none
             echo "Rolled $job -> $IMAGE:${{ github.sha }}"

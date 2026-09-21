@@ -1,91 +1,152 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 # terraform.tfvars is gitignored so secrets stay off the repo, but the file
 # still sits on your laptop in plaintext — treat it accordingly.
+#
+# EVERY variable declared in variables.tf appears below (72 today) — uncommented when
+# it is REQUIRED or deliberately set, otherwise commented out showing its default. A test
+# (runtime/tests/test_tfvars_example_parity.py) fails when a variable is added without a
+# line here, so this file cannot quietly fall behind again.
 
-azure_subscription_id   = "00000000-0000-0000-0000-000000000000"
-azure_tenant_id         = "00000000-0000-0000-0000-000000000000"
+# --- Azure + environment ---------------------------------------------------------
+# Subscription / tenant are REQUIRED. The rest are the defaults from variables.tf — uncomment
+# only to change them.
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"
+azure_tenant_id       = "00000000-0000-0000-0000-000000000000"
+# environment   = "dev"
+# location      = "centralus"
+# dns_zone_name = "tyndaleapp.net"
+# common_tags   = { project = "tyndale", managed_by = "terraform" }
 
-# Postgres admin password. Azure requires 8-128 chars with characters from 3
-# of: uppercase, lowercase, numbers, non-alphanumeric; cannot contain the
-# admin username (default "tyndale_admin"). Alternative to writing it here:
+# --- Postgres --------------------------------------------------------------------
+# Admin password: Azure requires 8-128 chars with characters from 3 of: uppercase, lowercase,
+# numbers, non-alphanumeric; cannot contain the admin username. Alternative to writing it here:
 # export TF_VAR_postgres_admin_password='...' before terraform apply.
+# postgres_admin_username = "tyndale_admin"
 postgres_admin_password = "REPLACE_WITH_STRONG_PASSWORD"
 
-# --- Application secrets ----------------------------------------------------
-# Stored in Key Vault on apply; consumed by the runtime Container App (env
-# vars via KV references) and the marketing SWA (app settings).
+# --- Application secrets ---------------------------------------------------------
+# REQUIRED. anthropic / voyage / google_oauth_client_SECRET are stored in Key Vault on apply and
+# reach the containers as Key Vault references.
+# google_oauth_client_id is NOT a Key Vault secret any more (the KV secret was removed in
+# dd94817): the client id is public by design (it ships to the browser), so it is passed to the
+# runtime, marketing and admin apps as a PLAIN env value. The variable is still marked sensitive
+# only to keep it out of plan output.
 anthropic_api_key          = "sk-ant-REPLACE_ME"
 voyage_api_key             = "pa-REPLACE_ME"
 google_oauth_client_id     = "REPLACE_ME.apps.googleusercontent.com"
 google_oauth_client_secret = "GOCSPX-REPLACE_ME"
 
-# Real-Claude toggle. false (default) = runtime serves deterministic fixtures
-# (zero API cost — what you get if this line is omitted). true = chat + audits
-# call the real Anthropic API directly, using the anthropic_api_key above, which
-# must be a real "sk-…" key or the runtime SILENTLY falls back to fixtures.
-# Costs money per request. Set in terraform.tfvars (not just here) and apply.
+# --- Real-service toggles --------------------------------------------------------
+# use_real_claude: false (the default) = the runtime serves deterministic fixtures, zero API
+# cost. true = chat + audits call the real model using anthropic_api_key above, which must be a
+# real "sk-…" key or the runtime SILENTLY falls back to fixtures. Costs money per request.
+# use_real_auth: false = the seeded-admin stub, no sign-in. true = real Google / magic-link auth;
+# also needs the runtime reachable from the browser (ingress + CORS) and the Google redirect URI
+# registered — flip on a follow-up apply once those are in place.
 use_real_claude = true
+use_real_auth   = false
+# use_real_ocr               = false
+# use_real_presidio          = false
+# use_real_crisis_classifier = true
+# allow_fixture_fallback     = false
+# debug_error_responses      = false
 
-# --- Auth + email -----------------------------------------------------------
-# NOTE: there is intentionally NO auth_secret here. The runtime's JWT signing
-# key (env AUTH_SECRET) has no external counterpart, so Terraform auto-
-# generates it (random_password.auth_secret in secrets.tf) and stores it in
-# Key Vault. You never set it by hand.
-#
-# SendGrid magic-link email (Email API Pro tier under a BAA, per DL-18).
-# OPTIONAL: leave sendgrid_api_key empty ("") and the runtime LOGS the sign-in
-# link instead of emailing it — the KV secret + env wiring are skipped, so
-# apply works fine before you have a SendGrid account. Set the "SG.…" value to
-# send real email; sendgrid_from_email must be a verified SendGrid sender.
+# --- Auth + email ----------------------------------------------------------------
+# There is intentionally NO auth_secret here: the runtime's JWT signing key (env AUTH_SECRET) has
+# no external counterpart, so Terraform generates it (random_password.auth_secret in secrets.tf)
+# and stores it in Key Vault. You never set it by hand.
+# SendGrid (Email API Pro tier under a BAA, per DL-18) is OPTIONAL: leave sendgrid_api_key empty
+# and the runtime LOGS the sign-in link instead of emailing it — the KV secret + env wiring are
+# skipped, so apply works before you have a SendGrid account. sendgrid_from_email must be a
+# verified SendGrid sender. The two email flags reach the runtime AND the cron jobs.
 sendgrid_api_key    = "" # e.g. "SG.xxxxxxxxxxxx" to enable real email
 sendgrid_from_email = "no-reply@tyndaleapp.net"
+# enable_nudge_emails      = false
+# enable_audit_ready_email = false
 
-# Real-auth toggle. false (default) = runtime keeps the seeded-admin stub, no
-# sign-in needed. true = require real Google / magic-link auth; also needs the
-# runtime reachable from the browser (ingress + CORS) and the Google redirect
-# URI registered. Flip on a follow-up apply once those are in place.
-use_real_auth = false
+# --- Product flags ---------------------------------------------------------------
+# Every bool setting on the runtime is a tfvars flip (runtime/tests/test_flag_env_wiring.py
+# enforces the wiring; the ones the cron path reads are wired to the cron jobs as well).
+# enable_chat_first_audit  = false
+# enable_record_view       = false
+# enable_nsa_checks        = false
+# enable_cpt_display       = false
+# enable_appeals_casemgmt  = false
+# enable_first_case_unlock = false
+# enable_billing           = false
+# audit_log_key_version    = 1
 
-# Flip to true on a follow-up apply, after DNS records propagate publicly
-# (see variables.tf).
-# enable_marketing_custom_domain = true
-# enable_marketing_managed_cert  = true
+# --- Human review + the stranded-audit healer ------------------------------------
+# review_sample_pct is only the env DEFAULT — an admin can override the dial at runtime (it is
+# stored in admin_settings and survives restarts). The five triggers enqueue regardless of the
+# dial. The healer treats an audit as dead when its heartbeat is older than
+# max(3 x audit_wall_clock_budget_seconds, audit_reconcile_stale_seconds); both values reach the
+# runtime AND the cron jobs, which must agree.
+# review_sample_pct                    = 100
+# review_trigger_first_case            = true
+# review_trigger_low_confidence        = true
+# review_trigger_system_error          = true
+# review_trigger_canary                = true
+# review_trigger_material_disagreement = true
+# audit_wall_clock_budget_seconds      = 600
+# audit_reconcile_stale_seconds        = 1800
 
-# Apex (root) tyndaleapp.net → same marketing app as dev. Phased apply:
-#   1) leave both false  -> apex A record (→ external CAE static IP) + asuid TXT land
-#   2) enable_marketing_apex_custom_domain = true  (after tyndaleapp.net resolves)
-#   3) enable_marketing_apex_managed_cert  = true  (binds the managed TLS cert)
-# enable_marketing_apex_custom_domain = true
-# enable_marketing_apex_managed_cert  = true
+# --- Custom domains — phased applies ---------------------------------------------
+# Each public host is a three-step apply (see variables.tf):
+#   1) leave both false  -> the app goes public on its raw FQDN; the DNS record lands
+#   2) enable_*_custom_domain = true   (after the hostname resolves publicly)
+#   3) enable_*_managed_cert  = true   (binds the managed TLS cert)
+# Hosts: marketing -> dev.<zone>; marketing_apex -> the root <zone> (A record to the external
+# CAE static IP + an asuid TXT); runtime -> api.<zone> (REQUIRED for real auth: the session
+# cookie needs an HTTPS .<zone> host); app -> app.<zone>.
+# enable_marketing_custom_domain      = false
+# enable_marketing_managed_cert       = false
+# enable_marketing_apex_custom_domain = false
+# enable_marketing_apex_managed_cert  = false
+# enable_runtime_custom_domain        = false
+# enable_runtime_managed_cert         = false
+# enable_app_custom_domain            = false
+# enable_app_managed_cert             = false
 
-# Public runtime API at api.tyndaleapp.net — required for real Google/magic-link
-# auth (the session cookie needs an HTTPS .tyndaleapp.net host). Phased apply:
-#   1) leave both false   -> runtime goes public on its raw FQDN; api CNAME lands
-#   2) enable_runtime_custom_domain = true  (after api.tyndaleapp.net resolves)
-#   3) enable_runtime_managed_cert  = true  (binds the managed TLS cert)
-# enable_runtime_custom_domain = true
-# enable_runtime_managed_cert  = true
+# --- Admin console (admin.<zone>) — Phase CO-6A ----------------------------------
+# ████ REQUIRED BEFORE APPLY ████  The admin console uses a NETWORK-layer IP allowlist (DL-60).
+# The default below is a TEST-NET placeholder that blocks ALL real traffic — including Brock's.
+# Set the real CIDRs BEFORE `terraform apply`, or the console is unreachable by everyone. Use /32
+# for single IPs (e.g. "198.51.100.23/32"); include home/office + a VPN/travel fallback. The
+# Human Review workspace is a PHI surface behind this same allowlist.
+# Custom domain + cert: the same phased apply as above.
+# admin_allowed_ip_ranges    = ["203.0.113.0/24"]
+# enable_admin_custom_domain = false
+# enable_admin_managed_cert  = false
 
-# Public product app at app.tyndaleapp.net (Expo static web export). Same phased
-# apply as the others:
-#   1) leave both false   -> app goes public on its raw FQDN; app CNAME lands
-#   2) enable_app_custom_domain = true  (after app.tyndaleapp.net resolves)
-#   3) enable_app_managed_cert  = true  (binds the managed TLS cert)
-# enable_app_custom_domain = true
-# enable_app_managed_cert  = true
+# --- Claude via Azure AI Foundry (CO-18 / DL-79) ---------------------------------
+# enable_foundry provisions the account + deployments; use_foundry makes the runtime call it
+# (keyless, managed identity). Leave both false to call Anthropic directly.
+# enable_foundry           = false
+# use_foundry              = false
+# foundry_location         = "eastus2"
+# foundry_account_name     = ""
+# foundry_token_scope      = "https://cognitiveservices.azure.com/.default"
+# foundry_deployment_sku   = "GlobalStandard"
+# claude_sonnet_model      = "claude-sonnet-4-6"
+# claude_haiku_model       = "claude-haiku-4-5"
+# foundry_sonnet_version   = "1"
+# foundry_haiku_version    = "2"
+# foundry_sonnet_capacity  = 25
+# foundry_haiku_capacity   = 25
+# claude_organization_name = ""
+# claude_country_code      = "US"
+# claude_industry          = "technology"
 
-# --- Phase CO-6A admin console (admin.tyndaleapp.net) -----------------------
-# ████ FLAG FOR BROCK — REQUIRED BEFORE APPLY ████
-# The admin console uses a NETWORK-layer IP allowlist (DL-60). The default in
-# variables.tf is a TEST-NET placeholder (203.0.113.0/24) that blocks ALL real
-# traffic — INCLUDING BROCK'S. Set Brock's real CIDRs here BEFORE `terraform
-# apply`, or the admin console is unreachable by everyone. Use /32 for single
-# IPs (e.g. "198.51.100.23/32"); include home/office + a VPN/travel fallback.
-# admin_allowed_ip_ranges = ["198.51.100.23/32", "203.0.113.10/32"]
-#
-# Phased custom-domain + cert apply (same as the others):
-#   1) leave both false   -> admin goes public on its raw FQDN; admin CNAME lands
-#   2) enable_admin_custom_domain = true  (after admin.tyndaleapp.net resolves)
-#   3) enable_admin_managed_cert  = true  (binds the managed TLS cert)
-# enable_admin_custom_domain = true
-# enable_admin_managed_cert  = true
+# --- Qdrant (Phase 3.3) ----------------------------------------------------------
+# qdrant_image            = "qdrant/qdrant:v1.12.4"
+# qdrant_storage_quota_gb = 20
+
+# --- Coverage connection — 1upHealth wrapper -------------------------------------
+# Leave enable_coverage_connection false until the 1upHealth app exists; the client id/secret are
+# stored in Key Vault when set.
+# enable_coverage_connection = false
+# oneup_environment          = "sandbox"
+# oneup_client_id            = ""
+# oneup_client_secret        = ""
+# oneup_redirect_uri         = ""

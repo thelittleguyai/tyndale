@@ -5,6 +5,9 @@ resource "azurerm_container_app_environment" "main" {
   # Azure migrated Consumption-plan environments to workload-profile environments (observed
   # 2026-09-18: both CAEs carry a "Consumption" profile and every app/job is pinned to it).
   # Declared here so terraform matches Azure instead of trying to strip the profile.
+  # CONFIRMED, don't "fix": in azurerm 4.79 `workload_profile_name` on apps/jobs is NOT
+  # ForceNew (the 2026-09-18 plan showed every one as "updated in-place"), and this block —
+  # name/type "Consumption", min/max 0 — is exactly what Azure reports, so the plan is a no-op.
   workload_profile {
     name                  = "Consumption"
     workload_profile_type = "Consumption"
@@ -891,6 +894,9 @@ resource "azurerm_container_app_environment" "external" {
   # Azure migrated Consumption-plan environments to workload-profile environments (observed
   # 2026-09-18: both CAEs carry a "Consumption" profile and every app/job is pinned to it).
   # Declared here so terraform matches Azure instead of trying to strip the profile.
+  # CONFIRMED, don't "fix": in azurerm 4.79 `workload_profile_name` on apps/jobs is NOT
+  # ForceNew (the 2026-09-18 plan showed every one as "updated in-place"), and this block —
+  # name/type "Consumption", min/max 0 — is exactly what Azure reports, so the plan is a no-op.
   workload_profile {
     name                  = "Consumption"
     workload_profile_type = "Consumption"

@@ -16,6 +16,14 @@
 #   az containerapp job update -n tyndale-dev-cron-<name> -g tyndale-dev-rg \
 #     --image "$(az containerapp show -n tyndale-dev-runtime -g tyndale-dev-rg \
 #       --query 'properties.template.containers[0].image' -o tsv)"
+#
+# THE SECOND DOOR — CHANGING A SCHEDULE. `schedule_trigger_config` is ForceNew in azurerm 4.79
+# (per the 2026-09-18 deep review; READ THE PLAN — it will say "must be replaced" for the job):
+# editing a `cron =` below does not update the job in place, it DESTROYS and RECREATES it — and
+# the recreated job comes up on the placeholder image exactly like a brand-new one (the image
+# is under ignore_changes, so terraform never writes the real one back). Same cure: after the
+# apply, dispatch deploy-runtime or run the one-line roll above. Verifying the roll is part of
+# the deploy check in docs/build-kit/DEV_TEST_DAY.md §0.3.
 # ============================================================================
 
 locals {
