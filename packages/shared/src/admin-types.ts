@@ -10,6 +10,16 @@ export interface AdminUserSummary {
   created_at: string | null;
   last_admin_action_at: string | null;
   case_file_count: number;
+  /** Absent on an older runtime. */
+  intake_mode?: AdminIntakeModeView;
+}
+
+/** Which front door a user gets, and why (doc 40 §D): admin override → cohort → env default. */
+export interface AdminIntakeModeView {
+  override: 'guided' | 'chat_first' | null;
+  cohort: 'guided' | 'default' | null;
+  resolved: 'guided' | 'chat_first';
+  source: 'override' | 'cohort' | 'default';
 }
 
 export interface AdminUserDetail extends AdminUserSummary {

@@ -12,13 +12,30 @@ import {
   adminGetUserAudit,
   adminResetOnboarding,
   adminSendMagicLink,
+  adminSetIntakeMode,
   adminSetRole,
   adminSoftDeleteUser,
   adminUnblockUser,
   type AdminUserAuditEntry,
 } from '@/lib/api-client';
+import { frontDoorActions, frontDoorSummary } from '@/lib/front-door';
 
-type ActionKey = 'block' | 'unblock' | 'reset' | 'logout' | 'magic' | 'delete' | 'role' | null;
+type ActionKey =
+  | 'block' | 'unblock' | 'reset' | 'logout' | 'magic' | 'delete' | 'role'
+  | 'route_guided' | 'route_chat_first' | 'route_clear'
+  | null;
+
+// doc 40 §D — the per-user front-door override (admin override → cohort → env default)
+const ROUTE_BUTTON = {
+  route_guided: 'Front door → guided intake',
+  route_chat_first: 'Front door → chat-first',
+  route_clear: 'Clear front-door override',
+} as const;
+const ACTION_TITLE: Partial<Record<Exclude<ActionKey, null>, string>> = {
+  route_guided: 'Give the guided intake to',
+  route_chat_first: 'Give the chat-first flow to',
+  route_clear: 'Clear the front-door override for',
+};
 
 const fmt = (s: string | null) => (s ? new Date(s).toLocaleString() : '—');
 
@@ -82,6 +99,9 @@ export function UserDetail({ userId }: { userId: string }) {
       else if (action === 'delete') await adminSoftDeleteUser(userId);
       else if (action === 'role')
         await adminSetRole(userId, user.user_type === 'admin' ? 'user' : 'admin');
+      else if (action === 'route_guided') await adminSetIntakeMode(userId, 'guided');
+      else if (action === 'route_chat_first') await adminSetIntakeMode(userId, 'chat_first');
+      else if (action === 'route_clear') await adminSetIntakeMode(userId, null);
       setAction(null);
       setReason('');
       setConfirmText('');
@@ -147,6 +167,7 @@ export function UserDetail({ userId }: { userId: string }) {
             <Row label="Last activity" value={fmt(user.last_activity_at)} />
             <Row label="JWT version" value={String(user.jwt_version)} />
             <Row label="Service consent" value={String(user.service_consent)} />
+            {user.intake_mode ? <Row label="Front door" value={frontDoorSummary(user.intake_mode)} /> : null}
             {user.blocked_reason ? <Row label="Blocked reason" value={user.blocked_reason} /> : null}
           </Section>
 
@@ -196,6 +217,10 @@ export function UserDetail({ userId }: { userId: string }) {
               )}
               <Btn k="role" label={user.user_type === 'admin' ? 'Revoke admin' : 'Grant admin'} />
               <Btn k="reset" label="Reset onboarding" />
+              {/* doc 40 §D: only the moves that change something are offered */}
+              {frontDoorActions(user.intake_mode).map((k) => (
+                <Btn key={k} k={k} label={ROUTE_BUTTON[k]} />
+              ))}
               <Btn k="logout" label="Force logout" />
               <Btn k="magic" label="Send magic link" />
               <Btn k="delete" label="Soft-delete" danger />
@@ -222,7 +247,9 @@ export function UserDetail({ userId }: { userId: string }) {
             aria-labelledby="user-action-title"
             className="relative w-full max-w-md rounded-2xl border border-white/10 bg-navy-soft p-5"
           >
-            <h3 id="user-action-title" className="mb-3 text-sm font-bold capitalize">{action} {user.email}</h3>
+            <h3 id="user-action-title" className={`mb-3 text-sm font-bold ${ACTION_TITLE[action] ? '' : 'capitalize'}`}>
+              {ACTION_TITLE[action] ?? action} {user.email}
+            </h3>
             {action === 'block' ? (
               <textarea
                 value={reason}
@@ -243,6 +270,11 @@ export function UserDetail({ userId }: { userId: string }) {
                   className="mb-3 w-full rounded-lg border border-white/15 bg-black/20 px-2 py-2 text-sm text-white"
                 />
               </>
+            ) : ACTION_TITLE[action] ? (
+              <p className="mb-3 text-sm text-white/60">
+                Applies the next time they open the app. Cases they already opened keep the route they were
+                opened through. Recorded in the admin action history.
+              </p>
             ) : (
               <p className="mb-3 text-sm text-white/60">Confirm this action?</p>
             )}

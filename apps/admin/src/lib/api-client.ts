@@ -232,6 +232,9 @@ export const adminSoftDeleteUser = (id: string) =>
   post(`/v1/admin/users/${encodeURIComponent(id)}/soft-delete`);
 export const adminSetRole = (id: string, role: 'admin' | 'user') =>
   post(`/v1/admin/users/${encodeURIComponent(id)}/set-role`, { role });
+/** doc 40 §D: the per-user front-door override. `null` clears it (back to cohort → default). Audited. */
+export const adminSetIntakeMode = (id: string, intake_mode: 'guided' | 'chat_first' | null) =>
+  post(`/v1/admin/users/${encodeURIComponent(id)}/set-intake-mode`, { intake_mode });
 
 // --- Module 2: knowledge / qdrant ------------------------------------------
 export const adminListCollections = () =>
