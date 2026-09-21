@@ -146,7 +146,8 @@ async def record_verdict(
     session.add(verdict)
     await session.flush()
 
-    review = await review_queue.latest_review(session, cf.case_file_id)
+    await review_queue.lock_case(session, cf.case_file_id)
+    review = await review_queue.latest_review(session, cf.case_file_id, for_update=True)
     if review is None or review.state in review_queue.DECIDED_STATES:
         # A verdict on a run the policy skipped (or a second verdict on a decided run) still
         # gets its own row — append-only, linked to its predecessor.
@@ -158,7 +159,7 @@ async def record_verdict(
             incomplete_reason=cf.audit_incomplete_reason,
             findings_count=len(finding_ids),
             enqueued_at=now,
-            documents_fingerprint=review_queue.documents_fingerprint(cf.documents),
+            documents_fingerprint=review_queue.documents_fingerprint(cf.documents, cf.eobs),
         )
         session.add(review)
     review.state = state
@@ -186,9 +187,12 @@ async def record_verdict(
         },
     )
     await session.commit()
+    # Subject = the case owner; actor = the reviewer. (It used to carry the admin as user_id,
+    # attributing a patient's case to the operator in any per-user read.)
     await emit(
         "review_verdict_recorded",
-        user_id=admin.user_id,
+        user_id=cf.user_id,
+        actor_user_id=admin.user_id,
         case_file_id=cf.case_file_id,
         properties={
             "action": v.action,

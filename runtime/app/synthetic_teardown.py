@@ -56,6 +56,7 @@ COVERED_FKS: dict[tuple[str, str], str] = {
     ("conversations", "case_id"): "delete",
     ("conversations", "user_id"): "delete",
     ("analytics_events", "user_id"): "delete",
+    ("analytics_events", "actor_user_id"): "null",
     ("case_files", "user_id"): "delete",
     ("consent_history", "user_id"): "delete",
     ("insurance_cards", "user_id"): "delete",
@@ -149,7 +150,8 @@ async def teardown_synthetic_user(
     for table in ("knowledge_gap_log", "consent_history", "insurance_cards", "insurance_info",
                   "plan_documents", "billing_accounts"):
         counts[table] = counts.get(table, 0) + await _exec(session, f"DELETE FROM {table} WHERE user_id = :u", u=uid)  # noqa: S608
-    for table, col in (("case_reviews", "reviewer_id"), ("cron_run_log", "triggered_by"),
+    for table, col in (("case_reviews", "reviewer_id"), ("analytics_events", "actor_user_id"),
+                       ("cron_run_log", "triggered_by"),
                        ("admin_settings", "updated_by"), ("users", "blocked_by"),
                        ("users", "soft_deleted_by")):
         await _exec(session, f"UPDATE {table} SET {col} = NULL WHERE {col} = :u", u=uid)  # noqa: S608

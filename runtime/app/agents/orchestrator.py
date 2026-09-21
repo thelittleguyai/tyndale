@@ -364,6 +364,12 @@ async def _finalize_result(
     three-number result — the summary couldn't finish), persist the status (finalize path
     only), and record the run's timing/regens for the admin System page."""
     result = await _assemble_result(case_file_id, composed)
+    # Persist the (grounded) summary BEFORE the status transition: the thread projection fired
+    # by _set_status, the user's later GET /v1/audit and the reviewer's Analysis tab all assemble
+    # with composed="" and used to show NOTHING the user had read (deep review). Always written,
+    # so a re-run whose summary degraded to "" replaces the previous run's text instead of
+    # resurrecting it.
+    await _persist_summary(case_file_id, composed)
     # Terminal state + honest reason. Three real numbers = a COMPLETE audit even if the budget cut
     # the prose summary short (the numbers + findings still ship — a degraded summary, not a
     # failure). A run cut short with NO numbers is a system_error; agents that ran clean but
@@ -422,6 +428,20 @@ async def _finalize_result(
             properties={"stage": "audit", "duration_ms": duration * 1000.0},
         )
     return result
+
+
+async def _persist_summary(case_file_id: str, composed: str) -> None:
+    """Best-effort: a summary that can't be stored must not fail the audit that produced it."""
+    try:
+        async with AsyncSessionLocal() as s:
+            await s.execute(
+                update(CaseFile)
+                .where(CaseFile.case_file_id == UUID(case_file_id))
+                .values(audit_summary=composed or "")
+            )
+            await s.commit()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("orchestrator.summary_persist_failed", case_file_id=case_file_id, error=str(exc))
 
 
 def _new_audit_budget(settings) -> tuple[AuditBudget, float]:
@@ -947,6 +967,9 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             # Plan-level SBC (settings item 5): satisfies the checklist line and
             # supplies rung-2 terms when this case has no coverage of its own.
             plan_sbc, plan_cov = await plan_sbc_state(s, case.user_id)
+    if not composed and case is not None:
+        # Any read after finalize: what the user was actually shown (see _persist_summary).
+        composed = case.audit_summary or ""
     provenance = _regime_provenance(case, profile_state)
     # A persisted accumulator_discrepancy is the cross-validation material signal (DL-72).
     cv_material = any(getattr(f, "category", None) == "accumulator_discrepancy" for f in rows)

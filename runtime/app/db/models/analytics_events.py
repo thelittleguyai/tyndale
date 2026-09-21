@@ -45,6 +45,13 @@ class AnalyticsEvent(Base):
         UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
     )
     case_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Who ACTED, when that is not the subject — an admin recording a verdict on a patient's case
+    # (deep review: the event used to carry the admin as user_id, attributing the patient's
+    # case to the operator). user_id stays the SUBJECT; per-user consumers exclude rows whose
+    # actor differs.
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+    )
     # Validated against the per-event schema (enums/numbers/booleans only). Never free text.
     properties: Mapped[dict] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")

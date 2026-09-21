@@ -138,6 +138,11 @@ class CaseFile(Base):
     # terminal screen: 'needs_documents' (user-actionable — findings produced, three-number
     # blocked on missing inputs) | 'system_error' (budget/citation/provider). NULL otherwise.
     audit_incomplete_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The Lead Planner's (grounded) summary for the latest run, persisted at finalize. Every
+    # read after the finalize response used to assemble with "" — the user's re-fetch, the
+    # thread projection and the reviewer's Analysis tab never saw it. "" = the run degraded its
+    # summary (no summary beats a fabricated code); NULL = never finalized.
+    audit_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Stranded-audit healer (deep review C2, 2026-09-18). ``audit_heartbeat_at`` is bumped by the
     # orchestrator when an audit goes running and at every phase boundary — staleness is measured
     # against IT, not updated_at (which nothing refreshes mid-run). The reconcile_* trio is the

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import random
 import statistics
 import uuid
 from dataclasses import dataclass
@@ -81,23 +80,50 @@ def confidence_band(tier: int | None) -> str:
     return "low"
 
 
-def documents_fingerprint(documents: list | None) -> str:
-    """A stable digest of the case's document inventory (ids/types/hashes — the extracted
-    text is excluded, it's deterministic per document and large). Two runs with different
-    fingerprints are 'a re-run after document change'."""
-    stable = [
-        {k: v for k, v in d.items() if k not in _DOC_TEXT_KEYS}
-        for d in (documents or [])
-        if isinstance(d, dict)
-    ]
-    blob = json.dumps(stable, sort_keys=True, default=str)
+# What makes a document THAT document — never anything extraction writes or rewrites.
+_DOC_IDENTITY_KEYS = (
+    "document_id",
+    "uri",
+    "blob_name",
+    "sha256",
+    "content_hash",
+    "byte_count",
+    "uploaded_at",
+)
+_DOC_LEGACY_IDENTITY_KEYS = ("filename", "document_type")  # rows older than document_id
+
+
+def documents_fingerprint(documents: list | None, eobs: list | None = None) -> str:
+    """A stable digest of WHICH documents the case holds — ids, stored-blob names, content
+    hashes/sizes, upload times. Two runs with different fingerprints are 'a re-run after
+    document change'. It used to hash every non-text field, so a mutable extraction field
+    (extraction_status, ocr_text_chars, page_count, a re-derived provider name…) changing
+    between runs read as a document change and forced a spurious re_review (deep review)."""
+
+    def identity(d: dict) -> dict:
+        ident = {k: d[k] for k in _DOC_IDENTITY_KEYS if d.get(k) is not None}
+        return ident or {k: d.get(k) for k in _DOC_LEGACY_IDENTITY_KEYS}
+
+    idents = [identity(d) for d in [*(documents or []), *(eobs or [])] if isinstance(d, dict)]
+    blob = json.dumps(
+        sorted(idents, key=lambda i: json.dumps(i, sort_keys=True, default=str)),
+        sort_keys=True,
+        default=str,
+    )
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]  # noqa: S324 — not security
 
 
-def decide(
-    facts: EnqueueFacts, *, sample_pct: int, settings=None, roll: float | None = None
-) -> EnqueueDecision:
-    """The pure policy. ``roll`` in [0, 1) is the sampling draw (injected by tests)."""
+def stable_roll(case_file_id: uuid.UUID | str) -> float:
+    """The sampling draw for a case, in [0, 1) — a pure function of the case id. A re-run must
+    not re-roll: with a random draw, a case skipped at dial 25 had a fresh 25% chance on every
+    re-run, so 'sampled' meant 'eventually'. Percent granularity: hash % 100."""
+    digest = hashlib.sha256(str(case_file_id).encode("utf-8")).digest()
+    return (int.from_bytes(digest[:8], "big") % 100) / 100.0
+
+
+def decide(facts: EnqueueFacts, *, sample_pct: int, roll: float, settings=None) -> EnqueueDecision:
+    """The pure policy. ``roll`` in [0, 1) is the sampling draw — ``stable_roll(case_file_id)``
+    in production, so the same case always draws the same number."""
     if facts.synthetic:
         # Deep review C5: every e2e sweep mints a synthetic user and completes ~22 audits; at
         # dial 100 that is ~22 fixtures in the reviewer's queue per run. No dial, no trigger
@@ -107,7 +133,11 @@ def decide(
     triggers: list[str] = []
     if s.review_trigger_first_case and facts.first_case:
         triggers.append("first_case")
-    if s.review_trigger_low_confidence and facts.confidence_band == "low":
+    # "unknown" = the result could not even be projected (no disclosure tier to read). That is
+    # the run that most needs eyes, so for TRIGGER purposes it counts as low confidence — at a
+    # sampled dial it used to slip through as if it were fine. The band column still says
+    # 'unknown', so the queue shows it for what it is.
+    if s.review_trigger_low_confidence and facts.confidence_band in ("low", "unknown"):
         triggers.append("low_confidence")
     if s.review_trigger_system_error and facts.system_error:
         triggers.append("system_error")
@@ -116,9 +146,10 @@ def decide(
     if s.review_trigger_material_disagreement and facts.material_disagreement:
         triggers.append("material_disagreement")
     pct = max(0, min(100, int(sample_pct)))
-    draw = random.random() if roll is None else roll  # noqa: S311 — sampling, not security
-    sampled = pct >= 100 or (draw * 100.0) < pct
-    return EnqueueDecision(enqueue=sampled or bool(triggers), sampled=sampled, triggers=tuple(triggers))
+    sampled = pct >= 100 or (roll * 100.0) < pct
+    return EnqueueDecision(
+        enqueue=sampled or bool(triggers), sampled=sampled, triggers=tuple(triggers)
+    )
 
 
 async def effective_sample_pct(session: AsyncSession) -> int:
@@ -169,9 +200,19 @@ async def gather_facts(
     owner_email = (
         await session.execute(select(User.email).where(User.user_id == case.user_id))
     ).scalar_one_or_none()
-    user_cases = (
+    # "First case" = this IS the user's earliest case (by created_at; junk uploads the member
+    # removed don't count). `count <= 1` was only true while the user had exactly one case, so
+    # a first case re-run after a second upload silently lost its trigger.
+    earlier_cases = (
         await session.execute(
-            select(func.count()).select_from(CaseFile).where(CaseFile.user_id == case.user_id)
+            select(func.count())
+            .select_from(CaseFile)
+            .where(
+                CaseFile.user_id == case.user_id,
+                CaseFile.case_file_id != case.case_file_id,
+                CaseFile.soft_deleted_at.is_(None),
+                CaseFile.created_at < case.created_at,
+            )
         )
     ).scalar_one()
     findings = (
@@ -189,34 +230,53 @@ async def gather_facts(
             eob, computed = float(tn.eob_member_responsibility), float(tn.tyndale_computed)
             disagreement = is_material(eob - computed, max(abs(eob), abs(computed)), AUDIT_FLAG)
     except Exception as exc:  # noqa: BLE001 — an un-projectable case still enqueues (band unknown)
-        log.warning("review.gather_facts.assemble_failed", case_file_id=str(case.case_file_id), error=str(exc))
+        log.warning(
+            "review.gather_facts.assemble_failed",
+            case_file_id=str(case.case_file_id),
+            error=str(exc),
+        )
     return EnqueueFacts(
         terminal_status=status,
         incomplete_reason=incomplete_reason,
         confidence_band=confidence_band(tier),
-        first_case=int(user_cases) <= 1,
+        first_case=int(earlier_cases) == 0,
         system_error=(status == "audit_incomplete" and incomplete_reason == "system_error"),
         canary_flag=bool(tripwire_entries(case)),
         material_disagreement=disagreement,
         findings_count=len(findings),
         net_finding_usd=_net_usd(findings),
-        documents_fingerprint=documents_fingerprint(case.documents),
+        documents_fingerprint=documents_fingerprint(case.documents, case.eobs),
         synthetic=is_synthetic_email(owner_email),
     )
 
 
-async def latest_review(session: AsyncSession, case_file_id: uuid.UUID) -> CaseReview | None:
-    return (
-        await session.execute(
-            select(CaseReview)
-            .where(CaseReview.case_file_id == case_file_id)
-            .order_by(CaseReview.run_seq.desc(), CaseReview.enqueued_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+async def lock_case(session: AsyncSession, case_file_id: uuid.UUID) -> None:
+    """Serialize review-row writers for one case (row lock on case_files, held to commit). The
+    latest review row can't be the lock: on a FIRST enqueue there is none to lock, and two
+    concurrent terminal transitions would both insert run_seq=1 (now also a unique violation —
+    uq_case_reviews_case_run)."""
+    await session.execute(
+        select(CaseFile.case_file_id).where(CaseFile.case_file_id == case_file_id).with_for_update()
+    )
 
 
-def _stamp(row: CaseReview, facts: EnqueueFacts, decision: EnqueueDecision, triggers: tuple[str, ...]) -> None:
+async def latest_review(
+    session: AsyncSession, case_file_id: uuid.UUID, *, for_update: bool = False
+) -> CaseReview | None:
+    q = (
+        select(CaseReview)
+        .where(CaseReview.case_file_id == case_file_id)
+        .order_by(CaseReview.run_seq.desc(), CaseReview.enqueued_at.desc())
+        .limit(1)
+    )
+    if for_update:
+        q = q.with_for_update()
+    return (await session.execute(q)).scalar_one_or_none()
+
+
+def _stamp(
+    row: CaseReview, facts: EnqueueFacts, decision: EnqueueDecision, triggers: tuple[str, ...]
+) -> None:
     row.terminal_status = facts.terminal_status
     row.incomplete_reason = facts.incomplete_reason
     row.confidence_band = facts.confidence_band
@@ -242,9 +302,12 @@ async def enqueue(
     prior verdict is stale by definition, whatever the dial says."""
     if decision.skipped:
         return None  # refused by policy (synthetic identity) — not even the forced re-review
-    latest = await latest_review(session, case.case_file_id)
+    await lock_case(session, case.case_file_id)
+    latest = await latest_review(session, case.case_file_id, for_update=True)
     triggers = list(decision.triggers)
-    documents_changed = latest is not None and latest.documents_fingerprint != facts.documents_fingerprint
+    documents_changed = (
+        latest is not None and latest.documents_fingerprint != facts.documents_fingerprint
+    )
     if latest is not None:
         triggers.append("re_run")
         if documents_changed:
@@ -254,7 +317,9 @@ async def enqueue(
         return None
     now = datetime.now(timezone.utc)
     if latest is None:
-        row = CaseReview(case_file_id=case.case_file_id, run_seq=1, state="unreviewed", enqueued_at=now)
+        row = CaseReview(
+            case_file_id=case.case_file_id, run_seq=1, state="unreviewed", enqueued_at=now
+        )
         session.add(row)
     elif latest.state in DECIDED_STATES:
         row = CaseReview(
@@ -268,7 +333,10 @@ async def enqueue(
     else:
         row = latest
         row.run_seq = latest.run_seq + 1
-        row.state = "unreviewed"
+        # A pending row that re-reviews a DECIDED predecessor stays a re_review when the case
+        # runs again under it — re-stamping to 'unreviewed' erased the fact that a verdict
+        # already exists upstream (and the reviewer's cue to read it).
+        row.state = "re_review" if latest.prior_review_id is not None else "unreviewed"
         row.reviewer_id = None
         row.in_review_at = None
         row.enqueued_at = now
@@ -284,13 +352,15 @@ async def on_terminal(case_file_id: str, status: str, incomplete_reason: str | N
     try:
         async with AsyncSessionLocal() as s:
             case = (
-                await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_file_id)))
+                await s.execute(
+                    select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_file_id))
+                )
             ).scalar_one_or_none()
             if case is None:
                 return None
             facts = await gather_facts(s, case, status, incomplete_reason)
             pct = await effective_sample_pct(s)
-            decision = decide(facts, sample_pct=pct)
+            decision = decide(facts, sample_pct=pct, roll=stable_roll(case.case_file_id))
             row = await enqueue(s, case, facts, decision)
             if decision.skipped == "synthetic":
                 from app.analytics.emit import emit
@@ -329,10 +399,16 @@ async def health(session: AsyncSession, *, now: datetime | None = None) -> dict:
     excluded from both sides (a null rate means nothing decided in the window)."""
     now = now or datetime.now(timezone.utc)
     pending_ages = (
-        await session.execute(
-            select(CaseReview.enqueued_at).where(CaseReview.state.in_(("unreviewed", "re_review")))
+        (
+            await session.execute(
+                select(CaseReview.enqueued_at).where(
+                    CaseReview.state.in_(("unreviewed", "re_review"))
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     in_review = (
         await session.execute(
             select(func.count()).select_from(CaseReview).where(CaseReview.state == "in_review")

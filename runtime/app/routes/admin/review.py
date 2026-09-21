@@ -255,9 +255,38 @@ def _first_str(d: dict, *keys: str) -> str | None:
     return None
 
 
+def _rule_effective_date(facts: dict, claim: dict) -> str | None:
+    """When the rule the finding rests on took effect — from the finding's own facts/claim, else
+    from the first citation that carries one (retrieval stamps effective_date on its chunks)."""
+    direct = _first_str(facts, "rule_effective_date", "effective_date") or _first_str(
+        claim, "rule_effective_date", "effective_date", "effective_date_start"
+    )
+    if direct:
+        return direct
+    raw = claim.get("citations") or claim.get("citation") or []
+    for c in raw if isinstance(raw, list) else [raw]:
+        if isinstance(c, dict):
+            found = _first_str(c, "effective_date", "effective_date_start", "rule_effective_date")
+            if found:
+                return found
+    return None
+
+
+def _confidence_of(facts: dict, claim: dict, rec: dict) -> float | str | None:
+    for src in (facts, claim, rec):
+        v = src.get("confidence")
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return float(v)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return None
+
+
 def _why_lines(f: Finding) -> list[dict[str, Any]]:
-    """The per-finding 'why' expander: five lines, each read from a field the agents already
-    persist. A missing field is null — the console renders 'not recorded'. Never synthesized."""
+    """The per-finding 'why' expander: each line read from a field the agents already persist.
+    A missing field is null — the console renders 'not recorded'. Never synthesized. The rule's
+    effective date and the confidence are the two lines that let a reviewer tell
+    stale_data_source from reasoning_error (deep review)."""
     facts = as_dict(f.facts) or {}
     claim = as_dict(f.legal_claim) or {}
     rec = as_dict(f.recommendation) or {}
@@ -288,6 +317,12 @@ def _why_lines(f: Finding) -> list[dict[str, Any]]:
             "label": "Produced by",
             "value": f"{f.subagent_source} · tier {f.voice_tier}" if f.subagent_source else None,
         },
+        {
+            "key": "rule_effective_date",
+            "label": "Rule effective date",
+            "value": _rule_effective_date(facts, claim),
+        },
+        {"key": "confidence", "label": "Confidence", "value": _confidence_of(facts, claim, rec)},
     ]
 
 
@@ -311,9 +346,9 @@ def _analysis_finding(f: Finding) -> dict[str, Any]:
             "amount_usd": facts.get("gap") if isinstance(facts.get("gap"), (int, float)) else None,
             "basis_codes": _codes_in(facts),
             "citations": _citations_of(f),
-            "confidence": facts.get("confidence")
-            if isinstance(facts.get("confidence"), (int, float, str))
-            else None,
+            "confidence": _confidence_of(
+                facts, as_dict(f.legal_claim) or {}, as_dict(f.recommendation) or {}
+            ),
             "why": _why_lines(f),
             "created_at": _iso(f.created_at),
         }
@@ -321,10 +356,30 @@ def _analysis_finding(f: Finding) -> dict[str, Any]:
     return d
 
 
-def _document_card(i: int, d: dict) -> dict[str, Any]:
+def _document_cards(cf: CaseFile) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(documents, eobs) as cards sharing ONE doc_index namespace."""
+    docs = [d for d in (cf.documents or []) if isinstance(d, dict)]
+    eobs = [d for d in (cf.eobs or []) if isinstance(d, dict)]
+    doc_cards = [_document_card(i, d, kind="document", doc_index=i) for i, d in enumerate(docs)]
+    eob_cards = [
+        _document_card(i, d, kind="eob", doc_index=len(docs) + i) for i, d in enumerate(eobs)
+    ]
+    return doc_cards, eob_cards
+
+
+def _document_card(i: int, d: dict, *, kind: str, doc_index: int) -> dict[str, Any]:
+    """A text-free view of one stored document. ``doc_index`` is unique across documents AND
+    eobs (the two lists used to number from 0 independently, so documents[0] and eobs[0]
+    collided on `index`); ``index`` stays the position within its own list."""
     text_len = next((len(d[k]) for k in _DOC_TEXT_KEYS if isinstance(d.get(k), str)), 0)
+    if not text_len and isinstance(d.get("ocr_text_chars"), int):
+        text_len = d["ocr_text_chars"]
     return {
+        "doc_index": doc_index,
+        "kind": kind,  # document | eob
         "index": i,
+        "document_id": d.get("document_id"),
+        "has_text": text_len > 0,
         "document_type": d.get("document_type"),
         "filename": d.get("filename") or d.get("name"),
         "uploaded_at": d.get("uploaded_at") or d.get("created_at"),
@@ -365,8 +420,9 @@ async def review_workspace(
     admin: CurrentUser = Depends(admin_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """The three-pane workspace. Opening a pending row moves it to in_review under this
-    reviewer (a decided row is never downgraded); every open writes a review_view audit event."""
+    """The three-pane workspace. READ-ONLY with respect to the review row: a GET (a view, a
+    prefetch, a second reviewer glancing at a case) must not claim it — that is
+    POST …/claim, called on intent. Every open still writes a review_view audit event."""
     from app.agents.orchestrator import _assemble_result, tripwire_entries
     from app.routes.conversations import message_to_out
     from app.sources.call_identifiers import of_case
@@ -375,10 +431,6 @@ async def review_workspace(
     cf = await _load_case(session, case_file_id)
     now = datetime.datetime.now(datetime.timezone.utc)
     review = await review_queue.latest_review(session, cf.case_file_id)
-    if review is not None and review.state in ("unreviewed", "re_review"):
-        review.state = "in_review"
-        review.reviewer_id = admin.user_id
-        review.in_review_at = now
     await audit_admin_action(
         session,
         admin=admin,
@@ -461,7 +513,13 @@ async def review_workspace(
         log.warning("review.workspace.assemble_failed", case_file_id=case_file_id, error=str(exc))
 
     ids = of_case(cf)
+    doc_cards, eob_cards = _document_cards(cf)
     provenance = await case_provenance(case_file_id, admin=admin, session=session)
+    # The legacy provenance route returns the raw document entries — OCR text included. The
+    # workspace's contract is "never the OCR text": the reviewer's viewer fetches text
+    # explicitly (prompt 3/3), so here the documents are the same text-free cards as the left
+    # pane (char counts + has_text).
+    provenance["documents"] = [*doc_cards, *eob_cards]
     provenance.update(
         {
             "tripwires": tripwire_entries(cf),
@@ -503,14 +561,8 @@ async def review_workspace(
             for r in chain
         ],
         "left": {
-            "documents": [
-                _document_card(i, d)
-                for i, d in enumerate(cf.documents or [])
-                if isinstance(d, dict)
-            ],
-            "eobs": [
-                _document_card(i, d) for i, d in enumerate(cf.eobs or []) if isinstance(d, dict)
-            ],
+            "documents": doc_cards,
+            "eobs": eob_cards,
             "extraction": {
                 "line_items": cf.line_items or [],
                 "coverage": cf.coverage or {},
@@ -560,6 +612,49 @@ async def review_workspace(
             "provenance": provenance,
         },
         "verdicts": [_verdict_dict(v) for v in verdicts],
+    }
+
+
+# ── claim ────────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/admin/review/cases/{case_file_id}/claim")
+async def review_claim(
+    case_file_id: str,
+    admin: CurrentUser = Depends(admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Take a pending run for review — explicit, and idempotent. A pending unclaimed row
+    (unreviewed / re_review) becomes in_review under the caller; calling again is a no-op; a
+    row another reviewer holds is NOT stolen (``claimed`` false, their masked id returned); a
+    decided row is never downgraded. Always returns the current state and reviewer."""
+    cf = await _load_case(session, case_file_id)
+    await review_queue.lock_case(session, cf.case_file_id)
+    review = await review_queue.latest_review(session, cf.case_file_id, for_update=True)
+    if review is None:
+        raise HTTPException(status_code=404, detail="no review row for this case")
+    claimed = False
+    if review.state in ("unreviewed", "re_review"):
+        review.state = "in_review"
+        review.reviewer_id = admin.user_id
+        review.in_review_at = datetime.datetime.now(datetime.timezone.utc)
+        claimed = True
+        await audit_admin_action(
+            session,
+            admin=admin,
+            action="review_claim",
+            target_user_id=cf.user_id,
+            case_file_id=cf.case_file_id,
+            extra={"review_id": str(review.review_id)},
+        )
+    mine = review.reviewer_id == admin.user_id
+    await session.commit()
+    return {
+        "review_id": str(review.review_id),
+        "state": review.state,
+        "claimed": claimed,
+        "held_by_me": bool(mine and review.state == "in_review"),
+        "reviewer_masked": _mask(review.reviewer_id),
     }
 
 

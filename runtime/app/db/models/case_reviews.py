@@ -25,6 +25,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -49,6 +50,8 @@ class CaseReview(Base):
             "confidence_band IN ('high', 'medium', 'low', 'unknown')",
             name="ck_case_reviews_confidence_band",
         ),
+        # One row per case RUN — two concurrent terminal transitions must not both insert it.
+        UniqueConstraint("case_file_id", "run_seq", name="uq_case_reviews_case_run"),
         Index("idx_case_reviews_case_file", "case_file_id"),
         Index("idx_case_reviews_state_enqueued", "state", "enqueued_at"),
         Index("idx_case_reviews_decided_at", "decided_at"),

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import {
+  adminReviewClaim,
   adminReviewVerdict,
   type DisapprovalCause,
   type DisapprovalType,
@@ -59,6 +60,22 @@ export function VerdictPanel({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  // Opening the workspace never claims the run (a view or a prefetch is not intent). Picking a
+  // verdict mode or pressing Start review is — the claim is idempotent and never steals a row
+  // another reviewer holds.
+  const pending = review?.state === 'unreviewed' || review?.state === 're_review';
+  const [claimNote, setClaimNote] = useState<string | null>(null);
+  const claim = async () => {
+    if (!pending) return;
+    try {
+      const r = await adminReviewClaim(caseId);
+      setClaimNote(r.held_by_me ? null : `Held by ${r.reviewer_masked ?? 'another reviewer'}`);
+      if (r.claimed) onSubmitted();
+    } catch {
+      /* a failed claim must not block a verdict — the verdict route records the reviewer */
+    }
+  };
+
   const toggleTarget = (id: string) =>
     setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
 
@@ -94,7 +111,10 @@ export function VerdictPanel({
   const modeBtn = (m: Mode, label: string, cls: string) => (
     <button
       key={m}
-      onClick={() => setMode(m)}
+      onClick={() => {
+        setMode(m);
+        void claim();
+      }}
       className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === m ? cls : 'border border-white/15 text-white/60 hover:bg-white/5'}`}
     >
       {label}
@@ -109,6 +129,15 @@ export function VerdictPanel({
           <SectionLabel>Verdict</SectionLabel>
           {review ? <StatePill state={review.state} /> : <span className="text-[11px] text-white/40">not in queue</span>}
         </div>
+        {pending ? (
+          <button
+            onClick={() => void claim()}
+            className="mb-3 w-full rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+          >
+            Start review · assign to me
+          </button>
+        ) : null}
+        {claimNote ? <p className="mb-2 text-[11px] text-amber">{claimNote}</p> : null}
         <div className="mb-3 flex flex-wrap gap-2">
           {modeBtn('approve', 'Approve', 'bg-sage text-white')}
           {modeBtn('disapprove', 'Disapprove…', 'bg-rose text-white')}

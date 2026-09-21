@@ -202,23 +202,30 @@ async def test_settings_dial_roundtrip(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_workspace_assembles_four_tabs_marks_in_review_and_audits_the_view(
+async def test_workspace_assembles_four_tabs_without_claiming_and_audits_the_view(
     client: AsyncClient,
 ):
     cfid, rid = await _enqueued(
-        documents=[{"document_type": "bill", "filename": "a.pdf", "ocr_text": "x" * 40}]
+        documents=[{"document_type": "bill", "filename": "a.pdf", "ocr_text": "x" * 40}],
+        eobs=[{"document_type": "eob", "filename": "e.pdf", "ocr_text": "y" * 7}],
     )
     fid = await _finding(cfid)
     r = await client.get(f"/v1/admin/review/cases/{cfid}")
     assert r.status_code == 200, r.text
     ws = r.json()
     assert set(ws["tabs"]) == {"analysis", "conversation", "results", "provenance"}
-    assert ws["review"]["review_id"] == rid and ws["review"]["state"] == "in_review"
+    # deep review: a GET (a view, a prefetch, a colleague glancing) must NOT claim the row
+    assert ws["review"]["review_id"] == rid and ws["review"]["state"] == "unreviewed"
+    assert ws["review"]["reviewer_masked"] is None
     assert ws["case"]["user_masked"].startswith("u·")
 
     # left pane: document CARDS (no OCR text), extraction, journey
     doc = ws["left"]["documents"][0]
     assert doc["document_type"] == "bill" and doc["text_chars"] == 40 and "ocr_text" not in doc
+    assert doc["has_text"] is True and (doc["kind"], doc["doc_index"], doc["index"]) == ("document", 0, 0)
+    # ONE namespace across documents and eobs — both lists used to start at index 0
+    eob = ws["left"]["eobs"][0]
+    assert (eob["kind"], eob["doc_index"], eob["index"]) == ("eob", 1, 0) and eob["text_chars"] == 7
     assert "line_items" in ws["left"]["extraction"] and isinstance(ws["left"]["journey"], list)
 
     # analysis: the finding with basis codes, citations, and the five 'why' lines from EXISTING facts
@@ -229,7 +236,9 @@ async def test_workspace_assembles_four_tabs_marks_in_review_and_audits_the_view
         and f["responsible_party"] == "either"
     )
     why = {line["key"]: line["value"] for line in f["why"]}
-    assert list(why) == ["observed", "rule", "numbers", "action", "producer"]
+    assert list(why) == [
+        "observed", "rule", "numbers", "action", "producer", "rule_effective_date", "confidence",
+    ]
     assert why["observed"] == "99284 billed alongside its component"
     assert why["numbers"] == {"gap": 120.0}
     assert why["producer"] == "bill_detective · tier B"
@@ -259,10 +268,14 @@ async def test_workspace_assembles_four_tabs_marks_in_review_and_audits_the_view
     for k in ("api_pulls", "live_lookups", "missing_data", "retrieval_misses"):
         assert prov[k]["status"] == "coming_in_phase_2"
 
+    # "never the OCR text": the provenance tab carries the same text-free cards, not raw entries
+    assert [d["doc_index"] for d in prov["documents"]] == [0, 1]
+    assert all("ocr_text" not in d and "ocr_text_preview" not in d for d in prov["documents"])
+    assert "x" * 40 not in r.text and "y" * 7 not in r.text  # nowhere in the payload
+
     assert "review_view" in await _audit_actions(cfid)
-    # a second open keeps it in_review under the same reviewer (no downgrade, no duplicate row)
     again = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
-    assert again["review"]["state"] == "in_review" and len(again["review_chain"]) == 1
+    assert again["review"]["state"] == "unreviewed" and len(again["review_chain"]) == 1
 
 
 @pytest.mark.asyncio
@@ -272,6 +285,7 @@ async def test_why_lines_render_null_when_not_recorded(client: AsyncClient):
     ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
     why = {line["key"]: line["value"] for line in ws["tabs"]["analysis"]["findings"][0]["why"]}
     assert why["observed"] is None and why["rule"] is None and why["action"] is None
+    assert why["rule_effective_date"] is None and why["confidence"] is None  # "not recorded"
 
 
 @pytest.mark.asyncio
@@ -416,3 +430,151 @@ async def test_approve_then_cant_verify_is_append_only(client: AsyncClient):
     ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
     assert [v["verdict"] for v in ws["verdicts"]] == ["unable_to_verify", "correct"]
     assert ws["review"]["state"] == "cant_verify"  # a decided row is never downgraded by a view
+
+
+
+# ══ deep review (2026-09-18): claim on intent, the reviewer's two missing lines, the summary ══
+
+
+@pytest.mark.asyncio
+async def test_claim_is_explicit_idempotent_and_never_steals(client: AsyncClient):
+    from app.auth import CurrentUser, current_user
+    from app.db.models.users import User
+    from app.main import app
+
+    cfid, rid = await _enqueued()
+    first = await client.post(f"/v1/admin/review/cases/{cfid}/claim")
+    assert first.status_code == 200, first.text
+    assert first.json() == {
+        "review_id": rid, "state": "in_review", "claimed": True, "held_by_me": True,
+        "reviewer_masked": first.json()["reviewer_masked"],
+    }
+    assert first.json()["reviewer_masked"].startswith("u\u00b7")
+    again = (await client.post(f"/v1/admin/review/cases/{cfid}/claim")).json()
+    assert again["claimed"] is False and again["held_by_me"] is True and again["state"] == "in_review"
+    assert (await _audit_actions(cfid)).count("review_claim") == 1  # the no-op wrote nothing
+
+    async with AsyncSessionLocal() as s:  # a second, real admin
+        other = User(email=f"adm{uuid.uuid4().hex[:8]}@example.com", user_type="admin")
+        s.add(other)
+        await s.commit()
+        other_id = other.user_id
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        user_id=other_id, email="other-admin@example.com", first_name="Other", user_type="admin"
+    )
+    try:
+        theirs = (await client.post(f"/v1/admin/review/cases/{cfid}/claim")).json()
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+    assert theirs["claimed"] is False and theirs["held_by_me"] is False
+    assert theirs["reviewer_masked"] == first.json()["reviewer_masked"]  # told who holds it
+    async with AsyncSessionLocal() as s:
+        row = await s.get(CaseReview, uuid.UUID(rid))
+    assert row.reviewer_id != other_id and row.state == "in_review"
+
+    # a decided row is never downgraded by a claim; a case with no row is a 404
+    await client.post(f"/v1/admin/review/cases/{cfid}/verdict", json={"action": "approve"})
+    decided = (await client.post(f"/v1/admin/review/cases/{cfid}/claim")).json()
+    assert decided["state"] == "approved" and decided["claimed"] is False
+    assert (await client.post(f"/v1/admin/review/cases/{await _case()}/claim")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_why_lines_carry_the_rule_effective_date_and_the_confidence(client: AsyncClient):
+    """The two lines that let a reviewer tell stale_data_source from reasoning_error."""
+    cfid, _ = await _enqueued()
+    from_citation = await _finding(
+        cfid,
+        facts={"gap": 10.0},
+        legal_claim={"claim": "NSA applies", "confidence": 0.7,
+                     "citations": [{"authority": "NSA", "src_id": "src_1", "effective_date": "2022-01-01"}]},
+    )
+    direct = await _finding(cfid, facts={"gap": 1.0, "rule_effective_date": "2024-01-01", "confidence": 0.9})
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    by_id = {f["finding_id"]: f for f in ws["tabs"]["analysis"]["findings"]}
+    why = {line["key"]: line["value"] for line in by_id[from_citation]["why"]}
+    assert why["rule_effective_date"] == "2022-01-01" and why["confidence"] == 0.7
+    assert by_id[from_citation]["confidence"] == 0.7
+    why = {line["key"]: line["value"] for line in by_id[direct]["why"]}
+    assert why["rule_effective_date"] == "2024-01-01" and why["confidence"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_the_reviewer_sees_the_summary_the_user_read(client: AsyncClient):
+    from app.agents import orchestrator
+
+    cfid, _ = await _enqueued()
+    assert (await client.get(f"/v1/admin/review/cases/{cfid}")).json()["tabs"]["analysis"]["summary"] == ""
+    await orchestrator._persist_summary(cfid, "We found a bundling problem worth about $120.")
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    assert ws["tabs"]["analysis"]["summary"] == "We found a bundling problem worth about $120."
+    # the user's own re-fetch reads the same persisted text (the dev user owns this case)
+    assert (await client.get(f"/v1/audit/{cfid}")).json()["summary"] == ws["tabs"]["analysis"]["summary"]
+    # a fresh compose still wins over the stored one, and a degraded re-run REPLACES it with ""
+    assert (await orchestrator._assemble_result(cfid, "fresh")).summary == "fresh"
+    await orchestrator._persist_summary(cfid, "")
+    assert (await orchestrator._assemble_result(cfid, "")).summary == ""
+
+
+@pytest.mark.asyncio
+async def test_verdict_event_names_the_case_owner_as_subject_and_the_admin_as_actor(client: AsyncClient):
+    from app.db.models.users import User
+
+    async with AsyncSessionLocal() as s:
+        patient = User(email=f"pt{uuid.uuid4().hex[:10]}@example.com", user_type="user")
+        s.add(patient)
+        await s.flush()
+        cf = CaseFile(user_id=patient.user_id, status="audit_complete")
+        s.add(cf)
+        await s.commit()
+        cfid, patient_id = str(cf.case_file_id), patient.user_id
+    r = await client.post(f"/v1/admin/review/cases/{cfid}/verdict", json={"action": "approve"})
+    assert r.status_code == 200, r.text
+    async with AsyncSessionLocal() as s:
+        ev = (
+            await s.execute(
+                select(AnalyticsEvent)
+                .where(AnalyticsEvent.case_file_id == uuid.UUID(cfid))
+                .where(AnalyticsEvent.event_name == "review_verdict_recorded")
+            )
+        ).scalar_one()
+    admin_id = await _dev_admin_id()
+    assert ev.user_id == patient_id and ev.actor_user_id == admin_id and patient_id != admin_id
+
+
+def test_no_rollup_metric_is_built_on_an_admin_actor_event():
+    """'Check the rollup cron treats it correctly': the daily metrics are per-event-name counts
+    and ratios; none may be defined over the reviewer's verdict event, whose actor is an
+    operator, not a product user."""
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app/analytics/definitions.py").read_text()
+    assert "review_verdict_recorded" not in src and "review_enqueue_skipped_synthetic" not in src
+
+
+@pytest.mark.asyncio
+async def test_every_review_route_is_a_404_for_a_non_admin(client: AsyncClient):
+    """DL-60: the console's existence is never revealed."""
+    from app.auth import CurrentUser, current_user
+    from app.main import app
+
+    cfid, _ = await _enqueued()
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        user_id=uuid.uuid4(), email="regular@example.com", first_name="Reg", user_type="user"
+    )
+    try:
+        calls = [
+            await client.get("/v1/admin/review/queue"),
+            await client.get("/v1/admin/review/settings"),
+            await client.put("/v1/admin/review/settings", json={"review_sample_pct": 5}),
+            await client.get(f"/v1/admin/review/cases/{cfid}"),
+            await client.post(f"/v1/admin/review/cases/{cfid}/claim"),
+            await client.post(f"/v1/admin/review/cases/{cfid}/verdict", json={"action": "approve"}),
+            await client.post(f"/v1/admin/cases/{cfid}/verdict", json={"verdict": "correct"}),
+        ]
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+    assert [c.status_code for c in calls] == [404] * len(calls)
+    async with AsyncSessionLocal() as s:  # and nothing was written
+        assert (await s.execute(select(AdminVerdict).where(AdminVerdict.case_file_id == uuid.UUID(cfid)))).scalars().all() == []
+    assert (await client.get("/v1/admin/review/settings")).json()["review_sample_pct"] == 100

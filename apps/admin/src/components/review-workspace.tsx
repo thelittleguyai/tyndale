@@ -65,8 +65,8 @@ function WhyExpander({ f }: { f: ReviewFinding }) {
             <dd className="text-white/80">
               {line.value === null ? (
                 <NotRecorded />
-              ) : typeof line.value === 'string' ? (
-                line.value
+              ) : typeof line.value === 'string' || typeof line.value === 'number' ? (
+                String(line.value)
               ) : (
                 <span className="font-mono">
                   {Object.entries(line.value)
@@ -138,7 +138,8 @@ function FindingCard({ f, internalNotes }: { f: ReviewFinding; internalNotes: st
 }
 
 function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspace['case'] }) {
-  const docs = [...left.documents.map((d) => ({ ...d, kind: 'document' })), ...left.eobs.map((d) => ({ ...d, kind: 'eob' }))];
+  // One namespace: the server numbers documents and eobs together (doc_index).
+  const docs = [...left.documents, ...left.eobs];
   return (
     <div className="space-y-4">
       <div>
@@ -146,7 +147,7 @@ function LeftPane({ left, caseRow }: { left: Workspace['left']; caseRow: Workspa
         {docs.length ? (
           <div className="space-y-2">
             {docs.map((d) => (
-              <Card key={`${d.kind}-${d.index}`} className="text-xs">
+              <Card key={d.doc_index} className="text-xs">
                 <p className="font-semibold text-white/80">
                   {humanize(d.document_type ?? d.kind)}
                   <span className="text-white/40"> · {d.filename ?? 'unnamed'}</span>

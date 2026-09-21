@@ -488,7 +488,7 @@ export interface ReviewSettings {
 export interface ReviewWhyLine {
   key: string;
   label: string;
-  value: string | Record<string, number> | null;
+  value: string | number | Record<string, number> | null;
 }
 
 export interface ReviewFinding extends AdminFinding {
@@ -502,7 +502,12 @@ export interface ReviewFinding extends AdminFinding {
 }
 
 export interface ReviewDocumentCard {
+  /** Unique across documents AND eobs — `index` is only the position within its own list. */
+  doc_index: number;
+  kind: 'document' | 'eob';
   index: number;
+  document_id: string | null;
+  has_text: boolean;
   document_type: string | null;
   filename: string | null;
   uploaded_at: string | null;
@@ -613,6 +618,18 @@ export const adminSetReviewSampling = (pct: number) =>
   put<{ review_sample_pct: number }>('/v1/admin/review/settings', { review_sample_pct: pct });
 export const adminReviewWorkspace = (caseId: string) =>
   get<ReviewWorkspace>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}`);
+
+export interface ReviewClaimResult {
+  review_id: string;
+  state: ReviewState;
+  claimed: boolean;
+  held_by_me: boolean;
+  reviewer_masked: string | null;
+}
+
+/** Take a pending run for review. Explicit + idempotent: opening the workspace never claims. */
+export const adminReviewClaim = (caseId: string) =>
+  post<ReviewClaimResult>(`/v1/admin/review/cases/${encodeURIComponent(caseId)}/claim`);
 
 /** Posts a verdict; a 422 surfaces the server's validation list as the error message. */
 export async function adminReviewVerdict(caseId: string, body: ReviewVerdictBody) {

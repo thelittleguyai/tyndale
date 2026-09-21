@@ -48,8 +48,10 @@ async def emit(
     case_file_id: uuid.UUID | None = None,
     properties: dict | None = None,
     occurred_at: datetime.datetime | None = None,
+    actor_user_id: uuid.UUID | None = None,
 ) -> bool:
-    """Validate + append one event. Returns True on write, False on any drop (never raises)."""
+    """Validate + append one event. Returns True on write, False on any drop (never raises).
+    ``user_id`` is the SUBJECT; pass ``actor_user_id`` when someone else acted (an admin)."""
     if user_id is None and event_name not in ANONYMOUS_EVENTS:
         DROP_COUNTER["anonymous_not_allowed"] += 1
         log.warning("analytics.emit.anonymous_not_allowed", event_name=event_name)
@@ -69,6 +71,7 @@ async def emit(
                     case_file_id=case_file_id,
                     properties=props,
                     occurred_at=occurred_at,
+                    actor_user_id=actor_user_id,
                 )
             )
             await s.commit()
