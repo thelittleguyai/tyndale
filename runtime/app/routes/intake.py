@@ -225,7 +225,8 @@ async def _plan(
 ) -> tuple[IntakeStateResponse, ip.PlannerInputs, str]:
     """THE chokepoint: snapshot → gap list → next screen → the wire state. Persists only what
     the planner owns — the current screen, the progress high-water mark, intake_status."""
-    _apply_regime_detection(case)  # infer first, then ask (§A4-1)
+    await _read_new_cards(case)  # infer first, then ask (§A4-1): a card is READ the moment it lands
+    _apply_regime_detection(case)
     proposal = await _pending_proposal(session, case)
     inputs = await gather_inputs(session, case, plan_proposal=proposal is not None)
     gaps = ip.gap_list(inputs)
@@ -262,6 +263,33 @@ async def _plan(
     if shown_changed and case.intake_mode == "guided":
         await _emit_shown(case, picked, inputs)
     return state, inputs, picked
+
+
+async def _read_new_cards(case: CaseFile) -> None:
+    """Every insurance card on the case is read ONCE, as soon as the planner next looks at the
+    case: high-confidence fields land in coverage (so "which insurer?" is never asked of someone
+    whose card said it), low-confidence ones are left for the user. Reads the OCR text stored at
+    upload — no second OCR call. The client orchestrates nothing."""
+    st = IntakeState(case)
+    done = set(st.get("cards_read") or [])
+    fresh = [
+        d for d in (case.documents or [])
+        if isinstance(d, dict) and d.get("document_type") == "insurance_card"
+        and d.get("document_id") and str(d["document_id"]) not in done
+    ]  # fmt: skip
+    for d in fresh:
+        try:
+            fields = await extract_insurance_card(case.documents or [], str(d["document_id"]))
+            high = fields.high_confidence_coverage()
+        except Exception as e:  # noqa: BLE001 — an unreadable card must never block the intake
+            log.warning("intake.card_read_failed", case_file_id=str(case.case_file_id), error=str(e))
+            high = {}
+        if high:
+            # never overwrite what the user typed or a prior document supplied
+            case.coverage = {**high, **{k: v for k, v in (case.coverage or {}).items() if v is not None}}
+        done.add(str(d["document_id"]))
+    if fresh:
+        st.set("cards_read", sorted(done))
 
 
 async def _emit_shown(case: CaseFile, screen_id: str, inputs: ip.PlannerInputs) -> None:

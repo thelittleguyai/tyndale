@@ -38,6 +38,11 @@ _SURFACES: dict[str, dict[str, str]] = {
         "checkin_fixing_it": "checkin.fixing_it",
         "checkin_pushed_back": "checkin.pushed_back",
         "checkin_left_message": "checkin.left_message",
+        # Guided intake (doc 40 §C7): the "pick up where you left off" card. Guided copy is
+        # registry copy — the app holds none of it, so the card renders only once these arrive.
+        "resume_title": "intake.resume.title",
+        "resume_body": "intake.resume.home_body",
+        "resume_primary": "intake.resume.primary",
     },
     "status": {
         "leave_and_return": "status_leave_and_return",  # §2.2  (D3)

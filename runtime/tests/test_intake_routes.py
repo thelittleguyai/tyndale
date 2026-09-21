@@ -377,3 +377,50 @@ async def test_ready_runs_the_audit_and_hands_off_to_the_existing_results(client
     async with AsyncSessionLocal() as s:
         ev = (await s.execute(select(AnalyticsEvent).where(AnalyticsEvent.case_file_id == cf.case_file_id).where(AnalyticsEvent.event_name == "intake_audit_started"))).scalars().one()
     assert ev.intake_mode == "guided" and set(ev.properties) == {"unresolved"}  # a count, never a value
+
+
+@pytest.mark.asyncio
+async def test_the_home_resume_card_is_registry_copy(client: AsyncClient):
+    """§C7 + item 3: the dashboard's "pick up where you left off" card is a GUIDED string, so
+    it is registry copy served on the closed `home` surface — the app bundles none of it."""
+    from app.agents.context_loader import orchestration_step
+
+    body = (await client.get("/v1/copy/home")).json()
+    assert body["resume_title"] == orchestration_step("intake.resume.title")
+    assert body["resume_body"] == orchestration_step("intake.resume.home_body")
+    assert body["resume_primary"] == orchestration_step("intake.resume.primary")
+    assert "{" not in body["resume_body"]  # the card has no planner call to fill a variable
+
+
+# ── infer first, then ask (§A4-1): a card is read the moment it lands ────────────────────
+@pytest.mark.asyncio
+async def test_a_readable_card_means_which_insurer_is_never_asked(client: AsyncClient):
+    """The skip-when-known rule, end to end: the planner reads a NEW card once (stored OCR text,
+    no second OCR call), merges only high-confidence fields, and so never shows `insurer`."""
+    card = _doc("insurance_card", ocr_text="Aetna\nMember ID: W987654321\nGroup Number: 70123\nPlan: Aetna Choice POS II")
+    cf = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT), card],
+                     intake_state={"acked": ["welcome", "bill_summary"], "skipped": ["eob"]})
+    state = (await client.get("/v1/intake/state", params={"case_file_id": str(cf.case_file_id)})).json()
+    got = await _reload(cf.case_file_id)
+    assert got.coverage["payer_name"].lower().startswith("aetna") and got.coverage["member_id"] == "W987654321"
+    assert got.intake_state["cards_read"] == [card["document_id"]]  # read ONCE, and remembered
+    assert state["current_step"] != "insurer"
+    assert "card" in state["progress"]["high_water"]
+
+
+@pytest.mark.asyncio
+async def test_a_card_never_overwrites_what_the_user_typed_and_a_weak_read_still_asks(client: AsyncClient):
+    typed = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT),
+                                   _doc("insurance_card", ocr_text="Aetna\nMember ID: W987654321")],
+                        coverage={"payer_name": "Cigna"}, intake_state={"acked": ["welcome"]})
+    await client.get("/v1/intake/state", params={"case_file_id": str(typed.case_file_id)})
+    assert (await _reload(typed.case_file_id)).coverage["payer_name"] == "Cigna"
+
+    # "ID:" (not "Member ID:") + an unknown payer → weak matches: nothing is merged silently
+    weak = await _case(documents=[_doc("itemized_bill", ocr_text=BILL_TEXT),
+                                  _doc("insurance_card", ocr_text="ACME Health Co\nID: A12345678\nGRP: 5000")],
+                       intake_state={"acked": ["welcome", "bill_summary"], "skipped": ["eob"]})
+    state = (await client.get("/v1/intake/state", params={"case_file_id": str(weak.case_file_id)})).json()
+    assert not ((await _reload(weak.case_file_id)).coverage or {}).get("payer_name")
+    assert state["current_step"] == "insurer"  # the honest fallback: ask, with the fields to fill
+

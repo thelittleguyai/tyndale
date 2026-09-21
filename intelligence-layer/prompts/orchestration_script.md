@@ -752,6 +752,10 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] Your work is saved. Next up: {group_label}.
 
+## intake.resume.home_body
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed (the home screen's resume card — it cannot name the next group without a planner call) -->
+[A] Your bill check is saved. A few more steps and I can run it.
+
 ## intake.resume.primary
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] Keep going
@@ -1267,6 +1271,14 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.attest.title
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B13 line -->
 [A] Who is this bill for?
+
+## intake.attest.primary
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed — the button under your §3 confirm line -->
+[A] I confirm
+
+## intake.attest.decline
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed — the decline path is always offered (checklist F1) -->
+[A] I can't confirm this
 
 ## intake.attest.back_home
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->

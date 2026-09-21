@@ -257,6 +257,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.progress.label_confirmations` | packet §A8 | Quick checks |
 | `intake.resume.title` | packet §C7 | Pick up where you left off. |
 | `intake.resume.body` | eng | Your work is saved. Next up: {group_label}. |
+| `intake.resume.home_body` | eng | Your bill check is saved. A few more steps and I can run it. |
 | `intake.resume.primary` | eng | Keep going |
 | `intake.resume.new` | eng | Start a new bill |
 | `intake.resume.link_expiry` | packet §C7 | To come back, ask for a new sign-in link. Each link works for {minutes} minutes. |
@@ -374,6 +375,8 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.oop_met.not_sure` | eng | I'm not sure |
 | `intake.oop_met.not_sure_consequence` | packet §A6 | We don't know what you'd already paid by then, so we won't guess. I will show your share as a range. |
 | `intake.attest.title` | packet §B13 | Who is this bill for? |
+| `intake.attest.primary` | eng | I confirm |
+| `intake.attest.decline` | eng | I can't confirm this |
 | `intake.attest.back_home` | eng | Back to home |
 | `intake.other_insurance.title` | packet §B14 | Do you have a second health plan? |
 | `intake.other_insurance.body` | packet §B14 | Some people are on two plans. If you are, I check it. I don't assume it pays the rest. |
