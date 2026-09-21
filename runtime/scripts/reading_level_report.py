@@ -25,10 +25,13 @@ OUT = REPO / "docs/build-kit/reading_level_report.md"
 def build() -> str:
     import logging
 
-    logging.disable(logging.CRITICAL)
-    from app.agents.context_loader import load_orchestration_script
+    logging.disable(logging.CRITICAL)  # the loader logs the whole key inventory
+    try:
+        from app.agents.context_loader import load_orchestration_script
 
-    script = load_orchestration_script()
+        script = load_orchestration_script()
+    finally:
+        logging.disable(logging.NOTSET)  # importable from a test: never leave logging off
     glosses = screen_glosses(script)
     intake = {k: v for k, v in script.items() if k.startswith("intake.")}
     other = {k: v for k, v in script.items() if not k.startswith("intake.")}

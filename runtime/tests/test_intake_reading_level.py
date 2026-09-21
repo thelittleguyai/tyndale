@@ -110,3 +110,23 @@ def test_the_report_covers_every_non_intake_key_and_fails_nothing():
         f"{missing[:5]}"
     )
     assert "Nothing here fails CI" in report
+
+
+def test_the_committed_reading_level_report_is_current():
+    """The report "carries no date on purpose — it changes only when the copy does, so a diff is
+    a signal". That only holds if it is regenerated WITH the copy: it shipped one key stale the
+    day it was written (263 vs 264). Now a copy change without the report fails here.
+
+        cd runtime && uv run python scripts/reading_level_report.py
+    """
+    import importlib.util
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("reading_level_report", root / "scripts/reading_level_report.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.OUT.read_text(encoding="utf-8") == mod.build(), (
+        "docs/build-kit/reading_level_report.md is stale — regenerate it (see this test's docstring)"
+    )
+
