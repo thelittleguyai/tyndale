@@ -44,7 +44,7 @@ on:
         required: false
         default: ''
       identity:
-        description: 'Act as THIS synthetic identity (a previous run prints it: e2e-runner+<run id>@e2e.tyndale.test). Needed to inspect or finish tearing down that run — cases are owner-only. Blank = this run mints its own.'
+        description: 'Act as THIS synthetic identity (a previous run prints it: e2e-runner+<run id>-<attempt>@e2e.tyndale.test). Needed to inspect or finish tearing down that run — cases are owner-only. Blank = this run mints its own.'
         required: false
         default: ''
       cleanup_only:
