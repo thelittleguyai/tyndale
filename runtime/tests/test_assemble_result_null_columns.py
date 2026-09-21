@@ -91,3 +91,52 @@ def test_summary_reader_tolerates_string_null_recommendation():
 
     junk = SimpleNamespace(category="x", recommendation="null", facts="null", voice_tier="B")
     assert _summary_for([junk]) == "your case"  # skipped, not crashed
+
+
+@pytest.mark.asyncio
+async def test_dollar_formatted_three_numbers_assemble_into_a_complete_audit(client: AsyncClient):
+    """Same family — an agent-written column in an unexpected shape. The Math Person wrote the
+    three numbers as "$185.00" / "$24.00" / "$24.00" (dev, 2026-09-18 and again 2026-09-21 on
+    the guided e2e case); `float()` rejected them and a fully computed audit was reported as
+    `audit_incomplete: needs_documents`. The figures are the agent's own — read them."""
+    up = await client.post(
+        "/v1/upload", files={"file": ("bill.pdf", b"%PDF-1.4 x", "application/pdf")}
+    )
+    assert up.status_code == 200, up.text
+    case_id = up.json()["case_file_id"]
+    async with AsyncSessionLocal() as s:
+        s.add(
+            Finding(
+                case_file_id=uuid.UUID(case_id),
+                finding_type="payer_side",
+                category="cost_sharing_audit",
+                subagent_source="math_person",
+                voice_tier="A",
+                facts={
+                    "provider_billed": "$185.00",
+                    "eob_member_responsibility": "$24.00",
+                    "tyndale_computed": "$24.00",
+                },
+            )
+        )
+        await s.commit()
+    try:
+        result = await _assemble_result(case_id, composed="")
+        assert result.audit is not None, "a computed audit must not read as needs_documents"
+        assert (result.audit.provider_billed, result.audit.eob_member_responsibility,
+                result.audit.tyndale_computed) == (185.0, 24.0, 24.0)
+        assert result.status == "complete" and not result.incomplete_reason
+    finally:  # shared local DB: leave nothing behind (same tidy-up as the test above)
+        from sqlalchemy import delete, select
+
+        from app.db.models.case_files import CaseFile
+
+        async with AsyncSessionLocal() as s:
+            await s.execute(delete(Finding).where(Finding.case_file_id == uuid.UUID(case_id)))
+            row = (
+                await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+            ).scalar_one_or_none()
+            if row is not None:
+                await s.delete(row)
+            await s.commit()
+

@@ -209,3 +209,26 @@ def test_tier_one_gets_the_point_form():
     assert q["form"] == "point"
     assert q["names"] == ["coinsurance rate"]
     assert "estimated" not in q["text"].lower()  # generic qualifiers fail X3
+
+
+# --- agent-written money facts: a "$" is a formatting slip, not a missing figure -----------
+def test_three_number_facts_written_as_dollar_strings_still_count():
+    """dev, 2026-09-18 and 2026-09-21: the Math Person wrote pb="$185.00", eob="$24.00",
+    tc="$24.00". `float()` rejected them, no three-number finding was recognised, and a fully
+    computed audit was reported to the user as "needs documents"."""
+    import pytest
+
+    from app.agents.orchestrator import _coerce_money
+
+    assert _coerce_money("$185.00") == 185.0
+    assert _coerce_money(" $ 24.00 ") == 24.0
+    assert _coerce_money("1,234.50") == 1234.5
+    assert _coerce_money("$12,345") == 12345.0
+    assert _coerce_money("-$5.25") == -5.25
+    assert _coerce_money("24 USD") == 24.0
+    assert _coerce_money(24) == 24.0 and _coerce_money(24.5) == 24.5
+    # never a guess: anything that is not unambiguously ONE amount still fails (and is logged)
+    for bad in ("$24–$30", "24-30", "N/A", "", "about 24", "1,23", None, True, [24]):
+        with pytest.raises((TypeError, ValueError)):
+            _coerce_money(bad)
+

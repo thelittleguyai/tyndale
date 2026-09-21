@@ -985,6 +985,27 @@ def _project_citations(raw: object) -> list[Citation]:
     return out
 
 
+_MONEY_FACT_RE = re.compile(r"(-)?\s*\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(?:usd)?", re.IGNORECASE)
+
+
+def _coerce_money(value: object) -> float:
+    """An agent-written money fact as a float. The schema asks for a number; agents sometimes
+    write "$185.00" or "1,234.50" instead. That is a formatting slip, not a missing figure —
+    and `float("$185.00")` turned a fully computed audit into `needs_documents` (dev, 2026-09-18
+    and 2026-09-21: pb="$185.00", eob="$24.00", tc="$24.00"). Anything that is not
+    unambiguously ONE amount (a range, "N/A", free text) still raises, and is still logged."""
+    if isinstance(value, bool):
+        raise TypeError("bool is not an amount")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        m = _MONEY_FACT_RE.fullmatch(value.strip())
+        if m:
+            amount = float(m.group(2).replace(",", "") + (m.group(3) or ""))
+            return -amount if m.group(1) else amount
+    raise ValueError(f"not a single money amount: {value!r}")
+
+
 async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
     """Read findings from Postgres and project to AuditResult shape."""
     async with AsyncSessionLocal() as s:
@@ -1062,9 +1083,9 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             if pb is not None and eob is not None and tc is not None:
                 try:
                     three_numbers = {
-                        "provider_billed": float(pb),
-                        "eob_member_responsibility": float(eob),
-                        "tyndale_computed": float(tc),
+                        "provider_billed": _coerce_money(pb),
+                        "eob_member_responsibility": _coerce_money(eob),
+                        "tyndale_computed": _coerce_money(tc),
                     }
                 except (TypeError, ValueError):
                     log.warning(
