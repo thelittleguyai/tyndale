@@ -578,3 +578,150 @@ async def test_every_review_route_is_a_404_for_a_non_admin(client: AsyncClient):
     async with AsyncSessionLocal() as s:  # and nothing was written
         assert (await s.execute(select(AdminVerdict).where(AdminVerdict.case_file_id == uuid.UUID(cfid)))).scalars().all() == []
     assert (await client.get("/v1/admin/review/settings")).json()["review_sample_pct"] == 100
+
+
+# ══ deep review 3/3 (2026-09-18): what the reviewer's workspace needs from the API ════════════
+
+
+@pytest.mark.asyncio
+async def test_take_over_is_explicit_and_audited_and_never_touches_a_decided_row(client: AsyncClient):
+    from app.auth import CurrentUser, current_user
+    from app.db.models.users import User
+    from app.main import app
+
+    cfid, rid = await _enqueued()
+    mine = (await client.post(f"/v1/admin/review/cases/{cfid}/claim")).json()
+    assert mine["held_by_me"] is True
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    assert ws["viewer"]["masked"] == mine["reviewer_masked"]  # "Reviewing as {you}"
+
+    async with AsyncSessionLocal() as s:
+        other = User(email=f"adm{uuid.uuid4().hex[:8]}@example.com", user_type="admin")
+        s.add(other)
+        await s.commit()
+        other_id = other.user_id
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        user_id=other_id, email="other-admin@example.com", first_name="Other", user_type="admin"
+    )
+    try:
+        polite = (await client.post(f"/v1/admin/review/cases/{cfid}/claim", json={"take_over": False})).json()
+        assert polite["claimed"] is False and polite["held_by_me"] is False  # "Claimed by … — take over?"
+        taken = (await client.post(f"/v1/admin/review/cases/{cfid}/claim", json={"take_over": True})).json()
+        assert taken["claimed"] is True and taken["held_by_me"] is True and taken["state"] == "in_review"
+        assert taken["reviewer_masked"] != mine["reviewer_masked"]
+        theirs = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+        assert theirs["viewer"]["masked"] == theirs["review"]["reviewer_masked"]
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+    actions = await _audit_actions(cfid)
+    assert actions.count("review_claim") == 1 and actions.count("review_claim_takeover") == 1
+
+    # a decided row is never reassigned, whatever the flag says
+    await client.post(f"/v1/admin/review/cases/{cfid}/verdict", json={"action": "approve"})
+    after = (await client.post(f"/v1/admin/review/cases/{cfid}/claim", json={"take_over": True})).json()
+    assert after["state"] == "approved" and after["claimed"] is False
+    assert (await _audit_actions(cfid)).count("review_claim_takeover") == 1
+
+
+@pytest.mark.asyncio
+async def test_analyst_notes_are_the_agents_reasoning_never_a_reviewers_note(client: AsyncClient):
+    cfid, _ = await _enqueued()
+    with_notes = await _finding(cfid, facts={"gap": 12.0, "notes": "Only 99284 billed; no upcoding signal."})
+    without = await _finding(cfid, facts={"gap": 3.0})
+    # a REVIEWER note targeting the finding must not surface under the analyst label
+    await client.post(
+        f"/v1/admin/review/cases/{cfid}/verdict",
+        json={**_DISAPPROVE, "scope": "findings", "target_findings": [without], "note": "reviewer says hi"},
+    )
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    by_id = {f["finding_id"]: f for f in ws["tabs"]["analysis"]["findings"]}
+    assert by_id[with_notes]["analyst_notes"] == "Only 99284 billed; no upcoding signal."
+    assert by_id[without]["analyst_notes"] is None  # the console renders "not recorded"
+    assert "reviewer says hi" not in json.dumps(ws["tabs"]["analysis"])
+    assert ws["verdicts"][0]["notes"] == "reviewer says hi"  # …it lives in the verdict history
+
+
+@pytest.mark.asyncio
+async def test_a_citation_opens_its_source_chunk_case_document_or_says_unresolved(client: AsyncClient):
+    doc_id = str(uuid.uuid4())
+    cfid, _ = await _enqueued(documents=[{"document_id": doc_id, "document_type": "eob", "ocr_text": "z"}])
+    async with AsyncSessionLocal() as s:
+        s.add(
+            AuditEvent(
+                event_type="tool_invocation", actor="bill_detective", case_file_id=uuid.UUID(cfid),
+                payload_encrypted=b"{}", payload_hash=b"\x00" * 32, key_version=0,
+                tools_invoked=["qdrant_search_laws_regulations"], outcome="success",
+                retrieved_chunks=[{"src_id": "src_nsa_1", "collection": "laws_regulations",
+                                   "title": "No Surprises Act §2799A-1", "effective_date": "2022-01-01",
+                                   "text": "A group health plan shall not impose cost-sharing greater than… " * 40}],
+            )
+        )
+        await s.commit()
+    fid = await _finding(
+        cfid,
+        legal_claim={"claim": "NSA applies", "citations": [
+            {"authority": "NSA", "section": "2799A-1", "src_id": "src_nsa_1", "marker": "[NSA §2799A-1, src_nsa_1]"},
+            {"authority": "EOB", "section": None, "src_id": f"{doc_id}:p2", "marker": "[EOB p.2]"},
+            {"authority": "Ghost", "section": None, "src_id": "src_missing", "marker": "[Ghost]"},
+        ]},
+    )
+    ws = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()
+    cites = next(f for f in ws["tabs"]["analysis"]["findings"] if f["finding_id"] == fid)["citations"]
+    chunk, doc, ghost = (c["source"] for c in cites)
+    assert chunk["kind"] == "chunk" and chunk["collection"] == "laws_regulations"
+    assert chunk["effective_date"] == "2022-01-01" and chunk["title"].startswith("No Surprises Act")
+    assert chunk["text"].startswith("A group health plan") and len(chunk["text"]) <= 1600 and chunk["truncated"]
+    assert doc == {"kind": "document", "doc_index": 0, "document_id": doc_id, "page": 2}
+    assert ghost == {"kind": "unresolved"}  # said plainly — nothing fetched, nothing guessed
+
+
+@pytest.mark.asyncio
+async def test_provenance_carries_user_answers_priors_and_pricing_instead_of_omitting_them(client: AsyncClient):
+    cfid, _ = await _enqueued(
+        line_items=[{"line_item_id": "li-1", "code": "99284", "plain_language_translation": "An ER visit."}],
+        encounter_confirmations=[{"line_item_id": "li-1", "response": "yes", "user_note": "I was there"}],
+        coverage={
+            "deductible_amount": 1500.0,
+            "user_input_provenance": {"deductible_amount": {"source": "user-entered", "at": "2026-09-01T10:00:00+00:00", "not_sure": False}},
+        },
+        attest_status="attested",
+    )
+    async with AsyncSessionLocal() as s:
+        s.add(
+            AuditEvent(
+                event_type="tool_invocation", actor="math_person", case_file_id=uuid.UUID(cfid),
+                payload_encrypted=json.dumps({"tool_result": {"source": "CMS PFS", "as_of": "2026-01-01"}}).encode(),
+                payload_hash=b"\x00" * 32, key_version=0, tools_invoked=["cost_estimate_combined"], outcome="success",
+            )
+        )
+        await s.commit()
+    prov = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()["tabs"]["provenance"]
+
+    answers = {a["kind"]: a for a in prov["user_answers"]}
+    assert answers["encounter_confirmation"] == {
+        "kind": "encounter_confirmation", "label": "An ER visit.", "code": "99284", "value": "yes",
+        "note": "I was there", "at": None,  # no timestamp is stored for confirmations — say so
+    }
+    assert answers["coverage_input"]["label"] == "deductible_amount" and answers["coverage_input"]["value"] == 1500.0
+    assert answers["coverage_input"]["at"] == "2026-09-01T10:00:00+00:00"
+    assert answers["attestation"]["value"] == "attested"
+
+    # oop_max + coinsurance are missing -> the engine's priors, with the tier they produced
+    inputs = {p["input"]: p for p in prov["priors_applied"]}
+    assert set(inputs) == {"oop_max_amount", "coinsurance_percent"} and "deductible_amount" not in inputs
+    assert inputs["oop_max_amount"]["low"] < inputs["oop_max_amount"]["base"] < inputs["oop_max_amount"]["high"]
+    assert inputs["oop_max_amount"]["unit"] == "usd" and inputs["oop_max_amount"]["tier"] is not None
+
+    assert prov["pricing_reference"] == [
+        {"tool": "cost_estimate_combined", "outcome": "success", "at": prov["pricing_reference"][0]["at"],
+         "source": "CMS PFS", "as_of": "2026-01-01"}
+    ]
+    for k in ("api_pulls", "live_lookups", "missing_data", "retrieval_misses"):  # still honest placeholders
+        assert prov[k]["status"] == "coming_in_phase_2"
+
+
+@pytest.mark.asyncio
+async def test_the_three_sections_are_empty_lists_not_missing_keys_when_there_is_nothing(client: AsyncClient):
+    cfid, _ = await _enqueued(coverage={"deductible_amount": 2000, "oop_max_amount": 6000, "coinsurance_percent": 0.2})
+    prov = (await client.get(f"/v1/admin/review/cases/{cfid}")).json()["tabs"]["provenance"]
+    assert prov["user_answers"] == [] and prov["priors_applied"] == [] and prov["pricing_reference"] == []

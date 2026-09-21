@@ -14,6 +14,7 @@ never faked.
 from __future__ import annotations
 
 import datetime
+import re
 import uuid
 from typing import Any, Literal
 
@@ -299,7 +300,7 @@ def _why_lines(f: Finding) -> list[dict[str, Any]]:
         {
             "key": "observed",
             "label": "What the documents show",
-            "value": _first_str(facts, "notes", "observation", "description", "evidence"),
+            "value": _first_str(facts, "observation", "description", "evidence", "notes"),
         },
         {
             "key": "rule",
@@ -326,18 +327,63 @@ def _why_lines(f: Finding) -> list[dict[str, Any]]:
     ]
 
 
-def _citations_of(f: Finding) -> list[dict]:
+_CHUNK_TEXT_KEYS = ("text", "content", "chunk_text", "body", "passage")
+_CHUNK_ID_KEYS = ("src_id", "source_id", "id", "chunk_id")
+_CHUNK_TEXT_CAP = 1600
+
+
+def _chunk_index(chunks: list[Any]) -> dict[str, dict]:
+    """Retrieved knowledge chunks (from the run's audit events) keyed by every id a citation may
+    use — the Stop hook resolves markers on src_id / source_id / id, so the same keys here."""
+    index: dict[str, dict] = {}
+    for c in chunks:
+        if isinstance(c, dict):
+            for k in _CHUNK_ID_KEYS:
+                if c.get(k) not in (None, ""):
+                    index.setdefault(str(c[k]), c)
+    return index
+
+
+def _citation_source(src_id: str, chunks: dict[str, dict], doc_cards: list[dict]) -> dict[str, Any]:
+    """What a citation chip opens (doc 39 §2: 'tap to open the cited source'): one of the CASE'S
+    documents when the id names one, else the knowledge chunk the run retrieved — its text is
+    corpus content, not PHI. 'unresolved' is said plainly; nothing is fetched or guessed."""
+    for card in doc_cards:
+        did = card.get("document_id")
+        if did and (src_id == did or src_id.startswith(f"{did}:") or src_id.startswith(f"doc:{did}")):
+            page = re.search(r"(?:^|[:#])p(?:age)?[=:]?(\d+)", src_id)
+            return {"kind": "document", "doc_index": card["doc_index"], "document_id": did,
+                    "page": int(page.group(1)) if page else None}
+    chunk = chunks.get(src_id)
+    if chunk is None:
+        return {"kind": "unresolved"}
+    text = next((chunk[k] for k in _CHUNK_TEXT_KEYS if isinstance(chunk.get(k), str) and chunk[k].strip()), None)
+    return {
+        "kind": "chunk",
+        "collection": _first_str(chunk, "collection", "collection_name", "corpus"),
+        "title": _first_str(chunk, "title", "authority", "heading", "section"),
+        "effective_date": _first_str(chunk, "effective_date", "effective_date_start"),
+        "last_verified": _first_str(chunk, "last_verified", "verified_at", "as_of"),
+        "text": text[:_CHUNK_TEXT_CAP] if text else None,
+        "truncated": bool(text and len(text) > _CHUNK_TEXT_CAP),
+    }
+
+
+def _citations_of(f: Finding, chunks: dict[str, dict], doc_cards: list[dict]) -> list[dict]:
     from app.agents.orchestrator import _project_citations
 
     claim = as_dict(f.legal_claim) or {}
     raw = claim.get("citations") or claim.get("citation") or []
     try:
-        return [c.model_dump() for c in _project_citations(raw)]
+        projected = [c.model_dump() for c in _project_citations(raw)]
     except Exception:  # noqa: BLE001 — a malformed citation renders as none, not a 500
         return []
+    for c in projected:
+        c["source"] = _citation_source(str(c.get("src_id") or ""), chunks, doc_cards)
+    return projected
 
 
-def _analysis_finding(f: Finding) -> dict[str, Any]:
+def _analysis_finding(f: Finding, chunks: dict[str, dict], doc_cards: list[dict]) -> dict[str, Any]:
     facts = as_dict(f.facts) or {}
     d = _finding_dict(f)
     d.update(
@@ -345,15 +391,99 @@ def _analysis_finding(f: Finding) -> dict[str, Any]:
             "responsible_party": facts.get("responsible_party") or "either",
             "amount_usd": facts.get("gap") if isinstance(facts.get("gap"), (int, float)) else None,
             "basis_codes": _codes_in(facts),
-            "citations": _citations_of(f),
+            "citations": _citations_of(f, chunks, doc_cards),
             "confidence": _confidence_of(
                 facts, as_dict(f.legal_claim) or {}, as_dict(f.recommendation) or {}
             ),
+            # The ANALYST'S internal reasoning (Bill Detective / Math Person write it to
+            # facts.notes) — what the "Analyst notes · internal" card is for. Null = the agent
+            # recorded none; the console says "not recorded". A REVIEWER'S verdict note is a
+            # different thing and lives only in the verdict history.
+            "analyst_notes": _first_str(facts, "analyst_notes", "notes", "reasoning"),
             "why": _why_lines(f),
             "created_at": _iso(f.created_at),
         }
     )
     return d
+
+
+# ── the provenance sections that were silently absent ────────────────────────────────────
+_PRICING_TOOL = re.compile(r"cost_estimate|pricing|fee_schedule|medicare_pfs|_mrf|tic_|benchmark", re.I)
+
+
+def _user_answers(cf: CaseFile) -> list[dict[str, Any]]:
+    """What the USER told us (doc 39 §7-2a: 'user answers/attestations (timestamped)'): encounter
+    confirmations, checklist values they typed (with the provenance stamp the coverage-input
+    route writes), and the name-mismatch attestation. A timestamp we never stored is null."""
+    items = {str(li.get("line_item_id")): li for li in (cf.line_items or []) if isinstance(li, dict)}
+    out: list[dict[str, Any]] = []
+    for c in getattr(cf, "encounter_confirmations", None) or []:
+        if not isinstance(c, dict):
+            continue
+        li = items.get(str(c.get("line_item_id")), {})
+        out.append({
+            "kind": "encounter_confirmation",
+            "label": _first_str(li, "plain_language_translation", "raw_description") or "line item",
+            "code": _first_str(li, "code"),
+            "value": c.get("response"),
+            "note": c.get("user_note"),
+            "at": c.get("confirmed_at") or c.get("at"),
+        })
+    coverage = cf.coverage if isinstance(cf.coverage, dict) else {}
+    for field, prov in (coverage.get("user_input_provenance") or {}).items():
+        if isinstance(prov, dict):
+            out.append({
+                "kind": "coverage_input",
+                "label": field,
+                "code": None,
+                "value": "not sure" if prov.get("not_sure") else coverage.get(field),
+                "note": prov.get("source"),
+                "at": prov.get("at"),
+            })
+    status = getattr(cf, "attest_status", None)
+    if status and status != "not_required":
+        attested_at = getattr(cf, "attested_at", None)
+        out.append({"kind": "attestation", "label": "patient-name attestation", "code": None,
+                    "value": status, "note": None, "at": _iso(attested_at) if attested_at else None})
+    return out
+
+
+def _priors_applied(audit: dict | None) -> list[dict[str, Any]]:
+    """Priors the rung-2 engine swept for inputs the documents did not state — value · tier ·
+    resulting range (doc 39 §7-2a). Deterministic: the missing inputs come from the disclosure,
+    the priors from the table the engine itself reads."""
+    from app.sources.missing_data_priors import MISSING_DATA_PRIORS
+
+    disclosure = (audit or {}).get("disclosure") or {}
+    three = (audit or {}).get("audit") or {}
+    low, high = three.get("tyndale_computed_low"), three.get("tyndale_computed_high")
+    out: list[dict[str, Any]] = []
+    for key in disclosure.get("missing_inputs") or []:
+        prior = MISSING_DATA_PRIORS.get(key)
+        if prior is None:
+            continue
+        out.append({
+            "input": key, "low": prior.low, "base": prior.base, "high": prior.high, "unit": prior.unit,
+            "source": prior.source, "as_of": prior.as_of, "placeholder": prior.placeholder,
+            "tier": disclosure.get("tier"),
+            "resulting_range": {"low": low, "high": high} if low is not None and high is not None else None,
+        })
+    return out
+
+
+def _pricing_reference(tools_called: list[dict]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for tc in tools_called:
+        names = [n for n in (tc.get("tools_invoked") or []) if isinstance(n, str) and _PRICING_TOOL.search(n)]
+        if not names:
+            continue
+        result = tc.get("result") if isinstance(tc.get("result"), dict) else {}
+        out.append({
+            "tool": names[0], "outcome": tc.get("outcome"), "at": tc.get("timestamp"),
+            "source": _first_str(result, "source", "dataset", "data_source"),
+            "as_of": _first_str(result, "as_of", "effective_date", "data_as_of"),
+        })
+    return out
 
 
 def _document_cards(cf: CaseFile) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -520,10 +650,17 @@ async def review_workspace(
     # explicitly (prompt 3/3), so here the documents are the same text-free cards as the left
     # pane (char counts + has_text).
     provenance["documents"] = [*doc_cards, *eob_cards]
+    chunks = _chunk_index(provenance.get("qdrant_chunks_retrieved") or [])
     provenance.update(
         {
             "tripwires": tripwire_entries(cf),
             "research_log": cf.research_log or [],
+            # Three sections doc 39 §7-2a lists that were neither rendered nor placeholdered.
+            # All three come from data that IS persisted, so an empty list means "none on this
+            # run" — different from the four below, which are not collected at all yet.
+            "user_answers": _user_answers(cf),
+            "priors_applied": _priors_applied(audit),
+            "pricing_reference": _pricing_reference(provenance.get("tools_called") or []),
             "api_pulls": _PHASE2_PLACEHOLDER,
             "live_lookups": _PHASE2_PLACEHOLDER,
             "missing_data": _PHASE2_PLACEHOLDER,
@@ -542,6 +679,7 @@ async def review_workspace(
     ]
     verdict_by_id = {v.verdict_id: v for v in verdicts}
     return {
+        "viewer": {"masked": _mask(admin.user_id)},
         "case": {
             "case_file_id": str(cf.case_file_id),
             "user_masked": _mask(cf.user_id),
@@ -577,7 +715,9 @@ async def review_workspace(
                 "summary": (audit or {}).get("summary") or "",
                 "result_status": (audit or {}).get("status"),
                 "documents_needed": (audit or {}).get("documents_needed") or [],
-                "findings": [_analysis_finding(f) for f in findings],
+                "findings": [
+                    _analysis_finding(f, chunks, [*doc_cards, *eob_cards]) for f in findings
+                ],
             },
             "conversation": [message_to_out(m).model_dump(mode="json") for m in messages],
             "results": {
@@ -618,9 +758,16 @@ async def review_workspace(
 # ── claim ────────────────────────────────────────────────────────────────────────────────
 
 
+class ClaimRequest(BaseModel):
+    # "Claimed by u·8c41 — take over?" The default never steals; a take-over is a deliberate,
+    # audited reassignment (doc 39 §7-2e: two reviewers at launch, no assignment machinery).
+    take_over: bool = False
+
+
 @router.post("/admin/review/cases/{case_file_id}/claim")
 async def review_claim(
     case_file_id: str,
+    body: ClaimRequest | None = None,
     admin: CurrentUser = Depends(admin_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
@@ -646,6 +793,24 @@ async def review_claim(
             target_user_id=cf.user_id,
             case_file_id=cf.case_file_id,
             extra={"review_id": str(review.review_id)},
+        )
+    elif (
+        review.state == "in_review"
+        and review.reviewer_id != admin.user_id
+        and body is not None
+        and body.take_over
+    ):
+        previous = review.reviewer_id
+        review.reviewer_id = admin.user_id
+        review.in_review_at = datetime.datetime.now(datetime.timezone.utc)
+        claimed = True
+        await audit_admin_action(
+            session,
+            admin=admin,
+            action="review_claim_takeover",
+            target_user_id=cf.user_id,
+            case_file_id=cf.case_file_id,
+            extra={"review_id": str(review.review_id), "from_reviewer": _mask(previous)},
         )
     mine = review.reviewer_id == admin.user_id
     await session.commit()
