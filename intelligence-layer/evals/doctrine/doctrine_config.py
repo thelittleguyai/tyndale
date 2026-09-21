@@ -158,14 +158,6 @@ X_KNOWN_GAPS: dict[str, str] = {
         "bounds the vocabulary. clean_bill_matching_eob prints this on every run so a "
         "future stem miss reads as the known dependency, not a mystery (2026-08-18)"
     ),
-    "canary:family_reasoning_in_notes": (
-        "Bill Detective analyst notes (facts.notes) may name a canary code while reasoning "
-        "about the CPT FAMILY of a code genuinely on the bill ('lowest complexity of the "
-        "70551/70552/70553 family; no upcoding signal' — captured_bill_photo, 2026-08-25). "
-        "Benign ONLY in that field, ONLY when the marker shares the family prefix with an "
-        "extracted line-item code AND the note carries family-reasoning language; anything "
-        "else still trips. Brock 2026-09-17, option (b)"
-    ),
     "scenario:balance_billing_nsa_seed": (
         "the balance-billing finding activates with the 50-state NSA seed (DL-81/DL-88 — "
         "Brock's launch condition; enable_nsa_checks stays OFF per Phil 2026-08-18). The "

@@ -1,7 +1,10 @@
-"""Fabrication-canary scan (Brock 2026-09-17): the ledgered benign signature is NARROW —
-Bill Detective analyst notes naming a marker while reasoning about the CPT FAMILY of a code
-genuinely on the bill. Every other field, and that field without both conditions, trips.
-Pure functions, tested with explicit markers so the assertions survive a canary re-pick."""
+"""Fabrication-canary scan. A marker ANYWHERE in the result is a failure — no allow-rule.
+
+History: Brock's 2026-09-17 option (b) ledgered one benign signature (Bill Detective's notes
+naming a canary while reasoning about the CPT family of a code genuinely on the bill —
+70553 beside a billed 70551). The same week's re-pick chose markers that share a family with
+no real code, which made that rule unreachable; it was retired 2026-09-18 (deep review) and
+these tests are the negatives that remain."""
 
 import sys
 
@@ -10,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "e2e_scenarios"))
 
+import run_scenarios  # noqa: E402
 from run_scenarios import (  # noqa: E402
     _failed_case_ids,
     _marker_pattern,
@@ -19,8 +23,6 @@ from run_scenarios import (  # noqa: E402
 )
 from run_scenarios import (  # noqa: E402
     FIXTURE_MARKERS,
-    _bill_codes,
-    _marker_benign,
     _marker_hits,
     _scan_audit_markers,
 )
@@ -31,7 +33,6 @@ _NOTE = (
     "Only 70551 billed — the without-contrast variant (lowest complexity of the "
     "70551/70552/70553 family); no upcoding signal. Single line item, single DOS."
 )
-_EXTRACT = {"line_items": [{"code": "70551", "billed_amount": 1200.0}]}
 
 
 def _audit_with(path_field: str, text: str) -> dict:
@@ -42,41 +43,32 @@ def _audit_with(path_field: str, text: str) -> dict:
     }
 
 
-def test_family_reasoning_in_notes_is_ledgered_not_failed():
-    fails, ledgered = _scan_audit_markers(
-        _audit_with("notes", _NOTE), _bill_codes(_EXTRACT), markers=("70553",)
-    )
-    assert fails == []
-    assert ledgered and "ledgered: canary:family_reasoning_in_notes" in ledgered[0]
+def test_the_old_family_reasoning_signature_no_longer_hits_at_all():
+    """The note that tripped the 2026-08-25 sweep names 70551/70552/70553 — none of which is a
+    marker any more. No hit, so nothing to ledger: the allow-rule had nothing left to allow."""
+    assert "70553" not in FIXTURE_MARKERS
+    assert _scan_audit_markers(_audit_with("notes", _NOTE)) == []
 
 
-def test_same_note_without_the_family_code_on_the_bill_trips():
-    fails, _ = _scan_audit_markers(
-        _audit_with("notes", _NOTE), _bill_codes({"line_items": [{"code": "99213"}]}),
-        markers=("70553",),
-    )
-    assert fails and "leaked" in fails[0]
+def test_a_current_marker_in_analyst_notes_fails_even_with_family_language():
+    """What the retired rule would have waved through for the old set is a hard failure for the
+    new one — there is no field, and no phrasing, in which a canary is acceptable."""
+    for marker in FIXTURE_MARKERS:
+        note = f"Only 99284 billed — lowest complexity of the 99284/{marker} family; no upcoding signal."
+        fails = _scan_audit_markers(_audit_with("notes", note))
+        assert fails == [f"FIXTURE MARKER {marker!r} leaked into the result at $.findings[0].facts.notes"]
 
 
-def test_notes_hit_without_family_language_trips():
-    fails, _ = _scan_audit_markers(
-        _audit_with("notes", "Consider 70553 as an alternative charge."),
-        _bill_codes(_EXTRACT), markers=("70553",),
-    )
-    assert fails
+def test_any_other_field_trips_too():
+    assert _scan_audit_markers(_audit_with("summary", "Consider 02417 as an alternative charge."))
 
 
-def test_any_other_field_trips_even_with_family_language():
-    fails, ledgered = _scan_audit_markers(
-        _audit_with("summary", _NOTE), _bill_codes(_EXTRACT), markers=("70553",)
-    )
-    assert fails and ledgered == []
+def test_the_allow_rule_and_its_ledger_entry_are_gone():
+    for name in ("_marker_benign", "_bill_codes", "_family_prefix", "_FAMILY_LANG_RE", "_BENIGN_LEDGER_KEY"):
+        assert not hasattr(run_scenarios, name), f"{name} is retired — a marker hit has no exceptions"
+    cfg = run_scenarios._load_doctrine("doctrine_config")
+    assert not [k for k in cfg.X_KNOWN_GAPS if k.startswith("canary:")]
 
-
-def test_allow_rule_is_marker_agnostic_and_prefix_scoped():
-    # a re-picked marker shares no family with anything real -> the rule can never fire for it
-    assert _marker_benign("02417", "$.findings[0].facts.notes", "02417 family reasoning", {"70551"}) is None
-    assert _marker_benign("70553", "$.findings[0].facts.notes", _NOTE, {"70551"}) is not None
 
 def test_final_canary_set_is_structurally_unassigned():
     assert FIXTURE_MARKERS == ("02417", "05821", "Z4411")
@@ -182,15 +174,14 @@ def test_both_scans_catch_a_sentence_final_marker(marker):
     extract = {"line_items": [{"code": "99284", "plain_language_translation": f"Imaging billed as {marker}."}]}
     assert _scan_extract_markers(extract) == [f"FIXTURE MARKER {marker!r} leaked into the extract result"]
     audit = {"summary": f"Your bill includes {marker}.", "findings": [{"facts": {"gap": 12.5}}]}
-    fails, ledgered = _scan_audit_markers(audit, {"99284"})
-    assert fails == [f"FIXTURE MARKER {marker!r} leaked into the result at $.summary"] and ledgered == []
+    assert _scan_audit_markers(audit) == [f"FIXTURE MARKER {marker!r} leaked into the result at $.summary"]
 
 
 def test_both_scans_stay_quiet_on_decimals_and_longer_numbers():
     extract = {"line_items": [{"code": "99284", "billed_amount": 105821.00, "note": "total 02417.50 and 1Z4411"}]}
     assert _scan_extract_markers(extract) == []
     audit = {"summary": "Charges of 105821.00 and 02417.50; ref AZ4411X.", "findings": []}
-    assert _scan_audit_markers(audit, set()) == ([], [])
+    assert _scan_audit_markers(audit) == []
 
 
 def test_teardown_keeps_only_the_failed_scenarios_cases():

@@ -20,7 +20,8 @@ from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import bindparam, cast, func, literal, select, update
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
@@ -80,6 +81,49 @@ def _record_tripwire(case, kind: str, *, codes: list[str] | None = None, categor
         "at": datetime.now(timezone.utc).isoformat(),
     }
     case.research_log = [*(case.research_log or []), entry]
+
+
+async def _append_tripwire(
+    case_file_id: str,
+    kind: str,
+    *,
+    codes: list[str] | None = None,
+    category: str | None = None,
+    session=None,
+) -> None:
+    """Append a typed tripwire entry to research_log with ONE atomic UPDATE —
+    `research_log = coalesce(research_log, '[]') || :entry` — no read-modify-write, so a
+    concurrent append is never lost, and no loaded ORM object is needed (the summary seams
+    run after the session that loaded the case has closed). Joins ``session``'s transaction
+    when given, else opens its own. Never raises: a tripwire that can't be recorded must not
+    fail the audit it is describing."""
+    entry = {
+        "kind": "tripwire",
+        "which": kind,
+        "codes": list(codes or []),
+        "category": category,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    stmt = (
+        update(CaseFile)
+        .where(CaseFile.case_file_id == UUID(case_file_id))
+        .values(
+            research_log=func.coalesce(CaseFile.research_log, cast(literal("[]"), JSONB)).op("||")(
+                bindparam("tripwire_entry", value=[entry], type_=JSONB)
+            )
+        )
+    )
+    try:
+        if session is not None:
+            await session.execute(stmt)
+            return
+        async with AsyncSessionLocal() as s:
+            await s.execute(stmt)
+            await s.commit()
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "orchestrator.tripwire_append_failed", case_file_id=case_file_id, which=kind, error=str(exc)
+        )
 
 
 def tripwire_entries(case) -> list[dict]:
@@ -751,6 +795,9 @@ async def _ground_prose(
             case_file_id=case_file_id,
             ungrounded_codes=codes,
         )
+        # The WORST fabrication seam — a code bad enough to throw the summary away — recorded
+        # no tripwire, so the review queue's canary trigger never fired for it (deep review).
+        await _append_tripwire(case_file_id, "grounding_summary_regen", codes=codes)
         async with AsyncSessionLocal() as s:
             lp = await lead_planner.compose_final(
                 case_file_id, bd_text, mp_text, session=s,
@@ -767,6 +814,7 @@ async def _ground_prose(
             case_file_id=case_file_id,
             ungrounded_codes=codes,
         )
+        await _append_tripwire(case_file_id, "grounding_summary_degraded", codes=codes)
         return ""
     return composed
 

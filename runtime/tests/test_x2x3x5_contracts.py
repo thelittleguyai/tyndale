@@ -232,9 +232,10 @@ def test_config_is_coherent():
         rule, reason = key.split(":", 1)
         # "scenario:" (2026-08-18): a deliberately-gated scenario names its ledger entry so
         # the harness prints the gap on every run (balance-billing awaits the NSA seed).
-        # "canary:" (2026-09-18, Brock option b): a benign canary-marker signature the e2e
-        # marker scan may ledger instead of failing (run_scenarios._marker_benign).
-        assert rule in ("x2", "x3", "x5", "scenario", "canary") and len(reason) > 3
+        # ("canary:" was allowed 2026-09-18 for the family-reasoning allow-rule and retired the
+        # same week: the re-picked markers share a family with no real code, so nothing can
+        # be ledgered under it — a canary hit is always a failure.)
+        assert rule in ("x2", "x3", "x5", "scenario") and len(reason) > 3
     assert len(cfg.X5_ERROR_TYPES) == 14
 
 
