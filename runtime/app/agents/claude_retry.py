@@ -105,6 +105,22 @@ def status_of(exc: BaseException) -> int | None:
     return getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
 
 
+def _without_sdk_retries(client: Any) -> Any:
+    """The client with the SDK's own retries OFF, so this module's policy is the only one.
+
+    ``with_options`` copies the client — and AsyncAnthropicFoundry's copy passes ``auth_token``
+    to an ``__init__`` that rejects it (SDK 0.105: every audit on dev failed with that TypeError
+    the day this module shipped). ``run_agent`` builds a fresh client per run, so setting the
+    attribute on it is safe; the SDK reads ``max_retries`` at request time."""
+    if not hasattr(client, "max_retries"):
+        return client  # a test double
+    try:
+        return client.with_options(max_retries=0)
+    except TypeError:
+        client.max_retries = 0
+        return client
+
+
 def _simulated_rate_limit():
     import anthropic
     import httpx
@@ -128,8 +144,7 @@ async def create_message(
     from app.agents.llm_health import record_rate_limit
 
     retryable = _retryable_errors()
-    if hasattr(client, "with_options"):
-        client = client.with_options(max_retries=0)
+    client = _without_sdk_retries(client)
     attempt = 0
     while True:
         attempt += 1

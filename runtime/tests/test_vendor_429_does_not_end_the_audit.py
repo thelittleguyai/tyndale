@@ -65,7 +65,10 @@ async def _call(client, sleeps):
     async def _sleep(s):
         sleeps.append(s)
 
-    return await claude_retry.create_message(client, actor="lead_planner", case_file_id="c", sleep=_sleep, model="m")
+    return await claude_retry.create_message(
+        client, actor="lead_planner", case_file_id="c", sleep=_sleep,
+        model="claude-sonnet-4-6", max_tokens=16, messages=[{"role": "user", "content": "hi"}],
+    )
 
 
 # ── the backoff policy ──────────────────────────────────────────────────────────────────
@@ -132,17 +135,61 @@ async def test_a_provider_asking_for_more_than_a_minute_is_not_waited_on_inside_
     assert sleeps == []
 
 
+def _messages_api(statuses: list[int]):
+    """A Messages API endpoint over httpx.MockTransport: answers each call with the next status
+    (a 429 carries no body the SDK needs; a 200 is a real Messages response)."""
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        status = statuses.pop(0)
+        if status != 200:
+            return httpx.Response(status, json={"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}})
+        return httpx.Response(200, json={
+            "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-sonnet-4-6",
+            "content": [{"type": "text", "text": "done"}], "stop_reason": "end_turn", "stop_sequence": None,
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        })
+
+    return handler, calls
+
+
+@pytest.mark.parametrize("kind", ["foundry", "direct"])
 @pytest.mark.asyncio
-async def test_the_sdks_own_retries_are_off_so_the_policy_is_bounded():
-    seen = {}
+async def test_the_real_sdk_clients_run_the_policy_with_their_own_retries_off(kind):
+    """The REAL clients, not doubles: the day this shipped, AsyncAnthropicFoundry.with_options
+    raised TypeError('auth_token') and every audit on dev failed — the doubles never had the
+    bug. Two 429s then a 200 = exactly three HTTP calls (the SDK retried nothing itself)."""
+    from anthropic import AsyncAnthropic, AsyncAnthropicFoundry
 
-    class _WithOptions(_Script):
-        def with_options(self, **kw):
-            seen.update(kw)
-            return self
+    handler, calls = _messages_api([429, 429, 200])
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    if kind == "foundry":
+        client = AsyncAnthropicFoundry(
+            base_url="https://tyndale-test.services.ai.azure.com/anthropic",
+            azure_ad_token_provider=lambda: "entra-token", http_client=http,
+        )
+    else:
+        client = AsyncAnthropic(api_key="sk-ant-test", http_client=http)
+    sleeps: list[float] = []
+    resp = await _call(client, sleeps)
+    assert resp.content[0].text == "done"
+    assert len(calls) == 3 and sleeps == [2.0, 4.0]
 
-    await _call(_WithOptions("ok"), [])
-    assert seen == {"max_retries": 0}
+
+@pytest.mark.asyncio
+async def test_the_production_client_factory_survives_the_policy(monkeypatch):
+    """runner._client() under Foundry (the dev/prod path) through create_message end to end."""
+    from app.agents import runner as runner_mod
+
+    s = get_settings()
+    monkeypatch.setattr(s, "use_foundry", True)
+    monkeypatch.setattr(s, "foundry_endpoint", "https://tyndale-test.services.ai.azure.com")
+    client = runner_mod._client()
+    handler, calls = _messages_api([200])
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client._azure_ad_token_provider = lambda: "entra-token"
+    assert (await _call(client, [])).content[0].text == "done" and len(calls) == 1
 
 
 @pytest.mark.asyncio
