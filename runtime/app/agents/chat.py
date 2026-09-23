@@ -39,7 +39,12 @@ from app.agents.llm_health import (
     claude_path_label,
     record_claude_call,
 )
-from app.agents.chat_format import CREATE_CASE_CTA, extract_directives, strip_markdown_tables
+from app.agents.chat_format import (
+    CREATE_CASE_CTA,
+    extract_directives,
+    scrub_control_lines,
+    strip_markdown_tables,
+)
 from app.agents.runner import _block_to_dict, _client, _collect_retrieved_chunks, real_claude_enabled
 from app.config import get_settings
 from app.hooks.contracts import (
@@ -517,9 +522,14 @@ async def _real_stream(
     # Brock 2026-08-22: the renderer has no table support and the mode prompt forbids
     # tables — if one slips through anyway, rows become plain lines before chunking.
     full = strip_markdown_tables(full)
-    # Trailing directives (one family): SUGGESTED → tap-to-reply chips; CTA → the
-    # create-case button. Parsed + stripped here, never rendered.
+    # Control lines (one family): SUGGESTED → tap-to-reply chips; CTA → the create-case
+    # button. Found anywhere, fenced or not (e2e 2026-09-23 B3), parsed + stripped here —
+    # and whatever the extractor could not honour is scrubbed and logged: the raw
+    # convention never reaches a user.
     full, suggested_replies, cta = extract_directives(full)
+    full, leaked = scrub_control_lines(full)
+    if leaked:
+        log.warning("chat.control_line_leaked", mode=mode, kinds=leaked)
 
     # 3.1: parse citations + tiers out of the real stream to match the fixture/shared contract,
     # and apply the Stop citation gate. retrieved chunks come from the raw tool results.

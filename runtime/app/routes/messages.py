@@ -126,8 +126,28 @@ async def _finalize_assistant(
             m.status = status
             m.completed_at = _now()
             if status == "complete" and final is not None:
-                m.content = final.get("content")
-                m.content_chunks = final.get("content_chunks")
+                # The validator (e2e 2026-09-23 B3): a persisted assistant message never
+                # carries a raw SUGGESTED: / CTA: line, whatever path produced it.
+                from app.agents.chat_format import scrub_control_lines
+
+                content, leaked = scrub_control_lines(final.get("content") or "")
+                chunks = final.get("content_chunks")
+                if isinstance(chunks, list):
+                    cleaned_chunks = []
+                    for c in chunks:
+                        if isinstance(c, dict) and isinstance(c.get("text"), str):
+                            text, more = scrub_control_lines(c["text"])
+                            leaked += more
+                            c = {**c, "text": text}
+                        cleaned_chunks.append(c)
+                    chunks = cleaned_chunks
+                if leaked:
+                    log.error(
+                        "chat.control_line_persist_blocked", conversation_id=str(conversation_id),
+                        message_id=str(message_id), kinds=sorted(set(leaked)),
+                    )
+                m.content = content or final.get("content")
+                m.content_chunks = chunks
                 m.citations = final.get("citations")
                 m.tool_calls = final.get("tool_calls")
                 m.confidence_overall = final.get("confidence_overall")

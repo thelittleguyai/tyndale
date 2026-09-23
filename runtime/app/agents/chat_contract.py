@@ -57,8 +57,13 @@ def freeform_contract_violations(text: str) -> list[str]:
     multiple_lists    more than one list block
     list_too_long     a list with more than MAX_LIST_ITEMS items
     multiple_questions  more than MAX_QUESTIONS question marks
+    raw_control_line  a SUGGESTED: / CTA: line survived into the text (e2e 2026-09-23 B3)
     """
+    from app.agents.chat_format import has_raw_control_line
+
     reasons: list[str] = []
+    if has_raw_control_line(text):
+        reasons.append("raw_control_line")
     if word_count(text) > MAX_WORDS_EVAL:
         reasons.append("over_length")
     if _TABLE_RE.search(text or ""):

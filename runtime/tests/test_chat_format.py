@@ -95,5 +95,7 @@ def test_unknown_or_malformed_cta_is_stripped_not_honored():
     clean, _, cta = extract_directives("Answer.\nCTA: launch_rockets")
     assert clean == "Answer." and cta is None
     clean, _, cta = extract_directives("CTA: create_case is what I'd do\nreal answer")
-    assert cta is None and "CTA:" in clean  # mid-text = ordinary text, untouched
+    # e2e 2026-09-23 B3: a line that starts with the convention is a control line wherever it
+    # sits — never rendered; an action the parser cannot read is not honoured either
+    assert cta is None and "CTA:" not in clean and clean == "real answer"
     assert extract_directives("plain") == ("plain", [], None)
