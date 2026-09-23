@@ -52,9 +52,34 @@ async def get_audit(
     user: CurrentUser = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> AuditResult:
-    await require_case_owner(case_file_id, user, session)
-    # Idempotent fetch: read the persisted findings and project to AuditResult.
-    return await _assemble_result(case_file_id, composed="")
+    cf = await require_case_owner(case_file_id, user, session)
+    # Idempotent fetch: read the persisted findings and project to AuditResult — with the
+    # status derived from the CASE (e2e 2026-09-23 M4): findings are persisted while the Lead
+    # Planner is still composing, so for ~4 minutes this read said `complete` while the case
+    # said `audit_running`. One source of truth: `summarizing` until terminal.
+    result = await _assemble_result(case_file_id, composed="")
+    return result.model_copy(update={"status": api_audit_status(cf.status, result.status)})
+
+
+# The ONE mapping from a case's persisted status to what the audit endpoint reports.
+_API_STATUS = {
+    "audit_complete": "complete",
+    "audit_incomplete": "audit_incomplete",
+    # the machine is still working (agents / summary / grounding): not complete, whatever
+    # the findings table already holds
+    "audit_running": "summarizing",
+    "encounter_verified": "summarizing",
+}
+
+
+def api_audit_status(case_status: str | None, assembled: str) -> str:
+    """`complete` / `audit_incomplete` only from a TERMINAL case; `summarizing` while the
+    run is in flight; any earlier status (verification pending, extraction) reports itself."""
+    if case_status in _API_STATUS:
+        return _API_STATUS[case_status]
+    if case_status in ("audit_complete", "audit_incomplete"):
+        return assembled
+    return case_status or assembled
 
 
 @router.get("/audit/{case_file_id}/eob-completeness", response_model=EobCompletenessOut)

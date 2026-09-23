@@ -156,6 +156,9 @@ class DocumentNeed(BaseModel):
 
 class AuditResult(BaseModel):
     case_file_id: str
+    # On GET /audit/{id} this derives from the CASE status (M4, 2026-09-23): `complete` |
+    # `audit_incomplete` only once terminal, `summarizing` while the run is still in flight
+    # (findings can already be persisted then), else the pre-audit case status itself.
     status: str
     # None on a degraded "audit_incomplete" result: real agents ran but produced
     # no three-number finding. We never present {0,0,0} as a completed audit (CO-15).
