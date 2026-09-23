@@ -242,6 +242,9 @@ key below is an engineering seed for you to author; none states a fact the produ
 | key | source | seed |
 |---|---|---|
 | `summary.pending_notice` | eng | I'm still writing your summary. Your numbers and everything I found are ready now. The summary will show up here when it's done. |
+| `status_card.headline_failed` | eng | Paused — a problem on my end |
+| `status_card.headline_needs_documents` | eng | Paused — waiting on your documents |
+| `status_card.headline_working` / `status_card.headline_ready` | your round-2 prototype, verbatim | Working on your audit / Audit ready — moved from the app into the registry when the header became the server's decision; "Audit ready" now renders ONLY on a complete audit |
 
 ## Landing "Not a chatbot with opinions" playback — PROPOSED, interim engineering seeds (2026-09-23)
 

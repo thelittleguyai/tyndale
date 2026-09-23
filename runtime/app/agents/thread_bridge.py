@@ -64,6 +64,9 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         # status card + flow stages
         "stage_label_extraction", "stage_label_translate", "stage_label_encounter",
         "stage_label_audit",
+        # the status card's header per variant (e2e re-test 2026-09-23 item 2)
+        "status_card.headline_working", "status_card.headline_ready",
+        "status_card.headline_failed", "status_card.headline_needs_documents",
         # intake + acknowledgment
         "record_first_upload_frame", "acknowledgment", "audit_start",
         # attest-and-proceed
@@ -164,19 +167,63 @@ def enabled() -> bool:
 
 
 # --- status-card projection (pure) ------------------------------------------
-def status_card_payload(status: str) -> dict:
+# The card's header, per variant (e2e re-test 2026-09-23 item 2). The first two are the
+# prototype's own states (round-2 L1); the other two are the terminals it never drew. A variant
+# with no key here has NO header — the entries beneath the card carry it.
+_HEADLINE_KEY = {
+    "working": "status_card.headline_working",
+    "ready": "status_card.headline_ready",
+    "failed": "status_card.headline_failed",
+    "needs_documents": "status_card.headline_needs_documents",
+}
+_READY = {"audit_complete", "resolved", "archived"}
+
+
+def _headline(variant: str) -> str | None:
+    key = _HEADLINE_KEY.get(variant)
+    if key is None:
+        return None
+    text = orchestration_step(key)
+    return None if text.startswith("<MISSING") else text
+
+
+def status_card_payload(status: str, *, incomplete_reason: str | None = None) -> dict:
     """The four flow-stage bars derived purely from case status (D2 — real completion, no
-    fabricated percentages)."""
+    fabricated percentages) — and, since the e2e re-test (2026-09-23 item 2), the card's
+    VARIANT and HEADLINE, decided here from the terminal itself. The client used to infer
+    "Audit ready" from "every bar done", and an audit_incomplete run marks the audit bar done
+    whatever its reason — so a system_error thread read "Audit ready ✓✓✓✓" above the apology.
+
+      audit_complete / resolved / archived → ready            every stage done
+      audit_incomplete + system_error      → failed           the audit stage FAILED, no ✓ past it
+      audit_incomplete + needs_documents   → needs_documents  the audit stage WAITING on a document
+      extraction_failed / not_a_bill       → failed           extraction failed, the rest never ran
+      attest_declined                      → closed           no header
+      machine working                      → working          the first unfinished stage active
+      awaiting the user                    → paused           static, no header, no spinner
+    """
     terminal = status in _TERMINAL
+
+    def stage(key: str, state: str) -> dict:
+        return {"key": key, "label": orchestration_step(_STAGE_LABEL_KEY[key]), "state": state}
+
     if status in _EXTRACTION_FAILED:
         # extraction couldn't produce a bill — mark it failed, the rest never ran.
         return {
-            "stages": [
-                {"key": k, "label": orchestration_step(_STAGE_LABEL_KEY[k]),
-                 "state": "failed" if k == "extraction" else "pending"}
-                for k in _STAGE_ORDER
-            ],
+            "stages": [stage(k, "failed" if k == "extraction" else "pending") for k in _STAGE_ORDER],
             "terminal": True,
+            "variant": "failed",
+            "headline": None,  # the terminal message beneath names what went wrong
+        }
+    if status == "audit_incomplete":
+        reason = incomplete_reason or "needs_documents"
+        variant = "failed" if reason == "system_error" else "needs_documents"
+        last = "failed" if variant == "failed" else "waiting"
+        return {
+            "stages": [stage(k, last if k == "audit" else "done") for k in _STAGE_ORDER],
+            "terminal": True,
+            "variant": variant,
+            "headline": _headline(variant),
         }
     stages, active_assigned = [], False
     for key in _STAGE_ORDER:
@@ -186,10 +233,55 @@ def status_card_payload(status: str) -> dict:
             state, active_assigned = "active", True
         else:
             state = "pending"
-        stages.append({"key": key, "label": orchestration_step(_STAGE_LABEL_KEY[key]), "state": state})
+        stages.append(stage(key, state))
     # paused = waiting on the USER (verification / EOB confirmation): the card shows its
     # state statically — no spinner implies no machine work while we wait (Brock 2026-08-22).
-    return {"stages": stages, "terminal": terminal, "paused": status in _AWAITING_INPUT}
+    paused = status in _AWAITING_INPUT
+    if status in _READY:
+        variant = "ready"
+    elif terminal:
+        variant = "closed"
+    elif paused:
+        variant = "paused"
+    else:
+        variant = "working"
+    return {
+        "stages": stages, "terminal": terminal, "paused": paused,
+        "variant": variant, "headline": _headline(variant),
+    }
+
+
+async def refresh_status_card(session: AsyncSession, conv: Conversation) -> None:
+    """Re-project a case thread's status card from the case's CURRENT state (e2e re-test
+    2026-09-23 item 2). The card is a pure function of status + reason, but it was written only
+    on transitions — a thread whose card predates a projection fix kept the old answer (every
+    system_error thread said "Audit ready"). Called on every read of a case thread: one small
+    SELECT, and a write only when the answer changed. Never raises."""
+    if not enabled() or conv.case_id is None:
+        return
+    try:
+        case = (
+            await session.execute(select(CaseFile).where(CaseFile.case_file_id == conv.case_id))
+        ).scalar_one_or_none()
+        if case is None:
+            return
+        fresh = status_card_payload(case.status, incomplete_reason=case.audit_incomplete_reason)
+        card = (
+            await session.execute(
+                select(Message)
+                .where(Message.conversation_id == conv.conversation_id)
+                .where(Message.kind == "status_card_update")
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if card is None:
+            return
+        current = {k: v for k, v in (card.payload or {}).items() if k != "marker"}
+        if current != fresh:
+            card.payload = {**fresh, "marker": "status_card"}
+            await session.commit()
+    except Exception:  # noqa: BLE001 — a read must never fail on the projection
+        log.warning("thread_bridge.status_card_refresh_failed", exc_info=True)
 
 
 def _payer_of(case) -> str | None:
@@ -374,7 +466,9 @@ async def bridge_case_state(case_file_id: str) -> None:
 
 async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) -> None:
     status = case.status
-    await _upsert_status_card(session, conv, status_card_payload(status))
+    await _upsert_status_card(
+        session, conv, status_card_payload(status, incomplete_reason=case.audit_incomplete_reason)
+    )
     have = await _markers(session, conv.conversation_id)
 
     async def ensure(marker: str, kind: str, payload: dict, content: str | None = None) -> None:

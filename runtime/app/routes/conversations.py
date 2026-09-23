@@ -163,6 +163,12 @@ async def get_conversation(
     user: CurrentUser = Depends(current_user),
 ) -> ConversationDetail:
     conv = await owned_conversation(session, conversation_id, user)
+    # A case thread's status card is re-projected from the case's current state on read
+    # (e2e re-test 2026-09-23 item 2) — a card written before a projection fix must not keep
+    # telling a system_error user "Audit ready".
+    from app.agents.thread_bridge import refresh_status_card
+
+    await refresh_status_card(session, conv)
     msgs = (
         (
             await session.execute(

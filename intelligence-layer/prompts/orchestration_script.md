@@ -1875,3 +1875,19 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## summary.pending_notice
 <!-- UNMAPPED — e2e re-test 2026-09-23 item 1; PROPOSED interim seed (engineering). The summary slot of a COMPLETE audit whose written summary the provider refused in time (a 429 after the backoff); the audit_retry cron writes it later. The numbers and findings are already on screen above it. -->
 [A] I'm still writing your summary. Your numbers and everything I found are ready now. The summary will show up here when it's done.
+
+## status_card.headline_working
+<!-- UNMAPPED — the status card's header while the machine works: his round-2 prototype's own words (status-card.tsx, applied as L1 2026-08-17), moved from the client into the registry when the header became a server decision (e2e re-test 2026-09-23 item 2). Verbatim. -->
+[A] Working on your audit
+
+## status_card.headline_ready
+<!-- UNMAPPED — the status card's header on a COMPLETE audit: his round-2 prototype's own words (L1), verbatim. Rendered ONLY for audit_complete / resolved / archived — never on an incomplete terminal again (e2e re-test 2026-09-23 item 2). -->
+[A] Audit ready
+
+## status_card.headline_failed
+<!-- UNMAPPED — e2e re-test 2026-09-23 item 2; PROPOSED interim seed (engineering). The status card's header on a system_error terminal (the §10.4 apology sits beneath it). The prototype never drew this state; the card used to say "Audit ready" here. -->
+[A] Paused — a problem on my end
+
+## status_card.headline_needs_documents
+<!-- UNMAPPED — e2e re-test 2026-09-23 item 2; PROPOSED interim seed (engineering). The status card's header on a needs_documents terminal (the checklist sits beneath it). -->
+[A] Paused — waiting on your documents

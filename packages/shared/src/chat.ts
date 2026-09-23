@@ -40,7 +40,16 @@ export interface VerificationSuggestionPayload {
 
 /** The four FLOW stages the status card renders as labeled bars (each derived from case state). */
 export type ThreadStageKey = 'extraction' | 'translate' | 'encounter' | 'audit';
-export type ThreadStageState = 'pending' | 'active' | 'done' | 'failed';
+/** 'waiting' = the stage stopped on the USER (a needs_documents audit: the checklist beneath). */
+export type ThreadStageState = 'pending' | 'active' | 'done' | 'failed' | 'waiting';
+/** The card's state, decided SERVER-side from the terminal (e2e re-test 2026-09-23 item 2). */
+export type StatusCardVariant =
+  | 'working'
+  | 'paused'
+  | 'ready'
+  | 'failed'
+  | 'needs_documents'
+  | 'closed';
 export interface ThreadStage {
   key: ThreadStageKey;
   label: string; // script-keyed
@@ -53,6 +62,10 @@ export interface StatusCardPayload {
   paused?: boolean;
   stages: ThreadStage[]; // exactly the four flow stages, in order
   terminal: boolean; // true once the audit reached a terminal state
+  /** Absent on cards written before 2026-09-23 (the server re-projects them on read). */
+  variant?: StatusCardVariant;
+  /** Registry copy, or null for a variant with no header (the entries beneath carry it). */
+  headline?: string | null;
 }
 /** payload for kind='verification_request' — ≤3 line items per group (D3). */
 export interface VerificationRequestPayload {

@@ -6,7 +6,7 @@
  */
 import { ActivityIndicator, Text, View } from 'react-native';
 
-import type { StatusCardPayload, ThreadStageState } from '@tyndale/shared';
+import type { StatusCardPayload, StatusCardVariant, ThreadStageState } from '@tyndale/shared';
 import { useThemeColors } from '../../theme/useThemeColors';
 
 function Bar({ state }: { state: ThreadStageState }) {
@@ -14,31 +14,53 @@ function Bar({ state }: { state: ThreadStageState }) {
   // (D2). Active + pending both show an empty inset track; the row's spinner conveys activity.
   if (state === 'done') return <View className="h-1 rounded-full bg-accent" />;
   if (state === 'failed') return <View className="h-1 rounded-full bg-danger" />;
+  if (state === 'waiting') return <View className="h-1 rounded-full bg-warning" />;
   return <View className="h-1 rounded-full bg-inset" />;
 }
 
+/** The variant a legacy card (no server variant) implies — the pre-2026-09-23 client rule. The
+ *  server re-projects a stale card on the next read, so this is a one-render fallback. */
+function legacyVariant(payload: StatusCardPayload): StatusCardVariant {
+  const allDone = payload.stages.length > 0 && payload.stages.every((s) => s.state === 'done');
+  if (allDone) return 'ready';
+  if (!payload.paused && payload.stages.some((s) => s.state === 'active')) return 'working';
+  return payload.terminal ? 'closed' : 'paused';
+}
+
+const LEGACY_HEADLINE: Partial<Record<StatusCardVariant, string>> = {
+  ready: 'Audit ready',
+  working: 'Working on your audit',
+};
+
 export function StatusCard({ payload }: { payload: StatusCardPayload }) {
   const tc = useThemeColors();
-  // L1 (round-2) — a state header over the bars. Only the two states the prototype authors:
-  // "Working on your audit" while anything is genuinely active, "Audit ready" when all four
-  // stages are done. A failed/incomplete terminal gets NO header — the rows carry that truth,
-  // and inventing a third header state here would be copy nobody wrote.
-  const allDone = payload.stages.length > 0 && payload.stages.every((s) => s.state === 'done');
+  // The header is the SERVER's decision (e2e re-test 2026-09-23 item 2): the client used to
+  // infer "Audit ready" from "every bar done", and a system_error run marks every bar done —
+  // so the card said "Audit ready ✓" above the apology. Now the variant comes with the card:
+  // ready ✓, working (spinner), failed (!), waiting on documents; paused / closed have none.
+  const variant = payload.variant ?? legacyVariant(payload);
+  const headline =
+    payload.variant !== undefined ? (payload.headline ?? null) : (LEGACY_HEADLINE[variant] ?? null);
   // Paused = waiting on the USER (verification / EOB confirm). A spinner would claim machine
-  // work that isn't happening, so paused suppresses the working header and every
-  // ActivityIndicator — same words, still no third header state (Brock 2026-08-22).
-  const anyActive = !payload.paused && payload.stages.some((s) => s.state === 'active');
+  // work that isn't happening, so paused suppresses every ActivityIndicator (Brock 2026-08-22).
+  const spinning = variant === 'working';
   return (
-    <View className="my-2 w-full rounded-card border border-hairline bg-surface p-4">
-      {allDone ? (
+    <View
+      className="my-2 w-full rounded-card border border-hairline bg-surface p-4"
+      testID={`status-card-${variant}`}
+    >
+      {headline ? (
         <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-body font-semibold text-primary">Audit ready</Text>
-          <Text className="text-body font-bold text-accent">✓</Text>
-        </View>
-      ) : anyActive ? (
-        <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-body font-semibold text-primary">Working on your audit</Text>
-          <ActivityIndicator size="small" color={tc.accent} />
+          <Text className="text-body font-semibold text-primary">{headline}</Text>
+          {variant === 'ready' ? (
+            <Text className="text-body font-bold text-accent">✓</Text>
+          ) : variant === 'working' ? (
+            <ActivityIndicator size="small" color={tc.accent} />
+          ) : variant === 'failed' ? (
+            <Text className="text-body font-bold text-danger">!</Text>
+          ) : variant === 'needs_documents' ? (
+            <Text className="text-body font-bold text-warning">…</Text>
+          ) : null}
         </View>
       ) : null}
       {payload.stages.map((s) => (
@@ -49,12 +71,14 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
             >
               {s.label}
             </Text>
-            {s.state === 'active' && !payload.paused ? (
+            {s.state === 'active' && spinning ? (
               <ActivityIndicator size="small" color={tc.accent} />
             ) : s.state === 'done' ? (
               <Text className="text-xs font-bold text-accent">✓</Text>
             ) : s.state === 'failed' ? (
               <Text className="text-xs font-bold text-danger">!</Text>
+            ) : s.state === 'waiting' ? (
+              <Text className="text-xs font-bold text-warning">…</Text>
             ) : null}
           </View>
           <Bar state={s.state} />
