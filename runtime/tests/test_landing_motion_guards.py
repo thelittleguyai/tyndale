@@ -278,3 +278,25 @@ def test_every_tyn_animation_class_has_a_reduced_motion_rule():
     # the hero mock and the demo apply their keyframes only when motion is not reduced
     for comp in (HERO_MOCK, AUDIT_DEMO, MARKETING / "components/chat-compare.tsx"):
         assert "useReducedMotion" in _read(comp), comp.name
+
+
+def test_the_built_css_when_present_matches_the_source_model():
+    """`next build` output, when a build exists locally or in CI: the real keyframe set and the
+    real absence of glass. Tailwind's content scanner turns even a COMMENT saying
+    "backdrop-filter" into an emitted utility, which is why the source comments avoid the
+    token and the config trims it from the default transition list."""
+    import pytest
+
+    built = sorted((REPO / "apps/web-marketing/.next/static/css").glob("*.css"))
+    if not built:
+        pytest.skip("no marketing build present (apps/web-marketing/.next) — source model only")
+    css = "\n".join(_read(p) for p in built)
+    defined = set(re.findall(r"@keyframes\s+([\w-]+)", css))
+    stray = sorted(n for n in defined if not _allowed(n))
+    assert stray == [], f"built CSS defines keyframes outside the allowed set: {stray}"
+    assert ALLOWED_KEYFRAMES <= defined
+    # (Tailwind's preflight resets `--tw-backdrop-*` variables on every element — that is not a
+    # blur; the PROPERTY and the UTILITY are what glass would need)
+    assert "backdrop-filter" not in css
+    assert not re.search(r"\.backdrop-(?:blur|saturate)", css)
+    assert not re.search(r"\.glass[\s{-]", css) and not re.search(r"\.aura[\s{-]", css)
