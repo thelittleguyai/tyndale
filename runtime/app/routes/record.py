@@ -17,6 +17,7 @@ from app.agents.orchestrator import _documents_needed
 from app.appeals.deadlines import DEADLINE_RULES
 from app.agents.grounding import derive_responsible_party
 from app.sources.error_types import category_is_informational
+from app.sources.extraction import plausible_extracted_name
 from app.schemas.case_file import as_dict
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
@@ -264,6 +265,13 @@ def _row_service_date(case) -> str | None:
     )
 
 
+def _payer_name_of(case) -> str | None:
+    """The insurer's name from TYPED fields only (the thread's {payer} rule) — None when unknown."""
+    from app.agents.thread_bridge import _payer_of
+
+    return _payer_of(case)
+
+
 def _finding_brief(f: Finding) -> FindingBrief:
     facts = as_dict(f.facts) or {}
     gap = facts.get("gap")
@@ -347,7 +355,11 @@ async def get_case_summary(
         ),
         claim_number=call_ids.claim_number,
         account_number=call_ids.account_number,
-        gameplan=build_gameplan(findings, call_ids),
+        gameplan=build_gameplan(
+            findings, call_ids,
+            payer_name=_payer_name_of(case),
+            provider_name=case.provider_name if plausible_extracted_name(case.provider_name) else None,
+        ),
         call_mode_intro=orchestration_step("call_mode_intro"),
         call_mode_outro=orchestration_step("call_mode_outro"),
     )

@@ -46,6 +46,8 @@ export interface GameplanStep {
   reference_kind: 'claim' | 'account' | null;
   reference_number: string | null;
   phone: string | null; // as printed on that party's document — never guessed or looked up
+  /** M2 (2026-09-23): where to find the number when none was extracted (registry line); null when `phone` is set. */
+  phone_hint?: string | null;
   responsible_party?: string;
 }
 

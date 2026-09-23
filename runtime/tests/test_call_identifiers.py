@@ -277,3 +277,28 @@ def test_of_case_reads_the_typed_columns():
     ids = of_case(case)
     assert ids.claim_number == "TST20260514"  # trimmed
     assert ids.account_number is None  # empty string is absent, not ""
+
+
+# --- M2 (e2e 2026-09-23): the party is named when known; the number or where to find it ----
+def test_call_mode_names_the_party_and_says_where_the_number_is():
+    from types import SimpleNamespace
+
+    from app.agents.context_loader import orchestration_step
+
+    f_payer = SimpleNamespace(finding_id="f1", finding_type="payer_side", category="cost_sharing_miscalculation",
+                              facts={"gap": 300.0}, legal_claim=None, recommendation={"action": "Ask them to reprocess the claim."})
+    f_prov = SimpleNamespace(finding_id="f2", finding_type="provider_side", category="upcoding",
+                             facts={"gap": 100.0}, legal_claim=None, recommendation={"action": "Ask for a corrected bill."})
+    # no phone extracted for either party → the registry's "where to find it" lines
+    steps = build_gameplan([f_payer, f_prov], CallIdentifiers(claim_number="TST1"), payer_name="Blue Shield PPO",
+                           provider_name="Cottonwood Surgery Center")
+    assert [s.party_label for s in steps] == ["Blue Shield PPO", "Cottonwood Surgery Center"]
+    assert steps[0].phone is None and steps[0].phone_hint == orchestration_step("call_mode.number_on_card")
+    assert steps[1].phone_hint == orchestration_step("call_mode.number_on_bill")
+    assert "Blue Shield PPO" in steps[0].script.when_they_pick_up  # the opener names them too
+    # a typed phone wins, and no name known → the generic labels stand
+    steps = build_gameplan([f_payer], CallIdentifiers(payer_phone="1-800-555-0142"))
+    assert steps[0].party_label == "your insurance company" and steps[0].phone == "1-800-555-0142" and steps[0].phone_hint is None
+    # a blank name is not a name
+    assert build_gameplan([f_prov], None, provider_name="   ")[0].party_label == "the provider's billing office"
+

@@ -90,7 +90,11 @@ def _problem_of(f: Finding) -> str:
 
 
 def build_gameplan(
-    findings: list[Finding], identifiers: CallIdentifiers | None = None
+    findings: list[Finding],
+    identifiers: CallIdentifiers | None = None,
+    *,
+    payer_name: str | None = None,
+    provider_name: str | None = None,
 ) -> list[GameplanStep]:
     """Actionable findings (those with a recommended action), ordered biggest-dollar-first, each
     rendered as a per-call script. Findings without an action are omitted (they stay in the
@@ -107,6 +111,11 @@ def build_gameplan(
     steps: list[GameplanStep] = []
     for i, f in enumerate(actionable, start=1):
         party, party_label, attribution = _party_for(f)
+        # M2 (e2e 2026-09-23): the case KNOWS Blue Shield PPO — say so. Typed names only
+        # (the caller passes what plausible_extracted_name / the coverage blob vouch for).
+        named = (payer_name if party == "payer" else provider_name) or ""
+        if named.strip():
+            party_label = named.strip()
         opener_key = "call_script_opener_payer" if party == "payer" else "call_script_opener_provider"
         ref = for_party(ids, party)
         variables = script_variables(ids)
@@ -125,6 +134,10 @@ def build_gameplan(
                 reference_kind=ref.reference_kind if ref.reference_number else None,
                 reference_number=ref.reference_number,
                 phone=ref.phone,
+                phone_hint=(
+                    None if ref.phone
+                    else orchestration_step("call_mode.number_on_card" if party == "payer" else "call_mode.number_on_bill")
+                ),
                 script=CallScript(
                     when_they_pick_up=orchestration_step(opener_key, party=party_label, **variables),
                     the_problem=_problem_of(f),

@@ -371,6 +371,14 @@ drift guard (nothing in his file to compare against).
 <!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). Rendered ONCE in the thread when the audit ran with the rules corpus unreachable (retrieval_unavailable on the case) — never silently. -->
 [A] I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact.
 
+## call_mode.number_on_card
+<!-- UNMAPPED — e2e 2026-09-23 M2; PROPOSED interim seed (engineering). Shown in call mode for a payer call when the documents carried no phone number (B4 identifiers) — never a looked-up number. -->
+[A] Use the number on the back of your insurance card.
+
+## call_mode.number_on_bill
+<!-- UNMAPPED — e2e 2026-09-23 M2; PROPOSED interim seed (engineering). The provider-call twin: no number extracted → point at the bill. -->
+[A] Use the phone number printed on your bill.
+
 ## finding.no_dollar_change
 <!-- UNMAPPED — e2e 2026-09-23 M1; PROPOSED interim seed (engineering). The amount line on a finding card whose finding carries no dollar gap — a real error still worth fixing. -->
 [A] No dollar change — still worth fixing.

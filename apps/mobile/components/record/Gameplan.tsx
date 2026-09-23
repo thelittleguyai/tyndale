@@ -6,7 +6,7 @@
  * and the agents' claims/actions), never hard-coded.
  */
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ChevronDown, ChevronUp, Phone, X } from 'lucide-react-native';
 
 import type { GameplanStep } from '../../lib/api-client';
@@ -152,7 +152,14 @@ export function Gameplan({
 
 /** Full-screen, presentation-only step-through: intro → one call per screen → outro. It submits
  * nothing (the dashboard's outcome follow-up captures what happened later); closing returns to the
- * summary. `intro`/`outro` are the API's call_mode copy; when empty they're simply skipped. */
+ * summary. `intro`/`outro` are the API's call_mode copy; when empty they're simply skipped.
+ *
+ * M2 (e2e 2026-09-23): rendered as a real full-height sheet (a Modal — its own layer, the viewport
+ * minus the safe areas), NOT an `absolute inset-0` view inside the 226-px game-plan card, where the
+ * inner scroll collapsed to 12 px and clipped every step body. The step body scrolls; the action
+ * row is pinned; the party is named when the case knows it; the number comes from the documents
+ * or the "number on the back of your card" line; the outcome routes are reachable on the
+ * After-the-call step too. */
 export function CallMode({
   steps,
   intro,
@@ -188,8 +195,9 @@ export function CallMode({
   };
 
   return (
-    <View className="absolute inset-0 z-50 bg-page" testID="call-mode">
-      <View className="flex-row items-center justify-between px-5 pb-3 pt-14">
+    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+    <SafeAreaView style={{ flex: 1 }} className="bg-page" testID="call-mode">
+      <View className="flex-row items-center justify-between px-5 pb-3 pt-4">
         <Text className="text-xs text-faint">
           {step ? `Call ${step.index} of ${steps.length}` : onOutro ? 'After the call' : 'Get ready'}
         </Text>
@@ -223,7 +231,29 @@ export function CallMode({
           {onIntro ? (
             <Text className="mt-6 text-xl leading-8 text-primary">{intro}</Text>
           ) : onOutro ? (
-            <Text className="mt-6 text-xl leading-8 text-primary">{outro}</Text>
+            <>
+              <Text className="mt-6 text-xl leading-8 text-primary">{outro}</Text>
+              {/* M2: the outcome routes (§9.4) are reachable HERE too — one block per call */}
+              {steps.map((s) => (
+                <View key={s.finding_id} className="mt-7 border-t border-hairline pt-5" testID={`call-outcome-block-${s.finding_id}`}>
+                  <Text className="mb-1 text-body font-medium text-primary">{s.title}</Text>
+                  <Text className="mb-3 text-caption text-faint">How did it go?</Text>
+                  <View className="gap-2">
+                    {CALL_OUTCOMES.map((o) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        key={o.key}
+                        onPress={() => onOutcome?.(s.finding_id, o.key)}
+                        className="min-h-[44px] items-center justify-center rounded-control border border-hairline bg-surface px-4 py-3"
+                        testID={`call-outcome-${s.finding_id}-${o.key}`}
+                      >
+                        <Text className="text-body text-primary">{o.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </>
           ) : step ? (
             <>
               <Text className="mb-1 mt-2 text-2xl font-bold text-primary">{step.title}</Text>
@@ -231,7 +261,8 @@ export function CallMode({
                 Call {step.party_label}
                 {step.dollar_impact ? ` · up to ${money(step.dollar_impact)}` : ''}
               </Text>
-              {/* H6 tap-to-dial — only when a number exists (see the `phone` note above). */}
+              {/* H6 tap-to-dial — only when a number exists (see the `phone` note above);
+                  otherwise the registry's "where to find the number" line (M2). */}
               {phone ? (
                 <Pressable
                   accessibilityRole="button"
@@ -240,8 +271,10 @@ export function CallMode({
                   testID="call-mode-dial"
                 >
                   <Phone size={17} color={tc.onAccent} />
-                  <Text className="text-body font-medium text-on-accent">Call {step.party_label}</Text>
+                  <Text className="text-body font-medium text-on-accent">Call {step.party_label} · {phone}</Text>
                 </Pressable>
+              ) : step.phone_hint ? (
+                <Text className="mb-5 text-body text-secondary" testID="call-mode-phone-hint">{step.phone_hint}</Text>
               ) : null}
               <CallBeats step={step} />
 
@@ -299,6 +332,7 @@ export function CallMode({
           </Pressable>
         )}
       </View>
-    </View>
+    </SafeAreaView>
+    </Modal>
   );
 }

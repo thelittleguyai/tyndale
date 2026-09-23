@@ -218,6 +218,8 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 | key | source | seed |
 |---|---|---|
 | `retrieval.unavailable_notice` | eng | I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact. |
+| `call_mode.number_on_card` | eng | Use the number on the back of your insurance card. |
+| `call_mode.number_on_bill` | eng | Use the phone number printed on your bill. |
 | `finding.no_dollar_change` | eng | No dollar change — still worth fixing. |
 | `gameplan.moment_headline` | eng | Your game plan is ready. |
 | `gameplan.moment_cta` | eng | See your game plan |

@@ -64,6 +64,9 @@ class GameplanStep(BaseModel):
     # are null when the documents didn't carry them; the strip and dial button then don't render.
     reference_kind: str | None = None
     reference_number: str | None = None
+    # M2 (2026-09-23): the registry line for "where to find the number" when no phone was
+    # extracted (number on the back of your card / printed on your bill); null when `phone` is set.
+    phone_hint: str | None = None
     phone: str | None = None  # as printed on that party's document — never guessed or looked up
 
 

@@ -153,6 +153,53 @@ describe('CallMode step-through', () => {
     );
     expect(getByTestId('call-mode-dial')).toBeTruthy();
   });
+
+  // ── M2 (e2e 2026-09-23): a real sheet, a named party, a number or where to find it ──────
+  it('is its own full-height layer (a Modal), not a view inside the game-plan card', () => {
+    const { UNSAFE_getByType } = render(
+      <CallMode steps={[step()]} intro="" outro="" onClose={jest.fn()} />,
+    );
+    const { Modal } = jest.requireActual('react-native');
+    expect(UNSAFE_getByType(Modal)).toBeTruthy();
+  });
+
+  it('names the party the case knows and says where the number is when none was extracted', () => {
+    const { getByText, getByTestId, queryByTestId } = render(
+      <CallMode
+        steps={[step({ party_label: 'Blue Shield PPO', phone: null, phone_hint: 'Use the number on the back of your insurance card.' })]}
+        intro=""
+        outro=""
+        onClose={jest.fn()}
+      />,
+    );
+    expect(getByText(/Call Blue Shield PPO/)).toBeTruthy();
+    expect(getByTestId('call-mode-phone-hint').props.children).toBe('Use the number on the back of your insurance card.');
+    expect(queryByTestId('call-mode-dial')).toBeNull();
+    const dial = render(
+      <CallMode steps={[step({ party_label: 'Blue Shield PPO', phone: '1-800-555-0142', phone_hint: null })]} intro="" outro="" onClose={jest.fn()} />,
+    );
+    expect(dial.getByText('Call Blue Shield PPO · 1-800-555-0142')).toBeTruthy();
+    expect(dial.queryByTestId('call-mode-phone-hint')).toBeNull();
+  });
+
+  it('the outcome routes are reachable on the After-the-call step, one block per call', () => {
+    const onOutcome = jest.fn();
+    const { getByTestId } = render(
+      <CallMode
+        steps={[step({ finding_id: 'f1', title: 'Big charge' }), step({ finding_id: 'f2', index: 2, title: 'Small charge' })]}
+        intro=""
+        outro="That's the call."
+        onClose={jest.fn()}
+        onOutcome={onOutcome}
+      />,
+    );
+    fireEvent.press(getByTestId('call-mode-next')); // → call 2
+    fireEvent.press(getByTestId('call-mode-next')); // → after the call
+    fireEvent.press(getByTestId('call-outcome-f2-pushed_back'));
+    expect(onOutcome).toHaveBeenCalledWith('f2', 'pushed_back');
+    fireEvent.press(getByTestId('call-outcome-f1-fixing_it'));
+    expect(onOutcome).toHaveBeenCalledWith('f1', 'fixing_it');
+  });
 });
 
 describe('CaseSummaryScreen terminal states', () => {
