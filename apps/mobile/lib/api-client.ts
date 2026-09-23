@@ -182,6 +182,13 @@ export interface AuditResult {
   incomplete_reason?: string | null;
   /** Populated only when incomplete_reason === 'needs_documents'. */
   documents_needed?: DocumentNeed[];
+  /**
+   * e2e re-test 2026-09-23 item 1 — the audit is COMPLETE but its written summary is still
+   * owed (the provider refused it in time; a retry writes it). The summary slot renders
+   * `summary_pending_notice` (registry copy) instead of an empty space.
+   */
+  summary_pending?: boolean;
+  summary_pending_notice?: string | null;
 }
 
 /**

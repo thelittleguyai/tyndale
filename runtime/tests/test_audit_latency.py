@@ -45,7 +45,7 @@ async def test_bill_detective_and_math_person_run_concurrently(monkeypatch):
     monkeypatch.setattr(orchestrator.lead_planner, "compose_final", _lp)
 
     budget = AuditBudget(deadline=time.monotonic() + 600, regen_remaining=3)
-    composed, stopped, stage_ms = await orchestrator._run_real_agents(
+    composed, stopped, stage_ms, *_ = await orchestrator._run_real_agents(
         str(uuid.uuid4()), None, [], budget
     )
 

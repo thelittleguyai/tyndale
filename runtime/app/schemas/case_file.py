@@ -180,3 +180,9 @@ class AuditResult(BaseModel):
     incomplete_reason: str | None = None
     # Populated only when incomplete_reason == 'needs_documents': the honest document checklist.
     documents_needed: list[DocumentNeed] = Field(default_factory=list)
+    # e2e re-test 2026-09-23 item 1: the audit is complete but its written summary is still
+    # owed (the provider refused it in time; the audit_retry cron writes it). The findings and
+    # the three numbers render; the summary slot shows ``summary_pending_notice`` — registry
+    # copy — instead of an empty space or an error.
+    summary_pending: bool = False
+    summary_pending_notice: str | None = None

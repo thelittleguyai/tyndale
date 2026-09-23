@@ -46,7 +46,17 @@ locals {
     # Heals audits a deploy roll / OOM stranded in audit_running (2026-09-18): the boot-time
     # reconcile sweep, on a schedule, so a strand between deploys is bounded instead of open.
     stuck_audits = { cron = "*/15 * * * *", timeout = 300 } # every 15 min
+    # e2e re-test 2026-09-23 — the work a throttled provider refused, done later: summaries a
+    # completed audit still owes (and, item 3, recovery re-runs of system_error audits). 900 s
+    # holds one full re-run inside the audit's own 600 s budget; the sweep stops starting new
+    # work at 720 s. Overlapping executions are safe — every row is claimed under a lease.
+    audit_retry = { cron = "*/15 * * * *", timeout = 900 } # every 15 min
   }
+
+  # The ONE job that calls Claude. The other crons must not: cms_ncd_lcd_bulk's extractor
+  # would switch from its stub to real Sonnet calls (250 a week) on the same 25K-TPM
+  # deployment the user audits share. Its env below is conditional on this set.
+  claude_crons = toset(["audit_retry"])
 }
 
 resource "azurerm_container_app_job" "cron" {
@@ -269,6 +279,58 @@ resource "azurerm_container_app_job" "cron" {
       env {
         name  = "ENABLE_FIRST_CASE_UNLOCK"
         value = tostring(var.enable_first_case_unlock)
+      }
+      # Claude via Foundry — audit_retry ONLY (local.claude_crons). Same values as the runtime
+      # container (compute.tf); AZURE_CLIENT_ID makes DefaultAzureCredential pick the shared
+      # user-assigned identity, which already holds the Foundry role.
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "USE_REAL_CLAUDE"
+          value = tostring(var.use_real_claude)
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "USE_FOUNDRY"
+          value = tostring(var.use_foundry)
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "FOUNDRY_ENDPOINT"
+          value = local.foundry_endpoint
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "FOUNDRY_TOKEN_SCOPE"
+          value = var.foundry_token_scope
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "FOUNDRY_DEPLOYMENT_SONNET"
+          value = local.foundry_deployment_sonnet
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "FOUNDRY_DEPLOYMENT_HAIKU"
+          value = local.foundry_deployment_haiku
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "AZURE_CLIENT_ID"
+          value = azurerm_user_assigned_identity.runtime.client_id
+        }
       }
     }
   }

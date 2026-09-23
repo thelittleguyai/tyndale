@@ -232,6 +232,17 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 | `degraded.missing_input` | eng | I don't have what I need to say that part yet. So I left it out. I don't guess. |
 | `finding.worth_checking` | eng | Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it. |
 
+## E2E re-test fixes — PROPOSED, interim engineering seeds (2026-09-23, afternoon)
+
+*Status: INTERIM. The afternoon re-test found a completed analysis thrown away by one provider
+429 on the summary, a status card saying "Audit ready" above an apology, an email promise
+nothing kept, and the acknowledgment degrading to the drop line under the spinning card. Each
+key below is an engineering seed for you to author; none states a fact the product does not do.*
+
+| key | source | seed |
+|---|---|---|
+| `summary.pending_notice` | eng | I'm still writing your summary. Your numbers and everything I found are ready now. The summary will show up here when it's done. |
+
 ## Landing "Not a chatbot with opinions" playback — PROPOSED, interim engineering seeds (2026-09-23)
 
 *Status: INTERIM. The marketing landing's comparison band now PLAYS the two chats side by side

@@ -49,6 +49,21 @@ TOOL_ALLOWLIST = [
 ]
 
 
+# The owed-summary retry (e2e re-test 2026-09-23 item 1) composes ONLY the summary, from what the
+# deferred run saved and persisted:
+#   * no writes — the run already persisted its findings, and pg_upsert_finding /
+#     pg_deadline_upsert INSERT rather than upsert, so a second pass would duplicate them
+#     (the caller re-allows deadlines only when the deferred run never wrote one);
+#   * no document OCR — the retry runs in the audit_retry cron, and an OCR tool on a container
+#     without real OCR configured answers with the STUB bill text (stubs/ocr.py). The documents'
+#     facts are already in the case file (pg_case_file_get) and in the saved agent texts.
+_SUMMARY_RETRY_EXCLUDED = (
+    "pg_upsert_finding", "pg_deadline_upsert", "notify_user",
+    "bill_ocr_extract", "upload_extract_eob", "upload_extract_coverage",
+)
+SUMMARY_RETRY_TOOLS = [t for t in TOOL_ALLOWLIST if t not in _SUMMARY_RETRY_EXCLUDED]
+
+
 def _build_user_message(
     case_file_id: str,
     bill_detective_summary: str,
@@ -89,10 +104,12 @@ async def compose_final(
     *,
     session: AsyncSession | None = None,
     extra_instruction: str | None = None,
+    tool_names: list[str] | None = None,
 ) -> RunResult:
     """``extra_instruction`` (prose-grounding regeneration, 2026-08-18): appended to the
     compose input for the ONE retry the grounding guard is allowed — an engineering-side
-    interim until Brock's §3.10 line lands in the skill itself. Never used on first pass."""
+    interim until Brock's §3.10 line lands in the skill itself. Never used on first pass.
+    ``tool_names`` narrows the allowlist (the owed-summary retry: SUMMARY_RETRY_TOOLS)."""
     settings = get_settings()
     system_blocks = compose_system_prompt(
         "lead_planner_v1_lite",
@@ -106,7 +123,7 @@ async def compose_final(
     return await run_agent(
         model=settings.claude_model_for("lead_planner"),
         system_blocks=system_blocks,
-        tool_names=TOOL_ALLOWLIST,
+        tool_names=tool_names if tool_names is not None else TOOL_ALLOWLIST,
         initial_user_message=user_message,
         case_file_id=case_file_id,
         actor="lead_planner",

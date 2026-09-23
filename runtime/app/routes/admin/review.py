@@ -804,6 +804,11 @@ async def review_workspace(
                 "three_numbers": (audit or {}).get("audit"),
                 "disclosure": (audit or {}).get("disclosure"),
                 "summary": (audit or {}).get("summary") or "",
+                # e2e re-test 2026-09-23 item 1: a complete audit whose summary is still owed
+                # (the audit_retry cron writes it) — attempts spent so far, next attempt due.
+                "summary_pending": bool(getattr(cf, "summary_pending", False)),
+                "summary_retry_attempts": int(getattr(cf, "summary_retry_attempts", 0) or 0),
+                "summary_retry_after": _iso(getattr(cf, "summary_retry_after", None)),
                 "result_status": (audit or {}).get("status"),
                 "documents_needed": (audit or {}).get("documents_needed") or [],
                 "findings": [

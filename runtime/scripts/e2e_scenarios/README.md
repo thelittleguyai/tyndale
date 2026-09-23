@@ -58,6 +58,17 @@ was failing (Voyage 429 / rerank 400) — that was a harness gap, not a pass. Ev
 completes a real audit carries the flag; `s07_knee_arthroscopy` (the 2026-09-23 specimen shape)
 carries it too. When Voyage is unhealthy the sweep goes red and says so — that is the point.
 
+## A throttled provider is asserted, not hoped about (e2e re-test 2026-09-23)
+
+A scenario with `"fault": "<name>"` sends it as the `X-Tyndale-Fault` header on the upload that
+opens its case. The runtime honours it ONLY for a synthetic user outside staging/production and
+only for a known fault (`app/faults.py`); anywhere else the header is ignored. Today there is one:
+`claude_429:lead_planner` — every attempt of the Lead Planner's summary call gets a 429, so the
+backoff runs for real and gives up. `s07_knee_arthroscopy_summary_429` asserts the run still
+finishes `audit_complete` with its findings and three numbers and the summary OWED
+(`"summary_pending": true` — the flag plus the registry notice for the summary slot), never
+`system_error`. It does not assert retrieval (that is s07's job, and it stays red while Voyage is).
+
 ## Two front doors (doc 40, 2026-09-21)
 
 A scenario with an `"intake"` block is driven through the GUIDED route — `POST /v1/intake/start`,

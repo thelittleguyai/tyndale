@@ -16,7 +16,8 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import NamedTuple
 from uuid import UUID, uuid4
 
 import structlog
@@ -26,7 +27,12 @@ from sqlalchemy.dialects.postgresql import JSONB
 from app.agents import bill_detective, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
 from app.agents.context_loader import orchestration_step
-from app.agents.llm_health import claude_path_label, record_audit_run, record_system_alert
+from app.agents.llm_health import (
+    ProviderUnavailableError,
+    claude_path_label,
+    record_audit_run,
+    record_system_alert,
+)
 from app.agents.grounding import finding_source_line
 from app.agents.wrongdoc import classify_wrong_document
 from app.config import get_settings
@@ -200,9 +206,13 @@ async def _set_status(
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
             if status == "audit_running":
-                # A fresh run: first heartbeat, and a clean slate for the healer.
+                # A fresh run: first heartbeat, and a clean slate for the healer — and no summary
+                # retry left owed by the previous run (this run writes its own).
                 cf.audit_heartbeat_at = datetime.now(timezone.utc)
                 cf.reconcile_attempts = 0
+                cf.summary_pending = False
+                cf.summary_inputs = None
+                cf.summary_retry_after = None
             if expected_reconcile_token is None:
                 # An owner's own write voids any healer claim on the row (the healer's later
                 # CAS then fails on the token as well as the status). The healer's guarded
@@ -320,12 +330,25 @@ def _ms(t0: float) -> int:
     return int((time.monotonic() - t0) * 1000)
 
 
+class AgentsRun(NamedTuple):
+    """What the agent phase hands to _finalize_result. ``summary_pending`` (e2e re-test
+    2026-09-23 item 1): the Lead Planner could not write the summary in time — the provider
+    still refused after the bounded backoff, or the budget was spent — so the reveal ships
+    without it and ``summary_inputs`` is what the audit_retry cron composes it from later."""
+
+    composed: str
+    budget_stopped: bool
+    stage_ms: dict
+    summary_pending: bool = False
+    summary_inputs: dict | None = None
+
+
 async def _run_real_agents(
     case_file_id: str,
     accumulator: dict | None,
     confirmations: list[dict],
     budget: AuditBudget,
-) -> tuple[str, bool, dict]:
+) -> AgentsRun:
     """Bill Detective ∥ Math Person, then Lead Planner, under the audit budget (Item 1).
 
     Latency (Item 2): per DL-80 Math Person consumes the PRE-COMPUTED accumulator (injected
@@ -335,9 +358,15 @@ async def _run_real_agents(
     hook-audit rows — tools already open their own sessions for finding writes, so the passed
     session only ever carried the tool-invocation trail — meaning the concurrent runs never share
     a session. Lead Planner composes from both; if the budget is spent by then it is skipped at
-    that safe boundary — the three-number finding Math Person wrote survives the cutoff. Returns
-    (composed_summary, budget_stopped, stage_ms)."""
+    that safe boundary — the three-number finding Math Person wrote survives the cutoff.
+
+    The summary is OPTIONAL to the reveal (e2e re-test 2026-09-23 item 1): a Lead Planner the
+    provider still refuses after the bounded backoff, or one the budget has no room for, never
+    fails the run — the result carries ``summary_pending`` and the inputs to retry it from."""
+    from app.faults import case_faults, injected
+
     stage_ms: dict[str, int] = {}
+    faults = case_faults(await _load_case(case_file_id))
 
     async def _bill_detective():
         t = time.monotonic()
@@ -375,41 +404,72 @@ async def _run_real_agents(
     )
 
     composed = ""
+    lp = None
+    summary_pending = False
     if budget.expired():
         log.warning("orchestrator.budget.skipped_agent", case_file_id=case_file_id, stage="lead_planner")
         budget_stopped = True
+        summary_pending = True  # no room for it now — the retry writes it
     else:
         t = time.monotonic()
-        async with AsyncSessionLocal() as s:
-            lp = await lead_planner.compose_final(
-                case_file_id, bd.final_text, mp.final_text, session=s
+        try:
+            with injected(faults, "lead_planner"):
+                async with AsyncSessionLocal() as s:
+                    lp = await lead_planner.compose_final(
+                        case_file_id, bd.final_text, mp.final_text, session=s
+                    )
+                    await s.commit()
+        except ProviderUnavailableError:
+            # Still refused after the bounded backoff (agents.claude_retry). The findings and
+            # the numbers are already persisted; the summary is written later, never the
+            # reason a finished analysis is thrown away.
+            summary_pending = True
+            log.warning(
+                "orchestrator.summary.deferred", case_file_id=case_file_id,
+                reason="provider_unavailable",
             )
-            await s.commit()
         stage_ms["lead_planner_ms"] = _ms(t)
-        await _heartbeat(case_file_id)  # phase boundary: summary composed
-        composed = lp.final_text
-        budget_stopped = budget_stopped or lp.budget_stopped
-        log.info(
-            "orchestrator.lead_planner.done",
-            case_file_id=case_file_id, tool_calls=len(lp.tool_calls), usage=lp.usage,
-            stop_action=lp.stop_action, human_review_needed=lp.human_review_needed,
-        )
+        await _heartbeat(case_file_id)  # phase boundary: summary composed (or deferred)
+        if lp is not None:
+            composed = lp.final_text
+            budget_stopped = budget_stopped or lp.budget_stopped
+            log.info(
+                "orchestrator.lead_planner.done",
+                case_file_id=case_file_id, tool_calls=len(lp.tool_calls), usage=lp.usage,
+                stop_action=lp.stop_action, human_review_needed=lp.human_review_needed,
+            )
 
     # Prose grounding (2026-08-18): findings and the summary are scanned against the
     # documents' own text before ANY terminal state — the same fabrication class the
-    # translate guard stops, one layer up.
+    # translate guard stops, one layer up. The findings pass commits before the summary's
+    # one regeneration; a provider refusal THERE defers the summary too.
     t = time.monotonic()
-    composed = await _ground_prose(case_file_id, composed, budget, bd.final_text, mp.final_text)
+    try:
+        composed = await _ground_prose(case_file_id, composed, budget, bd.final_text, mp.final_text)
+    except ProviderUnavailableError:
+        composed, summary_pending = "", True
+        log.warning(
+            "orchestrator.summary.deferred", case_file_id=case_file_id,
+            reason="provider_unavailable_on_regeneration",
+        )
     stage_ms["prose_grounding_ms"] = _ms(t)
     await _heartbeat(case_file_id)  # phase boundary: grounding done
 
     # Retrieval grounding (e2e 2026-09-23 B1): what this run actually retrieved is recorded
     # on the case, and a legal claim that no retrieved chunk backs is downgraded before any
     # terminal state — never a [B] claim with an empty rulebook behind it.
-    all_calls = list(bd.tool_calls) + list(mp.tool_calls) + (list(lp.tool_calls) if composed else [])
+    all_calls = list(bd.tool_calls) + list(mp.tool_calls) + (list(lp.tool_calls) if lp and composed else [])
     await _ground_retrieval(case_file_id, all_calls)
 
-    return composed, budget_stopped, stage_ms
+    return AgentsRun(
+        composed, budget_stopped, stage_ms,
+        summary_pending=summary_pending,
+        summary_inputs=(
+            {"bill_detective": bd.final_text or "", "math_person": mp.final_text or ""}
+            if summary_pending
+            else None
+        ),
+    )
 
 
 async def _ground_retrieval(case_file_id: str, tool_calls: list[dict]) -> None:
@@ -438,17 +498,13 @@ async def _finalize_result(
     path: str,
     *,
     manage_status: bool,
+    summary_pending: bool = False,
+    summary_inputs: dict | None = None,
 ) -> AuditResult:
     """Assemble the result, pick the terminal status + reason (budget_exceeded overrides a
     three-number result — the summary couldn't finish), persist the status (finalize path
     only), and record the run's timing/regens for the admin System page."""
     result = await _assemble_result(case_file_id, composed)
-    # Persist the (grounded) summary BEFORE the status transition: the thread projection fired
-    # by _set_status, the user's later GET /v1/audit and the reviewer's Analysis tab all assemble
-    # with composed="" and used to show NOTHING the user had read (deep review). Always written,
-    # so a re-run whose summary degraded to "" replaces the previous run's text instead of
-    # resurrecting it.
-    await _persist_summary(case_file_id, composed)
     # Terminal state + honest reason. Three real numbers = a COMPLETE audit even if the budget cut
     # the prose summary short (the numbers + findings still ship — a degraded summary, not a
     # failure). A run cut short with NO numbers is a system_error; agents that ran clean but
@@ -477,6 +533,18 @@ async def _finalize_result(
             }
         )
 
+    # Persist the (grounded) summary BEFORE the status transition: the thread projection fired
+    # by _set_status, the user's later GET /v1/audit and the reviewer's Analysis tab all assemble
+    # with composed="" and used to show NOTHING the user had read (deep review). Always written,
+    # so a re-run whose summary degraded to "" replaces the previous run's text instead of
+    # resurrecting it. A PENDING summary (item 1) is only ever owed on a complete audit — an
+    # incomplete one is re-run whole, never patched with a late summary.
+    pending = summary_pending and terminal == "audit_complete" and not composed
+    await _persist_summary(case_file_id, composed, pending=pending, inputs=summary_inputs)
+    if pending:
+        result = result.model_copy(
+            update={"summary_pending": True, "summary_pending_notice": summary_pending_notice()}
+        )
     if manage_status:
         await _set_status(case_file_id, terminal, incomplete_reason=reason)
     if reason == "system_error":
@@ -509,14 +577,101 @@ async def _finalize_result(
     return result
 
 
-async def _persist_summary(case_file_id: str, composed: str) -> None:
-    """Best-effort: a summary that can't be stored must not fail the audit that produced it."""
+# The first summary retry is due this long after the run that deferred it; the audit_retry
+# cron backs off from there (crons/audit_retry_cron.SUMMARY_BACKOFF).
+FIRST_SUMMARY_RETRY_DELAY = timedelta(minutes=5)
+
+
+async def compose_pending_summary(case_file_id: str) -> str | None:
+    """The audit_retry cron's half of item 1: write the summary a completed audit still owes.
+
+    Composes from the inputs the deferred run saved, with the SUMMARY-ONLY tool list (the run
+    already persisted its findings; deadlines only if it never wrote one), runs the same
+    summary grounding the run would have, and stores the result with a compare-and-swap — only
+    while the case is still the complete audit that owed it (a re-run in between wins).
+
+    Returns the stored summary ("" when grounding had to degrade it), or None when the
+    provider still refused (the caller backs off) or the case no longer owes a summary."""
+    from app.db.models.deadlines import Deadline
+
+    async with AsyncSessionLocal() as s:
+        case = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        if case is None or not case.summary_pending or case.status != "audit_complete":
+            return None
+        inputs = dict(case.summary_inputs or {})
+        has_deadline = (
+            await s.execute(
+                select(func.count()).select_from(Deadline).where(Deadline.case_file_id == case.case_file_id)
+            )
+        ).scalar_one() > 0
+    tools = list(lead_planner.SUMMARY_RETRY_TOOLS)
+    if not has_deadline:
+        tools.append("pg_deadline_upsert")
+    bd_text, mp_text = inputs.get("bill_detective") or "", inputs.get("math_person") or ""
+
+    budget, _ = _new_audit_budget(get_settings())
+    token = set_audit_budget(budget)
+    try:
+        async with AsyncSessionLocal() as s:
+            lp = await lead_planner.compose_final(case_file_id, bd_text, mp_text, session=s, tool_names=tools)
+            await s.commit()
+        composed = await _ground_prose(case_file_id, lp.final_text, budget, bd_text, mp_text, lp_tools=tools)
+    except ProviderUnavailableError:
+        return None
+    finally:
+        reset_audit_budget(token)
+
+    async with AsyncSessionLocal() as s:
+        stored = await s.execute(
+            update(CaseFile)
+            .where(
+                CaseFile.case_file_id == UUID(case_file_id),
+                CaseFile.status == "audit_complete",
+                CaseFile.summary_pending.is_(True),
+            )
+            .values(
+                audit_summary=composed or "",
+                summary_pending=False,
+                summary_inputs=None,
+                summary_retry_after=None,
+            )
+        )
+        await s.commit()
+    if not stored.rowcount:
+        log.info("orchestrator.summary.retry_superseded", case_file_id=case_file_id)
+        return None
+    log.info("orchestrator.summary.written_late", case_file_id=case_file_id, degraded=not composed)
+    return composed
+
+
+def summary_pending_notice() -> str | None:
+    """The honest line in the summary slot while a summary is still owed (registry copy)."""
+    text = orchestration_step("summary.pending_notice")
+    return None if text.startswith("<MISSING") else text
+
+
+async def _persist_summary(
+    case_file_id: str, composed: str, *, pending: bool = False, inputs: dict | None = None
+) -> None:
+    """Best-effort: a summary that can't be stored must not fail the audit that produced it.
+    Writes the summary AND its pending state (item 1) in one statement, so a run that wrote
+    a summary always clears a retry an earlier run left owed."""
     try:
         async with AsyncSessionLocal() as s:
             await s.execute(
                 update(CaseFile)
                 .where(CaseFile.case_file_id == UUID(case_file_id))
-                .values(audit_summary=composed or "")
+                .values(
+                    audit_summary=composed or "",
+                    summary_pending=pending,
+                    summary_inputs=inputs if pending else None,
+                    summary_retry_attempts=0,
+                    summary_retry_after=(
+                        datetime.now(timezone.utc) + FIRST_SUMMARY_RETRY_DELAY if pending else None
+                    ),
+                )
             )
             await s.commit()
     except Exception as exc:  # noqa: BLE001
@@ -647,12 +802,11 @@ async def run_audit(case_file_id: str) -> AuditResult:
         # CO-12B: deterministic accumulator + cross-validation (pre-agent, survives regardless).
         accumulator = await _run_accumulator_cross_check(case_file_id)
         # Agents run concurrently on their own sessions (see _run_real_agents) — no shared session.
-        composed, budget_stopped, stage_ms = await _run_real_agents(
-            case_file_id, accumulator, [], budget
-        )
+        run = await _run_real_agents(case_file_id, accumulator, [], budget)
         return await _finalize_result(
-            case_file_id, composed, budget, budget_stopped, started, stage_ms,
+            case_file_id, run.composed, budget, run.budget_stopped, started, run.stage_ms,
             claude_path_label(settings), manage_status=False,
+            summary_pending=run.summary_pending, summary_inputs=run.summary_inputs,
         )
     finally:
         reset_audit_budget(token)
@@ -785,7 +939,8 @@ def _document_haystack(cf) -> str | None:
 
 
 async def _ground_prose(
-    case_file_id: str, composed: str, budget, bd_text: str, mp_text: str
+    case_file_id: str, composed: str, budget, bd_text: str, mp_text: str,
+    *, lp_tools: list[str] | None = None,
 ) -> str:
     """The finding/summary grounding pass (2026-08-18, drop-if-basis / scrub-if-incidental).
 
@@ -873,6 +1028,7 @@ async def _ground_prose(
             lp = await lead_planner.compose_final(
                 case_file_id, bd_text, mp_text, session=s,
                 extra_instruction=pg.regeneration_instruction(codes),
+                tool_names=lp_tools,
             )
             await s.commit()
         composed = lp.final_text
@@ -1267,6 +1423,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
                 summary=composed,
                 audit_provenance=provenance,
                 disclosure=disclosure,
+                **_pending_summary_fields(case, composed),
             )
         log.warning("orchestrator.no_three_number_finding", case_file_id=case_file_id)
         # Read back the persisted honest reason (set at finalize). Default to needs_documents:
@@ -1304,7 +1461,15 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         summary=composed,
         audit_provenance=provenance,
         disclosure=disclosure,
+        **_pending_summary_fields(case, composed),
     )
+
+
+def _pending_summary_fields(case, composed: str) -> dict:
+    """A complete audit whose summary is still owed (item 1) says so, in registry words."""
+    if case is None or composed or not getattr(case, "summary_pending", False):
+        return {}
+    return {"summary_pending": True, "summary_pending_notice": summary_pending_notice()}
 
 
 def _bracket_agent_point(three_numbers: dict, case, plan_cov, disclosure, provenance) -> dict:
@@ -1920,16 +2085,15 @@ async def finalize_audit(case_file_id: str) -> AuditResult:
         if use_real:
             log.info("orchestrator.finalize.real", case_file_id=case_file_id)
             # Agents run concurrently on their own sessions (see _run_real_agents).
-            composed, budget_stopped, stage_ms = await _run_real_agents(
-                case_file_id, accumulator, confirmations, budget
-            )
+            run = await _run_real_agents(case_file_id, accumulator, confirmations, budget)
         else:
             log.info("orchestrator.finalize.fixture", case_file_id=case_file_id)
             await _persist_mri_fixture_finding(case_file_id)
-            composed, budget_stopped, stage_ms = mri_audit_fixture(case_file_id).summary, False, {}
+            run = AgentsRun(mri_audit_fixture(case_file_id).summary, False, {})
         return await _finalize_result(
-            case_file_id, composed, budget, budget_stopped, started, stage_ms, path,
+            case_file_id, run.composed, budget, run.budget_stopped, started, run.stage_ms, path,
             manage_status=True,
+            summary_pending=run.summary_pending, summary_inputs=run.summary_inputs,
         )
     except Exception as exc:  # noqa: BLE001 — never leave the case in audit_running forever
         # A crash is not user-actionable — it is a system_error (apology copy + a real alert).

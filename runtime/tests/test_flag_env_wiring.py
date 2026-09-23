@@ -165,8 +165,9 @@ CRON_ROOT_GLOBS = (
 )
 
 _AGENTS = (
-    "Agent execution. A cron never runs Bill Detective / Math Person / Lead Planner — the "
-    "orchestrator is imported for its status chokepoint and result projection only."
+    "Agent execution via the Anthropic-direct / proxy fallbacks. Only audit_retry calls Claude "
+    "from a cron (e2e re-test 2026-09-23), and it does so through Foundry — its Foundry env is "
+    "wired (crons.tf, local.claude_crons); the direct key and the fixture fallback never are."
 )
 _OCR = (
     "Document OCR happens at upload time in the runtime. The thread bridge imports the "
@@ -185,9 +186,6 @@ _DEFAULT = (
 RUNTIME_ONLY: dict[str, str] = {
     "allow_fixture_fallback": _AGENTS,
     "anthropic_api_key": _AGENTS,
-    "foundry_endpoint": _AGENTS,
-    "use_foundry": _AGENTS,
-    "use_real_claude": _AGENTS,
     "azure_doc_intelligence_endpoint": _OCR,
     "azure_doc_intelligence_key": _OCR,
     "use_real_ocr": _OCR,

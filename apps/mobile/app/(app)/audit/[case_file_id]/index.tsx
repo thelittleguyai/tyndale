@@ -304,6 +304,18 @@ export default function AuditResultScreen() {
               />
             </View>
           </View>
+        ) : result.summary_pending && result.summary_pending_notice ? (
+          // e2e re-test 2026-09-23 item 1: the audit is complete but the provider refused the
+          // written summary in time — say so in the slot instead of leaving a gap (registry copy).
+          <View
+            className="mb-6 rounded-2xl border border-hairline bg-surface p-5"
+            testID="summary-pending"
+          >
+            <Text className="mb-2 text-xs text-faint">Summary</Text>
+            <Text className="text-base leading-6 text-secondary">
+              {result.summary_pending_notice}
+            </Text>
+          </View>
         ) : null}
 
         {hasFindings ? (

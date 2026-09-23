@@ -618,6 +618,10 @@ export interface ReviewWorkspace {
       three_numbers: Record<string, unknown> | null;
       disclosure: { tier: number; label: string; missing_inputs: string[]; chase_inputs: string[] } | null;
       summary: string;
+      /** e2e re-test 2026-09-23 item 1 — the audit completed but its summary is still owed. */
+      summary_pending?: boolean;
+      summary_retry_attempts?: number;
+      summary_retry_after?: string | null;
       result_status: string | null;
       documents_needed: { key: string; label: string; have: boolean }[];
       findings: ReviewFinding[];

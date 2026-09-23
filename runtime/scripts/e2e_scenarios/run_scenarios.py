@@ -243,15 +243,24 @@ _MIME_BY_SUFFIX = {
 }
 
 
-def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> tuple[int, str]:
+# The runtime's dev-only fault seam (app/faults.py): honoured for a synthetic user in a
+# non-production environment only. A scenario names ONE known fault with "fault".
+FAULT_HEADER = "X-Tyndale-Fault"
+
+
+def _upload(
+    client: httpx.Client, base_url: str, paths: list[pathlib.Path], *, fault: str | None = None
+) -> tuple[int, str]:
     """POST the scenario's documents (MIME inferred from the suffix, so a .txt isn't mislabeled as
     PDF). Returns (status_code, case_file_id) — case_file_id is "" on a non-200 so the caller can
-    assert an EXPECTED upload rejection (the magic-byte gate)."""
+    assert an EXPECTED upload rejection (the magic-byte gate). ``fault`` rides as the fault
+    header on the upload that opens the case (e2e re-test 2026-09-23 item 1)."""
     files = [
         ("files", (p.name, p.read_bytes(), _MIME_BY_SUFFIX.get(p.suffix.lower(), "application/octet-stream")))
         for p in paths
     ]
-    r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
+    headers = {FAULT_HEADER: fault} if fault else None
+    r = client.post(f"{base_url}/v1/upload", files=files, headers=headers, timeout=120)
     if r.status_code == 429:
         # The 20/hr per-user upload cap (DL-46). A full-suite run legitimately grazes it near
         # the end (the 2026-08-17 sweep lost its last two scenarios this way), so honor
@@ -266,7 +275,7 @@ def _upload(client: httpx.Client, base_url: str, paths: list[pathlib.Path]) -> t
         log(f"  upload 429 — honoring Retry-After: waiting {wait}s once "
             f"({_RATE_LIMIT.waited_s}s of {RATE_LIMIT_BUDGET_S}s budget used)")
         time.sleep(wait)
-        r = client.post(f"{base_url}/v1/upload", files=files, timeout=120)
+        r = client.post(f"{base_url}/v1/upload", files=files, headers=headers, timeout=120)
     if r.status_code != 200:
         return r.status_code, ""
     return 200, r.json()["case_file_id"]
@@ -637,6 +646,11 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
         # dead was a harness gap, not a pass. The record comes from the audit's own provenance.
         if scenario.get("expects_retrieval"):
             fails.extend(_retrieval_checks(audit))
+        # A vendor 429 on the summary (e2e re-test 2026-09-23 item 1): the audit completes with
+        # the numbers and findings, the summary is OWED (not missing, not an error), and the
+        # slot says so in words.
+        if "summary_pending" in exp:
+            fails.extend(_summary_pending_checks(audit, exp["summary_pending"]))
         findings = audit.get("findings", [])
         # max_findings counts ERROR findings only: informational context (all-clear notes,
         # audit-performed summaries — cfg.INFORMATIONAL_CATEGORIES) is not an accusation, and
@@ -660,6 +674,22 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             # is a pass, not a miss (the doubled-MRI duplicate is correctly mue_excess_units).
             if not any(alt.strip().lower() in hay for alt in want.split("|") if alt.strip()):
                 fails.append(f"no finding matching {want!r}")
+    return fails
+
+
+def _summary_pending_checks(audit: dict, want: bool) -> list[str]:
+    got = bool(audit.get("summary_pending"))
+    if got != want:
+        return [f"summary_pending={got} expected {want}"]
+    if not want:
+        return []
+    fails: list[str] = []
+    if audit.get("summary"):
+        fails.append("summary_pending but a summary is present — the fault did not bite")
+    if not audit.get("summary_pending_notice"):
+        fails.append("summary_pending with no notice for the summary slot")
+    if not audit.get("audit"):
+        fails.append("summary_pending on an audit with no three numbers — the reveal did not ship")
     return fails
 
 
@@ -1033,7 +1063,7 @@ def run_scenario(
                     "pass": not fails, "fails": fails}
 
         t = time.monotonic()
-        up_status, case_id = _upload(client, base_url, paths)
+        up_status, case_id = _upload(client, base_url, paths, fault=scenario.get("fault"))
         timings["upload_s"] = round(time.monotonic() - t, 1)
 
         # Upload-rejection scenarios (e.g. a non-document .txt): assert the 4xx at the door and

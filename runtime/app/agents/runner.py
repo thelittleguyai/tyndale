@@ -45,6 +45,7 @@ from app.hooks.contracts import PostToolUseInput, PreToolUseInput, StopInput
 from app.hooks.post_tool_use import post_tool_use_hook
 from app.hooks.pre_tool_use import guard_send_email, pre_tool_use_hook
 from app.agents.audit_budget import current_audit_budget
+from app.agents.claude_retry import create_message
 from app.hooks.stop import stop_hook
 from app.tools import call_tool
 
@@ -227,7 +228,13 @@ async def run_agent(
         # ---- one generation attempt: the tool-use loop ----
         for _iteration in range(max_iterations):
             try:
-                response = await client.messages.create(
+                # Bounded backoff on 429 / 5xx / connection errors, honouring Retry-After and
+                # the audit budget (e2e re-test 2026-09-23 item 1) — see agents.claude_retry.
+                response = await create_message(
+                    client,
+                    actor=actor,
+                    case_file_id=case_file_id,
+                    path=path,
                     model=model,
                     max_tokens=max_tokens_per_call,
                     system=system_blocks,

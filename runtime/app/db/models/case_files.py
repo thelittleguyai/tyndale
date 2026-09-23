@@ -11,6 +11,7 @@ import uuid
 
 from sqlalchemy import (
     TIMESTAMP,
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -64,6 +65,12 @@ class CaseFile(Base):
         # Every dashboard / intake / user-scoped query filters on user_id
         # (migration 0019).
         Index("idx_case_files_user_id", "user_id"),
+        # The audit_retry cron's pickup (migration 0057): owed summaries, oldest due first.
+        Index(
+            "ix_case_files_summary_pending_due",
+            "summary_retry_after",
+            postgresql_where=text("summary_pending"),
+        ),
     )
 
     case_file_id: Mapped[uuid.UUID] = mapped_column(
@@ -157,6 +164,19 @@ class CaseFile(Base):
     # thread projection and the reviewer's Analysis tab never saw it. "" = the run degraded its
     # summary (no summary beats a fabricated code); NULL = never finalized.
     audit_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # e2e re-test 2026-09-23 item 1 — a summary the provider could not write in time (a 429
+    # after the backoff, or a budget-skipped Lead Planner) ships the reveal WITHOUT it and is
+    # retried by the audit_retry cron from the saved inputs. Migration 0057.
+    summary_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    summary_inputs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    summary_retry_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    summary_retry_after: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     # Stranded-audit healer (deep review C2, 2026-09-18). ``audit_heartbeat_at`` is bumped by the
     # orchestrator when an audit goes running and at every phase boundary — staleness is measured
     # against IT, not updated_at (which nothing refreshes mid-run). The reconcile_* trio is the

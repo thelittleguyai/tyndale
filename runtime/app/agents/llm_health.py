@@ -130,6 +130,58 @@ def system_alerts() -> dict:
         return dict(_system_alerts)
 
 
+# e2e re-test 2026-09-23 — provider 429s. The last-call cell said only "error" while the
+# Foundry deployment throttled a whole afternoon of audits; each throttled attempt is now kept
+# (per-replica, last N) with the provider's wait hint and its rate-limit headers — numbers
+# only, never a message or a token — so the System page can say WHICH quota is in the way.
+_RATE_LIMIT_WINDOW_S = 15 * 60
+_rate_limits: deque[dict] = deque(maxlen=100)
+
+
+def _limit_headers(headers) -> dict[str, str]:
+    out: dict[str, str] = {}
+    try:
+        items = list(headers.items())
+    except AttributeError:
+        return out
+    for k, v in items:
+        key = str(k).lower()
+        if "ratelimit" in key and len(out) < 12:
+            val = str(v)[:40]
+            if val.replace(".", "", 1).replace("-", "", 1).isdigit() or key.endswith("reset"):
+                out[key] = val
+    return out
+
+
+def record_rate_limit(*, path: str | None, retry_after: float | None, headers=None) -> None:
+    """One throttled Claude attempt (HTTP 429). Best-effort, never raises."""
+    with _lock:
+        _rate_limits.append(
+            {
+                "at": datetime.now(timezone.utc),
+                "path": path,
+                "retry_after": round(retry_after, 1) if retry_after is not None else None,
+                "limits": _limit_headers(headers or {}),
+            }
+        )
+
+
+def rate_limit_snapshot(window_seconds: int = _RATE_LIMIT_WINDOW_S) -> dict:
+    """Throttled attempts in the last ``window_seconds`` on this replica, for the System page."""
+    now = datetime.now(timezone.utc)
+    with _lock:
+        recent = [e for e in _rate_limits if (now - e["at"]).total_seconds() <= window_seconds]
+    last = recent[-1] if recent else None
+    return {
+        "window_seconds": window_seconds,
+        "count": len(recent),
+        "last_at": last["at"].isoformat() if last else None,
+        "last_path": last["path"] if last else None,
+        "last_retry_after": last["retry_after"] if last else None,
+        "limits": last["limits"] if last else {},
+    }
+
+
 def claude_path_label(settings) -> str:
     """The active Claude routing path: 'foundry' | 'anthropic-direct' | 'stub'.
 

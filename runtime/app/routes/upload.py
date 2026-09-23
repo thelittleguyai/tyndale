@@ -26,7 +26,7 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -344,6 +344,7 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
 @router.post("/upload")
 async def upload(
     background: BackgroundTasks,
+    request: Request,
     files: list[UploadFile] = File(default=[]),
     file: UploadFile | None = File(default=None),  # deprecated singular form (14-day compat)
     case_file_id: str | None = Form(default=None),
@@ -455,7 +456,18 @@ async def upload(
             await _emit(
                 "attestation_required", user_id=case.user_id, case_file_id=case.case_file_id
             )
+    # Dev-only fault injection for the e2e harness (app.faults): a synthetic user's upload
+    # that OPENS a case may name one known fault; everywhere else the header is ignored.
     await session.flush()
+    if case_file_id is None:
+        from app.faults import FAULT_HEADER, accepted_fault, record_fault
+
+        _fault = accepted_fault(
+            request.headers.get(FAULT_HEADER),
+            user_email=(_attest_user.email if _attest_user is not None else None),
+        )
+        if _fault:
+            await record_fault(session, case.case_file_id, _fault)
     cfid = str(case.case_file_id)
     await session.commit()
 

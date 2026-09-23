@@ -51,9 +51,14 @@ async def _run_search(tool: str, collection: str, args: dict[str, Any], **kw: An
     except EmbeddingUnavailable as exc:
         health.record_tool_call(tool, False, error=str(exc))
         return {"error": RETRIEVAL_UNAVAILABLE, "reason": str(exc)[:200], "hits": [], "count": 0}
-    except Exception as exc:  # noqa: BLE001 — recorded, then re-raised for call_tool's contract
-        health.record_tool_call(tool, False, error=str(exc))
-        raise
+    except Exception as exc:  # noqa: BLE001 — a knowledge tool NEVER raises (e2e re-test item 1)
+        # Qdrant down, a Voyage 5xx the client did not type, a timeout: the SAME typed reason
+        # as an embedding outage, so the audit's retrieval record and the legal-claim grounding
+        # see one kind of "the rulebook was unreachable" — never a traceback in a tool_result.
+        reason = f"{type(exc).__name__}: {exc}"[:200]
+        health.record_tool_call(tool, False, error=reason)
+        log.warning("knowledge.tool_failed", tool=tool, error=reason)
+        return {"error": RETRIEVAL_UNAVAILABLE, "reason": reason, "hits": [], "count": 0}
     health.record_tool_call(tool, True)
     if len(queries) == 1:
         hits = per_query[0]

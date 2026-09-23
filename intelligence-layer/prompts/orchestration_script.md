@@ -1871,3 +1871,7 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## landing.compare.user_win
 <!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The visitor's last turn in both panes; Tyndale answers with decline.guarantee_trio_no_rate. -->
 [A] Will I win if I dispute it?
+
+## summary.pending_notice
+<!-- UNMAPPED — e2e re-test 2026-09-23 item 1; PROPOSED interim seed (engineering). The summary slot of a COMPLETE audit whose written summary the provider refused in time (a 429 after the backoff); the audit_retry cron writes it later. The numbers and findings are already on screen above it. -->
+[A] I'm still writing your summary. Your numbers and everything I found are ready now. The summary will show up here when it's done.
