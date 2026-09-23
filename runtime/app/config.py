@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     foundry_token_scope: str = "https://cognitiveservices.azure.com/.default"
     foundry_deployment_sonnet: str | None = None
     foundry_deployment_haiku: str | None = None
+    # The deployments' provisioned capacity, thousands of tokens/min (terraform
+    # foundry_*_capacity) — read ONLY by Admin › System, so a 429 there names the quota in the
+    # way (e2e re-test 2026-09-23 item 7). None = unknown; nothing else depends on it.
+    foundry_sonnet_capacity: int | None = None
+    foundry_haiku_capacity: int | None = None
 
     # Where to write uploaded files when running fully local (no Azure Blob).
     local_uploads_dir: str = "/tmp/tyndale_uploads"

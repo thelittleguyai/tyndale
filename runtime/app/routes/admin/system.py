@@ -14,6 +14,7 @@ from app.agents.llm_health import (
     claude_path_label,
     last_audit_run,
     last_claude_call,
+    rate_limit_snapshot,
     system_alerts,
 )
 from app.auth import CurrentUser
@@ -171,15 +172,54 @@ async def _system_error_signal(session: AsyncSession) -> dict[str, Any]:
     }
 
 
+def _claude_rate_limit_alert(rl: dict[str, Any]) -> dict[str, Any] | None:
+    """Claude refusing calls with 429 (e2e re-test 2026-09-23 item 7). The last-call cell said
+    only "error" while the Foundry deployment throttled a whole afternoon of audits — and the
+    fix is a number in terraform, so the alert names the deployment and its capacity."""
+    if not rl.get("count"):
+        return None
+    s = get_settings()
+    deployment = s.foundry_deployment_sonnet or s.claude_default_model_sonnet
+    cap = s.foundry_sonnet_capacity
+    quota = (
+        f"deployment {deployment} is provisioned at {cap}K tokens/min (foundry_sonnet_capacity)"
+        if cap
+        else f"deployment {deployment}'s tokens-per-minute quota"
+    )
+    said = rl.get("limits") or {}
+    provider = f"; the provider's limits: {', '.join(f'{k}={v}' for k, v in said.items())}" if said else ""
+    wait = f"; last Retry-After {rl['last_retry_after']}s" if rl.get("last_retry_after") is not None else ""
+    return {
+        "kind": "claude_rate_limited",
+        "severity": "high" if rl["count"] >= 3 else "medium",
+        "detail": (
+            f"Claude ({rl.get('last_path') or 'foundry'}) refused {rl['count']} call(s) with 429 in the last "
+            f"{rl['window_seconds'] // 60} min — {quota}{provider}{wait}. Audits retry with backoff and "
+            "a refused summary is written later, but a Bill Detective / Math Person refusal still ends "
+            "the audit system_error"
+        ),
+        "action": (
+            "raise the deployment's capacity — foundry_sonnet_capacity in terraform.tfvars, up to the "
+            "subscription's Azure AI Foundry quota for that model — and apply; one audit runs Bill "
+            "Detective and Math Person at the same time"
+        ),
+        "at": rl.get("last_at"),
+    }
+
+
 def _alerts(
     retrieval: dict[str, Any],
     failed_crons: list[dict[str, Any]],
     system: dict,
     system_errors: dict[str, Any] | None = None,
+    rate_limits: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """The alert path (readiness B2): ONE list the pager reads. Each entry is a thing a
     person must act on, with what to do."""
     alerts: list[dict[str, Any]] = []
+    throttled = _claude_rate_limit_alert(rate_limits or {})
+    if throttled:
+        alerts.append(throttled)
     if retrieval["status"] == "degraded":
         voyage = retrieval["live"].get("voyage") or {}
         last = {k: v.get("last_status") for k, v in voyage.items()}
@@ -289,6 +329,7 @@ async def system_health(
     retrieval = await _retrieval_signal(session)
     failed_crons = await _failed_crons(session)
     alerts_now = system_alerts()
+    rate_limits = rate_limit_snapshot()
     try:
         system_errors: dict[str, Any] = await _system_error_signal(session)
     except Exception:  # noqa: BLE001 — the health page must render even when this read fails
@@ -315,7 +356,9 @@ async def system_health(
         # e2e re-test 2026-09-23 item 3 — the durable system_error picture (open / recovering /
         # needs a person), read from the cases, not a per-replica counter.
         "system_errors": system_errors,
-        "alerts": _alerts(retrieval, failed_crons, alerts_now, system_errors),
+        # e2e re-test 2026-09-23 item 7 — Claude 429s in the last 15 min (this replica).
+        "claude_rate_limits": rate_limits,
+        "alerts": _alerts(retrieval, failed_crons, alerts_now, system_errors, rate_limits),
         "recent_errors": [
             {
                 "event_id": str(e.event_id),

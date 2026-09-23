@@ -316,6 +316,16 @@ resource "azurerm_container_app" "runtime" {
         name  = "FOUNDRY_DEPLOYMENT_HAIKU"
         value = local.foundry_deployment_haiku
       }
+      # The deployments' provisioned capacity (thousands of tokens/min) — read only by Admin ›
+      # System, so a Claude 429 names the quota in the way (e2e re-test 2026-09-23 item 7).
+      env {
+        name  = "FOUNDRY_SONNET_CAPACITY"
+        value = tostring(var.foundry_sonnet_capacity)
+      }
+      env {
+        name  = "FOUNDRY_HAIKU_CAPACITY"
+        value = tostring(var.foundry_haiku_capacity)
+      }
       env {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         value = azurerm_application_insights.main.connection_string

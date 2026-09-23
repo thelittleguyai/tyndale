@@ -300,3 +300,22 @@ def test_the_built_css_when_present_matches_the_source_model():
     assert "backdrop-filter" not in css
     assert not re.search(r"\.backdrop-(?:blur|saturate)", css)
     assert not re.search(r"\.glass[\s{-]", css) and not re.search(r"\.aura[\s{-]", css)
+
+
+
+# ── re-test 2026-09-23 item 7: playback starts in view at load and after a scripted scroll ──
+
+
+def test_in_view_is_checked_directly_not_only_on_observer_transitions():
+    """IntersectionObserver reports transitions computed while RENDERING — a band already in
+    view at load, or scrolled to by script, waited for a first callback a non-rendering document
+    (a background tab, an automation pane) never delivers. Proven headless 2026-09-23: the
+    deployed page stayed 'waiting' after scrollIntoView in a hidden tab; this one plays."""
+    src = _read(MARKETING / "lib/motion.ts")
+    body = src[src.index("export function useInView"):]
+    assert "check(); // already in view at mount" in body
+    assert body.index("io.observe(el)") < body.index("check(); // already in view at mount")
+    for event in ("'scroll'", "'resize'", "'visibilitychange'"):
+        assert f"addEventListener({event}" in body and f"removeEventListener({event}" in body
+    assert "setInterval(check, 1000)" in body and "stopPolling()" in body  # polls only until seen
+    assert "export function inViewport" in src and "/ (r.width * r.height) >= threshold" in src
