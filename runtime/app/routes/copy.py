@@ -44,6 +44,12 @@ _SURFACES: dict[str, dict[str, str]] = {
         "resume_body": "intake.resume.home_body",
         "resume_primary": "intake.resume.primary",
     },
+    # App chrome that renders BEFORE any sign-in (2026-09-23): the branded not-found screen.
+    "app": {
+        "not_found_title": "app.not_found_title",
+        "not_found_body": "app.not_found_body",
+        "not_found_cta": "app.not_found_cta",
+    },
     "status": {
         "leave_and_return": "status_leave_and_return",  # §2.2  (D3)
         "long_wait": "long_wait",  # §2.3

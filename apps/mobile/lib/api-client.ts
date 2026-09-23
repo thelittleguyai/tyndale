@@ -1160,7 +1160,7 @@ export async function fetchCardImageObjectUrl(
 export type SurfaceCopy = Record<string, string | null>;
 
 export async function getSurfaceCopy(
-  surface: 'upload' | 'status' | 'access_request' | 'settings' | 'chat' | 'home',
+  surface: 'upload' | 'status' | 'access_request' | 'settings' | 'chat' | 'home' | 'app',
 ): Promise<SurfaceCopy> {
   const res = await cfetch(`${BASE_URL}/v1/copy/${surface}`);
   if (!res.ok) return {};

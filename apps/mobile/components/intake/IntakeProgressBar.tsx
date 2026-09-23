@@ -23,7 +23,9 @@ export function IntakeProgressBar({ progress }: { progress: IntakeProgress }) {
             key={s.group}
             testID={`intake-segment-${s.group}`}
             accessibilityLabel={s.label ?? s.group}
-            className={`h-2 flex-1 rounded-full ${s.filled ? 'bg-accent' : 'bg-inset'}`}
+            // an EMPTY segment outlines itself in the faint text colour (5.1:1 dark / 4.7:1 light on
+            // the page): `bg-inset` alone was 1.02:1 on the dark page — invisible (2026-09-23 minor)
+            className={`h-2 flex-1 rounded-full ${s.filled ? 'bg-accent' : 'border border-faint bg-inset'}`}
           />
         ))}
       </View>

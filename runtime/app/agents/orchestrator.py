@@ -1130,6 +1130,7 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one_or_none()
         profile_state = None
+        holder = None
         plan_sbc, plan_cov = False, None
         if case is not None:
             from app.db.models.users import User
@@ -1138,6 +1139,9 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             profile_state = (
                 await s.execute(select(User.state).where(User.user_id == case.user_id))
             ).scalar_one_or_none()
+            holder = (
+                await s.execute(select(User.first_name, User.last_name).where(User.user_id == case.user_id))
+            ).first()
             # Plan-level SBC (settings item 5): satisfies the checklist line and
             # supplies rung-2 terms when this case has no coverage of its own.
             plan_sbc, plan_cov = await plan_sbc_state(s, case.user_id)
@@ -1156,11 +1160,25 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
 
     findings: list[FindingOut] = []
     three_numbers: dict | None = None
+    from app.sources.finding_prose import clean_finding_payloads
+
+    pending_line = orchestration_step("finding.pending_input")
+    if pending_line.startswith("<MISSING"):
+        pending_line = None
+    first_name, last_name = (holder[0], holder[1]) if case is not None and holder else (None, None)
     for f in rows:
         # Same defensive-read rule as citations, one level up (2026-08-19 dev sweep: an
         # agent stored the literal STRING 'null' as a recommendation, and the strict
         # FindingOut 500'd the audit fetch — `or {}` doesn't save you from a truthy string).
         facts = as_dict(f.facts) or {}
+        # User-facing prose hygiene (2026-09-23 minors): analyst-speak sentences go, the
+        # account holder's own name becomes "you" — at projection only; rows keep the agent's words.
+        facts, legal_projected, rec_projected, scrubbed = clean_finding_payloads(
+            facts, as_dict(f.legal_claim), as_dict(f.recommendation),
+            first_name=first_name, last_name=last_name, pending_line=pending_line,
+        )
+        if scrubbed:
+            log.info("orchestrator.finding_prose_scrubbed", case_file_id=case_file_id, category=f.category)
         # Citations live inside legal_claim["citations"] (Finding has no
         # separate citations column — see app/tools/db_tools.py).
         raw_citations = []
@@ -1178,8 +1196,8 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
                     subagent_source=f.subagent_source or "unknown",
                     voice_tier=f.voice_tier or "B",
                     facts=facts,
-                    legal_claim=as_dict(f.legal_claim),
-                    recommendation=as_dict(f.recommendation),
+                    legal_claim=legal_projected,
+                    recommendation=rec_projected,
                     citations=citations,
                 )
             )

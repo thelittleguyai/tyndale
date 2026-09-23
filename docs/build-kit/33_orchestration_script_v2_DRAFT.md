@@ -220,6 +220,11 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 | `retrieval.unavailable_notice` | eng | I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact. |
 | `call_mode.number_on_card` | eng | Use the number on the back of your insurance card. |
 | `call_mode.number_on_bill` | eng | Use the phone number printed on your bill. |
+| `finding.pending_input` | eng | I need one more thing to firm this up. It's on your checklist. |
+| `app.not_found_title` | eng | That page isn't here. |
+| `app.not_found_body` | eng | The link may be old, or the address has a typo. Your bills and your record are one tap away. |
+| `app.not_found_cta` | eng | Go to my home screen |
+| `intake.bill.gloss_eob` / `intake.readiness.gloss_eob` / `intake.limits.gloss_eob` | packet §A2 | (the EOB gloss, on the three screens that now say "Explanation of Benefits (EOB)" instead of "insurer's statement") |
 | `finding.no_dollar_change` | eng | No dollar change — still worth fixing. |
 | `gameplan.moment_headline` | eng | Your game plan is ready. |
 | `gameplan.moment_cta` | eng | See your game plan |
@@ -301,7 +306,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.bill.gloss_itemized` | eng | Itemized means each charge is on its own line, with a short code next to it. |
 | `intake.bill.primary` | eng | Add my bill |
 | `intake.bill.no_bill` | packet §B2 | I don't have the bill |
-| `intake.bill.no_bill_note` | packet §B2 | That's okay. We can start with your insurer's statement. |
+| `intake.bill.no_bill_note` | packet §B2 | That's okay. We can start with your Explanation of Benefits (EOB). |
 | `intake.bill_itemized.title` | packet §C5 | This bill is a summary. |
 | `intake.bill_itemized.gloss_itemized` | eng | Itemized means each charge is on its own line, with a short code next to it. |
 | `intake.bill_itemized.primary` | eng | Add the itemized bill |
@@ -431,24 +436,24 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.readiness.cannot_run` | eng | Add a bill or an insurer statement first. I need one of them to check. |
 | `intake.readiness.item_bill` | eng | Your bill |
 | `intake.readiness.item_itemized_bill` | eng | A bill with each charge listed |
-| `intake.readiness.item_eob` | eng | Your insurer's statement |
+| `intake.readiness.item_eob` | eng | Your Explanation of Benefits (EOB) |
 | `intake.readiness.item_payer` | eng | Your insurer |
 | `intake.readiness.item_plan_rules` | eng | Your plan's rulebook |
 | `intake.readiness.item_plan_year_start` | eng | When your plan year starts |
-| `intake.readiness.item_eob_completeness` | eng | All your insurer statements |
+| `intake.readiness.item_eob_completeness` | eng | All your EOBs |
 | `intake.readiness.item_deductible_met` | eng | What you had paid before this visit |
 | `intake.readiness.item_oop_max_met` | eng | What counted toward your yearly limit |
 | `intake.readiness.item_coverage_type` | eng | Your kind of coverage |
 | `intake.readiness.item_attestation` | eng | Who the bill is for |
 | `intake.readiness.item_other_insurance` | eng | A second health plan |
 | `intake.readiness.item_encounter_facts` | eng | Facts about your visit |
-| `intake.limits.no_bill` | eng | No bill yet. I can only check your insurer's statement. |
+| `intake.limits.no_bill` | eng | No bill yet. I can only check your Explanation of Benefits (EOB). |
 | `intake.limits.summary_bill` | packet §C5 | This bill shows totals only. I can't check each charge. |
-| `intake.limits.no_eob` | packet §B6 | No insurer statement. I can't check your insurer's math. |
+| `intake.limits.no_eob` | packet §B6 | No EOB. I can't check your insurer's math. |
 | `intake.limits.no_payer` | eng | I don't know your insurer. Some plan rules can't be checked. |
 | `intake.limits.no_plan_rules` | packet §B8 | No plan rulebook. Your share becomes a range. |
 | `intake.limits.no_plan_year` | packet §A7 | I don't know when your plan year starts. I can't place your visit in the year. |
-| `intake.limits.incomplete_eobs` | packet §A7 | Some insurer statements may be missing. Your share becomes a range. |
+| `intake.limits.incomplete_eobs` | packet §A7 | Some EOBs may be missing. Your share becomes a range. |
 | `intake.limits.no_accumulator` | packet §A6 | I don't know what you had paid so far. Your share becomes a range. |
 | `intake.limits.no_coverage_type` | eng | I don't know your kind of coverage. I will use the common rules. |
 | `intake.limits.no_other_insurance` | eng | I don't know if you have a second plan. |

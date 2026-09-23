@@ -36,7 +36,10 @@ export function ThreadVerification({
           onNote={(n) => onNote(item.line_item_id, n)}
         />
       ))}
-      <Text className="mt-1 text-xs italic text-faint">{payload.nudge}</Text>
+      {/* the nudge asks for taps that are still owed — gone once every card is answered (2026-09-23) */}
+      {payload.line_items.some((item) => !drafts[item.line_item_id]?.response) ? (
+        <Text className="mt-1 text-xs italic text-faint" testID="verification-nudge">{payload.nudge}</Text>
+      ) : null}
     </View>
   );
 }

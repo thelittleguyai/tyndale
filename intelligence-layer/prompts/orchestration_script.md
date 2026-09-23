@@ -379,6 +379,22 @@ drift guard (nothing in his file to compare against).
 <!-- UNMAPPED — e2e 2026-09-23 M2; PROPOSED interim seed (engineering). The provider-call twin: no number extracted → point at the bill. -->
 [A] Use the phone number printed on your bill.
 
+## finding.pending_input
+<!-- UNMAPPED — e2e 2026-09-23 minor; PROPOSED interim seed (engineering). Stands in for an analyst-speak sentence ("omitted from primary finding until confirmed") when nothing user-facing is left of it. -->
+[A] I need one more thing to firm this up. It's on your checklist.
+
+## app.not_found_title
+<!-- UNMAPPED — e2e 2026-09-23 minor; PROPOSED interim seed (engineering). Replaces Expo's default "Unmatched Route" page. Rendered before any sign-in, via the `app` copy surface. -->
+[A] That page isn't here.
+
+## app.not_found_body
+<!-- UNMAPPED — e2e 2026-09-23 minor; PROPOSED interim seed (engineering). -->
+[A] The link may be old, or the address has a typo. Your bills and your record are one tap away.
+
+## app.not_found_cta
+<!-- UNMAPPED — e2e 2026-09-23 minor; PROPOSED interim seed (engineering). -->
+[A] Go to my home screen
+
 ## finding.no_dollar_change
 <!-- UNMAPPED — e2e 2026-09-23 M1; PROPOSED interim seed (engineering). The amount line on a finding card whose finding carries no dollar gap — a real error still worth fixing. -->
 [A] No dollar change — still worth fixing.
@@ -895,7 +911,11 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 
 ## intake.bill.no_bill_note
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B2 line -->
-[A] That's okay. We can start with your insurer's statement.
+[A] That's okay. We can start with your Explanation of Benefits (EOB).
+
+## intake.bill.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line (the bill screen names the EOB in its no-bill note) -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
 
 
 ## — intake.bill_itemized · #3 summary-bill coaching (body = §5.2's dataquality_summary_not_itemized, reused)
@@ -1468,8 +1488,12 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 [A] A bill with each charge listed
 
 ## intake.readiness.item_eob
-<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
-[A] Your insurer's statement
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed. A2 (2026-09-23): the document's printed name, glossed on this screen -->
+[A] Your Explanation of Benefits (EOB)
+
+## intake.readiness.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
 
 ## intake.readiness.item_payer
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
@@ -1485,7 +1509,7 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 
 ## intake.readiness.item_eob_completeness
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
-[A] All your insurer statements
+[A] All your EOBs
 
 ## intake.readiness.item_deductible_met
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
@@ -1516,7 +1540,11 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 
 ## intake.limits.no_bill
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
-[A] No bill yet. I can only check your insurer's statement.
+[A] No bill yet. I can only check your Explanation of Benefits (EOB).
+
+## intake.limits.gloss_eob
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line (limits lines render on the readiness screen) -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
 
 ## intake.limits.summary_bill
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §C5 line -->
@@ -1524,7 +1552,7 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 
 ## intake.limits.no_eob
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B6 line -->
-[A] No insurer statement. I can't check your insurer's math.
+[A] No EOB. I can't check your insurer's math.
 
 ## intake.limits.no_payer
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
@@ -1540,7 +1568,7 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 
 ## intake.limits.incomplete_eobs
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A7 line -->
-[A] Some insurer statements may be missing. Your share becomes a range.
+[A] Some EOBs may be missing. Your share becomes a range.
 
 ## intake.limits.no_accumulator
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A6 line -->

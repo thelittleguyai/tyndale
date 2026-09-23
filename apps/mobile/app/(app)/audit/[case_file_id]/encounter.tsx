@@ -28,6 +28,7 @@ import {
   getLineItems,
   submitConfirmations,
 } from '../../../../lib/api-client';
+import { splitTranslation } from '../../../../lib/line-item-copy';
 import { useThemeColors } from '../../../../theme/useThemeColors';
 
 // `suggested` (D4b): the answer was pre-selected by the free-text mapper and is awaiting a
@@ -259,6 +260,7 @@ export function LineItemCard({
 }) {
   const tc = useThemeColors();
   const answered = draft.response !== null;
+  const translation = splitTranslation(item.plain_language_translation);
   return (
     <View
       className={`mb-3 rounded-card border p-4 ${
@@ -271,8 +273,8 @@ export function LineItemCard({
 
       {/* Heading row: code · name · billed amount (redesign §3). */}
       <View className="mb-2 flex-row items-center justify-between gap-2">
-        <Text className="flex-1 text-body font-medium text-primary" numberOfLines={1}>
-          {item.code} · {item.plain_language_translation}
+        <Text className="flex-1 text-body font-medium text-primary" numberOfLines={2}>
+          {item.code} · {translation.headline}
         </Text>
         {item.billed_amount != null ? (
           <Text className="text-body text-primary">
@@ -281,9 +283,13 @@ export function LineItemCard({
         ) : null}
       </View>
 
-      {/* One body sentence; the explainer + typical-scenarios collapse behind a Disclosure. */}
-      {item.plain_language_context || item.example_scenarios?.length ? (
+      {/* One body sentence; the explainer + typical-scenarios collapse behind a Disclosure —
+          and so does the rest of a long/clinical translation (2026-09-23 minor). */}
+      {translation.rest || item.plain_language_context || item.example_scenarios?.length ? (
         <Disclosure summary="Show what this usually looks like">
+          {translation.rest ? (
+            <Text className="mb-1 text-caption leading-5 text-secondary">{translation.rest}</Text>
+          ) : null}
           {item.plain_language_context ? (
             <Text className="text-caption italic leading-5 text-secondary">
               {item.plain_language_context}

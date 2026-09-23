@@ -135,7 +135,10 @@ export function FindingCard({
         </View>
       ) : null}
 
-      {typeof lc.claim === 'string' ? (
+      {/* A [B] sentence renders ONLY with its citation chip (2026-09-23 minor): the server
+          downgrades an unsourced claim, and this is the belt — a rule-based claim with no
+          source is not printed as a claim; the no-source line below says so instead. */}
+      {typeof lc.claim === 'string' && (finding.has_source || finding.tier !== 'rule_based') ? (
         <Text className="mb-2 text-body leading-6 text-primary">
           {lc.claim}
           {typeof lc.marker === 'string' ? (
