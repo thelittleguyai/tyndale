@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 import structlog
 
+from app.crons._cron_util import run_status
 from app.crons.registry import get_cron, list_crons
 from app.db.base import AsyncSessionLocal
 from app.db.models.cron_run_log import CronRunLog
@@ -46,6 +47,8 @@ async def run_cron(cron_name: str) -> int:
     try:
         result = await fn()
         summary = result if isinstance(result, dict) else {"result": str(result)}
+        # a cron that finished but could not do all of its work says so (e2e re-test item 6)
+        status = run_status(summary)
     except Exception as exc:  # noqa: BLE001 — record the failure + exit non-zero
         status, error = "failed", str(exc)
         log.error("cron.scheduled.failed", cron_name=cron_name, run_id=str(run_id), error=error)
@@ -60,7 +63,8 @@ async def run_cron(cron_name: str) -> int:
             await s.commit()
 
     log.info("cron.scheduled.done", cron_name=cron_name, run_id=str(run_id), status=status)
-    return 0 if status == "success" else 1
+    # partial is recorded, not retried: the job's single retry would redo the whole run
+    return 0 if status in ("success", "partial") else 1
 
 
 def main() -> int:

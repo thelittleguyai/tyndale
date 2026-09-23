@@ -44,8 +44,11 @@ def _run_dict(r: CronRunLog) -> dict:
 async def _run_and_record(name: str, run_id) -> None:
     status, err, summary = "success", None, None
     try:
+        from app.crons._cron_util import run_status
+
         result = await CRON_REGISTRY[name]["fn"]()
         summary = result if isinstance(result, dict) else {"result": str(result)}
+        status = run_status(summary)
     except Exception as e:  # noqa: BLE001 — captured into the run log, never propagated
         status, err = "failed", str(e)
     async with AsyncSessionLocal() as s:

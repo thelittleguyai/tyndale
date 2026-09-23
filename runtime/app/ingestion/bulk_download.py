@@ -70,6 +70,11 @@ class DownloadResult(BaseModel):
     last_modified: datetime.datetime | None = None
     sha256: str
     bytes_downloaded_this_run: int  # 0 == served from cache
+    # e2e re-test 2026-09-23 item 6 — what the run log records: "skipped_unchanged" (the source's
+    # Last-Modified matched the sidecar; nothing fetched or written) or "written".
+    outcome: str = "written"
+    # on a write: did the bytes actually change (sha256 vs the previous sidecar)?
+    content_changed: bool | None = None
 
 
 class BulkDownloader:
@@ -139,15 +144,24 @@ class BulkDownloader:
                     last_modified=_parse_http_date(remote_lm),
                     sha256=meta.get("sha256", ""),
                     bytes_downloaded_this_run=0,
+                    outcome="skipped_unchanged",
                 )
 
-            # Resume: continue from however much we already have (Range).
+            # Resume: continue from however much we already have (Range) — only when what we
+            # have is a prefix of THIS version of the source. A sidecar naming another version
+            # (a finished older file, or a partial of one) means start over; no sidecar at all
+            # is a partial from before sidecars were kept, resumed as before.
             start = 0
-            if resumable and head.get("accept_ranges") and await self._blob.exists(blob_path):
-                start = await self._blob.size(blob_path)
+            same_version = meta is None or meta.get("partial_last_modified") == remote_lm
+            if resumable and head.get("accept_ranges") and same_version:
+                start = await self._blob.appendable_size(blob_path)
                 total = head.get("size")
                 if total and start >= total:
                     start = 0  # already complete-but-no-sidecar: re-fetch to verify
+            previous_sha = (meta or {}).get("sha256")
+            # From the first byte on, the blob is a (partial) copy of THIS version: say so, so a
+            # run that dies mid-stream resumes it rather than skipping it.
+            await self._write_meta(blob_path, {"partial_last_modified": remote_lm})
 
             downloaded = await self._stream(client, source_url, blob_path, start)
 
@@ -162,6 +176,8 @@ class BulkDownloader:
                 last_modified=_parse_http_date(remote_lm),
                 sha256=sha,
                 bytes_downloaded_this_run=downloaded,
+                outcome="written",
+                content_changed=(sha != previous_sha) if previous_sha else None,
             )
         finally:
             if owns:
@@ -185,12 +201,17 @@ class BulkDownloader:
             await asyncio.sleep(self._throttle)
             async with client.stream("GET", url, headers=headers, follow_redirects=True) as resp:
                 resp.raise_for_status()
-                append = start > 0 and resp.status_code == 206  # partial content honored
-                first = True
-                async for chunk in resp.aiter_bytes(_CHUNK):
-                    await self._blob.write_bytes(blob_path, chunk, append=append or not first)
-                    first = False
-                    downloaded += len(chunk)
+                resume = start > 0 and resp.status_code == 206  # partial content honored
+                # ONE streamed writer per download (a real append on Azure — see
+                # blob_storage._AzureBlockWriter; the per-chunk write_bytes(append=True) was
+                # BlobAlreadyExists on the second MiB of every file).
+                writer = await self._blob.open_writer(blob_path, resume=resume)
+                try:
+                    async for chunk in resp.aiter_bytes(_CHUNK):
+                        await writer.write(chunk)
+                        downloaded += len(chunk)
+                finally:
+                    await writer.close()  # commit what arrived — the next run resumes from it
         return downloaded
 
     async def _read_meta(self, blob_path: str) -> dict | None:

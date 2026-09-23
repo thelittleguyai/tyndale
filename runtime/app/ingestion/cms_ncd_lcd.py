@@ -27,6 +27,9 @@ log = structlog.get_logger(__name__)
 CMS_BULK_BASE = "https://downloads.cms.gov/medicare-coverage-database/downloads/exports"
 CMS_BULK_ALL_DATA_URL = f"{CMS_BULK_BASE}/all_data.zip"
 CMS_BULK_LCD_URL = f"{CMS_BULK_BASE}/current_lcd.zip"
+# Consecutive policies Voyage refused to embed before the run stops (each one already spent
+# the embedding client's full backoff).
+MAX_CONSECUTIVE_EMBED_OUTAGES = 3
 
 # Code-extraction regexes (facts on the public-domain source; DL-54: numbers only).
 _CPT_RE = re.compile(r"\b\d{5}\b")
@@ -145,14 +148,26 @@ async def ingest_from_bulk(
     from app.ingestion.extract_policy import extract_policy
     from app.ingestion.parsers.cms_mcd import CmsMcdParser
 
+    from app.knowledge.embeddings import EmbeddingUnavailable
+
     blob = blob or BlobStorage()
+    download: dict[str, Any] | None = None
     if blob_path is None:
         dl = downloader or BulkDownloader(blob)
         res = await dl.download(source_url, "cms-mcd/all_data.zip")
         blob_path = res.blob_path
+        # the run log says whether this run fetched anything (e2e re-test 2026-09-23 item 6)
+        download = {
+            "outcome": res.outcome,
+            "bytes_downloaded": res.bytes_downloaded_this_run,
+            "size_bytes": res.size_bytes,
+            "content_changed": res.content_changed,
+        }
 
     results: list[dict] = []
     chunks_total = 0
+    stopped_early: str | None = None
+    embed_outages = 0
     async for rec in CmsMcdParser().parse_file(blob_path, blob):
         if sample_limit is not None and len(results) >= sample_limit:
             break
@@ -163,16 +178,27 @@ async def ingest_from_bulk(
             n = await embed_and_upsert(chunks)
             results.append({"policy_id": doc.policy_id, "ok": True, "chunks": n})
             chunks_total += n
+            embed_outages = 0
         except Exception as e:  # noqa: BLE001 — per-policy isolation
             log.warning("cms_bulk.policy_failed", policy_id=rec.policy_id, error=str(e))
             results.append(
                 {"policy_id": f"{rec.policy_type}-{rec.policy_id}", "ok": False, "error": str(e)}
             )
+            # Voyage refusing every embedding is not a per-policy problem: each failure
+            # already spent the client's full backoff, and 250 of them outlast the job's
+            # timeout. Stop, say why, and let the next run pick the batch up.
+            embed_outages = embed_outages + 1 if isinstance(e, EmbeddingUnavailable) else 0
+            if embed_outages >= MAX_CONSECUTIVE_EMBED_OUTAGES:
+                stopped_early = "embeddings_unavailable"
+                log.error("cms_bulk.stopped_early", reason=stopped_early, attempted=len(results))
+                break
 
     return {
         "attempted": len(results),
         "succeeded": sum(1 for r in results if r["ok"]),
         "failed": sum(1 for r in results if not r["ok"]),
         "chunks_upserted": chunks_total,
+        "download": download,
+        "stopped_early": stopped_early,
         "results": results,
     }

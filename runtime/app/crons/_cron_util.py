@@ -45,3 +45,10 @@ def load_top_100_hospitals() -> list[dict]:
 
 def load_tier1_payer_indices() -> list[dict]:
     return _load_csv("tier1_payer_tic_indices.csv")
+
+
+def run_status(summary: dict | None) -> str:
+    """The cron_run_log status for a cron that RETURNED: "partial" when its own summary says so
+    (it finished but could not do all of its work — e2e re-test 2026-09-23 item 6), else
+    "success". A cron that raised is "failed" (the callers' except path)."""
+    return "partial" if isinstance(summary, dict) and summary.get("status") == "partial" else "success"

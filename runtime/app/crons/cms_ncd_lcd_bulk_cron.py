@@ -35,19 +35,26 @@ async def run_cms_ncd_lcd_bulk_cron() -> dict:
             error=str(e),
         )
         raise
+    download = report.get("download") or {}
     payload = {
         "phase": "co-2a.1",
         "started_at": started.isoformat(),
+        # e2e re-test 2026-09-23 item 6: did this run fetch the bulk ZIP, or was it unchanged?
+        "download_outcome": download.get("outcome"),
+        "bytes_downloaded": download.get("bytes_downloaded"),
+        "content_changed": download.get("content_changed"),
         "attempted": report["attempted"],
         "succeeded": report["succeeded"],
         "failed": report["failed"],
         "chunks_upserted": report["chunks_upserted"],
+        "stopped_early": report.get("stopped_early"),
         "max_policies_per_run": MAX_POLICIES_PER_RUN,
     }
-    if report["failed"]:
+    partial = bool(report["failed"] or report.get("stopped_early"))
+    if partial:
         log.warning("cron.cms_bulk.partial", **payload)
-    await audit_cron_run(
-        "cron:cms_ncd_lcd_bulk", "success" if not report["failed"] else "error", payload
-    )
+    await audit_cron_run("cron:cms_ncd_lcd_bulk", "success" if not partial else "error", payload)
     log.info("cron.cms_bulk.done", **payload)
-    return report
+    # the run log's status says it too (crons/__main__ and the admin trigger honour "partial"):
+    # a run whose downloads worked but whose policies failed is not a "success"
+    return {**report, **({"status": "partial"} if partial else {})}
