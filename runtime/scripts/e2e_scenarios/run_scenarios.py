@@ -379,6 +379,20 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
     return status  # last seen (a timeout — reported as a mismatch)
 
 
+def _mark_pause(client: httpx.Client, base_url: str, case_id: str) -> None:
+    """Snapshot the thread at a moment the machine is NOT working — the verification pause —
+    right before the harness itself triggers the next machine phase. The pause is never
+    polled (extraction is a synchronous GET and the confirmations POST starts the audit), so
+    without this the first poll of `audit_running` would count the verification cards the
+    user answered as content posted beneath the spinning card (dev, 2026-09-23)."""
+    try:
+        thread = _fetch_thread(client, base_url, case_id)
+    except Exception:  # noqa: BLE001 — an observation, never a stop
+        return
+    if thread is not None:
+        _working_phase_baseline[case_id] = {_entry_id(m) for m in thread}
+
+
 def _working_phase_checks(case_id: str) -> list[str]:
     """B4's assertion: no renderable assistant content APPEARED while ANY machine phase was running."""
     _working_phase_baseline.pop(case_id, None)
@@ -1000,6 +1014,7 @@ def run_scenario(
             timings["intake_s"] = round(time.monotonic() - t, 1)
             terminal = f"guided:{seen[-1] if seen else 'none'}"
             if not fails and seen and seen[-1] == "READY":
+                _mark_pause(client, base_url, case_id)
                 run = client.post(f"{base_url}/v1/intake/run", json={"case_file_id": case_id}, timeout=120)
                 if run.status_code != 200:
                     fails.append(f"intake/run {run.status_code}: {run.text[:160]}")
@@ -1065,6 +1080,7 @@ def run_scenario(
             audit = _get_audit(client, base_url, case_id)
         # The other honest-failure states are terminal at extract — no encounter/audit.
         elif terminal not in ("extraction_failed", "not_a_bill"):
+            _mark_pause(client, base_url, case_id)
             _confirm(client, base_url, case_id, extract, scenario.get("encounter", {}))
             t = time.monotonic()
             terminal = _poll_status(client, base_url, case_id)

@@ -384,6 +384,17 @@ def test_harness_flags_content_rendered_beneath_a_working_status_card():
     baseline = {mod._entry_id(m) for m in leaky[:-1]}
     assert mod._renderable_while_working(leaky, baseline) == ["message:'Here is what I found so far'"]
     assert mod._renderable_while_working([{"kind": "system_message", "payload": {"marker": "audit_start"}}]) == []
+    # the pause snapshot: what the thread holds when the harness fires the audit is the baseline
+    mod._working_phase_baseline.clear()
+    mod._mark_pause(SimpleNamespace(get=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down"))), "http://x", "case-p")
+    assert "case-p" not in mod._working_phase_baseline  # a failed read snapshots nothing
+    monkeypatch_fetch = mod._fetch_thread
+    mod._fetch_thread = lambda *_a, **_k: leaky[:-1]
+    try:
+        mod._mark_pause(None, "http://x", "case-p")
+    finally:
+        mod._fetch_thread = monkeypatch_fetch
+    assert mod._renderable_while_working(leaky, mod._working_phase_baseline["case-p"]) == ["message:'Here is what I found so far'"]
     mod._working_phase_leaks["case-x"] = ["in_progress: system_message:'dataquality:partial'"]
     assert mod._working_phase_checks("case-x") and mod._working_phase_checks("case-x") == []  # consumed once
     assert "in_progress" in mod.MACHINE_WORKING
