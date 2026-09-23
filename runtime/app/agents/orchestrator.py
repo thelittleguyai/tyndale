@@ -1489,6 +1489,14 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
 
     bd_tool_calls: int | None = None
     if use_real:
+        # e2e 2026-09-23 B4: reading + classifying the documents is a MACHINE phase like the
+        # audit. `open` already reads as working, but a case's status can be anything a prior
+        # run left ("extraction_failed" on a re-upload, an old "encounter_verification_pending"
+        # while a new document is read): a CAS to `in_progress` makes every reconcile during
+        # extraction render only the status card, whatever the case was doing before.
+        for prior in ("open", "extraction_failed", "not_a_bill", "encounter_verification_pending"):
+            if await _set_status(case_file_id, "in_progress", expected_status=prior):
+                break
         log.info("orchestrator.extract.real", case_file_id=case_file_id)
         bd = await bill_detective.run(case_file_id, mode="translate")
         bd_tool_calls = len(bd.tool_calls)

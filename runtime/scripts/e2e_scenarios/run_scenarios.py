@@ -299,11 +299,43 @@ def _confirm(client: httpx.Client, base_url: str, case_id: str, extract: dict, e
     r.raise_for_status()
 
 
+# Case statuses in which the machine is working (mirror of thread_bridge._MACHINE_WORKING).
+MACHINE_WORKING = {"open", "in_progress", "encounter_verified", "audit_running"}
+# What the thread MAY carry while the machine works: the status card, the acknowledgment,
+# the record frame, and an attest request (it renders before verification by design).
+_ALLOWED_WHILE_WORKING = {"status_card_update", "attest_request"}
+_ALLOWED_SYSTEM_MARKERS = {"ack", "record_first_upload", "attest"}
+
+# collected across a run: every thread entry seen while the case was in a machine phase
+_working_phase_leaks: dict[str, list[str]] = {}
+
+
+def _renderable_while_working(messages: list[dict] | None) -> list[str]:
+    """Entries a user would SEE beneath a spinning status card (e2e 2026-09-23 B4) — the
+    data-quality bubble, analysis text, verification cards, moment cards. [] when clean."""
+    leaks: list[str] = []
+    for m in messages or []:
+        kind = m.get("kind")
+        if kind in _ALLOWED_WHILE_WORKING:
+            continue
+        payload = m.get("payload") if isinstance(m.get("payload"), dict) else {}
+        if kind == "system_message" and payload.get("marker") in _ALLOWED_SYSTEM_MARKERS:
+            continue
+        if kind == "message" and m.get("role") == "user":
+            continue
+        leaks.append(f"{kind}:{payload.get('marker') or (m.get('content') or '')[:40]!r}")
+    return leaks
+
+
 def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
     """Poll to a STABLE terminal: two consecutive identical reads. The dev sweep
     (collections_only, 2026-08-17) caught `extraction_failed` on a single read while the
     state machine was still advancing to `audit_incomplete` — one extra 4s read makes the
-    harness assert settled truth instead of a transition frame."""
+    harness assert settled truth instead of a transition frame.
+
+    While the status is a MACHINE phase (extraction, verified → audit, audit running), the
+    thread is read too and anything renderable is recorded as a leak (B4: the data-quality
+    bubble rendered under the spinning card during extraction)."""
     terminal = {"audit_complete", "audit_incomplete", "extraction_failed", "resolved", "archived"}
     deadline = time.monotonic() + POLL_TIMEOUT_S
     status, prev = "audit_running", None
@@ -311,11 +343,26 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
         r = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30)
         r.raise_for_status()
         status = r.json()["status"]
+        if status in MACHINE_WORKING:
+            try:
+                leaks = _renderable_while_working(_fetch_thread(client, base_url, case_id))
+            except Exception:  # noqa: BLE001 — the thread read is an observation, never a stop
+                leaks = []
+            if leaks:
+                _working_phase_leaks.setdefault(case_id, []).extend(f"{status}: {x}" for x in leaks)
         if status in terminal and status == prev:
             return status
         prev = status
         time.sleep(POLL_INTERVAL_S)
     return status  # last seen (a timeout — reported as a mismatch)
+
+
+def _working_phase_checks(case_id: str) -> list[str]:
+    """B4's assertion: no renderable assistant content while ANY machine phase was running."""
+    leaks = sorted(set(_working_phase_leaks.pop(case_id, [])))
+    if not leaks:
+        return []
+    return [f"content rendered beneath a working status card: {', '.join(leaks[:6])}"]
 
 
 def _get_audit(client: httpx.Client, base_url: str, case_id: str) -> dict:
@@ -939,6 +986,7 @@ def run_scenario(
                     timings["audit_s"] = round(time.monotonic() - t, 1)
                     audit = _get_audit(client, base_url, case_id)
                     fails += _check(scenario, terminal, {"status": terminal, "line_items": []}, audit)
+                    fails += _working_phase_checks(case_id)
                     # §C14 — "checking both sides" has to LAND: every finding names a side
                     for f in (audit or {}).get("findings") or []:
                         if f.get("responsible_party") not in ("provider", "payer", "either"):
@@ -1000,7 +1048,7 @@ def run_scenario(
             timings["audit_s"] = round(time.monotonic() - t, 1)
             audit = _get_audit(client, base_url, case_id)
 
-        fails = pre_fails + _check(scenario, terminal, extract, audit)
+        fails = pre_fails + _check(scenario, terminal, extract, audit) + _working_phase_checks(case_id)
         if exp.get("ledgered_gap"):
             # A scenario asserting deliberately-gated behavior names its ledger entry so the
             # gap stays VISIBLE in every run's output, never buried in a green row. An

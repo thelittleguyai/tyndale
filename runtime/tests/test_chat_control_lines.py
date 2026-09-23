@@ -48,7 +48,7 @@ def test_both_in_one_message_in_either_order_and_the_last_occurrence_wins():
     text = f'Answer.\nCTA: create_case\nSUGGESTED: ["A", "B"]\n{FOOTER}\nSUGGESTED: ["C"]'
     clean, replies, cta = extract_directives(text)
     assert replies == ["C"] and cta == "create_case" and clean == f"Answer.\n{FOOTER}"
-    text = f'Answer.\n`SUGGESTED: ["A"]`\n\n```\nCTA: create_case\n```'
+    text = 'Answer.\n`SUGGESTED: ["A"]`\n\n```\nCTA: create_case\n```'
     clean, replies, cta = extract_directives(text)
     assert replies == ["A"] and cta == "create_case" and clean == "Answer."
 

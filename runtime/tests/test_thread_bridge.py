@@ -213,6 +213,49 @@ async def test_machine_working_renders_only_the_status_card(client: AsyncClient,
     assert card.payload["paused"] is True
 
 
+@pytest.mark.asyncio
+async def test_every_machine_phase_holds_content_and_extraction_is_one(client: AsyncClient, chat_first_on):
+    """e2e 2026-09-23 B4: the data-quality bubble rendered beneath the spinning card during
+    EXTRACTION. Every machine phase — reading the documents (open / in_progress), verified,
+    audit running — renders only the status card (+ ack / attest); and extraction now marks
+    the case `in_progress` itself, whatever status a prior run left, so no reconcile during
+    a read can see a paused/terminal status and post content early."""
+    from app.agents import orchestrator
+
+    case_id, conv_id = await _upload_new_case(client)
+    partial_docs = [
+        {**_UMC_SUMMARY_DOC, "extraction_status": "extracted", "ocr_text_chars": 900, "filename": "bill.pdf"},
+        {"filename": "eob.pdf", "document_type": "eob", "extraction_status": "error", "ocr_text_chars": 0},
+    ]
+    for phase in ("open", "in_progress", "encounter_verified", "audit_running"):
+        await _set_case(case_id, status=phase, line_items=[_li("99213")], documents=partial_docs,
+                        regime_detection={"handoff": "pace"})
+        await thread_bridge.bridge_case_state(case_id)
+        msgs = await _messages(conv_id)
+        assert not any((m.payload or {}).get("data_quality") for m in msgs), phase
+        assert not any(m.kind in ("verification_request", "moment_card") for m in msgs), phase
+        assert not any((m.payload or {}).get("handoff") for m in msgs), phase
+
+    # a re-read of a case a prior run left paused: extraction's CAS puts it back to work
+    await _set_case(case_id, status="encounter_verification_pending")
+    assert await orchestrator._set_status(case_id, "in_progress", expected_status="encounter_verification_pending")
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    assert not any((m.payload or {}).get("data_quality") for m in msgs)
+    card = next(m for m in msgs if m.kind == "status_card_update")
+    assert card.payload["paused"] is False and card.payload["stages"][0]["state"] == "active"
+    # …and a terminal-but-wrong status is NOT hijacked: the CAS refuses when the case moved on
+    await _set_case(case_id, status="audit_complete")
+    assert not await orchestrator._set_status(case_id, "in_progress", expected_status="open")
+
+    # the first pause renders everything from the same DB state
+    await _set_case(case_id, status="encounter_verification_pending")
+    await thread_bridge.bridge_case_state(case_id)
+    msgs = await _messages(conv_id)
+    assert any((m.payload or {}).get("data_quality", {}).get("kind") == "partial_read" for m in msgs)
+    assert any(m.kind == "verification_request" for m in msgs)
+
+
 def test_status_card_paused_only_when_awaiting_user_input():
     for status in ("encounter_verification_pending", "awaiting_eob_confirmation"):
         assert thread_bridge.status_card_payload(status)["paused"] is True

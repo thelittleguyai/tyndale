@@ -351,3 +351,35 @@ def test_harness_fails_a_scenario_that_expects_retrieval_when_any_knowledge_call
     scenarios = pathlib.Path(__file__).resolve().parents[1] / "scripts/e2e_scenarios/scenarios"
     tagged = [p.stem for p in scenarios.glob("*.json") if json.loads(p.read_text()).get("expects_retrieval")]
     assert {"upcoded_em_level", "unbundled_panel", "s07_knee_arthroscopy", "clean_bill_matching_eob"} <= set(tagged)
+
+
+def test_harness_flags_content_rendered_beneath_a_working_status_card():
+    """B4 (2026-09-23): the harness reads the thread during every machine phase and fails a
+    scenario whose thread carried renderable content while the card was spinning."""
+    import importlib.util
+    import pathlib
+    import sys
+
+    here = pathlib.Path(__file__).resolve().parents[1] / "scripts/e2e_scenarios"
+    sys.path.insert(0, str(here))
+    spec = importlib.util.spec_from_file_location("run_scenarios_b4", here / "run_scenarios.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    clean = [
+        {"kind": "status_card_update", "payload": {"stages": []}},
+        {"kind": "system_message", "payload": {"marker": "ack"}, "content": "Got your bill."},
+        {"kind": "attest_request", "payload": {"marker": "attest"}},
+        {"kind": "message", "role": "user", "content": "hi"},
+    ]
+    assert mod._renderable_while_working(clean) == []
+    leaky = clean + [
+        {"kind": "system_message", "payload": {"marker": "dataquality:partial", "data_quality": {"kind": "partial_read"}}, "content": "I read most of this…"},
+        {"kind": "verification_request", "payload": {}},
+        {"kind": "message", "role": "assistant", "content": "Here is what I found so far"},
+    ]
+    leaks = mod._renderable_while_working(leaky)
+    assert len(leaks) == 3 and any("dataquality:partial" in x for x in leaks)
+    mod._working_phase_leaks["case-x"] = ["in_progress: system_message:'dataquality:partial'"]
+    assert mod._working_phase_checks("case-x") and mod._working_phase_checks("case-x") == []  # consumed once
+    assert "in_progress" in mod.MACHINE_WORKING
+
