@@ -29,8 +29,8 @@
     {
       "id": "eob",
       "kind": "eob",
-      "title": "Explanation of Benefits",
-      "note": "This is not a bill",
+      "title": "Your insurer's EOB",
+      "note": "Explanation of Benefits — this is not a bill",
       "amount_label": "You may owe",
       "amount": "$1,184.60"
     },

@@ -81,16 +81,16 @@ function MiniDoc({ doc, className, style }: { doc: Doc; className?: string; styl
    (--fx, --fy) is the vector from its own centre to the ring. */
 const RING = { x: 260, y: 236 }; // on the 520 × 300 canvas
 const SLOTS: Record<string, { x: number; y: number; h: number }> = {
-  bill: { x: 6, y: 10, h: 84 },
-  eob: { x: 150, y: 0, h: 84 },
-  sob: { x: 294, y: 8, h: 86 },
-  card: { x: 400, y: 30, h: 70 },
+  bill: { x: 30, y: 4, h: 84 },
+  sob: { x: 196, y: 0, h: 86 },
+  eob: { x: 362, y: 4, h: 84 },
+  card: { x: 196, y: 108, h: 70 },
 };
 
 function FunnelStage({ cycle, reduced }: { cycle: number; reduced: boolean }) {
   return (
-    <div className="mx-auto h-[300px] w-full max-w-[520px] origin-top scale-[0.66] sm:scale-100" aria-hidden="true">
-      <div className="relative h-[300px] w-[520px]" key={cycle}>
+    <div className="relative mx-auto h-[300px] w-full max-w-[520px]" aria-hidden="true">
+      <div className="absolute left-1/2 top-0 h-[300px] w-[520px] -translate-x-1/2 scale-[0.6] sm:scale-100" style={{ transformOrigin: '50% 0' }} key={cycle}>
         {demo.documents.map((d, i) => {
           const slot = SLOTS[d.id];
           const fx = RING.x - (slot.x + 64);
@@ -244,7 +244,7 @@ export function AuditDemo() {
             </span>
             <span
               className={
-                'truncate text-[11px] font-semibold uppercase tracking-wide transition-colors sm:text-[12px] ' +
+                'text-[10px] font-semibold uppercase leading-tight tracking-wide transition-colors sm:text-[12px] ' +
                 (i === phaseIndex ? 'text-teal' : 'text-ink/45')
               }
             >

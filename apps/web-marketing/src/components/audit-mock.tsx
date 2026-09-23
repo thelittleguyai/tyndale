@@ -115,7 +115,7 @@ export function AuditMock() {
             >
               What you should actually owe
             </dt>
-            <dd className="text-2xl font-bold tabular-nums">
+            <dd className="min-w-[7.5ch] text-right text-2xl font-bold tabular-nums">
               {resolved >= 3 ? (
                 <span key={cycle} className="block text-sage-deep" style={anim('tyn-mock-row', 550)}>
                   $612.40
