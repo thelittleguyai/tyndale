@@ -1891,3 +1891,11 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## status_card.headline_needs_documents
 <!-- UNMAPPED — e2e re-test 2026-09-23 item 2; PROPOSED interim seed (engineering). The status card's header on a needs_documents terminal (the checklist sits beneath it). -->
 [A] Paused — waiting on your documents
+
+## acknowledgment_no_payer
+<!-- UNMAPPED — e2e re-test 2026-09-23 item 4; PROPOSED interim seed (engineering), his §1.4 minus its "from {payer}" clause. The acknowledgment renders at upload, under the spinning card, and the payer is only known after extraction — his full string with no payer degraded to the drop line there. -->
+[A] Got your documents — {doc_list}. Reading them now…
+
+## acknowledgment_reading
+<!-- UNMAPPED — e2e re-test 2026-09-23 item 4; PROPOSED interim seed (engineering). §1.4 when neither the payer nor the documents' types are known yet. -->
+[A] Got your documents. Reading them now…

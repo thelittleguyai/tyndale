@@ -30,7 +30,9 @@ import pathlib
 import re
 import sys
 import tempfile
+import threading
 import time
+from contextlib import contextmanager
 
 import httpx
 
@@ -332,18 +334,38 @@ def _entry_id(m: dict) -> str:
     return f"{m.get('kind')}:{m.get('role')}:{payload.get('marker') or payload.get('variant')}:{(m.get('content') or '')[:80]}"
 
 
+def _degraded_line() -> str:
+    """The registry's drop line (``degraded.missing_input``) — what a string renders when one of
+    its inputs is unknown. Read from the repo's own registry, so a reword never desyncs this."""
+    registry = pathlib.Path(__file__).resolve().parents[3] / "intelligence-layer/prompts/orchestration_script.md"
+    try:
+        text = registry.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    m = re.search(r"^## degraded\.missing_input\s*\n(?:<!--.*?-->\s*\n)?\[[ABC]\]\s*(.+?)\s*$", text, re.M | re.S)
+    return m.group(1).strip().strip('"') if m else ""
+
+
+DEGRADED_LINE = _degraded_line()
+
+
 def _renderable_while_working(messages: list[dict] | None, baseline: set[str] | None = None) -> list[str]:
     """Entries a user would SEE beneath a spinning status card (e2e 2026-09-23 B4) that were
     NOT already in the thread before the machine phase began — the data-quality bubble,
-    analysis text, verification or moment cards posted mid-run. [] when clean."""
+    analysis text, verification or moment cards posted mid-run. An ALLOWED entry that is the
+    drop line is a leak too (e2e re-test 2026-09-23 item 4: the acknowledgment degraded to it
+    under "Reading your bill"). [] when clean."""
     leaks: list[str] = []
     for m in messages or []:
         if baseline is not None and _entry_id(m) in baseline:
             continue
         kind = m.get("kind")
+        payload = m.get("payload") if isinstance(m.get("payload"), dict) else {}
+        if DEGRADED_LINE and (m.get("content") or "").strip() == DEGRADED_LINE:
+            leaks.append(f"{kind}:{payload.get('marker')!r} is the drop line")
+            continue
         if kind in _ALLOWED_WHILE_WORKING:
             continue
-        payload = m.get("payload") if isinstance(m.get("payload"), dict) else {}
         if kind == "system_message" and payload.get("marker") in _ALLOWED_SYSTEM_MARKERS:
             continue
         if kind == "message" and m.get("role") == "user":
@@ -365,14 +387,30 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
     deadline = time.monotonic() + POLL_TIMEOUT_S
     status, prev = "audit_running", None
     while time.monotonic() < deadline:
-        r = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30)
-        r.raise_for_status()
-        status = r.json()["status"]
-        try:
-            thread = _fetch_thread(client, base_url, case_id)
-        except Exception:  # noqa: BLE001 — the thread read is an observation, never a stop
-            thread = None
-        if thread is not None:
+        status = _observe_phase(client, base_url, case_id)
+        if status in terminal and status == prev:
+            return status
+        prev = status
+        time.sleep(POLL_INTERVAL_S)
+    return status  # last seen (a timeout — reported as a mismatch)
+
+
+_observe_lock = threading.Lock()
+
+
+def _observe_phase(client: httpx.Client, base_url: str, case_id: str) -> str:
+    """ONE look at the case: its status, and — while a machine phase runs — anything that
+    appeared on the thread beneath the working card (recorded as a leak); at a pause or a
+    terminal, the thread becomes the new baseline. Returns the status."""
+    r = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30)
+    r.raise_for_status()
+    status = r.json()["status"]
+    try:
+        thread = _fetch_thread(client, base_url, case_id)
+    except Exception:  # noqa: BLE001 — the thread read is an observation, never a stop
+        thread = None
+    if thread is not None:
+        with _observe_lock:  # the extraction watcher observes from its own thread
             if status in MACHINE_WORKING:
                 baseline = _working_phase_baseline.setdefault(case_id, set())
                 leaks = _renderable_while_working(thread, baseline)
@@ -381,11 +419,40 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
             else:
                 # a pause or a terminal: whatever is on the thread now was rendered legitimately
                 _working_phase_baseline[case_id] = {_entry_id(m) for m in thread}
-        if status in terminal and status == prev:
-            return status
-        prev = status
-        time.sleep(POLL_INTERVAL_S)
-    return status  # last seen (a timeout — reported as a mismatch)
+    return status
+
+
+@contextmanager
+def _watch_extraction(client: httpx.Client, base_url: str, case_id: str, every_s: float = 2.0):
+    """The extraction phase has no poll of its own — GET /line-items runs it synchronously —
+    so a second client watches the thread WHILE it runs (e2e re-test 2026-09-23 item 4: the
+    drop line rendered under "Reading your bill", where the B4 assertion never looked).
+    Observations are best-effort: a failed look is skipped, never a stop."""
+    stop = threading.Event()
+    watcher = httpx.Client(
+        follow_redirects=True, cookies=client.cookies, headers=dict(client.headers)
+    )
+
+    def _run() -> None:
+        while not stop.is_set():
+            try:
+                _observe_phase(watcher, base_url, case_id)
+            except Exception:  # noqa: BLE001 — an observation, never a stop
+                pass
+            stop.wait(every_s)
+
+    t = threading.Thread(target=_run, name=f"extraction-watch-{case_id[:8]}", daemon=True)
+    try:
+        _observe_phase(client, base_url, case_id)  # right after upload: the ack, the spinning card
+    except Exception:  # noqa: BLE001
+        pass
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join(timeout=every_s + 35)
+        watcher.close()
 
 
 def _mark_pause(client: httpx.Client, base_url: str, case_id: str) -> None:
@@ -1081,7 +1148,8 @@ def run_scenario(
                     "timings": timings, "pass": False, "fails": [f"unexpected upload {up_status}"]}
 
         t = time.monotonic()
-        extract = _extract(client, base_url, case_id)
+        with _watch_extraction(client, base_url, case_id):
+            extract = _extract(client, base_url, case_id)
         timings["extract_s"] = round(time.monotonic() - t, 1)
 
         terminal = extract.get("status", "")

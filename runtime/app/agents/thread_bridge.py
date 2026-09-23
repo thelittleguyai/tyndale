@@ -27,7 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.context_loader import orchestration_step
+from app.agents.context_loader import DEGRADATION_KEY, orchestration_step
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
 from app.db.models.case_files import CaseFile
@@ -69,6 +69,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "status_card.headline_failed", "status_card.headline_needs_documents",
         # intake + acknowledgment
         "record_first_upload_frame", "acknowledgment", "audit_start",
+        # §1.4's variants for what is known at upload (e2e re-test 2026-09-23 item 4)
+        "acknowledgment_single_doc", "acknowledgment_no_payer", "acknowledgment_reading",
         # attest-and-proceed
         "attest.intro", "attest.decline_ack",
         # verification
@@ -464,25 +466,54 @@ async def bridge_case_state(case_file_id: str) -> None:
         log.warning("thread_bridge.reconcile_failed", case_file_id=case_file_id, exc_info=True)
 
 
+def _acknowledgment(case: CaseFile) -> str:
+    """§1.4, rendered only with what is TRUE when it renders (e2e re-test 2026-09-23 item 4).
+
+    The acknowledgment is written at upload, while the card spins on "Reading your bill" — and
+    §1.4 names the payer ("… from {payer}"), which only extraction learns. With no payer the
+    whole string degraded to the drop line ("I don't have what I need to say that part yet…"),
+    and THAT is what the re-test saw under the working card. The variant now follows what is
+    known: the payer (§1.4 verbatim) → a lone bill from a known provider (his single-document
+    variant) → the documents' types → just "reading"."""
+    docs = [d for d in (case.documents or []) if isinstance(d, dict)]
+    doc_list = _doc_types_text(docs)
+    payer = _payer_of(case)
+    if payer:
+        return orchestration_step("acknowledgment", doc_list=doc_list, payer=payer)
+    provider = case.provider_name if plausible_extracted_name(case.provider_name) else None
+    if len(docs) == 1 and docs[0].get("document_type") in ("bill", "itemized_bill") and provider:
+        return orchestration_step("acknowledgment_single_doc", provider=provider)
+    if doc_list != "document":
+        return orchestration_step("acknowledgment_no_payer", doc_list=doc_list)
+    return orchestration_step("acknowledgment_reading")
+
+
 async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) -> None:
     status = case.status
     await _upsert_status_card(
         session, conv, status_card_payload(status, incomplete_reason=case.audit_incomplete_reason)
     )
     have = await _markers(session, conv.conversation_id)
+    # Brock 2026-08-22: while the machine is working only the status card renders — and the
+    # entries that ARE allowed then (the acknowledgment, the attest prompt) must never be the
+    # drop line (e2e re-test 2026-09-23 item 4). A string that degraded for a missing input is
+    # QUEUED while the card spins: not inserted, not marked, so the first reconcile after the
+    # run pauses or ends inserts it from the same state, with whatever is known by then.
+    machine_working = status in _MACHINE_WORKING
+    degraded_line = orchestration_step(DEGRADATION_KEY)
 
     async def ensure(marker: str, kind: str, payload: dict, content: str | None = None) -> None:
-        if marker not in have:
-            await _insert(session, conv, kind, {**payload, "marker": marker}, content)
-            have.add(marker)
+        if marker in have:
+            return
+        if machine_working and content and content.strip() == degraded_line.strip():
+            log.info("thread_bridge.degraded_line_queued", marker=marker, case_file_id=str(case.case_file_id))
+            return
+        await _insert(session, conv, kind, {**payload, "marker": marker}, content)
+        have.add(marker)
 
-    # acknowledgment (derivable from the uploaded documents)
+    # acknowledgment (§1.4) — never the drop line under the working card
     if case.documents:
-        ack = orchestration_step(
-            "acknowledgment",
-            doc_list=_doc_types_text(list(case.documents)),
-            payer=_payer_of(case),
-        )
+        ack = _acknowledgment(case)
         await ensure("ack", "system_message", {"text": ack, "tone": "neutral"}, ack)
 
     # Attest-and-proceed (§A2 state 1) — evaluated on EVERY reconcile, which is the backfill
@@ -535,7 +566,6 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     # Brock 2026-08-22: everything below this line is CONTENT (analysis, degradation,
     # verification, handoff) — none of it renders while the machine is working; it queues
     # and the first reconcile after the run completes or pauses inserts it.
-    machine_working = status in _MACHINE_WORKING
 
     # F3 §5.1 — a PARTIAL read: run what's readable, name the unreadable part, ask for the one
     # fix. Never a guessed number (data_quality.never_approximate documents that rule).

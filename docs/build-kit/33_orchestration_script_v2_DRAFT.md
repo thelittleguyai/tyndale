@@ -236,14 +236,19 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 
 *Status: INTERIM. The afternoon re-test found a completed analysis thrown away by one provider
 429 on the summary, a status card saying "Audit ready" above an apology, an email promise
-nothing kept, and the acknowledgment degrading to the drop line under the spinning card. Each
-key below is an engineering seed for you to author; none states a fact the product does not do.*
+nothing kept, and the acknowledgment degrading to the drop line under the spinning card (§1.4 names the payer,
+which only extraction learns — at upload it was ALWAYS missing). Your §1.4 still renders verbatim
+whenever the payer is known, and your single-document variant (`acknowledgment_single_doc`, authored
+but never wired until now) renders for a lone bill from a known provider. Each key below is an
+engineering seed for you to author; none states a fact the product does not do.*
 
 | key | source | seed |
 |---|---|---|
 | `summary.pending_notice` | eng | I'm still writing your summary. Your numbers and everything I found are ready now. The summary will show up here when it's done. |
 | `status_card.headline_failed` | eng | Paused — a problem on my end |
 | `status_card.headline_needs_documents` | eng | Paused — waiting on your documents |
+| `acknowledgment_no_payer` | eng — your §1.4 minus "from {payer}" | Got your documents — {doc_list}. Reading them now… |
+| `acknowledgment_reading` | eng — §1.4 with nothing known yet | Got your documents. Reading them now… |
 | `status_card.headline_working` / `status_card.headline_ready` | your round-2 prototype, verbatim | Working on your audit / Audit ready — moved from the app into the registry when the header became the server's decision; "Audit ready" now renders ONLY on a complete audit |
 
 ## Landing "Not a chatbot with opinions" playback — PROPOSED, interim engineering seeds (2026-09-23)
