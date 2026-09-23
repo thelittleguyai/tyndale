@@ -31,3 +31,29 @@ body {
 }
 @keyframes tyn-mock-strike { from { width: 0; } to { width: 100%; } }
 @keyframes tyn-mock-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Landing motion (Phase A, 2026-09-23) — the prototype's motion system on OUR tokens, no
+   glass. Keyframes are namespaced `tyn-*` because keyframe names are global, and the guard
+   test (runtime/tests/test_landing_motion_guards.py) pins the whole set. Every animation is
+   opacity/transform only (never layout), and `prefers-reduced-motion` gets the final frame. */
+
+/* The hero photograph's slow drift: scale 1.05 → 1.14 with a −1.5% translate over 60 s, linear.
+   `alternate` rather than a hard restart — a jump from 1.14 back to 1.05 every minute would be
+   the one visible cut on the page. The image is `fill` inside an overflow-hidden band, so the
+   transform can never move layout. */
+@keyframes tyn-kenburns {
+  from { transform: scale(1.05) translate(0, 0); }
+  to { transform: scale(1.14) translate(-1.5%, -1.5%); }
+}
+.tyn-kenburns {
+  animation: tyn-kenburns 60s linear infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* static at the END scale — the composed frame, not the un-drifted one */
+  .tyn-kenburns {
+    animation: none;
+    transform: scale(1.14) translate(-1.5%, -1.5%);
+  }
+}

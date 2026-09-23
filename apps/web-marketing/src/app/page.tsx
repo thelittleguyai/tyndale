@@ -125,14 +125,15 @@ export default function HomePage() {
       {/* ── Top: navy→teal gradient spanning header + hero ── */}
       <div className="relative isolate overflow-hidden bg-gradient-to-b from-navy via-teal-deep to-teal">
         {/* Atmospheric hero photograph (prototype round 2), held behind a navy scrim so the
-            A3 navy→teal gradient still reads and every hero string keeps AA contrast. */}
+            A3 navy→teal gradient still reads and every hero string keeps AA contrast. It drifts
+            (`tyn-kenburns`, globals.css) — a transform on a `fill` image, so no layout shift. */}
         <Image
           src="/hero-calm.jpg"
           alt=""
           fill
           priority
           sizes="100vw"
-          className="-z-10 object-cover opacity-40"
+          className="tyn-kenburns -z-10 object-cover opacity-40"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-navy/95 via-navy/75 to-navy/45" />
         <header>
