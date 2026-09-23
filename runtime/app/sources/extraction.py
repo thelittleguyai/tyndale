@@ -30,13 +30,30 @@ log = structlog.get_logger(__name__)
 V1_LITE_OCR_CONFIDENCE = 0.3
 
 
-def _read_bytes(args: dict[str, Any]) -> tuple[bytes, str]:
-    """Tools accept either base64-encoded bytes or a local file path."""
+async def _read_bytes(args: dict[str, Any]) -> tuple[bytes, str]:
+    """Tools accept base64-encoded bytes, or the STORED document's path.
+
+    e2e 2026-09-23 M3: the audit-phase tools (`upload_extract_eob` / `upload_extract_coverage`)
+    are handed the document's `uri` as `file_path` — on dev that is a Blob URL, and this
+    opened it as a local file (FileNotFoundError, coverage extraction silently degraded).
+    A stored path goes through the SAME store the upload path wrote to (`read_stored`: a
+    blob under our account + uploads container, or a file inside local_uploads_dir); a plain
+    local path still opens directly (fixtures, local dev); an http(s) URL that is not our
+    store is refused — a tool never fetches an arbitrary URL."""
     if "content_base64" in args:
         return base64.b64decode(args["content_base64"]), args.get("filename", "upload.bin")
     if "file_path" in args:
-        with open(args["file_path"], "rb") as fh:
-            return fh.read(), args["file_path"].rsplit("/", 1)[-1]
+        path = str(args["file_path"])
+        name = args.get("filename") or path.rsplit("/", 1)[-1]
+        from app.routes.upload import read_stored  # lazy — the route module imports this one
+
+        data = await read_stored(path)
+        if data is not None:
+            return data, name
+        if path.startswith(("http://", "https://")):
+            raise ValueError(f"stored document unavailable: {name} is not in this environment's upload store")
+        with open(path, "rb") as fh:
+            return fh.read(), name
     raise ValueError("ocr tool requires content_base64 or file_path")
 
 
@@ -75,7 +92,7 @@ async def run_document_ocr(args: dict[str, Any]) -> dict[str, Any]:
     Backs the ``bill_ocr_extract`` tool and the upload route. Was
     ``ocr_tools._bill_ocr_extract`` before CO-12A."""
     settings = get_settings()
-    content, filename = _read_bytes(args)
+    content, filename = await _read_bytes(args)
 
     if not settings.use_real_ocr:
         return stub_extract(filename, content)
