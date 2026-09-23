@@ -30,6 +30,9 @@ CRONS_TF = pathlib.Path(__file__).resolve().parents[2] / "infra/envs/dev/crons.t
 UNSCHEDULED_BY_DESIGN: dict[str, str] = {
     "noop": "manual smoke-test only — it exists so an admin can verify the trigger → run-log "
             "pipeline without side effects, so scheduling it would just add noise",
+    "audit_retry_force": "manual by design (e2e re-test 2026-09-23 item 3) — the lever a person "
+                         "pulls from Admin › System › crons once a system_error's cause is fixed; "
+                         "it re-runs past the attempt cap, which a schedule must never do",
 }
 
 
