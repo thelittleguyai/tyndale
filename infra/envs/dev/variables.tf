@@ -120,6 +120,18 @@ variable "enable_audit_ready_email" {
   description = "The audit-ready email (D3) — sent when an audit reaches a terminal state, on both the ready and needs-documents outcomes. This is the flag Brock's §2.2 'I'll email you the moment it's ready' renders off: false withholds the promise, true makes it true. Separate from enable_nudge_emails, which is the +3d/+14d document reminder — a different promise."
 }
 
+variable "enable_audit_auto_recovery" {
+  type        = bool
+  default     = true
+  description = "§10.4's recovery half (e2e re-test 2026-09-23 item 3): the audit_retry cron re-runs a system_error audit (twice at most, 15 min then 1 h after the failure) and the recovery email fires when it completes. The apology's 'I'll email you the moment I've got it working again' renders only where this AND enable_audit_ready_email are on. Wired to the runtime and every cron (the thread bridge runs in both)."
+}
+
+variable "alert_email" {
+  type        = string
+  default     = ""
+  description = "Who the 'needs a person' alert rule mails (readiness B2 — monitoring.tf): an audit ending system_error, a recovery re-run giving up. Empty = the rule still fires into Azure Monitor (portal › Alerts) but reaches nobody. Not a secret, but an address — set it in terraform.tfvars, not here."
+}
+
 variable "use_real_crisis_classifier" {
   type        = bool
   default     = true

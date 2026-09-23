@@ -169,10 +169,6 @@ _AGENTS = (
     "from a cron (e2e re-test 2026-09-23), and it does so through Foundry — its Foundry env is "
     "wired (crons.tf, local.claude_crons); the direct key and the fixture fallback never are."
 )
-_OCR = (
-    "Document OCR happens at upload time in the runtime. The thread bridge imports the "
-    "extraction module for its types; no cron ever extracts a document."
-)
 _DEFAULT = (
     "A code default in EVERY container — no terraform variable, no env block anywhere — so the "
     "runtime and the crons cannot disagree. If it ever becomes a deployment knob, wire BOTH."
@@ -186,9 +182,6 @@ _DEFAULT = (
 RUNTIME_ONLY: dict[str, str] = {
     "allow_fixture_fallback": _AGENTS,
     "anthropic_api_key": _AGENTS,
-    "azure_doc_intelligence_endpoint": _OCR,
-    "azure_doc_intelligence_key": _OCR,
-    "use_real_ocr": _OCR,
 }
 CODE_DEFAULT_EVERYWHERE: dict[str, str] = {
     "audit_max_regenerations": _DEFAULT,

@@ -127,6 +127,16 @@ resource "azurerm_container_app_job" "cron" {
       identity            = azurerm_user_assigned_identity.runtime.id
     }
   }
+  # audit_retry re-runs whole audits (e2e re-test item 3), and the agents re-read the documents
+  # through Document Intelligence — without real OCR the tool answers with the STUB bill.
+  dynamic "secret" {
+    for_each = contains(local.claude_crons, each.key) ? [1] : []
+    content {
+      name                = "azure-doc-intelligence-key"
+      key_vault_secret_id = azurerm_key_vault_secret.azure_doc_intelligence_key.versionless_id
+      identity            = azurerm_user_assigned_identity.runtime.id
+    }
+  }
 
   template {
     container {
@@ -177,6 +187,12 @@ resource "azurerm_container_app_job" "cron" {
       env {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
+      }
+      # Every cron: the thread bridge (stuck_audits heals through it) picks the §10.4 variant
+      # off this; audit_retry's recovery sweep is switched by it.
+      env {
+        name  = "ENABLE_AUDIT_AUTO_RECOVERY"
+        value = tostring(var.enable_audit_auto_recovery)
       }
       # stuck_audits (2026-09-18) reconciles through the orchestrator's status chokepoint: the
       # thread projection, the result projection (_assemble_result) and the review-queue policy
@@ -330,6 +346,29 @@ resource "azurerm_container_app_job" "cron" {
         content {
           name  = "AZURE_CLIENT_ID"
           value = azurerm_user_assigned_identity.runtime.client_id
+        }
+      }
+      # Real OCR — audit_retry ONLY: its recovery re-run must read the documents exactly as the
+      # runtime's run did (the sweep refuses to re-run anything without it: recovery_blocker).
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "USE_REAL_OCR"
+          value = tostring(var.use_real_ocr)
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name  = "AZURE_DOC_INTELLIGENCE_ENDPOINT"
+          value = azurerm_cognitive_account.document_intelligence.endpoint
+        }
+      }
+      dynamic "env" {
+        for_each = contains(local.claude_crons, each.key) ? [1] : []
+        content {
+          name        = "AZURE_DOC_INTELLIGENCE_KEY"
+          secret_name = "azure-doc-intelligence-key"
         }
       }
     }

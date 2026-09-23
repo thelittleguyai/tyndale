@@ -130,7 +130,53 @@ async def _failed_crons(session: AsyncSession) -> list[dict[str, Any]]:
     return out
 
 
-def _alerts(retrieval: dict[str, Any], failed_crons: list[dict[str, Any]], system: dict) -> list[dict[str, Any]]:
+async def _system_error_signal(session: AsyncSession) -> dict[str, Any]:
+    """The durable system_error picture (e2e re-test 2026-09-23 item 3). The old alert was a
+    per-replica counter "since this replica started" — a restart erased it, and it could not
+    say whether anyone was doing anything. Read from the cases themselves: the open failures
+    of the last week, split into the ones automatic recovery will still re-run and the ones a
+    person has to look at."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.config import get_settings
+    from app.crons.audit_retry_cron import RECOVERY_MAX_ATTEMPTS, RECOVERY_WINDOW
+    from app.db.models.case_files import CaseFile
+
+    now = datetime.now(timezone.utc)
+    rows = (
+        await session.execute(
+            select(CaseFile.case_file_id, CaseFile.recovery_attempts, CaseFile.updated_at)
+            .where(
+                CaseFile.status == "audit_incomplete",
+                CaseFile.audit_incomplete_reason == "system_error",
+                CaseFile.soft_deleted_at.is_(None),
+                CaseFile.updated_at >= now - timedelta(days=7),
+            )
+            .order_by(CaseFile.updated_at.desc())
+        )
+    ).all()
+    auto = bool(get_settings().enable_audit_auto_recovery)
+    recovering = [
+        r for r in rows
+        if auto and (r.recovery_attempts or 0) < RECOVERY_MAX_ATTEMPTS and r.updated_at >= now - RECOVERY_WINDOW
+    ]
+    stuck = [r for r in rows if r not in recovering]
+    return {
+        "open": len(rows),
+        "auto_recovery": auto,
+        "recovering": len(recovering),
+        "needs_a_person": len(stuck),
+        "needs_a_person_cases": [str(r.case_file_id) for r in stuck[:5]],
+        "last_at": iso(rows[0].updated_at) if rows else None,
+    }
+
+
+def _alerts(
+    retrieval: dict[str, Any],
+    failed_crons: list[dict[str, Any]],
+    system: dict,
+    system_errors: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """The alert path (readiness B2): ONE list the pager reads. Each entry is a thing a
     person must act on, with what to do."""
     alerts: list[dict[str, Any]] = []
@@ -160,7 +206,28 @@ def _alerts(retrieval: dict[str, Any], failed_crons: list[dict[str, Any]], syste
                 "at": c["started_at"],
             }
         )
-    if int(system.get("count") or 0) > 0:
+    se = system_errors or {}
+    if se.get("needs_a_person"):
+        alerts.append(
+            {
+                "kind": "system_error",
+                "severity": "high",
+                "detail": (
+                    f"{se['needs_a_person']} audit(s) ended in system_error and "
+                    + ("automatic recovery gave up" if se.get("auto_recovery") else "automatic recovery is OFF")
+                    + " — the user was told the team has been notified"
+                    + (f" (cases: {', '.join(c[:8] for c in se.get('needs_a_person_cases') or [])})" if se.get("needs_a_person_cases") else "")
+                ),
+                "action": (
+                    "find the cause in Log Analytics (audit.system_error, orchestrator.finalize.failed, "
+                    "audit_retry.recovery_exhausted); once fixed, trigger audit_retry_force in Admin › "
+                    "System › crons — a recovered audit emails its user by itself"
+                ),
+                "at": se.get("last_at"),
+            }
+        )
+    elif int(system.get("count") or 0) > 0 and not se:
+        # the durable signal could not be read — fall back to this replica's counter
         alerts.append(
             {
                 "kind": "system_error",
@@ -168,6 +235,19 @@ def _alerts(retrieval: dict[str, Any], failed_crons: list[dict[str, Any]], syste
                 "detail": f"{system['count']} audit(s) ended in system_error since this replica started",
                 "action": "read Recent errors below; the user was told the team has been notified — make that true",
                 "at": system.get("last_at"),
+            }
+        )
+    if se.get("recovering"):
+        alerts.append(
+            {
+                "kind": "system_error_recovering",
+                "severity": "medium",
+                "detail": (
+                    f"{se['recovering']} audit(s) in system_error — the audit_retry cron re-runs each "
+                    "(up to twice, 15 min then 1 h after the failure) and the user is emailed when one completes"
+                ),
+                "action": "watch it clear; if it moves to 'needs a person', the re-runs failed too",
+                "at": se.get("last_at"),
             }
         )
     return alerts
@@ -209,6 +289,10 @@ async def system_health(
     retrieval = await _retrieval_signal(session)
     failed_crons = await _failed_crons(session)
     alerts_now = system_alerts()
+    try:
+        system_errors: dict[str, Any] = await _system_error_signal(session)
+    except Exception:  # noqa: BLE001 — the health page must render even when this read fails
+        system_errors = {}
 
     return {
         "deploy_sha": os.environ.get("DEPLOY_SHA") or os.environ.get("GIT_SHA"),
@@ -228,7 +312,10 @@ async def system_health(
         "retrieval": retrieval,
         # readiness B2 — failed crons in the last week, and the ONE alert list a pager reads.
         "failed_crons": failed_crons,
-        "alerts": _alerts(retrieval, failed_crons, alerts_now),
+        # e2e re-test 2026-09-23 item 3 — the durable system_error picture (open / recovering /
+        # needs a person), read from the cases, not a per-replica counter.
+        "system_errors": system_errors,
+        "alerts": _alerts(retrieval, failed_crons, alerts_now, system_errors),
         "recent_errors": [
             {
                 "event_id": str(e.event_id),

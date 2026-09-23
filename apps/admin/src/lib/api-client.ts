@@ -344,6 +344,15 @@ export interface AdminSystemHealth {
   // readiness B2 — failed crons (last 7 days) and the one alert list a pager reads.
   failed_crons?: Array<{ cron_name: string; status: string; started_at: string | null; finished_at: string | null; error: string | null }>;
   alerts?: Array<{ kind: string; severity: 'high' | 'medium' | 'low'; detail: string; action: string; at: string | null }>;
+  /** e2e re-test 2026-09-23 item 3 — open system_error audits, read from the cases. */
+  system_errors?: {
+    open: number;
+    auto_recovery: boolean;
+    recovering: number;
+    needs_a_person: number;
+    needs_a_person_cases: string[];
+    last_at: string | null;
+  };
   recent_errors: Array<{
     event_id: string;
     timestamp: string | null;

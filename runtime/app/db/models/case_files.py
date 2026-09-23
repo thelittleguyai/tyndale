@@ -177,6 +177,15 @@ class CaseFile(Base):
     summary_retry_after: Mapped[datetime.datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
+    # e2e re-test 2026-09-23 item 3 — §10.4's "I'll email you the moment I've got it working
+    # again" is kept by the audit_retry cron RE-RUNNING a system_error audit (bounded), and the
+    # recovery email firing when it completes. Migration 0058.
+    recovery_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    recovery_retry_after: Mapped[datetime.datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     # Stranded-audit healer (deep review C2, 2026-09-18). ``audit_heartbeat_at`` is bumped by the
     # orchestrator when an audit goes running and at every phase boundary — staleness is measured
     # against IT, not updated_at (which nothing refreshes mid-run). The reconcile_* trio is the

@@ -63,6 +63,8 @@ sendgrid_api_key    = "" # e.g. "SG.xxxxxxxxxxxx" to enable real email
 sendgrid_from_email = "no-reply@tyndaleapp.net"
 # enable_nudge_emails      = false
 # enable_audit_ready_email = false
+# enable_audit_auto_recovery = true   # the audit_retry cron re-runs system_error audits (§10.4)
+# alert_email = "ops@example.com"     # who the 'needs a person' alert rule mails (monitoring.tf)
 
 # --- Product flags ---------------------------------------------------------------
 # Every bool setting on the runtime is a tfvars flip (runtime/tests/test_flag_env_wiring.py

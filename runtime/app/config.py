@@ -313,6 +313,11 @@ class Settings(BaseSettings):
     # proxy for "do we send any mail at all" and would have let the line appear while the
     # audit-ready email stayed dark. Default FALSE so no env sends without an explicit opt-in.
     enable_audit_ready_email: bool = False
+    # §10.4's recovery half (e2e re-test 2026-09-23 item 3): the audit_retry cron re-runs a
+    # system_error audit (bounded) and the recovery email fires when it completes. The apology's
+    # "I'll email you the moment I've got it working again" renders only where BOTH this and the
+    # email flag are on — until the job exists and this is set, nothing would ever re-run it.
+    enable_audit_auto_recovery: bool = False  # env: ENABLE_AUDIT_AUTO_RECOVERY (runtime + crons)
 
     # --- Chat-first audit flow (Brock 2026-07-10, DL-91). Phase A behind a flag; the classic
     # screen flow is fully unchanged when off. enable_first_case_unlock gates the unlock moment

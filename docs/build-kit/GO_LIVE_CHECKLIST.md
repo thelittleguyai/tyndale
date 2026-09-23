@@ -24,6 +24,15 @@ Nothing here creates or touches staging/production infrastructure.
       nothing surfaced it), and `system_error` (audits that told the user "the team has been
       notified"). The runtime also logs `retrieval.degraded` on the transition, for a Log
       Analytics alert rule. Owed before launch: the rule + the person it reaches.
+      *2026-09-23 (re-test item 3):* the `system_error` item is now read from the cases and
+      split into **recovering** (the audit_retry cron re-runs it: 15 min, then 1 h) and
+      **needs a person** (both re-runs failed, or auto-recovery is off; `audit_retry_force` in
+      Admin › System › crons retries them once the cause is fixed). The rule EXISTS:
+      `tyndale-dev-audit-system-error` (infra/envs/dev/monitoring.tf) fires on
+      `audit.system_error` / `orchestrator.finalize.failed` / `audit_retry.recovery_exhausted`.
+      Still owed: **`alert_email` in terraform.tfvars + apply** — until then it fires into
+      Azure Monitor (portal › Alerts) and mails nobody. Retrieval and cron failures are not in
+      the rule yet.
 
 ## Copy gates
 

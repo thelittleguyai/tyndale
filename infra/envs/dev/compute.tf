@@ -190,6 +190,12 @@ resource "azurerm_container_app" "runtime" {
         name  = "ENABLE_AUDIT_READY_EMAIL"
         value = tostring(var.enable_audit_ready_email)
       }
+      # §10.4's recovery half (e2e re-test 2026-09-23 item 3) — the bridge renders the email
+      # promise only where this and ENABLE_AUDIT_READY_EMAIL are both on.
+      env {
+        name  = "ENABLE_AUDIT_AUTO_RECOVERY"
+        value = tostring(var.enable_audit_auto_recovery)
+      }
       # Human Review Phase 1 (2026-09-18): the sample dial's env default + the five
       # always-enqueue triggers. Config, not code — see doc 39 §7-2d.
       # Stranded-audit healer threshold floor (deep review C2) — the boot sweep reads it here,

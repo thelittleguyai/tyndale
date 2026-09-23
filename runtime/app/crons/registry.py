@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.crons.audit_retry_cron import run_audit_retry_cron
+from app.crons.audit_retry_cron import run_audit_retry_cron, run_audit_retry_force_cron
 from app.crons.cms_ncd_lcd_bulk_cron import run_cms_ncd_lcd_bulk_cron
 from app.crons.hospital_mrf_cron import run_hospital_mrf_cron
 from app.crons.medicare_pfs_cron import run_medicare_pfs_cron
@@ -56,8 +56,11 @@ CRON_REGISTRY: dict[str, dict[str, Any]] = {
     "qdrant_snapshot": {"fn": run_qdrant_snapshot_cron, "schedule": "daily 02:00 UTC"},
     "analytics_rollup": {"fn": _analytics_rollup_cron, "schedule": "nightly 04:00 UTC"},
     "stuck_audits": {"fn": _stuck_audits_cron, "schedule": "every 15 min"},
-    # e2e re-test 2026-09-23 — the work a throttled provider refused, done later (owed summaries).
+    # e2e re-test 2026-09-23 — the work a throttled provider refused, done later: bounded
+    # re-runs of system_error audits (§10.4's promise) and the summaries complete audits owe.
     "audit_retry": {"fn": run_audit_retry_cron, "schedule": "every 15 min"},
+    # Manual only: once a cause is fixed, re-run every open system_error audit of the last week.
+    "audit_retry_force": {"fn": run_audit_retry_force_cron, "schedule": "manual"},
     "noop": {"fn": _noop_cron, "schedule": "manual"},
 }
 

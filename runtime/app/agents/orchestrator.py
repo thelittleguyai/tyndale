@@ -159,6 +159,7 @@ async def _set_status(
     *,
     incomplete_reason: str | None = None,
     expected_status: str | None = None,
+    expected_incomplete_reason: str | None = None,
     expected_reconcile_token: UUID | None = None,
 ) -> bool:
     """Set the case status and, atomically, its audit_incomplete_reason. The reason is always
@@ -192,6 +193,15 @@ async def _set_status(
                     expected_status=expected_status, actual_status=cf.status,
                 )
                 return False
+            if (
+                expected_incomplete_reason is not None
+                and cf.audit_incomplete_reason != expected_incomplete_reason
+            ):
+                log.warning(
+                    "orchestrator.set_status.refused",
+                    case_file_id=case_file_id, wanted=status, reason="incomplete_reason_mismatch",
+                )
+                return False
             if expected_reconcile_token is not None and cf.reconcile_token != expected_reconcile_token:
                 log.warning(
                     "orchestrator.set_status.refused",
@@ -199,12 +209,21 @@ async def _set_status(
                 )
                 return False
             # §10.4's promise trigger: remember whether this case was sitting in the
-            # system_error state BEFORE this transition overwrites it.
+            # system_error state BEFORE this transition overwrites it — or is finishing the
+            # audit_retry RE-RUN of one (e2e re-test 2026-09-23 item 3): that run goes
+            # system_error → audit_running → terminal, so the state before the terminal write
+            # is audit_running and only the recovery counter still knows where it came from.
             was_system_error = (
                 cf.status == "audit_incomplete" and cf.audit_incomplete_reason == "system_error"
-            )
+            ) or (cf.status == "audit_running" and (cf.recovery_attempts or 0) > 0)
             cf.status = status
             cf.audit_incomplete_reason = incomplete_reason
+            if status == "audit_complete" or (
+                status == "audit_incomplete" and incomplete_reason == "needs_documents"
+            ):
+                # a real terminal ends the failure episode: the next failure gets fresh attempts
+                cf.recovery_attempts = 0
+                cf.recovery_retry_after = None
             if status == "audit_running":
                 # A fresh run: first heartbeat, and a clean slate for the healer — and no summary
                 # retry left owed by the previous run (this run writes its own).
@@ -2055,12 +2074,44 @@ async def _persist_mri_fixture_finding(case_file_id: str) -> None:
         await s.commit()
 
 
-async def finalize_audit(case_file_id: str) -> AuditResult:
+async def _clear_failed_run(case_file_id: str) -> None:
+    """Before a RECOVERY re-run: drop what the failed run wrote. A system_error run never
+    revealed anything (the bridge renders finding cards on a complete audit only), and the
+    agents' finding / deadline tools INSERT — without this the re-run would duplicate them."""
+    from sqlalchemy import delete
+
+    from app.db.models.deadlines import Deadline
+
+    async with AsyncSessionLocal() as s:
+        cid = UUID(case_file_id)
+        findings = (await s.execute(delete(Finding).where(Finding.case_file_id == cid))).rowcount
+        deadlines = (await s.execute(delete(Deadline).where(Deadline.case_file_id == cid))).rowcount
+        await s.commit()
+    log.info(
+        "orchestrator.recovery.cleared_failed_run", case_file_id=case_file_id,
+        findings=findings, deadlines=deadlines,
+    )
+
+
+async def finalize_audit(case_file_id: str, *, recovery: bool = False) -> AuditResult | None:
     """Phase 2 of the audit — Bill Detective re-diagnoses with confirmations as
     input, Math Person runs the three-number audit, Lead Planner composes. Sets
-    status audit_running -> audit_complete."""
+    status audit_running -> audit_complete.
+
+    ``recovery`` (e2e re-test 2026-09-23 item 3) is the audit_retry cron re-running a
+    system_error audit: the flip to audit_running is a compare-and-swap on "still
+    system_error" (None when the case moved on), and the failed run's writes are cleared
+    first. A recovered audit's terminal write fires the §10.4 recovery email."""
     settings = get_settings()
-    await _set_status(case_file_id, "audit_running")
+    if recovery:
+        if not await _set_status(
+            case_file_id, "audit_running",
+            expected_status="audit_incomplete", expected_incomplete_reason="system_error",
+        ):
+            return None
+        await _clear_failed_run(case_file_id)
+    else:
+        await _set_status(case_file_id, "audit_running")
 
     use_real = settings.use_real_claude and (
         _has_real_anthropic_creds(settings) or settings.litellm_proxy_url

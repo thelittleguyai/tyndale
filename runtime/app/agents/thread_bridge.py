@@ -692,12 +692,16 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
     elif status == "audit_incomplete":
         if case.audit_incomplete_reason == "system_error":
             # §10.4's closing clause promises "I'll email you the moment I've got it working
-            # again." That email exists now (notify.send_recovery_email) but only sends where
-            # enable_audit_ready_email is on — so the clause renders ONLY there, D3-style: the
-            # no-email variant is the same message without the promise (eng seed, asks §3.9).
+            # again." Two things make it true, and the clause renders ONLY where both hold,
+            # D3-style (the no-email variant is the same message without the promise):
+            #   * the email — notify.send_recovery_email, behind enable_audit_ready_email;
+            #   * something that gets it working again — the audit_retry cron's bounded re-run
+            #     (e2e re-test 2026-09-23 item 3), behind enable_audit_auto_recovery. Before it,
+            #     nothing ever re-ran a system_error audit, so the email could never fire.
+            s = get_settings()
             key = (
                 "system_error"
-                if get_settings().enable_audit_ready_email
+                if s.enable_audit_ready_email and s.enable_audit_auto_recovery
                 else "system_error_no_email"
             )
             text = orchestration_step(key)
