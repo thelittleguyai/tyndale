@@ -16,6 +16,8 @@ The load-bearing properties:
 
 from types import SimpleNamespace
 
+import pytest
+
 from app.agents.orchestrator import _rung2_three_numbers
 from app.agents.thread_bridge import _x3_qualifier
 from app.sources.cost_share_model import member_cost_share, rung2_range
@@ -232,3 +234,70 @@ def test_three_number_facts_written_as_dollar_strings_still_count():
         with pytest.raises((TypeError, ValueError)):
             _coerce_money(bad)
 
+
+
+# --- M5 (e2e 2026-09-23): tier ≥ 2 renders a RANGE, never a point ------------------------
+@pytest.mark.asyncio
+async def test_an_agents_point_figure_at_tier_3_is_bracketed_into_a_range(client):
+    """The specimen: three tier-3 priors applied, and the reveal printed $538 "based on a
+    typical deductible" — a benchmark substitution shown as a point (doc 38 §2.5 forbids it).
+    The Math Person writes one number; the rung-2 sweep over the same document money and the
+    same priors now brackets it, and the moment renders the range form with the tighten line."""
+    import uuid
+
+    from sqlalchemy import delete, select
+
+    from app.agents.orchestrator import _assemble_result
+    from app.agents.thread_bridge import _x3_qualifier
+    from app.db.base import AsyncSessionLocal
+    from app.db.models.case_files import CaseFile
+    from app.db.models.findings import Finding
+
+    up = await client.post("/v1/upload", files={"file": ("bill.pdf", b"%PDF-1.4 x", "application/pdf")})
+    case_id = up.json()["case_file_id"]
+    cid = uuid.UUID(case_id)
+    async with AsyncSessionLocal() as s:
+        cf = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == cid))).scalar_one()
+        cf.status = "audit_complete"
+        cf.coverage = {}  # nothing stated → deductible / coinsurance / OOP all from priors (tier 3)
+        cf.documents = [{"document_type": "eob", "extraction_status": "extracted",
+                         "ocr_text": "EXPLANATION OF BENEFITS\nBILLED $7,600.00\nALLOWED $2,690.00\nPATIENT RESPONSIBILITY $538.00"}]
+        s.add(Finding(case_file_id=cid, finding_type="payer_side", category="cost_sharing_audit", subagent_source="math_person",
+                      voice_tier="A", facts={"provider_billed": 7600.0, "eob_member_responsibility": 538.0, "tyndale_computed": 538.0}))
+        await s.commit()
+    try:
+        result = await _assemble_result(case_id, composed="")
+        a = result.audit
+        assert result.disclosure.tier >= 2 and a.tyndale_computed == 538.0  # the agent's figure stands…
+        assert a.tyndale_computed_low is not None and a.tyndale_computed_high is not None
+        assert a.tyndale_computed_low <= 538.0 <= a.tyndale_computed_high and a.tyndale_computed_low < a.tyndale_computed_high  # …inside a real bracket
+        q = _x3_qualifier(a, result.disclosure)
+        assert q["form"] == "range" and q["text"].startswith("between $") and "until I see your" in q["text"]  # the tighten path
+        # the reviewer's priors block sees the resulting range
+        from app.routes.admin.review import _priors_applied
+
+        rows = _priors_applied(result.model_dump(mode="json"))
+        assert rows and all(r["resulting_range"] is not None for r in rows)
+    finally:
+        async with AsyncSessionLocal() as s:
+            await s.execute(delete(Finding).where(Finding.case_file_id == cid))
+            row = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == cid))).scalar_one_or_none()
+            if row is not None:
+                await s.delete(row)
+            await s.commit()
+
+
+def test_a_point_that_the_sweep_cannot_bracket_stays_a_point_and_says_why():
+    from types import SimpleNamespace
+
+    from app.agents.orchestrator import _bracket_agent_point
+    from app.schemas.case_file import AuditProvenance, Disclosure
+
+    prov = AuditProvenance()
+    disclosure = Disclosure(tier=3, label="chase", missing_inputs=["deductible_amount"], chase_inputs=["deductible_amount"])
+    three = {"provider_billed": 100.0, "eob_member_responsibility": 20.0, "tyndale_computed": 20.0}
+    case = SimpleNamespace(status="audit_complete", line_items=[], documents=[], coverage={})  # no document money → no anchor
+    out = _bracket_agent_point(dict(three), case, None, disclosure, prov)
+    assert "tyndale_computed_low" not in out and any("shown as a point because" in x for x in prov.assumptions)
+    # tier 0/1: nothing to bracket
+    assert _bracket_agent_point(dict(three), case, None, Disclosure(tier=1, label="note", missing_inputs=["x"], chase_inputs=[]), AuditProvenance()) == three

@@ -98,6 +98,11 @@ export interface ThreeNumberAudit {
   provider_billed: number;
   eob_member_responsibility: number;
   tyndale_computed: number;
+  /** X3 range form (rung-2 / tier ≥ 2 — M5): the bracket around a benchmark-substituted
+   *  figure. Null when the inputs were stated or no document money anchors a range. */
+  tyndale_computed_low?: number | null;
+  tyndale_computed_high?: number | null;
+  computed_source?: string;
   currency: string;
 }
 

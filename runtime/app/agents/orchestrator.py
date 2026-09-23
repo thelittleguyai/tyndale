@@ -1270,6 +1270,14 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
             ),
         )
 
+    # Tier ≥ 2 renders a RANGE, never a point (doc 38 §2.5; e2e 2026-09-23 M5). The Math
+    # Person's figure was computed with priors standing in for the inputs the documents
+    # never stated ("based on a typical deductible") — a benchmark substitution — but the
+    # agent writes one number. The rung-2 sweep over the same document money and the same
+    # priors brackets it; the agent's point is kept as the figure and widened into the
+    # bracket if it falls outside. No document anchor → no honest range → the point stands
+    # and the provenance says why.
+    three_numbers = _bracket_agent_point(three_numbers, case, plan_cov, disclosure, provenance)
     return AuditResult(
         case_file_id=case_file_id,
         status="complete",
@@ -1279,6 +1287,27 @@ async def _assemble_result(case_file_id: str, composed: str) -> AuditResult:
         audit_provenance=provenance,
         disclosure=disclosure,
     )
+
+
+def _bracket_agent_point(three_numbers: dict, case, plan_cov, disclosure, provenance) -> dict:
+    if disclosure is None or disclosure.tier < 2 or three_numbers.get("tyndale_computed") is None:
+        return three_numbers
+    if three_numbers.get("tyndale_computed_low") is not None:
+        return three_numbers  # already a range
+    rung2 = _rung2_three_numbers(case, plan_coverage=plan_cov) if case is not None else None
+    point = float(three_numbers["tyndale_computed"])
+    if rung2 is None or rung2.get("tyndale_computed_low") is None or rung2.get("tyndale_computed_high") is None:
+        reason = "no document-stated money to anchor a range" if rung2 is None else "the priors it needs are still placeholders"
+        provenance.assumptions.append(
+            f"the computed figure rests on typical values for inputs your documents don't state, "
+            f"shown as a point because {reason}"
+        )
+        return three_numbers
+    low = round(min(float(rung2["tyndale_computed_low"]), point), 2)
+    high = round(max(float(rung2["tyndale_computed_high"]), point), 2)
+    if low == high:
+        return three_numbers  # the sweep collapsed onto the point — nothing to bracket
+    return {**three_numbers, "tyndale_computed_low": low, "tyndale_computed_high": high}
 
 
 # ===========================================================================

@@ -281,6 +281,7 @@ export default function AuditResultScreen() {
           <ThreeNumberRow
             label="What you should owe"
             value={a.tyndale_computed}
+            range={computedRange(a)}
             highlight
             last
           />
@@ -534,7 +535,7 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
             <Text className="mb-3 text-xs text-faint">What we computed</Text>
             <ThreeNumberRow label="What you were billed" value={a.provider_billed} dim />
             <ThreeNumberRow label="What your insurer says you owe" value={a.eob_member_responsibility} />
-            <ThreeNumberRow label="What you should owe" value={a.tyndale_computed} highlight last />
+            <ThreeNumberRow label="What you should owe" value={a.tyndale_computed} range={computedRange(a)} highlight last />
           </View>
         ) : null}
 
@@ -559,9 +560,21 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
   );
 }
 
+/** M5 (doc 38 §2.5): a benchmark-substituted figure is a RANGE, never a point. The server
+ *  brackets it (tyndale_computed_low/high); a collapsed bracket (low == high) is no range. */
+function computedRange(a: {
+  tyndale_computed_low?: number | null;
+  tyndale_computed_high?: number | null;
+}): [number, number] | null {
+  if (a.tyndale_computed_low == null || a.tyndale_computed_high == null) return null;
+  if (a.tyndale_computed_low === a.tyndale_computed_high) return null;
+  return [a.tyndale_computed_low, a.tyndale_computed_high];
+}
+
 function ThreeNumberRow({
   label,
   value,
+  range,
   highlight,
   secondary,
   dim,
@@ -569,6 +582,8 @@ function ThreeNumberRow({
 }: {
   label: string;
   value: number;
+  /** The bracket around a benchmark-substituted figure (M5) — rendered AS the figure. */
+  range?: [number, number] | null;
   /** The Tyndale-computed number — always the visual anchor. */
   highlight?: boolean;
   /** Supporting-evidence treatment when the savings hero is shown. */
@@ -589,9 +604,21 @@ function ThreeNumberRow({
       <Text className={dim ? 'flex-1 pr-3 text-body text-faint' : 'flex-1 pr-3 text-body text-secondary'}>
         {label}
       </Text>
-      <Text className={valueClass}>
-        ${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-      </Text>
+      {range ? (
+        <View className="items-end" testID="computed-range">
+          <Text className={valueClass}>
+            ${range[0].toLocaleString(undefined, { minimumFractionDigits: 0 })}–$
+            {range[1].toLocaleString(undefined, { minimumFractionDigits: 0 })}
+          </Text>
+          <Text className="text-xs text-faint">
+            likely ${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+          </Text>
+        </View>
+      ) : (
+        <Text className={valueClass}>
+          ${value.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+        </Text>
+      )}
     </View>
   );
 }
