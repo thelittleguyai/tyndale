@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { ChatCitation, ContentChunk, Message } from '@tyndale/shared';
 
+import { sanitizeControlLines } from '../../lib/control-lines';
 import { CitationChip } from './CitationChip';
 import { CreateCaseCta } from './CreateCaseCta';
 import { ChatMarkdown } from './Markdown';
@@ -82,9 +83,19 @@ export function ChatMessage({
     );
   }
 
-  const chunks = message.content_chunks || [];
+  // Messages persisted before the server-side parser (2ac1e47) still carry raw SUGGESTED: /
+  // CTA: lines — strip them at render, wherever they sit, and let a raw `CTA: create_case`
+  // still become the button (e2e re-test 2026-09-23 item 5). Chips: ChatThread.
+  const body = sanitizeControlLines(message.content);
+  const chunks = (message.content_chunks || []).map((ch) => {
+    const clean = sanitizeControlLines(ch.text);
+    return clean.stripped ? { ...ch, text: clean.text, _cta: clean.cta } : ch;
+  });
   const allCitations = message.citations || [];
-  const hasCta = allCitations.some((c) => c.action_type === 'create_case_cta');
+  const hasCta =
+    allCitations.some((c) => c.action_type === 'create_case_cta') ||
+    body.cta === 'create_case' ||
+    chunks.some((ch) => (ch as { _cta?: string | null })._cta === 'create_case');
   const footerCitations = chunks.length
     ? []
     : allCitations.filter((c) => c.action_type !== 'create_case_cta');
@@ -104,8 +115,7 @@ export function ChatMessage({
         ) : (
           <ChatMarkdown
             text={
-              stripTrailingSuggested(message.content || '') ||
-              (message.status === 'streaming' ? '…' : '')
+              stripTrailingSuggested(body.text) || (message.status === 'streaming' ? '…' : '')
             }
             className="text-body leading-6 text-primary"
           />

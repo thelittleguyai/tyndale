@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 
 import type { ChatCitation, Message } from '@tyndale/shared';
 
+import { chipsFor } from '../../lib/control-lines';
 import { ChatComposer } from './ChatComposer';
 import { ChatMessage } from './ChatMessage';
 import { useChatStream } from './ChatStream';
@@ -40,7 +41,7 @@ export function ChatThread({
   const last = messages[messages.length - 1];
   const chips =
     !streaming && last && last.role === 'assistant' && last.status === 'complete'
-      ? (last.suggested_replies ?? []).filter((r) => typeof r === 'string' && r.trim())
+      ? chipsFor(last)
       : [];
 
   const onRetry = (m: Message) => {

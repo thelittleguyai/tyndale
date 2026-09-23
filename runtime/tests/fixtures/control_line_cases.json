@@ -1,0 +1,119 @@
+{
+  "_comment": "Control-line parse cases shared by the Python parser (app/agents/chat_format.py: extract_directives then scrub_control_lines) and the mobile render sanitizer (apps/mobile/lib/control-lines.ts) — e2e re-test 2026-09-23 item 5. Expected values are the Python parser's; both suites assert them.",
+  "cases": [
+    {
+      "input": "Do you have the bill in hand?\nSUGGESTED: [\"Yes, I have a bill\", \"No bill yet\"]\n\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Do you have the bill in hand?\n\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [
+        "Yes, I have a bill",
+        "No bill yet"
+      ],
+      "cta": null
+    },
+    {
+      "input": "Let's get your case started — tap below to upload your bill.\n\n```\nCTA: create_case\n```\n\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Let's get your case started — tap below to upload your bill.\n\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\n```CTA: create_case```\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\n`CTA: create_case`\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\n**CTA: create_case**\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\nCTA: create_case.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\n```text\nCTA: create_case\n```\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\nCTA: create_case\nSUGGESTED: [\"A\", \"B\"]\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.\nSUGGESTED: [\"C\"]",
+      "text": "Answer.\nTyndale provides medical billing and coverage advocacy, not medical, legal, or financial advice.",
+      "replies": [
+        "C"
+      ],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\n`SUGGESTED: [\"A\"]`\n\n```\nCTA: create_case\n```",
+      "text": "Answer.",
+      "replies": [
+        "A"
+      ],
+      "cta": "create_case"
+    },
+    {
+      "input": "Answer.\nSUGGESTED: [not json, \"x\"\nMore.",
+      "text": "Answer.\nMore.",
+      "replies": [],
+      "cta": null
+    },
+    {
+      "input": "Answer.\nSUGGESTED: [\"Good\"]\nSUGGESTED: {oops",
+      "text": "Answer.",
+      "replies": [
+        "Good"
+      ],
+      "cta": null
+    },
+    {
+      "input": "Answer.\nCTA: delete_everything",
+      "text": "Answer.",
+      "replies": [],
+      "cta": null
+    },
+    {
+      "input": "Answer.\n> SUGGESTED: [\"x\"]\nCTA :create_case\nTail.",
+      "text": "Answer.\nTail.",
+      "replies": [],
+      "cta": "create_case"
+    },
+    {
+      "input": "Pick one.\nSUGGESTED: [\"one two three four five six\", \"Short\", \"Short\", \"   spaced   out  \"]",
+      "text": "Pick one.",
+      "replies": [
+        "Short",
+        "spaced out"
+      ],
+      "cta": null
+    },
+    {
+      "input": "No control lines here at all.\n\nJust prose.",
+      "text": "No control lines here at all.\n\nJust prose.",
+      "replies": [],
+      "cta": null
+    },
+    {
+      "input": "suggested: lower case is still a control line\nKept.",
+      "text": "Kept.",
+      "replies": [],
+      "cta": null
+    },
+    {
+      "input": "Mid-line mention: the SUGGESTED: convention is not a line start. Kept.",
+      "text": "Mid-line mention: the SUGGESTED: convention is not a line start. Kept.",
+      "replies": [],
+      "cta": null
+    }
+  ]
+}
