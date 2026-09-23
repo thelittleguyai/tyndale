@@ -191,10 +191,11 @@ function Panel({
   const win = pane === 'tyndale';
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  /* Keep the newest message in view inside the panel. */
+  /* Keep the newest message in view inside the panel while it plays. The static (reduced
+     motion) transcript starts at the top, to be read in order. */
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    if (el && smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [visible, typing, smooth]);
 
   return (
