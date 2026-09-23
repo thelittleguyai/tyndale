@@ -34,6 +34,12 @@ const config: Config = {
         card: '0 1px 2px rgba(15,42,40,0.04), 0 4px 12px rgba(15,42,40,0.05)',
         elev: '0 2px 4px rgba(15,42,40,0.05), 0 8px 24px rgba(15,42,40,0.08)',
       },
+      // Tailwind's default `transition` list names backdrop-filter; the landing build must not
+      // contain that token at all (N7 glass is HELD — guard: test_landing_motion_guards.py).
+      transitionProperty: {
+        DEFAULT:
+          'color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter',
+      },
     },
   },
   plugins: [],

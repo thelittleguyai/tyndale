@@ -13,8 +13,8 @@
  *    (leaving everything visible, static) when that media query is unsupported, when the
  *    visitor asked for reduced motion, or when IntersectionObserver is missing. There is no
  *    build in which content can be left at opacity 0.
- *  - Opacity/transform only — never layout. Never applied to an element with `backdrop-filter`
- *    (there are none on the page by rule; the guard test keeps it so).
+ *  - Opacity/transform only — never layout. Never applied to a blurred (glass) surface —
+ *    there are none on the page by rule; the guard test keeps it so.
  */
 import { useEffect } from 'react';
 
