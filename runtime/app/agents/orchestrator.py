@@ -115,6 +115,30 @@ async def _append_tripwire(
         )
 
 
+# The canary set the fixtures plant (intelligence-layer/prompts/README.md); a guard that fires
+# on one of THESE caught a marker leaking — every other guard fire is a plain guard drop.
+CANARY_MARKERS = frozenset({"02417", "05821", "Z4411"})
+GUARD_DROP_KINDS = frozenset({
+    "grounding_drop", "translate_drop", "grounding_summary_regen", "grounding_summary_degraded",
+    "legal_claim_downgraded",
+})
+
+
+def canary_marker_entries(case) -> list[dict]:
+    """M6 (e2e 2026-09-23): tripwires that caught a PLANTED fixture marker — the meaning
+    "canary" always had. A guard firing on a legitimate-but-ungrounded code is not one."""
+    return [
+        e for e in tripwire_entries(case)
+        if any(str(c).upper() in CANARY_MARKERS for c in (e.get("codes") or []))
+    ]
+
+
+def guard_drop_entries(case) -> list[dict]:
+    """Tripwires where a fabrication guard REMOVED or downgraded something (drop / regen /
+    degrade / downgrade) — scrubs excluded, marker hits included."""
+    return [e for e in tripwire_entries(case) if e.get("which") in GUARD_DROP_KINDS]
+
+
 def tripwire_entries(case) -> list[dict]:
     """The case's tripwire records (see _append_tripwire); [] when none fired."""
     return [
@@ -788,8 +812,12 @@ async def _ground_prose(
             .all()
         )
         vouched: set[str] = set()  # kept findings' reference codes vouch summary mentions
+        dropped_codes: set[str] = set()
+        kept: list = []
         for f in rows:
-            verdict = pg.ground_finding(f.facts, f.legal_claim, f.recommendation, haystack)
+            verdict = pg.ground_finding(
+                f.facts, f.legal_claim, f.recommendation, haystack, category=f.category
+            )
             if verdict.action == "drop":
                 DOCTRINE_VIOLATIONS[f"grounding_drop:{f.category}"] += 1
                 log.error(
@@ -802,9 +830,13 @@ async def _ground_prose(
                     case_file_id, "grounding_drop", codes=verdict.dropped_codes,
                     category=f.category, session=s,
                 )
+                dropped_codes.update(verdict.dropped_codes)
                 await s.delete(f)
             else:
-                _, refs = pg.structured_code_claims(f.facts, f.legal_claim, f.recommendation)
+                kept.append(f)
+                # the SAME distinction the guard used: a kept finding's reference codes (the
+                # correct code, the panel) vouch for the summary's mention of them
+                _, refs = pg.code_sets(f.facts, f.legal_claim, f.recommendation, haystack, category=f.category)
                 vouched |= refs
                 if verdict.scrubbed:
                     DOCTRINE_VIOLATIONS[f"grounding_scrub:{f.category}"] += 1
@@ -818,6 +850,10 @@ async def _ground_prose(
                         case_file_id=case_file_id,
                         category=f.category,
                     )
+        if dropped_codes:
+            # Consistency (e2e 2026-09-23 B2): a deadline whose dispute basis was the dropped
+            # finding must not keep citing it while the reveal says "nothing hidden".
+            await _reconcile_deadlines_after_drop(s, case_file_id, dropped_codes, kept)
         await s.commit()
 
     codes = pg.summary_ungrounded_codes(composed, haystack, vouched)
@@ -852,6 +888,40 @@ async def _ground_prose(
         await _append_tripwire(case_file_id, "grounding_summary_degraded", codes=codes)
         return ""
     return composed
+
+
+async def _reconcile_deadlines_after_drop(
+    session, case_file_id: str, dropped_codes: set[str], survivors: list
+) -> None:
+    """The deadline's dispute basis is derived from SURVIVING findings only. A pending
+    deadline whose agent-written description leans on a dropped code is re-described from
+    what survived (their categories, humanized) — or, when nothing survived, left to its
+    rule label (the appeal window is real; the basis the agent named was not)."""
+    from app.db.models.deadlines import Deadline
+    from app.sources.gameplan import humanize_category
+
+    rows = (
+        await session.execute(
+            select(Deadline)
+            .where(Deadline.case_file_id == UUID(case_file_id))
+            .where(Deadline.status == "pending")
+        )
+    ).scalars().all()
+    if not rows:
+        return
+    pattern = re.compile(r"(?<![A-Z0-9])(?:" + "|".join(re.escape(c) for c in sorted(dropped_codes)) + r")(?![A-Z0-9])")
+    basis = [humanize_category(getattr(f, "category", "") or "") for f in survivors]
+    basis = [b for b in basis if b]
+    for d in rows:
+        if not d.description or not pattern.search(d.description.upper()):
+            continue
+        before = d.description
+        d.description = ("Dispute basis: " + "; ".join(dict.fromkeys(basis))) if basis else None
+        log.warning(
+            "orchestrator.deadline_basis_reconciled",
+            case_file_id=case_file_id, deadline_type=d.deadline_type,
+            dropped_codes=sorted(dropped_codes), survivors=len(basis), was=before[:120],
+        )
 
 
 def _rung2_three_numbers(case, plan_coverage: dict | None = None) -> dict | None:

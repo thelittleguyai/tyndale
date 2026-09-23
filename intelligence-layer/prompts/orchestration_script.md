@@ -371,6 +371,14 @@ drift guard (nothing in his file to compare against).
 <!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). Rendered ONCE in the thread when the audit ran with the rules corpus unreachable (retrieval_unavailable on the case) — never silently. -->
 [A] I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact.
 
+## grounding.dropped_notice
+<!-- UNMAPPED — e2e 2026-09-23 B2; PROPOSED interim seed (engineering). Rendered ONCE in the thread when a fabrication guard removed a finding (a grounding drop). A guard drop is NOT a photo problem: the §5.1 "too blurry" line is reserved for genuine OCR-quality signals. -->
+[A] I saw one more thing, but I could not tie it back to your papers. So I left it out. I don't guess.
+
+## degraded.missing_input
+<!-- ENG — e2e 2026-09-23 B2. The fallback for a string whose variable has no value (his §0 rule 2 says "the §5 degradation variant"; §5.1's "too blurry… a clearer photo fixes it" was being substituted for EVERY missing variable, which misattributes a data gap to the user's photo). Neutral, no cause claimed. Brock: your wording. -->
+[A] I don't have what I need to say that part yet. So I left it out. I don't guess.
+
 ## finding.worth_checking
 <!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). The [C]-style note on a finding whose legal claim had no retrieved source: the observation stays, the claim does not. -->
 [A] Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it.

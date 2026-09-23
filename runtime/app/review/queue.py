@@ -51,13 +51,16 @@ class EnqueueFacts:
     confidence_band: str  # high | medium | low | unknown
     first_case: bool
     system_error: bool
-    canary_flag: bool
+    canary_flag: bool  # a PLANTED fixture marker leaked (M6)
     material_disagreement: bool
     findings_count: int
     net_finding_usd: float | None
     documents_fingerprint: str
     # A synthetic test identity (@e2e.tyndale.test …): its runs are fixtures, not reviews.
     synthetic: bool = False
+    # M6 (e2e 2026-09-23): a fabrication guard removed / downgraded something on this run —
+    # distinct from canary_flag, which now means a PLANTED marker leaked.
+    guard_drop: bool = False
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,8 @@ def decide(facts: EnqueueFacts, *, sample_pct: int, roll: float, settings=None) 
         triggers.append("system_error")
     if s.review_trigger_canary and facts.canary_flag:
         triggers.append("canary")
+    if getattr(s, "review_trigger_guard_drop", True) and facts.guard_drop:
+        triggers.append("guard_drop")
     if s.review_trigger_material_disagreement and facts.material_disagreement:
         triggers.append("material_disagreement")
     pct = max(0, min(100, int(sample_pct)))
@@ -193,7 +198,7 @@ async def gather_facts(
 ) -> EnqueueFacts:
     """Assemble the enqueue facts from persisted data only (the result projection, the
     findings, the case's tripwire log, the user's case count) — never from a model."""
-    from app.agents.orchestrator import _assemble_result, tripwire_entries
+    from app.agents.orchestrator import _assemble_result, canary_marker_entries, guard_drop_entries
     from app.db.models.users import User
     from app.notify.email import is_synthetic_email
 
@@ -241,7 +246,8 @@ async def gather_facts(
         confidence_band=confidence_band(tier),
         first_case=int(earlier_cases) == 0,
         system_error=(status == "audit_incomplete" and incomplete_reason == "system_error"),
-        canary_flag=bool(tripwire_entries(case)),
+        canary_flag=bool(canary_marker_entries(case)),
+        guard_drop=bool(guard_drop_entries(case)),
         material_disagreement=disagreement,
         findings_count=len(findings),
         net_finding_usd=_net_usd(findings),
@@ -285,6 +291,7 @@ def _stamp(
     row.first_case = facts.first_case
     row.system_error = facts.system_error
     row.canary_flag = facts.canary_flag
+    row.guard_drop_flag = facts.guard_drop
     row.material_disagreement = facts.material_disagreement
     row.findings_count = facts.findings_count
     row.net_finding_usd = facts.net_finding_usd
@@ -379,6 +386,14 @@ async def on_terminal(case_file_id: str, status: str, incomplete_reason: str | N
                 log.info("review.queue.skipped", case_file_id=case_file_id, sample_pct=pct)
                 return None
             await s.commit()
+            for kind, fired in (("canary_marker_hit", facts.canary_flag), ("guard_drop", facts.guard_drop)):
+                if fired:
+                    from app.analytics.emit import emit
+
+                    await emit(
+                        "fabrication_guard_fired", user_id=case.user_id,
+                        case_file_id=case.case_file_id, properties={"kind": kind},
+                    )
             log.info(
                 "review.queue.enqueued",
                 case_file_id=case_file_id,

@@ -52,11 +52,14 @@ export function FlagChips({
   flags,
   sampled,
 }: {
-  flags: { first_case: boolean; system_error: boolean; canary: boolean; material_disagreement: boolean };
+  flags: { first_case: boolean; system_error: boolean; canary: boolean; guard_drop?: boolean; material_disagreement: boolean };
   sampled: boolean;
 }) {
   const chips: { label: string; cls: string }[] = [];
-  if (flags.canary) chips.push({ label: 'canary', cls: 'bg-rose-soft text-rose-deep' });
+  // M6 (2026-09-23): "canary" means a PLANTED fixture marker leaked; a guard removing or
+  // downgrading something on a legitimate run is a "guard drop" — they used to share a flag.
+  if (flags.canary) chips.push({ label: 'canary marker hit', cls: 'bg-rose-soft text-rose-deep' });
+  if (flags.guard_drop) chips.push({ label: 'guard drop', cls: 'bg-amber-soft text-amber-deep' });
   if (flags.system_error) chips.push({ label: 'system error', cls: 'bg-rose-soft text-rose-deep' });
   if (flags.material_disagreement) chips.push({ label: 'EOB ≠ Tyndale', cls: 'bg-amber-soft text-amber-deep' });
   if (flags.first_case) chips.push({ label: 'first case', cls: 'bg-citation-soft text-citation-deep' });

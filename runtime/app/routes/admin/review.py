@@ -130,6 +130,7 @@ def _review_dict(
             "first_case": r.first_case,
             "system_error": r.system_error,
             "canary": r.canary_flag,
+            "guard_drop": bool(getattr(r, "guard_drop_flag", False)),
             "material_disagreement": r.material_disagreement,
         },
         "enqueued_at": _iso(r.enqueued_at),
@@ -175,7 +176,8 @@ async def review_queue_list(
     verdict: str | None = Query(None, description="verdict type of decided rows"),
     confidence: str | None = Query(None, description="comma-separated bands"),
     has_system_error: bool | None = Query(None),
-    canary: bool | None = Query(None),
+    canary: bool | None = Query(None, description="a planted fixture marker leaked (M6)"),
+    guard_drop: bool | None = Query(None, description="a fabrication guard removed/downgraded something (M6)"),
     intake_mode: str | None = Query(None, description="guided | chat_first — the case's front door"),
     since: datetime.datetime | None = Query(None, description="enqueued_at >= (ISO)"),
     until: datetime.datetime | None = Query(None, description="enqueued_at < (ISO)"),
@@ -208,6 +210,8 @@ async def review_queue_list(
         conds.append(CaseReview.system_error.is_(has_system_error))
     if canary is not None:
         conds.append(CaseReview.canary_flag.is_(canary))
+    if guard_drop is not None:
+        conds.append(CaseReview.guard_drop_flag.is_(guard_drop))
     if intake_mode:
         from app.intake.mode import INTAKE_MODES
 
@@ -280,6 +284,7 @@ async def review_settings(
             "low_confidence": s.review_trigger_low_confidence,
             "system_error": s.review_trigger_system_error,
             "canary": s.review_trigger_canary,
+            "guard_drop": s.review_trigger_guard_drop,
             "material_disagreement": s.review_trigger_material_disagreement,
         },
     }

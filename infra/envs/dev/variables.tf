@@ -429,7 +429,13 @@ variable "review_trigger_system_error" {
 variable "review_trigger_canary" {
   type        = bool
   default     = true
-  description = "Always enqueue runs where a fabrication tripwire fired (grounding drop/scrub, translate drop) for human review."
+  description = "Always enqueue runs where a PLANTED fixture marker (02417 / 05821 / Z4411) leaked into a tripwire — the canary in its original sense (M6, 2026-09-23)."
+}
+
+variable "review_trigger_guard_drop" {
+  type        = bool
+  default     = true
+  description = "Always enqueue runs where a fabrication guard removed or downgraded something (grounding drop / summary regen or degrade / translate drop / legal-claim downgrade) — M6, 2026-09-23."
 }
 
 variable "review_trigger_material_disagreement" {

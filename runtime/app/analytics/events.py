@@ -151,6 +151,9 @@ REGISTRY: dict[str, EventSpec] = {
     # only — never the note text, never a case identifier beyond the standard column.
     # A terminal run by a synthetic test identity was kept OUT of the review queue (deep review
     # C5). Enum-only; attributed to the synthetic user and removed with it by the e2e teardown.
+    # M6 (e2e 2026-09-23): which CLASS of guard event a reviewed run carried — a planted
+    # fixture marker leaking (canary) vs a guard removing/downgrading on a legitimate run.
+    "fabrication_guard_fired": EventSpec({"kind": enum_prop("canary_marker_hit", "guard_drop")}),
     "review_enqueue_skipped_synthetic": EventSpec(
         {"terminal": enum_prop("audit_complete", "audit_incomplete")}
     ),

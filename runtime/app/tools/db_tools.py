@@ -90,6 +90,19 @@ async def _pg_upsert_finding(args: dict[str, Any]) -> dict[str, Any]:
     legal_claim = as_dict(legal_claim)
     recommendation = as_dict(args.get("recommendation"))
 
+    # The two code sets (e2e 2026-09-23 B2): what the documents CONTAIN (basis — grounded by
+    # the guard) vs what the finding argues FROM (reference — the correct code, the panel,
+    # an NCCI/MUE comparison; never grounded, never convicting). Stored on the facts so every
+    # reader — the guard, the summary pass, the reviewer's provenance tab — sees one answer.
+    from app.sources.prose_grounding import EXPLICIT_BASIS_KEY, EXPLICIT_REFERENCE_KEY, normalize_codes
+
+    basis = normalize_codes(args.get("basis_codes"))
+    reference = normalize_codes(args.get("reference_codes")) - basis
+    if basis:
+        facts[EXPLICIT_BASIS_KEY] = sorted(basis)
+    if reference:
+        facts[EXPLICIT_REFERENCE_KEY] = sorted(reference)
+
     async with AsyncSessionLocal() as s:
         s.add(
             Finding(
@@ -121,7 +134,12 @@ register_tool(
             "(when the finding rests on a retrieved rule, carry the rule's responsible_party "
             "into facts.responsible_party: provider | payer | either). "
             "legal_claim is the Tier B claim object (include citations as a list inside it). "
-            "recommendation is the Tier C scripted next-action."
+            "recommendation is the Tier C scripted next-action. "
+            "basis_codes: the CPT/HCPCS codes that appear ON the user's documents and that this "
+            "finding rests on (the billed code). reference_codes: codes you cite as the ARGUMENT "
+            "and that are NOT on the documents — the correct code an upcoded line should carry, "
+            "the panel code unbundled components belong to, an NCCI/MUE comparison. Fill both; "
+            "a basis code absent from every document drops the finding, a reference code never does."
         ),
         "input_schema": {
             "type": "object",
@@ -136,6 +154,8 @@ register_tool(
                 "legal_claim": {"type": "object"},
                 "recommendation": {"type": "object"},
                 "citations": {"type": "array", "items": {"type": "object"}},
+                "basis_codes": {"type": "array", "items": {"type": "string"}, "description": "codes ON the documents this finding rests on"},
+                "reference_codes": {"type": "array", "items": {"type": "string"}, "description": "codes cited as the argument, NOT on the documents (correct code, panel, comparison)"},
                 "voice_tier": {"type": "string", "enum": ["A", "B", "C"]},
                 "subagent_source": {"type": "string"},
             },

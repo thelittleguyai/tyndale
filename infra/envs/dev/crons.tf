@@ -223,6 +223,10 @@ resource "azurerm_container_app_job" "cron" {
         value = tostring(var.review_trigger_canary)
       }
       env {
+        name  = "REVIEW_TRIGGER_GUARD_DROP"
+        value = tostring(var.review_trigger_guard_drop)
+      }
+      env {
         name  = "REVIEW_TRIGGER_MATERIAL_DISAGREEMENT"
         value = tostring(var.review_trigger_material_disagreement)
       }

@@ -84,7 +84,11 @@ class CaseReview(Base):
     sampled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     first_case: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     system_error: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # M6 (e2e 2026-09-23): `canary_flag` means a PLANTED fixture marker leaked (02417 / 05821 /
+    # Z4411) — the meaning "canary" always had. `guard_drop_flag` means a fabrication guard
+    # removed or downgraded something on a legitimate run. Until now the one column meant both.
     canary_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    guard_drop_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     material_disagreement: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )

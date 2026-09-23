@@ -73,8 +73,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "verification_nudge",
         # data quality
         "dataquality_partial_illegible", "dataquality_summary_not_itemized",
-        # retrieval degradation (e2e 2026-09-23 B1)
-        "retrieval.unavailable_notice",
+        # retrieval degradation (e2e 2026-09-23 B1) · a guard drop, said honestly (B2)
+        "retrieval.unavailable_notice", "grounding.dropped_notice",
         # reconcile ladder
         "reconcile.explain", "reconcile.ask_one_input", "reconcile.last_resort",
         # the reveal + terminal states
@@ -501,6 +501,17 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         await ensure(
             "retrieval:unavailable", "system_message",
             {"text": text, "tone": "neutral", "marker": "retrieval_unavailable"}, text,
+        )
+
+    # A fabrication guard removed a finding (e2e 2026-09-23 B2): said ONCE, in doctrine
+    # voice — what happened, not a photo problem (§5.1 is reserved for partial reads).
+    from app.agents.orchestrator import guard_drop_entries
+
+    if not machine_working and guard_drop_entries(case):
+        text = orchestration_step("grounding.dropped_notice")
+        await ensure(
+            "grounding:dropped", "system_message",
+            {"text": text, "tone": "neutral", "marker": "guard_drop"}, text,
         )
 
     # External-program handoff (§A2 state 5 / script §12). Regime detection already routes

@@ -85,7 +85,11 @@ _ALTERNATION_RE = re.compile(r"\{([^{}/]+?)\s*/\s*([^{}]+?)\}")
 # degradation variant — never a guess, never an empty string, never a raw token.
 _UNFILLED_SLOT_RE = re.compile(r"\{[a-z][a-z0-9_]*\}", re.IGNORECASE)
 # The §5.1 "I won't guess at a number" string is the degradation variant for a missing value.
-DEGRADATION_KEY = "dataquality_partial_illegible"
+# The fallback for a string rendered with an unfilled variable (his §0 rule 2). Until
+# 2026-09-23 this was §5.1's "too blurry… a clearer photo fixes it" — which misattributes any
+# missing input to the user's photo (e2e B2). §5.1 now renders ONLY on a genuine partial-read
+# signal (thread_bridge / data_quality.partial_read); a missing variable gets a neutral line.
+DEGRADATION_KEY = "degraded.missing_input"
 
 
 class ScriptEntry(NamedTuple):

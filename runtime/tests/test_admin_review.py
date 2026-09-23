@@ -135,7 +135,8 @@ async def test_queue_lists_run_with_masked_user_and_health(client: AsyncClient):
     assert item["case_file_id"] == cfid and item["state"] == "unreviewed"
     assert item["user_masked"].startswith("u·") and len(item["user_masked"]) == 6
     assert "email" not in item and "user_id" not in item
-    assert set(item["flags"]) == {"first_case", "system_error", "canary", "material_disagreement"}
+    # M6 (2026-09-23): canary = a planted marker leaked; guard_drop = a guard removed/downgraded
+    assert set(item["flags"]) == {"first_case", "system_error", "canary", "guard_drop", "material_disagreement"}
     h = body["health"]
     for k in (
         "unreviewed",
@@ -285,6 +286,7 @@ async def test_settings_dial_roundtrip(client: AsyncClient):
             "low_confidence",
             "system_error",
             "canary",
+            "guard_drop",
             "material_disagreement",
         }
         assert (

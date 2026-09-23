@@ -259,7 +259,8 @@ class Settings(BaseSettings):
     review_trigger_first_case: bool = True  # env: REVIEW_TRIGGER_FIRST_CASE
     review_trigger_low_confidence: bool = True  # env: REVIEW_TRIGGER_LOW_CONFIDENCE
     review_trigger_system_error: bool = True  # env: REVIEW_TRIGGER_SYSTEM_ERROR
-    review_trigger_canary: bool = True  # env: REVIEW_TRIGGER_CANARY
+    review_trigger_canary: bool = True  # env: REVIEW_TRIGGER_CANARY — a planted marker leaked
+    review_trigger_guard_drop: bool = True  # env: REVIEW_TRIGGER_GUARD_DROP — a guard removed/downgraded something
     review_trigger_material_disagreement: bool = True  # env: REVIEW_TRIGGER_MATERIAL_DISAGREEMENT
     coverage_wrapper_url: str | None = None  # e.g. http://tyndale-dev-wrapper:80
     wrapper_auth_token: str | None = None  # bearer shared with the wrapper (KV secret)

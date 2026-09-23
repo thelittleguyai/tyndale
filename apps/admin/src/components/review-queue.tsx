@@ -64,6 +64,7 @@ export function ReviewQueue() {
   const [band, setBand] = useState<string>('');
   const [systemError, setSystemError] = useState(false);
   const [canary, setCanary] = useState(false);
+  const [guardDrop, setGuardDrop] = useState(false);
   const [route, setRoute] = useState<string>('');
   const [items, setItems] = useState<ReviewQueueItem[]>([]);
   const [counts, setCounts] = useState<Record<ReviewState, number> | null>(null);
@@ -87,6 +88,7 @@ export function ReviewQueue() {
     if (band) params.confidence = band;
     if (systemError) params.has_system_error = true;
     if (canary) params.canary = true;
+    if (guardDrop) params.guard_drop = true;
     if (route) params.intake_mode = route;
     adminReviewQueue(params, ctl.signal)
       .then((r) => {
@@ -103,7 +105,7 @@ export function ReviewQueue() {
         clearTimeout(timer);
         if (inFlight.current === ctl) setLoading(false);
       });
-  }, [state, band, systemError, canary, route]);
+  }, [state, band, systemError, canary, guardDrop, route]);
 
   useEffect(() => {
     load();
@@ -183,9 +185,13 @@ export function ReviewQueue() {
           <input type="checkbox" checked={systemError} onChange={(e) => setSystemError(e.target.checked)} />
           system error
         </label>
-        <label className="flex items-center gap-1 text-white/60">
+        <label className="flex items-center gap-1 text-white/60" title="a planted fixture marker (02417 / 05821 / Z4411) leaked into a tripwire">
           <input type="checkbox" checked={canary} onChange={(e) => setCanary(e.target.checked)} />
-          canary
+          canary marker hit
+        </label>
+        <label className="flex items-center gap-1 text-white/60" title="a fabrication guard removed or downgraded something on this run">
+          <input type="checkbox" checked={guardDrop} onChange={(e) => setGuardDrop(e.target.checked)} />
+          guard drop
         </label>
         <span role="status" className="ml-auto text-white/40">
           {loading ? 'Loading…' : listedLabel(items.length, state, counts)}

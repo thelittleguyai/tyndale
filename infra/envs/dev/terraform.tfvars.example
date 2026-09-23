@@ -87,6 +87,7 @@ sendgrid_from_email = "no-reply@tyndaleapp.net"
 # review_trigger_low_confidence        = true
 # review_trigger_system_error          = true
 # review_trigger_canary                = true
+# review_trigger_guard_drop            = true
 # review_trigger_material_disagreement = true
 # audit_wall_clock_budget_seconds      = 600
 # audit_reconcile_stale_seconds        = 1800

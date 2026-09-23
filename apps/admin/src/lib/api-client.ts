@@ -478,7 +478,7 @@ export interface ReviewQueueItem {
   net_finding_usd: number | null;
   sampled: boolean;
   triggers: string[];
-  flags: { first_case: boolean; system_error: boolean; canary: boolean; material_disagreement: boolean };
+  flags: { first_case: boolean; system_error: boolean; canary: boolean; guard_drop?: boolean; material_disagreement: boolean };
   enqueued_at: string | null;
   age_hours: number | null;
   in_review_at: string | null;

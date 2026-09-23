@@ -19,6 +19,17 @@ one layer up, where it reaches AUDIT PROSE (a finding's narrative, the LP summar
 The canary codes (02417 / 05821 / Z4411 since 2026-09-18 — see
 intelligence-layer/prompts/README.md) are the tripwire this exists for; tests use them
 exactly as the e2e harness does.
+
+TWO CODE SETS (e2e 2026-09-23 B2). A finding carries ``basis_codes`` — the codes it says the
+documents contain, the convicting evidence — and ``reference_codes`` — the codes it argues
+FROM: the correct code an upcoded line should have carried, the panel the components should
+have been billed as, an NCCI/MUE comparison. Only basis codes are ever grounded; a reference
+code is legitimately absent from every document and can never convict. The guard on the
+specimen case deleted the audit's real finding (anesthesia 01402 billed where 01382 was the
+correct code) because 01382 — a reference — was not in the OCR text. Agents may state the
+sets explicitly (``pg_upsert_finding`` takes both); when they don't, ``code_sets`` derives
+them from the finding's category family (upcoding → the correct code is a reference;
+unbundling → the panel code is a reference; duplicates → basis only).
 """
 
 from __future__ import annotations
@@ -48,8 +59,39 @@ _CODE_SHAPE_RE = re.compile(r"\A[A-Z]?\d{4,5}\Z")
 # gates downstream.
 _REFERENCE_KEY_MARKERS = (
     "correct", "should", "expected", "recommend", "instead", "bundl", "panel",
-    "replace", "reference", "comparison",
-)
+    "replace", "reference", "comparison", "appropriate", "proper", "supported",
+    "suggested", "alternative", "sibling", "family", "crosswalk", "ncci", "mue",
+)  # NOT "component": unbundled components are ON the bill — they are the basis
+
+# Category families (the "migrate existing finding types" rule). The category is agent text
+# ("upcoding — anesthesia code mismatch"), so matching is by substring.
+_FAMILY_MARKERS = {
+    "upcoding": ("upcod", "downcod", "code mismatch", "level of service", "e/m level", "em level",
+                 "wrong code", "miscod", "anesthesia code", "level-5", "level 5"),
+    "unbundling": ("unbundl", "bundl", "panel", "component", "ncci", "fragment"),
+    "duplicate": ("duplicat", "double", "twice", "mue", "excess unit", "quantity"),
+}
+EXPLICIT_BASIS_KEY = "basis_codes"
+EXPLICIT_REFERENCE_KEY = "reference_codes"
+
+
+def category_family(category: str | None) -> str | None:
+    """upcoding | unbundling | duplicate | None — from the finding's free-text category."""
+    c = (category or "").lower()
+    for family, markers in _FAMILY_MARKERS.items():
+        if any(m in c for m in markers):
+            return family
+    return None
+
+
+def normalize_codes(values: object) -> set[str]:
+    out: set[str] = set()
+    for v in values if isinstance(values, (list, tuple, set)) else [values]:
+        if isinstance(v, (str, int)):
+            s = str(v).strip().upper().split("-", 1)[0]
+            if _CODE_SHAPE_RE.match(s):
+                out.add(s)
+    return out
 
 
 def _grounded(code: str, haystack: str) -> bool:
@@ -90,6 +132,63 @@ def structured_code_claims(
     return presence, reference
 
 
+def _all_prose_codes(*payloads: dict | None) -> set[str]:
+    """Every context-anchored code mention in the payloads' prose (any key)."""
+    found: set[str] = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+        elif isinstance(node, str):
+            found.update(m[2] for m in prose_mentions(node))
+
+    for p in payloads:
+        walk(p or {})
+    return found
+
+
+def code_sets(
+    facts: dict | None,
+    legal_claim: dict | None = None,
+    recommendation: dict | None = None,
+    haystack: str | None = None,
+    *,
+    category: str | None = None,
+) -> tuple[set[str], set[str]]:
+    """(basis_codes, reference_codes) for one finding.
+
+    Explicit sets on the finding (``facts.basis_codes`` / ``facts.reference_codes``, written
+    by the agent through pg_upsert_finding) win outright. Otherwise the key-marker walk
+    decides, and the category family applies the migration rule: in an upcoding or
+    unbundling finding that stands on at least one GROUNDED basis code, every other code it
+    mentions — in prose included — is its argument (the correct code, the panel), never a
+    claim about the documents; a duplicates finding has no reference codes at all."""
+    facts = facts or {}
+    explicit_basis = normalize_codes(facts.get(EXPLICIT_BASIS_KEY))
+    explicit_reference = normalize_codes(facts.get(EXPLICIT_REFERENCE_KEY))
+    presence, reference = structured_code_claims(
+        {k: v for k, v in facts.items() if k not in (EXPLICIT_BASIS_KEY, EXPLICIT_REFERENCE_KEY)},
+        legal_claim, recommendation,
+    )
+    if explicit_basis or explicit_reference:
+        basis = (presence | explicit_basis) - explicit_reference
+        return basis, (reference | explicit_reference) - basis
+
+    family = category_family(category)
+    if family == "duplicate":
+        return presence | reference, set()
+    if family in ("upcoding", "unbundling") and haystack is not None:
+        grounded_basis = {c for c in presence if _grounded(c, haystack) and len(c) >= 4}
+        if grounded_basis:
+            others = (presence - grounded_basis) | reference | (_all_prose_codes(facts, legal_claim, recommendation) - grounded_basis)
+            return grounded_basis, others
+    return presence, reference
+
+
 def prose_mentions(text: str) -> list[tuple[int, int, str, bool]]:
     """(start, end, code, cleanly_strippable) for context-anchored code mentions.
     Parenthesized spans strip cleanly; inline context forms do not."""
@@ -123,11 +222,14 @@ def ground_finding(
     legal_claim: dict | None,
     recommendation: dict | None,
     haystack: str,
+    *,
+    category: str | None = None,
 ) -> GroundingVerdict:
-    """Apply drop-if-basis / scrub-if-incidental to one finding's payloads."""
+    """Apply drop-if-basis / scrub-if-incidental to one finding's payloads. The guard checks
+    ONLY basis codes; reference codes are vouched everywhere (e2e 2026-09-23 B2)."""
     payloads = {"facts": facts, "legal_claim": legal_claim, "recommendation": recommendation}
 
-    presence, reference = structured_code_claims(facts, legal_claim, recommendation)
+    presence, reference = code_sets(facts, legal_claim, recommendation, haystack, category=category)
     ungrounded_claims = sorted(c for c in presence if not _grounded(c, haystack))
     if ungrounded_claims:
         return GroundingVerdict("drop", dropped_codes=ungrounded_claims)

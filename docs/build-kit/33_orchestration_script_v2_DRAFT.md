@@ -209,13 +209,17 @@ the copy route until you author it (engineering fallbacks render in the app):
 
 ## Retrieval degradation — PROPOSED, interim engineering seeds (2026-09-23)
 
-*Status: INTERIM. The e2e walk-through (2026-09-23, B1) found the audit running with the rules
-corpus unreachable and still shipping a [B] claim. Two keys make the degradation honest; both
-are engineering seeds for Brock to author.*
+*Status: INTERIM. The e2e walk-through (2026-09-23) found the audit running with the rules corpus
+unreachable and still shipping a [B] claim (B1), and a guard drop reported to the user as a blurry
+photo (B2). Four keys make the degradation honest; all are engineering seeds for Brock to author.
+`degraded.missing_input` replaces §5.1 as the fallback for a string whose variable has no value —
+§5.1 now renders only on a genuine partial-read signal.*
 
 | key | source | seed |
 |---|---|---|
 | `retrieval.unavailable_notice` | eng | I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact. |
+| `grounding.dropped_notice` | eng | I saw one more thing, but I could not tie it back to your papers. So I left it out. I don't guess. |
+| `degraded.missing_input` | eng | I don't have what I need to say that part yet. So I left it out. I don't guess. |
 | `finding.worth_checking` | eng | Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it. |
 
 ## Guided intake (doc 40) — PROPOSED, interim engineering seeds (2026-09-21)
