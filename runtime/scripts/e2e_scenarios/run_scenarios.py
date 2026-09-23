@@ -301,20 +301,36 @@ def _confirm(client: httpx.Client, base_url: str, case_id: str, extract: dict, e
 
 # Case statuses in which the machine is working (mirror of thread_bridge._MACHINE_WORKING).
 MACHINE_WORKING = {"open", "in_progress", "encounter_verified", "audit_running"}
-# What the thread MAY carry while the machine works: the status card, the acknowledgment,
-# the record frame, and an attest request (it renders before verification by design).
+# What the thread MAY gain while the machine works: the status card, the acknowledgment,
+# the record frame, an attest request (it renders before verification by design), and the
+# machine's own "starting the audit" line. Everything else that APPEARS during a working
+# phase is content posted under a spinning card. Entries that were already there — the
+# verification cards the user answered during the pause — are not leaks: they stay by design.
 _ALLOWED_WHILE_WORKING = {"status_card_update", "attest_request"}
-_ALLOWED_SYSTEM_MARKERS = {"ack", "record_first_upload", "attest"}
+_ALLOWED_SYSTEM_MARKERS = {"ack", "record_first_upload", "attest", "audit_start"}
 
 # collected across a run: every thread entry seen while the case was in a machine phase
 _working_phase_leaks: dict[str, list[str]] = {}
+# per case: the entries present at the last NON-working poll (or before the first poll)
+_working_phase_baseline: dict[str, set[str]] = {}
 
 
-def _renderable_while_working(messages: list[dict] | None) -> list[str]:
-    """Entries a user would SEE beneath a spinning status card (e2e 2026-09-23 B4) — the
-    data-quality bubble, analysis text, verification cards, moment cards. [] when clean."""
+def _entry_id(m: dict) -> str:
+    """The API's message_id; a content-shaped stand-in for fixtures without one."""
+    if m.get("message_id"):
+        return str(m["message_id"])
+    payload = m.get("payload") if isinstance(m.get("payload"), dict) else {}
+    return f"{m.get('kind')}:{m.get('role')}:{payload.get('marker') or payload.get('variant')}:{(m.get('content') or '')[:80]}"
+
+
+def _renderable_while_working(messages: list[dict] | None, baseline: set[str] | None = None) -> list[str]:
+    """Entries a user would SEE beneath a spinning status card (e2e 2026-09-23 B4) that were
+    NOT already in the thread before the machine phase began — the data-quality bubble,
+    analysis text, verification or moment cards posted mid-run. [] when clean."""
     leaks: list[str] = []
     for m in messages or []:
+        if baseline is not None and _entry_id(m) in baseline:
+            continue
         kind = m.get("kind")
         if kind in _ALLOWED_WHILE_WORKING:
             continue
@@ -343,13 +359,19 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
         r = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30)
         r.raise_for_status()
         status = r.json()["status"]
-        if status in MACHINE_WORKING:
-            try:
-                leaks = _renderable_while_working(_fetch_thread(client, base_url, case_id))
-            except Exception:  # noqa: BLE001 — the thread read is an observation, never a stop
-                leaks = []
-            if leaks:
-                _working_phase_leaks.setdefault(case_id, []).extend(f"{status}: {x}" for x in leaks)
+        try:
+            thread = _fetch_thread(client, base_url, case_id)
+        except Exception:  # noqa: BLE001 — the thread read is an observation, never a stop
+            thread = None
+        if thread is not None:
+            if status in MACHINE_WORKING:
+                baseline = _working_phase_baseline.setdefault(case_id, set())
+                leaks = _renderable_while_working(thread, baseline)
+                if leaks:
+                    _working_phase_leaks.setdefault(case_id, []).extend(f"{status}: {x}" for x in leaks)
+            else:
+                # a pause or a terminal: whatever is on the thread now was rendered legitimately
+                _working_phase_baseline[case_id] = {_entry_id(m) for m in thread}
         if status in terminal and status == prev:
             return status
         prev = status
@@ -358,7 +380,8 @@ def _poll_status(client: httpx.Client, base_url: str, case_id: str) -> str:
 
 
 def _working_phase_checks(case_id: str) -> list[str]:
-    """B4's assertion: no renderable assistant content while ANY machine phase was running."""
+    """B4's assertion: no renderable assistant content APPEARED while ANY machine phase was running."""
+    _working_phase_baseline.pop(case_id, None)
     leaks = sorted(set(_working_phase_leaks.pop(case_id, [])))
     if not leaks:
         return []

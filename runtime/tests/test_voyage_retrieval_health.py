@@ -379,6 +379,11 @@ def test_harness_flags_content_rendered_beneath_a_working_status_card():
     ]
     leaks = mod._renderable_while_working(leaky)
     assert len(leaks) == 3 and any("dataquality:partial" in x for x in leaks)
+    # entries already on the thread before the phase began (the verification cards the user
+    # answered during the pause) are NOT leaks — only what APPEARS mid-run is (dev, 2026-09-23)
+    baseline = {mod._entry_id(m) for m in leaky[:-1]}
+    assert mod._renderable_while_working(leaky, baseline) == ["message:'Here is what I found so far'"]
+    assert mod._renderable_while_working([{"kind": "system_message", "payload": {"marker": "audit_start"}}]) == []
     mod._working_phase_leaks["case-x"] = ["in_progress: system_message:'dataquality:partial'"]
     assert mod._working_phase_checks("case-x") and mod._working_phase_checks("case-x") == []  # consumed once
     assert "in_progress" in mod.MACHINE_WORKING
