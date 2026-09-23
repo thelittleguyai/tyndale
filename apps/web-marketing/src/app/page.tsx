@@ -16,6 +16,7 @@ import {
 import { AuditDemo } from '../components/audit-demo';
 import { AuditMock } from '../components/audit-mock';
 import { ChatCompare } from '../components/chat-compare';
+import { RiseOnScroll } from '../components/rise-on-scroll';
 import { Logo, Wordmark } from '@/components/logo';
 
 /* Landing content ported verbatim from docs/design/prototype-round2/lib/tyndale-data.ts.
@@ -194,6 +195,9 @@ export default function HomePage() {
       </div>
 
       <main>
+        {/* One observer for every `data-rise` element below (rise-on-scroll, 2026-09-23). */}
+        <RiseOnScroll />
+
         {/* ── B5 · Not a chatbot with opinions ── */}
         <ComparisonBand />
 
@@ -203,7 +207,7 @@ export default function HomePage() {
         {/* ── How it works (cream) ── */}
         <section id="how-it-works" className="bg-cream">
           <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-            <div className="text-center">
+            <div className="text-center" data-rise>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">
                 How it works
               </p>
@@ -228,6 +232,7 @@ export default function HomePage() {
                 <li
                   key={title}
                   className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]"
+                  data-rise
                 >
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal text-base font-bold text-white">
                     {i + 1}
@@ -243,7 +248,7 @@ export default function HomePage() {
         {/* ── Features (cream-soft) ── */}
         <section id="features" className="bg-cream-soft">
           <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-            <div className="text-center">
+            <div className="text-center" data-rise>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal">
                 What Tyndale checks
               </p>
@@ -261,6 +266,7 @@ export default function HomePage() {
                 <li
                   key={title}
                   className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]"
+                  data-rise
                 >
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-tint text-teal">
                     <Icon size={21} strokeWidth={1.75} aria-hidden="true" />
@@ -276,10 +282,10 @@ export default function HomePage() {
         {/* ── Trust (navy) ── */}
         <section className="bg-navy">
           <div className="mx-auto max-w-5xl px-6 py-20 text-center sm:py-24">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl" data-rise>
               Your documents. Your rules.
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-white/55">
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-white/55" data-rise>
               Medical bills are some of the most personal documents you have. We treat them
               that way.
             </p>
@@ -289,6 +295,7 @@ export default function HomePage() {
                 <div
                   key={title}
                   className="flex flex-col items-center rounded-lg bg-white/[0.04] px-6 py-8 ring-1 ring-white/10"
+                  data-rise
                 >
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-white/10 text-white">
                     <Icon size={21} strokeWidth={1.75} aria-hidden="true" />
@@ -379,10 +386,10 @@ function ComparisonBand() {
   return (
     <section className="bg-cream-soft">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-        <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-ink sm:text-4xl" data-rise>
           Not a chatbot with opinions.
         </h2>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/70">
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/70" data-rise>
           Ask the same question about the same bill. One guesses. One reads your documents,
           remembers your case, and cites the law it stands on.
         </p>
@@ -416,7 +423,7 @@ function GroundingBand() {
   return (
     <section className="bg-cream">
       <div className="mx-auto grid max-w-6xl gap-5 px-6 py-20 sm:py-24 lg:grid-cols-2">
-        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]">
+        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]" data-rise>
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-tint text-teal">
             <ShieldCheck size={20} aria-hidden="true" />
           </span>
@@ -438,7 +445,7 @@ function GroundingBand() {
           </p>
         </div>
 
-        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]">
+        <div className="rounded-lg bg-surface p-7 shadow-card ring-1 ring-black/[0.04]" data-rise>
           <span className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-teal-tint text-teal">
             <FileText size={20} aria-hidden="true" />
           </span>
@@ -468,15 +475,15 @@ function SavingsBand() {
   return (
     <section className="bg-cream-soft">
       <div className="mx-auto max-w-6xl px-6 py-20 text-center sm:py-24">
-        <p className="text-base font-semibold uppercase tracking-[0.14em] text-sage-deep">
+        <p className="text-base font-semibold uppercase tracking-[0.14em] text-sage-deep" data-rise>
           Recovered for members
         </p>
         {/* SUBSTANTIATION PENDING (Brock) — see build-kit standing queue; swap to sourced figure
             or confirmed-outcomes counter when ruled. Do not change the rendered figure here. */}
-        <p className="mt-3 text-5xl font-bold tracking-tight text-sage-deep sm:text-6xl">
+        <p className="mt-3 text-5xl font-bold tracking-tight text-sage-deep sm:text-6xl" data-rise>
           $504,100
         </p>
-        <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink/65">
+        <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-ink/65" data-rise>
           Money that was never theirs to pay, back where it belongs.
         </p>
       </div>
@@ -500,7 +507,7 @@ function TipsBand() {
   return (
     <section className="bg-cream">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3" data-rise>
           <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
             The playbook the billing office hopes you don&rsquo;t have.
           </h2>
@@ -513,6 +520,7 @@ function TipsBand() {
             <li
               key={tip}
               className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-white p-4"
+              data-rise
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sage-tint text-sage-deep">
                 <Lock size={16} aria-hidden="true" />
@@ -547,7 +555,7 @@ function CleanBillBand() {
       />
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-navy via-navy/92 to-navy/45" />
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <div className="max-w-lg">
+        <div className="max-w-lg" data-rise>
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Bill checks out? You still have moves.
           </h2>
@@ -569,17 +577,23 @@ function BetaBand() {
   return (
     <section className="bg-teal-deep">
       <div className="mx-auto max-w-5xl px-6 py-20 text-center sm:py-24">
-        <p className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3.5 py-1.5 text-[13px] font-semibold text-white/90">
+        <p
+          className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3.5 py-1.5 text-[13px] font-semibold text-white/90"
+          data-rise
+        >
           Tyndale is just getting started
         </p>
-        <h2 className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        <h2
+          className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl"
+          data-rise
+        >
           Every bill Tyndale sees makes it sharper.
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/75">
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/75" data-rise>
           We&apos;re early &mdash; and more errors caught means more people helped. Fix your
           bill, and you make the next person&apos;s fight easier too.
         </p>
-        <div className="mt-8 flex flex-col items-center gap-4">
+        <div className="mt-8 flex flex-col items-center gap-4" data-rise>
           <a
             href="/signin"
             className="inline-flex items-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-ink shadow-sm transition hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-deep"
@@ -609,8 +623,9 @@ function OurStoryBand() {
           width={96}
           height={96}
           className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-line sm:h-24 sm:w-24"
+          data-rise
         />
-        <div>
+        <div data-rise>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal">Our story</p>
           <p className="mt-2 max-w-2xl text-base leading-relaxed text-ink/70">
             We started Tyndale after watching people we love overpay bills that were simply

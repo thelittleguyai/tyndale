@@ -61,6 +61,20 @@ body {
   animation: tyn-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+/* Rise-on-scroll (components/rise-on-scroll.tsx): band headings and card grids carry
+   `data-rise` and rise in the first time they enter view. They are hidden ONLY where the engine
+   confirms scripting is enabled AND motion is not reduced — a no-JS visitor, an old engine, or
+   a reduced-motion visitor sees everything, static. Never applied to an element that carries
+   `backdrop-filter` (there are none: N7 glass is held). */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-rise] {
+    opacity: 0;
+  }
+  [data-rise='in'] {
+    animation: tyn-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
 /* The chat-compare typing indicator — three dots breathing in sequence (the prototype used
    Tailwind's `animate-bounce`; a namespaced keyframe keeps the allowed set pinned). */
 @keyframes tyn-typing {

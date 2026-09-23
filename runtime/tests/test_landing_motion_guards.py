@@ -158,3 +158,31 @@ def test_the_demo_uses_the_hero_fixture_and_registry_copy_only():
     assert "IntersectionObserver" in _read(MARKETING / "lib/motion.ts") and "useInView(" in src
     page = _read(LANDING)
     assert page.index("<AuditDemo />") < page.index("{STEPS.map(")  # the demo shows, the cards explain
+
+
+# ── 4 · rise-on-scroll ──────────────────────────────────────────────────────────────────
+
+RISE = MARKETING / "components/rise-on-scroll.tsx"
+
+
+def test_rise_on_scroll_hides_nothing_it_cannot_reveal():
+    """The attribute is inert without the observer: hidden only under `(scripting: enabled)`
+    AND no reduced-motion preference, and the observer bails on exactly the same conditions,
+    so a no-JS visitor, an old engine, or a reduced-motion visitor sees everything, static."""
+    css = _read(GLOBALS_CSS)
+    block = re.search(
+        r"@media \(scripting: enabled\) and \(prefers-reduced-motion: no-preference\)\s*\{(.*?)\n\}", css, re.S
+    )
+    assert block, "the [data-rise] rules must sit under the scripting+motion media query"
+    assert re.search(r"\[data-rise\]\s*\{\s*opacity: 0;\s*\}", block.group(1))
+    assert "[data-rise='in']" in block.group(1) and "tyn-rise" in block.group(1)
+    assert "[data-rise]" not in css.replace(block.group(0), "")  # never hidden outside the gate
+    src = _read(RISE)
+    assert "matchMedia('(scripting: enabled)')" in src and "prefers-reduced-motion: reduce" in src
+    assert "IntersectionObserver" in src and "setAttribute('data-rise', 'in')" in src
+    page = _read(LANDING)
+    assert "<RiseOnScroll />" in page
+    assert page.count("data-rise") >= 20, "band headings and card grids carry data-rise"
+    # the hero (above the fold) does not rise — nothing hidden on first paint
+    hero_end = page.index("<main>")
+    assert "data-rise" not in page[:hero_end]
