@@ -16,6 +16,7 @@ from app.agents.context_loader import orchestration_step
 from app.agents.orchestrator import _documents_needed
 from app.appeals.deadlines import DEADLINE_RULES
 from app.agents.grounding import derive_responsible_party
+from app.sources.error_types import category_is_informational
 from app.schemas.case_file import as_dict
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
@@ -279,7 +280,13 @@ def _finding_brief(f: Finding) -> FindingBrief:
         title=humanize_category(f.category),
         claim=claim.strip() if isinstance(claim, str) and claim.strip() else None,
         dollar_impact=dollar,
-        recommendation=action.strip() if isinstance(action, str) and action.strip() else None,        responsible_party=derive_responsible_party(f),
+        recommendation=action.strip() if isinstance(action, str) and action.strip() else None,
+        responsible_party=derive_responsible_party(f),
+        presentation=(
+            "informational_context"
+            if getattr(f, "presentation", None) == "informational_context" or category_is_informational(f.category)
+            else None
+        ),
     )
 
 

@@ -78,6 +78,9 @@ class FindingOut(BaseModel):
     # therefore cannot render a bare claim even by omission.
     source_line: str = ""
     has_source: bool = False
+    # e2e 2026-09-23 M1 — the user-facing title (humanized category), the same one the
+    # sub-case brief and the thread's finding card carry; was empty on this endpoint.
+    title: str = ""
     # X5 — the typed error taxonomy (DRAFT pending Brock, packet A6). Derived at the read seam
     # from doctrine_config's unambiguous category maps when upstream didn't assert one; the
     # escape hatch carries the category as its sub-label. None on informational findings.

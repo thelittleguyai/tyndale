@@ -30,6 +30,8 @@ class FindingBrief(BaseModel):
     recommendation: str | None = None  # Tier-C action (agent-authored)
     # Server-derived attribution (audit 2026-08-27 item 2): provider | payer | either.
     responsible_party: str = "either"
+    # X2 — 'informational_context' for context that is not an error (M1, 2026-09-23)
+    presentation: str | None = None
 
 
 

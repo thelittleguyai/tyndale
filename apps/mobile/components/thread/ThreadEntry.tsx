@@ -7,14 +7,16 @@
 import { Text, View } from 'react-native';
 
 import type {
+  FindingMomentPayload,
+  GameplanMomentPayload,
   LineItemResponse,
   Message,
   NeedsDocumentsPayload,
-  UnlockMorePayload,
   StatusCardPayload,
   SystemMessagePayload,
   ThreeNumberMomentPayload,
   UnlockMomentPayload,
+  UnlockMorePayload,
   VerificationRequestPayload,
   VerificationSuggestionPayload,
 } from '@tyndale/shared';
@@ -22,7 +24,7 @@ import type {
 import { ChatMessage } from '../chat/ChatMessage';
 import type { Draft } from '../../app/(app)/audit/[case_file_id]/encounter';
 import { StatusCard } from './StatusCard';
-import { ThreeNumberMoment, UnlockMoment } from './MomentCards';
+import { FindingMoment, GameplanMoment, ThreeNumberMoment, UnlockMoment } from './MomentCards';
 import { ThreadNeedsDocuments } from './ThreadNeedsDocuments';
 import { ThreadSuggestion } from './ThreadSuggestion';
 import { ThreadVerification } from './ThreadVerification';
@@ -74,12 +76,14 @@ export function ThreadEntry({
       );
     case 'status_card_update':
       return <StatusCard payload={payload as unknown as StatusCardPayload} />;
-    case 'moment_card':
-      return (payload as { variant?: string }).variant === 'first_case_unlock' ? (
-        <UnlockMoment payload={payload as unknown as UnlockMomentPayload} />
-      ) : (
-        <ThreeNumberMoment payload={payload as unknown as ThreeNumberMomentPayload} />
-      );
+    case 'moment_card': {
+      const variant = (payload as { variant?: string }).variant;
+      if (variant === 'first_case_unlock') return <UnlockMoment payload={payload as unknown as UnlockMomentPayload} />;
+      // M1 (2026-09-23): the findings, then the game-plan link — the thread's path to the results
+      if (variant === 'finding') return <FindingMoment payload={payload as unknown as FindingMomentPayload} />;
+      if (variant === 'gameplan') return <GameplanMoment payload={payload as unknown as GameplanMomentPayload} />;
+      return <ThreeNumberMoment payload={payload as unknown as ThreeNumberMomentPayload} />;
+    }
     case 'verification_request':
       return (
         <ThreadVerification

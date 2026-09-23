@@ -7,9 +7,9 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-export function MomentCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function MomentCard({ children, className = '', testID }: { children: ReactNode; className?: string; testID?: string }) {
   return (
-    <View className={`w-full rounded-moment border border-moment-border bg-moment-bg p-5 ${className}`}>
+    <View className={`w-full rounded-moment border border-moment-border bg-moment-bg p-5 ${className}`} testID={testID}>
       {children}
     </View>
   );

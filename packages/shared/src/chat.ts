@@ -101,8 +101,41 @@ export interface UnlockMomentPayload {
   proceed_label?: string | null;
   next_route?: string | null;
 }
+/** One surviving finding, as the thread draws it (e2e 2026-09-23 M1) — the same FindingOut
+ *  the results page renders, projected: who it implicates, the amount or the honest no-dollar
+ *  line, the BASIS citations as chips, what to do, and the grounding line. */
+export interface FindingMomentPayload {
+  variant: 'finding';
+  finding_id: string;
+  case_file_id: string;
+  title: string;
+  finding_type: string;
+  responsible_party: 'provider' | 'payer' | 'either';
+  tier: 'fact' | 'rule_based';
+  voice_tier: 'A' | 'B' | 'C';
+  amount: number | null;
+  /** registry `finding.no_dollar_change` when there is no amount; null otherwise */
+  amount_line: string | null;
+  claim: string | null;
+  citations: { authority: string; section: string | null; src_id: string; marker: string }[];
+  what_to_do: string | null;
+  worth_checking: string | null;
+  source_line: string;
+  has_source: boolean;
+}
+/** "Your game plan" — the one link from the thread to the results page (M1). */
+export interface GameplanMomentPayload {
+  variant: 'gameplan';
+  headline: string;
+  cta: string;
+  next_route: string;
+}
 /** payload for kind='moment_card' — full-width, visually distinct (D0). */
-export type MomentCardPayload = ThreeNumberMomentPayload | UnlockMomentPayload;
+export type MomentCardPayload =
+  | ThreeNumberMomentPayload
+  | UnlockMomentPayload
+  | FindingMomentPayload
+  | GameplanMomentPayload;
 export interface NeedsDocumentsItem {
   key: string;
   label: string;

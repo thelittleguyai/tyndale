@@ -218,6 +218,9 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 | key | source | seed |
 |---|---|---|
 | `retrieval.unavailable_notice` | eng | I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact. |
+| `finding.no_dollar_change` | eng | No dollar change — still worth fixing. |
+| `gameplan.moment_headline` | eng | Your game plan is ready. |
+| `gameplan.moment_cta` | eng | See your game plan |
 | `grounding.dropped_notice` | eng | I saw one more thing, but I could not tie it back to your papers. So I left it out. I don't guess. |
 | `degraded.missing_input` | eng | I don't have what I need to say that part yet. So I left it out. I don't guess. |
 | `finding.worth_checking` | eng | Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it. |

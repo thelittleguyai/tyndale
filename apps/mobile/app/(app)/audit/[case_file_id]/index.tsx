@@ -9,7 +9,7 @@
  * the user's "no"/"not sure" confirmations).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link, Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CheckCircle2, Circle, MessageSquare } from 'lucide-react-native';
@@ -18,6 +18,7 @@ import {
   AuditResult,
   Disclosure,
   EobCompleteness,
+  FindingOut,
   ThumbsValue,
   confirmEobCompleteness,
   getAudit,
@@ -26,15 +27,45 @@ import {
   getDashboard,
   getEobCompleteness,
 } from '../../../../lib/api-client';
+import { notesLabel, splitFindings } from '../../../../lib/findings-split';
 import { recordDeepLinkTarget } from '../../../../lib/record-nav';
 import { ThumbsRating } from '../../../../components/thumbs-rating';
 import { AuditProgress } from '../../../../components/audit/AuditProgress';
 import { FindingCard } from '../../../../components/audit/FindingCard';
+import { ChatMarkdown } from '../../../../components/chat/Markdown';
 import { useThemeColors } from '../../../../theme/useThemeColors';
 
 const POLL_INTERVAL_MS = 3000;
 // Stop polling after this long + show a "taking longer than expected" notice (Phase 3.4).
 const AUDIT_POLL_TIMEOUT_MS = 120000;
+/**
+ * Every surviving finding renders (M1): the error findings in full, the informational context
+ * under an EXPLICIT expander — "2 more minor notes" — never hidden silently.
+ */
+function FindingsList({ findings, render }: { findings: FindingOut[]; render: (f: FindingOut) => ReactNode }) {
+  const [showNotes, setShowNotes] = useState(false);
+  const { errors, notes } = splitFindings(findings);
+  return (
+    <>
+      {errors.map(render)}
+      {notes.length ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showNotes }}
+            onPress={() => setShowNotes((v) => !v)}
+            className="mb-3 min-h-[44px] justify-center"
+            testID="findings-notes-toggle"
+          >
+            <Text className="text-body text-accent">{showNotes ? 'Hide the notes' : notesLabel(notes.length)}</Text>
+          </Pressable>
+          {showNotes ? notes.map(render) : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
 // Stable response_id for the composed-summary thumbs (distinct from findings).
 const COMPOSED_RESPONSE_ID = 'composed_response';
 // Treat sub-cent deltas as zero so float noise never triggers the celebration.
@@ -260,7 +291,8 @@ export default function AuditResultScreen() {
         {result.summary ? (
           <View className="mb-6 rounded-2xl border border-hairline bg-surface p-5">
             <Text className="mb-2 text-xs text-faint">Summary</Text>
-            <Text className="text-base leading-6 text-primary">{result.summary}</Text>
+            {/* the Lead Planner's narrative is markdown — rendered, not raw (M1) */}
+            <ChatMarkdown text={result.summary} className="text-base leading-6 text-primary" />
             <View className="mt-4 flex-row items-center justify-between border-t border-hairline pt-3">
               <Text className="text-xs text-faint">Was this helpful?</Text>
               <ThumbsRating
@@ -282,14 +314,17 @@ export default function AuditResultScreen() {
               Most billing issues like these are fixable with a phone call or a short letter —
               Tyndale will guide you.
             </Text>
-            {result.findings.map((f) => (
-              <FindingCard
-                key={f.finding_id}
-                finding={f}
-                caseFileId={case_file_id}
-                existingRating={ratings[f.finding_id] ?? null}
-              />
-            ))}
+            <FindingsList
+              findings={result.findings}
+              render={(f) => (
+                <FindingCard
+                  key={f.finding_id}
+                  finding={f}
+                  caseFileId={case_file_id}
+                  existingRating={ratings[f.finding_id] ?? null}
+                />
+              )}
+            />
           </>
         ) : null}
 
@@ -454,9 +489,12 @@ export function NeedsDocuments({ result, caseFileId }: { result: AuditResult; ca
             <Text className="mb-3 text-body leading-6 text-secondary">
               These are worth acting on now — Tyndale will guide you.
             </Text>
-            {result.findings.map((f) => (
-              <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
-            ))}
+            <FindingsList
+              findings={result.findings}
+              render={(f) => (
+                <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
+              )}
+            />
           </>
         ) : null}
 
@@ -503,9 +541,12 @@ function SystemError({ result, caseFileId }: { result: AuditResult; caseFileId: 
         {result.findings.length ? (
           <>
             <Text className="mb-2 mt-2 text-xs text-faint">What we found</Text>
-            {result.findings.map((f) => (
-              <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
-            ))}
+            <FindingsList
+              findings={result.findings}
+              render={(f) => (
+                <FindingCard key={f.finding_id} finding={f} caseFileId={caseFileId} existingRating={null} />
+              )}
+            />
           </>
         ) : null}
 

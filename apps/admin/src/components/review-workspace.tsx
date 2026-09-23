@@ -32,6 +32,7 @@ import {
   shortId,
   when,
 } from './review-ui';
+import { Markdown } from './markdown';
 import { DocumentViewer } from './document-viewer';
 import { VerdictPanel, type ClaimView } from './verdict-panel';
 
@@ -905,7 +906,8 @@ export function ReviewWorkspace({ caseId }: { caseId: string }) {
           {tab === 'analysis' ? (
             <div className="space-y-4">
               <ThreeNumbers tn={a.three_numbers} />
-              {a.summary ? <p className="text-sm leading-6 text-white/80">{a.summary}</p> : <p className="text-xs text-white/40">No summary composed.</p>}
+              {/* M1 (2026-09-23): the planner's narrative is markdown — rendered, never raw syntax */}
+              {a.summary ? <Markdown text={a.summary} /> : <p className="text-xs text-white/40">No summary composed.</p>}
               {a.findings.length ? (
                 <div className="space-y-3">
                   {a.findings.map((f) => (

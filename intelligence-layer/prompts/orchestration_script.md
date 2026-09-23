@@ -371,6 +371,18 @@ drift guard (nothing in his file to compare against).
 <!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). Rendered ONCE in the thread when the audit ran with the rules corpus unreachable (retrieval_unavailable on the case) — never silently. -->
 [A] I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact.
 
+## finding.no_dollar_change
+<!-- UNMAPPED — e2e 2026-09-23 M1; PROPOSED interim seed (engineering). The amount line on a finding card whose finding carries no dollar gap — a real error still worth fixing. -->
+[A] No dollar change — still worth fixing.
+
+## gameplan.moment_headline
+<!-- UNMAPPED — e2e 2026-09-23 M1; PROPOSED interim seed (engineering). The "Your game plan" moment in the thread, after the finding cards — the one link from the thread to the results page. -->
+[A] Your game plan is ready.
+
+## gameplan.moment_cta
+<!-- UNMAPPED — e2e 2026-09-23 M1; PROPOSED interim seed (engineering). The button on that moment. -->
+[A] See your game plan
+
 ## grounding.dropped_notice
 <!-- UNMAPPED — e2e 2026-09-23 B2; PROPOSED interim seed (engineering). Rendered ONCE in the thread when a fabrication guard removed a finding (a grounding drop). A guard drop is NOT a photo problem: the §5.1 "too blurry" line is reserved for genuine OCR-quality signals. -->
 [A] I saw one more thing, but I could not tie it back to your papers. So I left it out. I don't guess.

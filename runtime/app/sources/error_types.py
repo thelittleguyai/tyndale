@@ -55,6 +55,17 @@ def _doctrine():
         return None
 
 
+def category_is_informational(category: str | None) -> bool:
+    """Context, not an error — the doctrine config's category family (X2). ``_doctrine()``
+    returns the x5 module; the family lives in its sibling ``doctrine_config``."""
+    if _doctrine() is None:
+        return False
+    try:
+        return bool(sys.modules["doctrine_config"].category_matches_informational(category))
+    except Exception:  # noqa: BLE001 — a missing doctrine config classifies nothing
+        return False
+
+
 def annotate_error_type(finding: Any) -> Any:
     """Stamp error_type / error_type_sub_label / error_type_source onto a FindingOut-like
     object. Explicit upstream values are respected untouched; informational findings get no

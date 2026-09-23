@@ -129,6 +129,10 @@ export interface FindingOut {
   /** Attribution (Brock 38 §3, 2026-08-22): who the finding implicates. SERVER-derived —
    *  a matched rule's responsible_party (via facts) or the finding_type mapping. */
   responsible_party?: 'provider' | 'payer' | 'either';
+  /** e2e 2026-09-23 M1: the humanized title (same as the sub-case brief and the thread card). */
+  title?: string;
+  /** X2 — explicit informational typing (context, not an error). */
+  presentation?: string | null;
 }
 
 /** Deterministic disclosure tier (DL-85): 0 grounded · 1 note · 2 disclose · 3 chase. */

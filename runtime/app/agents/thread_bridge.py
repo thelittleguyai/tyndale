@@ -79,6 +79,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "reconcile.explain", "reconcile.ask_one_input", "reconcile.last_resort",
         # the reveal + terminal states
         "three_number_reveal", "completion", "needs_documents_intro", "system_error",
+        # the findings + the game plan link (e2e 2026-09-23 M1)
+        "findings_header", "finding.no_dollar_change", "gameplan.moment_headline", "gameplan.moment_cta",
         "system_error_no_email",  # §10.4 minus the email clause, while the flag is off
         "record_post_audit_keep_doing",
         # rung-2 unlock-more (complete-with-missing-inputs; Brock-authored in v1.1 — §3.11 closed)
@@ -580,6 +582,11 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
         )
     elif status == "audit_complete":
         await _ensure_three_number_moment(session, conv, case, ensure)
+        # e2e 2026-09-23 M1: the findings themselves, then the one link to the results page.
+        # Before this the reveal was the numbers + "nothing hidden" + a closing line — the
+        # user had no path from the thread to a single finding.
+        await _ensure_finding_cards(session, conv, case, ensure)
+        await _ensure_gameplan_moment(session, conv, case, ensure)
         await _ensure_unlock_moment(session, conv, case, ensure)
         await _ensure_reconcile_state(session, conv, case, ensure)
         done = orchestration_step("completion")
@@ -853,6 +860,97 @@ async def _ensure_three_number_moment(session, conv, case, ensure) -> None:
          "gap_callout": (
              gap_callout(a.eob_member_responsibility, a.tyndale_computed) if eob_known else None
          )},
+    )
+
+
+def _is_informational(f) -> bool:
+    """Context, not an error (X2): explicit typing, or the informational category family."""
+    if getattr(f, "presentation", None) == "informational_context":
+        return True
+    from app.sources.error_types import category_is_informational
+
+    return category_is_informational(getattr(f, "category", "") or "")
+
+
+def finding_card_payload(f, *, case_file_id: str) -> dict:
+    """ONE finding as the thread draws it — the same FindingOut the API serves, projected:
+    type, who it implicates, the amount (or the honest no-dollar line), the BASIS citations
+    as chips, what to do, and the grounding line. Nothing the API has is missing here."""
+    facts = f.facts if isinstance(f.facts, dict) else {}
+    gap = facts.get("gap")
+    try:
+        amount = round(max(0.0, float(gap)), 2) if gap is not None else None
+    except (TypeError, ValueError):
+        amount = None
+    lc = f.legal_claim if isinstance(f.legal_claim, dict) else {}
+    rec = f.recommendation if isinstance(f.recommendation, dict) else {}
+    claim = lc.get("claim") if not lc.get("downgraded") else None
+    return {
+        "variant": "finding",
+        "finding_id": f.finding_id,
+        "case_file_id": case_file_id,
+        "title": f.title or f.category,
+        "finding_type": f.finding_type,
+        "responsible_party": f.responsible_party,
+        "tier": f.tier,
+        "voice_tier": f.voice_tier,
+        "amount": amount,
+        "amount_line": None if amount else orchestration_step("finding.no_dollar_change"),
+        "claim": claim if isinstance(claim, str) and claim.strip() else None,
+        # the BASIS citations, as chips — never a chip for a downgraded claim
+        "citations": [
+            {"authority": c.authority, "section": c.section, "src_id": c.src_id, "marker": c.marker}
+            for c in (f.citations or [])
+        ],
+        "what_to_do": rec.get("action") if isinstance(rec.get("action"), str) else None,
+        "worth_checking": rec.get("worth_checking") if isinstance(rec.get("worth_checking"), str) else None,
+        "source_line": f.source_line,
+        "has_source": f.has_source,
+    }
+
+
+async def _ensure_finding_cards(session, conv, case, ensure) -> None:
+    """One card per surviving ERROR finding, biggest dollar first (informational context
+    stays on the results page under its own expander — it is not an accusation). Each
+    card's marker is its finding id: a finding that survives is drawn once; one the guard
+    dropped never appears, and the reveal's "nothing hidden" stays true."""
+    from app.agents.orchestrator import _assemble_result  # lazy — avoids the import cycle
+
+    result = await _assemble_result(str(case.case_file_id), composed="")
+    errors = [f for f in result.findings if not _is_informational(f)]
+
+    def _dollar(f) -> float:
+        facts = f.facts if isinstance(f.facts, dict) else {}
+        try:
+            return float(facts.get("gap") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    errors.sort(key=_dollar, reverse=True)
+    if errors:
+        header = orchestration_step("findings_header", n_findings=str(len(errors)))
+        await ensure("findings:header", "system_message", {"text": header, "tone": "neutral"}, header)
+    for f in errors:
+        await ensure(
+            f"finding:{f.finding_id}", "moment_card",
+            finding_card_payload(f, case_file_id=str(case.case_file_id)),
+        )
+
+
+async def _ensure_gameplan_moment(session, conv, case, ensure) -> None:
+    """"Your game plan" — the one link from the thread to the results page (/audit/{id};
+    the app redirects to the sub-case view when the Record is on). Rendered whenever the
+    audit completed, findings or not: the results page is also where the summary lives."""
+    headline = orchestration_step("gameplan.moment_headline")
+    cta = orchestration_step("gameplan.moment_cta")
+    await ensure(
+        "moment:gameplan", "moment_card",
+        {
+            "variant": "gameplan",
+            "headline": headline,
+            "cta": cta,
+            "next_route": f"/audit/{case.case_file_id}",
+        },
     )
 
 

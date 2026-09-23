@@ -13,6 +13,7 @@ import { CalendarClock, CheckCircle2, Circle, MessageSquare } from 'lucide-react
 
 import { CaseSummaryPayload, getCaseSummary, recordCallOutcome } from '../../../../lib/api-client';
 import { displayEnum } from '../../../../lib/enum-display';
+import { notesLabel, splitFindings } from '../../../../lib/findings-split';
 import { Gameplan } from '../../../../components/record/Gameplan';
 import { MomentCard } from '../../../../components/ui';
 import { useThemeColors } from '../../../../theme/useThemeColors';
@@ -29,6 +30,7 @@ export default function CaseSummaryScreen() {
 
   const [summary, setSummary] = useState<CaseSummaryPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -63,6 +65,8 @@ export default function CaseSummaryScreen() {
       </View>
     );
   }
+  const { errors: visibleErrors, notes } = splitFindings(summary.findings);
+  const visibleFindings = showNotes ? [...visibleErrors, ...notes] : visibleErrors;
 
   const tn = summary.three_number;
   const openNeeded = summary.open_items.filter((d) => !d.have).length;
@@ -179,7 +183,9 @@ export default function CaseSummaryScreen() {
             <Text className="mb-3 mt-2 text-xs text-faint">
               What we found
             </Text>
-            {summary.findings.map((f) => (
+            {/* M1 (2026-09-23): every surviving finding renders — errors in full, the
+                informational context under an explicit "N more notes" expander, never silently. */}
+            {visibleFindings.map((f) => (
               <View key={f.finding_id} className="mb-3 rounded-2xl border border-hairline bg-surface p-4">
                 <View className="mb-1 flex-row items-center justify-between gap-2">
                   <Text className="flex-1 text-base font-bold text-primary">{f.title}</Text>
@@ -196,6 +202,17 @@ export default function CaseSummaryScreen() {
                 ) : null}
               </View>
             ))}
+            {notes.length ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showNotes }}
+                onPress={() => setShowNotes((v) => !v)}
+                className="mb-3 min-h-[44px] justify-center"
+                testID="findings-notes-toggle"
+              >
+                <Text className="text-body text-accent">{showNotes ? 'Hide the notes' : notesLabel(notes.length)}</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 

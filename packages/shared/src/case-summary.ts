@@ -17,6 +17,8 @@ export interface FindingBrief {
   dollar_impact: number | null; // facts['gap'] — an ESTIMATE, labeled in the view
   recommendation: string | null; // Tier-C action (agent-authored)
   responsible_party?: string;
+  /** X2 — 'informational_context' for context that is not an error (e2e 2026-09-23 M1). */
+  presentation?: string | null;
 }
 
 /** One phone call's four beats. pick_up/in_writing/push_back are connective copy (D1); the

@@ -4,7 +4,12 @@
  */
 import { Text, View } from 'react-native';
 
-import type { ThreeNumberMomentPayload, UnlockMomentPayload } from '@tyndale/shared';
+import type {
+  FindingMomentPayload,
+  GameplanMomentPayload,
+  ThreeNumberMomentPayload,
+  UnlockMomentPayload,
+} from '@tyndale/shared';
 import { router } from 'expo-router';
 
 import { MomentCard } from '../ui';
@@ -118,3 +123,72 @@ export function UnlockMoment({ payload }: { payload: UnlockMomentPayload }) {
     </View>
   );
 }
+
+const PARTY_LABEL: Record<FindingMomentPayload['responsible_party'], string> = {
+  payer: 'Your insurer',
+  provider: 'Your provider',
+  either: 'Provider or insurer',
+};
+
+/**
+ * One finding in the thread (M1, 2026-09-23). Same content the results page's FindingCard
+ * carries, in the moment palette: title, who it implicates, the amount (or "no dollar change —
+ * still worth fixing"), the BASIS citation chips, what to do, and the grounding line — a
+ * finding can exist in the API and be absent from both surfaces no longer.
+ */
+export function FindingMoment({ payload }: { payload: FindingMomentPayload }) {
+  return (
+    <MomentCard className="my-3" testID={`finding-moment-${payload.finding_id}`}>
+      <View className="mb-2 flex-row items-start justify-between gap-3">
+        <Text className="flex-1 text-body font-medium text-moment-text">{payload.title}</Text>
+        <Text className="text-caption text-moment-text-faint">{PARTY_LABEL[payload.responsible_party] ?? 'Worth checking'}</Text>
+      </View>
+      {payload.amount != null ? (
+        <Text className="text-[26px] font-medium leading-8 text-moment-emphasis">up to {money(payload.amount)}</Text>
+      ) : payload.amount_line ? (
+        <Text className="text-body text-moment-text">{payload.amount_line}</Text>
+      ) : null}
+      {payload.claim ? <Text className="mt-2 text-body leading-6 text-moment-text">{payload.claim}</Text> : null}
+      {payload.citations.length ? (
+        <View className="mt-2 flex-row flex-wrap gap-2">
+          {payload.citations.map((c) => (
+            <View key={`${c.src_id}-${c.marker}`} className="rounded-full border border-moment-border px-2.5 py-1">
+              <Text className="text-micro text-moment-text-faint">
+                {c.authority}
+                {c.section ? ` ${c.section}` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {payload.what_to_do ? (
+        <Text className="mt-3 text-body leading-6 text-moment-text">
+          <Text className="text-moment-text-faint">What to do: </Text>
+          {payload.what_to_do}
+        </Text>
+      ) : null}
+      {payload.worth_checking ? (
+        <Text className="mt-2 text-body leading-6 text-moment-text-faint">{payload.worth_checking}</Text>
+      ) : null}
+      <Text className="mt-3 text-caption text-moment-text-faint">{payload.source_line}</Text>
+    </MomentCard>
+  );
+}
+
+/** "Your game plan" — the thread's one link to the results page (M1). */
+export function GameplanMoment({ payload }: { payload: GameplanMomentPayload }) {
+  return (
+    <MomentCard className="my-3" testID="gameplan-moment">
+      <Text className="text-body font-medium text-moment-text">{payload.headline}</Text>
+      <PressableScale
+        onPress={() => router.push(payload.next_route as never)}
+        accessibilityRole="button"
+        className="mt-4 min-h-[44px] items-center justify-center rounded-xl bg-accent px-4 py-3"
+        testID="gameplan-moment-cta"
+      >
+        <Text className="text-body font-bold text-on-accent">{payload.cta}</Text>
+      </PressableScale>
+    </MomentCard>
+  );
+}
+

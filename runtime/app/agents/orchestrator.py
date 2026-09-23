@@ -1384,7 +1384,9 @@ def _with_source_line(f: FindingOut) -> FindingOut:
     # B5: the [A]/[B] split + chip enforcement, at the same one chokepoint.
     from app.agents.grounding import apply_finding_tier
     from app.sources.error_types import annotate_error_type
+    from app.sources.gameplan import humanize_category
 
+    f.title = humanize_category(f.category or "")
     return annotate_error_type(apply_finding_tier(f))
 
 
