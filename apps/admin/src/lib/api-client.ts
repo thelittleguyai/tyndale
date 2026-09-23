@@ -327,6 +327,23 @@ export interface AdminSystemHealth {
     p50_seconds: number | null;
     p95_seconds: number | null;
   };
+  // e2e 2026-09-23 B1 — retrieval_degraded: the live per-process ledger + the durable
+  // last-N knowledge-tool outcomes. Absent on an older runtime.
+  retrieval?: {
+    status: 'healthy' | 'degraded' | 'unknown';
+    live: {
+      status: string;
+      window_calls: number;
+      window_errors: number;
+      error_rate: number;
+      voyage: Record<string, { last_status: number | null; last_error: string | null; last_error_at: string | null; errors: number }>;
+      last_alert_at: string | null;
+    };
+    durable: { window: number; calls: number; errors: number; error_rate: number; last_error_at: string | null; last_error: string | null };
+  };
+  // readiness B2 — failed crons (last 7 days) and the one alert list a pager reads.
+  failed_crons?: Array<{ cron_name: string; status: string; started_at: string | null; finished_at: string | null; error: string | null }>;
+  alerts?: Array<{ kind: string; severity: 'high' | 'medium' | 'low'; detail: string; action: string; at: string | null }>;
   recent_errors: Array<{
     event_id: string;
     timestamp: string | null;

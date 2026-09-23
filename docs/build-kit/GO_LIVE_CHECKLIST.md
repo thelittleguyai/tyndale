@@ -15,6 +15,16 @@ Nothing here creates or touches staging/production infrastructure.
 - [ ] **B11** — the page never claims "80% of medical bills contain errors" (banned,
       unsupported). CI grep stays clean.
 
+## Ops readiness (B2 — the alert path)
+
+- [ ] **Someone is paged on `alerts`.** `GET /v1/admin/system/health` now carries ONE alert
+      list (Admin › System › "Needs a person"): `retrieval_degraded` (last-50 knowledge-tool
+      error rate ≥ 20%, with the last Voyage status per endpoint), `cron_failed` (any cron run
+      that did not succeed in the last 7 days — `cms_ncd_lcd_bulk` failed on 2026-09-19 and
+      nothing surfaced it), and `system_error` (audits that told the user "the team has been
+      notified"). The runtime also logs `retrieval.degraded` on the transition, for a Log
+      Analytics alert rule. Owed before launch: the rule + the person it reaches.
+
 ## Copy gates
 
 - [ ] Orchestration script at the signed-off version (v1.1 as of 2026-08-18); zero

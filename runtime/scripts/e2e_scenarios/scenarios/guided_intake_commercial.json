@@ -98,5 +98,6 @@
     "terminal": "audit_complete",
     "incomplete_reason": null,
     "no_fixture": true
-  }
+  },
+  "expects_retrieval": true
 }

@@ -49,6 +49,15 @@ Local runs (`run_scenarios.py` without `--dev`) need neither — the dev-user st
 CI: the `E2E Scenarios` workflow (`workflow_dispatch`, never scheduled — real Claude token cost)
 runs against dev using those repo secrets.
 
+## Retrieval is asserted, not assumed (2026-09-23)
+
+A scenario with `"expects_retrieval": true` FAILS when the audit's own retrieval record
+(`audit_provenance.retrieval` on `/v1/audit/{id}`) shows any knowledge-tool call errored, or
+none was made. The 2026-09-18 sweep reported 22/23 green while every `qdrant_search_*` call
+was failing (Voyage 429 / rerank 400) — that was a harness gap, not a pass. Every scenario that
+completes a real audit carries the flag; `s07_knee_arthroscopy` (the 2026-09-23 specimen shape)
+carries it too. When Voyage is unhealthy the sweep goes red and says so — that is the point.
+
 ## Two front doors (doc 40, 2026-09-21)
 
 A scenario with an `"intake"` block is driven through the GUIDED route — `POST /v1/intake/start`,

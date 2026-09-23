@@ -47,7 +47,7 @@ def resolve_source(finding: Any) -> str | None:
             return f"{authority} {section}".strip() if section else authority
 
     legal = getattr(finding, "legal_claim", None)
-    if isinstance(legal, dict):
+    if isinstance(legal, dict) and not legal.get("downgraded"):
         label = _first_str(legal.get("citation"), legal.get("source"), legal.get("authority"))
         if label:
             return label
@@ -67,7 +67,9 @@ def finding_tier(finding: Any) -> str:
     if getattr(finding, "citations", None):
         return "rule_based"
     lc = getattr(finding, "legal_claim", None)
-    if isinstance(lc, dict) and any(
+    # A DOWNGRADED legal claim (retrieval_grounding: no retrieved source behind it) is not a
+    # claim any more — the finding is a fact-tier observation with a "worth checking" note.
+    if isinstance(lc, dict) and not lc.get("downgraded") and any(
         isinstance(v, str) and v.strip() for k, v in lc.items() if k != "citations"
     ):
         return "rule_based"

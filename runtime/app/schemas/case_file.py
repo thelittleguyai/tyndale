@@ -99,6 +99,11 @@ class AuditProvenance(BaseModel):
     coverage_regime: str | None = None
     regime_verified: bool = False
     assumptions: list[str] = Field(default_factory=list)
+    # e2e 2026-09-23 B1 — what the run actually retrieved: {status: ok|degraded|unavailable,
+    # calls, errors, chunks}. ``retrieval_unavailable`` is the first-class flag the harness
+    # and the clients read; None/False when the run predates the record.
+    retrieval: dict | None = None
+    retrieval_unavailable: bool = False
 
 
 class Disclosure(BaseModel):

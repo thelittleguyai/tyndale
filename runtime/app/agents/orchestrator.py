@@ -379,7 +379,29 @@ async def _run_real_agents(
     stage_ms["prose_grounding_ms"] = _ms(t)
     await _heartbeat(case_file_id)  # phase boundary: grounding done
 
+    # Retrieval grounding (e2e 2026-09-23 B1): what this run actually retrieved is recorded
+    # on the case, and a legal claim that no retrieved chunk backs is downgraded before any
+    # terminal state — never a [B] claim with an empty rulebook behind it.
+    all_calls = list(bd.tool_calls) + list(mp.tool_calls) + (list(lp.tool_calls) if composed else [])
+    await _ground_retrieval(case_file_id, all_calls)
+
     return composed, budget_stopped, stage_ms
+
+
+async def _ground_retrieval(case_file_id: str, tool_calls: list[dict]) -> None:
+    from app.agents import retrieval_grounding as rg
+
+    record = rg.retrieval_record(tool_calls)
+    await rg.record_retrieval_on_case(case_file_id, record)
+    if record["status"] != "ok":
+        log.warning(
+            "orchestrator.retrieval_" + record["status"], case_file_id=case_file_id,
+            calls=record["calls"], errors=record["errors"], chunks=record["chunks"],
+            reasons=record["error_reasons"],
+        )
+    downgraded = await rg.ground_legal_claims(case_file_id, rg.knowledge_chunks(tool_calls))
+    for category in downgraded:
+        await _append_tripwire(case_file_id, "legal_claim_downgraded", category=category)
 
 
 async def _finalize_result(
@@ -691,8 +713,28 @@ def _regime_provenance(
             "state-law jurisdiction unknown — set your state in Settings so state-specific "
             "rules can apply when the 50-state seed lands"
         )
+    # Retrieval (e2e 2026-09-23 B1): the run's own record, named as an assumption so the
+    # results page says it and the harness can assert it.
+    from app.agents.retrieval_grounding import retrieval_entry
+
+    entry = retrieval_entry(case) if case is not None else None
+    retrieval = None
+    if entry:
+        retrieval = {k: entry.get(k) for k in ("status", "calls", "errors", "chunks", "error_reasons", "at")}
+        if entry.get("status") == "unavailable":
+            assumptions.append(
+                "the rules corpus could not be reached during this audit — findings rest on "
+                "your documents and the math; legal claims without a retrieved source were "
+                "downgraded to 'worth checking'"
+            )
+        elif entry.get("status") == "degraded":
+            assumptions.append(
+                f"{entry.get('errors')} of {entry.get('calls')} rules lookups failed during this "
+                "audit — a rule that lookup would have found may be missing"
+            )
     return AuditProvenance(
-        coverage_regime=regime, regime_verified=verified, assumptions=assumptions
+        coverage_regime=regime, regime_verified=verified, assumptions=assumptions,
+        retrieval=retrieval, retrieval_unavailable=bool(entry and entry.get("status") == "unavailable"),
     )
 
 

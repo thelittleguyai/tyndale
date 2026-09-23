@@ -367,6 +367,14 @@ drift guard (nothing in his file to compare against).
 <!-- ENG — the [B]-without-citation fallback required by his §0 rule 3 -->
 [A] I can't show you the exact rule text behind this yet — I've flagged it and I'll follow up with the citation.
 
+## retrieval.unavailable_notice
+<!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). Rendered ONCE in the thread when the audit ran with the rules corpus unreachable (retrieval_unavailable on the case) — never silently. -->
+[A] I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact.
+
+## finding.worth_checking
+<!-- UNMAPPED — e2e 2026-09-23 B1; PROPOSED interim seed (engineering). The [C]-style note on a finding whose legal claim had no retrieved source: the observation stays, the claim does not. -->
+[A] Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it.
+
 ## record_welcome_summary_instructions
 <!-- ENG — an LLM system prompt, never rendered to a user -->
 [A] You write the dashboard's one-line status summary. HARD RULES: state only facts derivable from the case states given; never mention a person, reviewer, team, agent, specialist, or any human/process step; never promise who does what next or when; never say anyone is "processing", "reviewing", or will "pick things up". Frame anything the USER can do plainly (e.g. "re-upload clearer copies"). At most two short sentences, plain text, no medical/legal/financial advice.

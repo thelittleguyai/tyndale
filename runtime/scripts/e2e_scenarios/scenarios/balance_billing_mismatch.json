@@ -44,5 +44,6 @@
     "no_fixture": true,
     "expect_qualifier": true,
     "ledgered_gap": "scenario:balance_billing_nsa_seed"
-  }
+  },
+  "expects_retrieval": true
 }

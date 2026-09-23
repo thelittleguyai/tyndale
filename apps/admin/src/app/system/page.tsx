@@ -90,6 +90,17 @@ export default function SystemPage() {
               ok
             />
             <Tile label="Qdrant" value={health.qdrant_status} ok={health.qdrant_status === 'healthy'} />
+            {/* e2e 2026-09-23 B1: Qdrant "healthy" said nothing while every search failed — this
+                tile is the knowledge-tool error rate (last 50 calls) + the last Voyage status. */}
+            <Tile
+              label="Retrieval"
+              value={
+                health.retrieval
+                  ? `${health.retrieval.status} · ${health.retrieval.durable.errors}/${health.retrieval.durable.calls} failed`
+                  : 'n/a'
+              }
+              ok={health.retrieval ? (health.retrieval.status === 'degraded' ? false : health.retrieval.status === 'healthy' ? true : null) : null}
+            />
             <Tile
               label="Claude"
               value={health.anthropic_status}
@@ -103,6 +114,21 @@ export default function SystemPage() {
               }
             />
           </div>
+          {/* readiness B2 — the alert path. Empty means nothing needs a person right now. */}
+          {health.alerts && health.alerts.length ? (
+            <div className="mb-5 rounded-2xl border border-rose/40 bg-rose/10 p-4" data-testid="system-alerts">
+              <p className="mb-2 text-xs uppercase tracking-wide text-rose-soft">Needs a person</p>
+              {health.alerts.map((a, i) => (
+                <div key={`${a.kind}-${i}`} className="mb-2 text-sm last:mb-0">
+                  <span className={`mr-2 rounded-md px-2 py-0.5 text-xs ${a.severity === 'high' ? 'bg-rose/20 text-rose-soft' : 'bg-amber/20 text-amber'}`}>
+                    {a.kind}
+                  </span>
+                  <span className="text-white/80">{a.detail}</span>
+                  <p className="mt-0.5 text-xs text-white/50">→ {a.action}{a.at ? ` · ${new Date(a.at).toLocaleString()}` : ''}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mb-5 rounded-2xl border border-white/10 bg-navy-soft p-4 text-sm text-white/60">
             <span className="text-white/40">Deploy:</span> {health.deploy_sha ?? '—'} ·{' '}
             <span className="text-white/40">env:</span> {health.node_env}

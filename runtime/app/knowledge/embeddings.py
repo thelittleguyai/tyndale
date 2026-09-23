@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import math
 import random
+import time
 
 import httpx
 import structlog
@@ -38,6 +39,91 @@ VOYAGE_CONTEXT_EMBED_URL = "https://api.voyageai.com/v1/contextualizedembeddings
 # endpoints via _post_voyage.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 _MAX_EMBED_RETRIES = 5
+_MAX_TOTAL_BACKOFF_S = 45.0  # never hold a tool call for minutes waiting on quota
+
+# Client-side discipline (e2e 2026-09-23 B1): dev spent days at 429 on /v1/embeddings. A
+# per-process token bucket keeps a burst of parallel tool calls under the account's
+# per-minute quota, a small concurrency cap keeps retries from stampeding, and a short-TTL
+# cache answers the SAME query again without a call — an audit asks about the same codes
+# repeatedly (the Bill Detective and the Math Person both look up the bill's CPTs).
+_RPM_LIMIT = 300
+_MAX_CONCURRENCY = 4
+_QUERY_CACHE_TTL_S = 15 * 60
+_QUERY_CACHE_MAX = 512
+
+
+class EmbeddingUnavailable(RuntimeError):
+    """Voyage could not embed (quota exhausted after backoff, or a non-retryable failure).
+    Raised as one typed error so the knowledge tools record it as ONE retrieval failure."""
+
+
+class _TokenBucket:
+    """``rpm`` permits per minute, refilled continuously; ``acquire`` waits, never drops."""
+
+    def __init__(self, rpm: int) -> None:
+        self.rate = rpm / 60.0
+        self.capacity = float(max(1, rpm // 10))  # a modest burst, not the whole minute
+        self.tokens = self.capacity
+        self.updated = time.monotonic()
+        self._lock: asyncio.Lock | None = None
+
+    def _lock_for_loop(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    async def acquire(self) -> float:
+        """Returns the seconds waited (for the log line)."""
+        waited = 0.0
+        async with self._lock_for_loop():
+            while True:
+                now = time.monotonic()
+                self.tokens = min(self.capacity, self.tokens + (now - self.updated) * self.rate)
+                self.updated = now
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return waited
+                need = (1.0 - self.tokens) / self.rate
+                waited += need
+                await asyncio.sleep(need)
+
+
+_bucket = _TokenBucket(_RPM_LIMIT)
+_semaphore: asyncio.Semaphore | None = None
+
+
+def _sem() -> asyncio.Semaphore:
+    global _semaphore
+    if _semaphore is None:
+        _semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
+    return _semaphore
+
+
+# (model, dim, input_type, text) -> (expires_at, vector)
+_query_cache: dict[tuple[str, int, str, str], tuple[float, list[float]]] = {}
+
+
+def _cache_get(key: tuple[str, int, str, str]) -> list[float] | None:
+    hit = _query_cache.get(key)
+    if hit is None:
+        return None
+    if hit[0] < time.monotonic():
+        _query_cache.pop(key, None)
+        return None
+    return hit[1]
+
+
+def _cache_put(key: tuple[str, int, str, str], vec: list[float]) -> None:
+    if len(_query_cache) >= _QUERY_CACHE_MAX:
+        # drop the oldest entries (insertion order) rather than growing without bound
+        for k in list(_query_cache)[: _QUERY_CACHE_MAX // 4]:
+            _query_cache.pop(k, None)
+    _query_cache[key] = (time.monotonic() + _QUERY_CACHE_TTL_S, vec)
+
+
+def cache_clear() -> None:
+    """Tests only."""
+    _query_cache.clear()
 
 # collection -> Settings attribute holding the (env-overridable) model name
 _ENV_MODEL_ATTR = {
@@ -69,27 +155,75 @@ def _stub_vector(text: str, dim: int = 1024) -> list[float]:
 
 
 async def _post_voyage(url: str, payload: dict) -> dict:
-    """POST to a Voyage endpoint with shared retry/backoff (429 + 5xx, honoring
-    Retry-After). Returns the parsed JSON. Used by BOTH embedding endpoints."""
+    """POST to a Voyage endpoint under the per-process limiter, with shared retry/backoff
+    (429 + 5xx, honoring Retry-After, capped in total). Returns the parsed JSON, or raises
+    ``EmbeddingUnavailable`` — never a bare HTTP error into a tool result."""
+    from app.knowledge import health
+
     settings = get_settings()
+    endpoint = url.rsplit("/", 1)[-1]
     headers = {
         "Authorization": f"Bearer {settings.voyage_api_key}",
         "Content-Type": "application/json",
     }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for attempt in range(_MAX_EMBED_RETRIES):
-            resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code in _RETRYABLE_STATUS and attempt < _MAX_EMBED_RETRIES - 1:
-                ra = resp.headers.get("retry-after", "")
-                delay = float(ra) if ra.replace(".", "", 1).isdigit() else min(2.0**attempt, 30.0)
-                log.warning(
-                    "voyage.retry", status=resp.status_code, attempt=attempt + 1, delay=delay
-                )
-                await asyncio.sleep(delay)
-                continue
-            resp.raise_for_status()
-            return resp.json()
-    raise RuntimeError("unreachable: voyage retry loop exited without return/raise")
+    total_backoff = 0.0
+    async with _sem():
+        waited = await _bucket.acquire()
+        if waited > 0.5:
+            log.info("voyage.throttled", endpoint=endpoint, waited_s=round(waited, 2))
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                for attempt in range(_MAX_EMBED_RETRIES):
+                    resp = await client.post(url, json=payload, headers=headers)
+                    if resp.status_code in _RETRYABLE_STATUS and attempt < _MAX_EMBED_RETRIES - 1:
+                        ra = resp.headers.get("retry-after", "")
+                        delay = float(ra) if ra.replace(".", "", 1).isdigit() else min(2.0**attempt, 30.0)
+                        health.record_voyage(
+                            endpoint, False, status=resp.status_code, error=_body(resp)[:200]
+                        )
+                        if total_backoff >= _MAX_TOTAL_BACKOFF_S:
+                            break  # backoff budget spent — fall through to the final verdict
+                        delay = min(delay, _MAX_TOTAL_BACKOFF_S - total_backoff)
+                        total_backoff += delay
+                        log.warning(
+                            "voyage.retry", endpoint=endpoint, status=resp.status_code,
+                            attempt=attempt + 1, delay=delay,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    if resp.status_code >= 400:
+                        detail = _body(resp)[:300]
+                        log.warning(
+                            "voyage.embed_failed", endpoint=endpoint, status=resp.status_code,
+                            detail=detail, n_inputs=_n_inputs(payload),
+                        )
+                        health.record_voyage(endpoint, False, status=resp.status_code, error=detail)
+                        raise EmbeddingUnavailable(f"voyage {endpoint} {resp.status_code}: {detail}")
+                    health.record_voyage(endpoint, True, status=resp.status_code)
+                    return resp.json()
+        except EmbeddingUnavailable:
+            raise
+        except Exception as exc:  # noqa: BLE001 — transport/timeout: one typed failure
+            log.warning("voyage.embed_failed", endpoint=endpoint, status=None, detail=str(exc)[:300])
+            health.record_voyage(endpoint, False, status=None, error=str(exc))
+            raise EmbeddingUnavailable(str(exc)) from exc
+    # only reachable when the backoff budget ran out on a retryable status
+    detail = f"gave up after {total_backoff:.0f}s of backoff (last status {resp.status_code})"
+    log.warning("voyage.embed_failed", endpoint=endpoint, status=resp.status_code, detail=detail)
+    raise EmbeddingUnavailable(f"voyage {endpoint}: {detail}")
+
+
+def _body(resp: object) -> str:
+    text = getattr(resp, "text", "")
+    return text if isinstance(text, str) else ""
+
+
+def _n_inputs(payload: dict) -> int:
+    if isinstance(payload.get("input"), list):
+        return len(payload["input"])
+    if isinstance(payload.get("inputs"), list):
+        return sum(len(g) for g in payload["inputs"] if isinstance(g, list))
+    return 1
 
 
 async def embed_contextualized(
@@ -170,10 +304,36 @@ async def embed_grouped(
 
 
 async def embed(text: str, model: str, dim: int = 1024) -> list[float]:
-    """Embed a single text. A query against a contextualized collection is embedded
-    as a one-chunk group with input_type='query' — which MUST match the model the
-    stored documents used (DL-74)."""
-    if is_contextualized(model):
-        nested = await embed_contextualized([[text]], model, input_type="query", dim=dim)
-        return nested[0][0]
-    return (await embed_batch([text], model, dim))[0]
+    """Embed a single QUERY. A query against a contextualized collection is embedded as a
+    one-chunk group with input_type='query' — which MUST match the model the stored
+    documents used (DL-74). Answered from the short-TTL cache when the same query was
+    embedded recently."""
+    return (await embed_queries([text], model, dim))[0]
+
+
+async def embed_queries(texts: list[str], model: str, dim: int = 1024) -> list[list[float]]:
+    """Embed several queries in ONE Voyage call (the misses, after the cache and after
+    de-duplication) — the batching seam for a tool that issues several queries at once."""
+    out: list[list[float] | None] = [None] * len(texts)
+    misses: dict[str, list[int]] = {}
+    live = bool(get_settings().voyage_api_key)
+    for i, text in enumerate(texts):
+        cached = _cache_get((model, dim, "query", text)) if live else None
+        if cached is not None:
+            out[i] = cached
+        else:
+            misses.setdefault(text, []).append(i)
+    if misses:
+        unique = list(misses)
+        if is_contextualized(model):
+            nested = await embed_contextualized([[t] for t in unique], model, input_type="query", dim=dim)
+            vectors = [group[0] for group in nested]
+        else:
+            vectors = await embed_batch(unique, model, dim, input_type="query")
+        live = bool(get_settings().voyage_api_key)  # the stub is free and deterministic: no cache
+        for text, vec in zip(unique, vectors, strict=True):
+            if live:
+                _cache_put((model, dim, "query", text), vec)
+            for i in misses[text]:
+                out[i] = vec
+    return [v for v in out if v is not None]

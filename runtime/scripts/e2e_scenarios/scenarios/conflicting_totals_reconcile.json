@@ -41,5 +41,6 @@
     "assert_x1": true,
     "reconcile_no_premature_last_resort": true,
     "expect_qualifier": true
-  }
+  },
+  "expects_retrieval": true
 }

@@ -69,5 +69,6 @@
       "bundling"
     ],
     "no_fixture": true
-  }
+  },
+  "expects_retrieval": true
 }

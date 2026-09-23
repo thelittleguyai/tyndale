@@ -1,0 +1,62 @@
+{
+  "name": "s07_knee_arthroscopy",
+  "description": "The 2026-09-23 walk-through's specimen shape (test_documents/positive_suite s07): an outpatient knee arthroscopy (29881) with the anesthesia billed as 01402 — the arthroplasty anesthesia code, more base units than 01382, the code the arthroscopy takes. The engine finds it; the guard used to DELETE it because 01382 (the correct code, a REFERENCE) is not on the documents (B2). Asserts: the upcoding finding SURVIVES and reaches the API; the audit completes; and the rules corpus was reachable for every knowledge-tool call (B1 — retrieval down must fail this scenario loudly).",
+  "documents": [
+    {
+      "type": "bill",
+      "filename": "bill.pdf",
+      "account": "TST-0777",
+      "service_date": "2026-02-19",
+      "line_items": [
+        {
+          "code": "29881",
+          "description": "Knee arthroscopy w/ meniscectomy",
+          "charge": 6400,
+          "units": 1
+        },
+        {
+          "code": "01402",
+          "description": "Anesthesia, knee arthroscopy",
+          "charge": 1200,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "type": "eob",
+      "filename": "eob.pdf",
+      "claim_number": "TST0720260601",
+      "service_date": "2026-02-19",
+      "line_items": [
+        {
+          "code": "29881",
+          "billed": 6400,
+          "allowed": 2150,
+          "plan_paid": 1720,
+          "member_resp": 430
+        },
+        {
+          "code": "01402",
+          "billed": 1200,
+          "allowed": 540,
+          "plan_paid": 432,
+          "member_resp": 108
+        }
+      ],
+      "member_responsibility": 538
+    }
+  ],
+  "encounter": {
+    "default": "yes"
+  },
+  "visit_context": "Outpatient knee scope for a torn meniscus; home the same afternoon.",
+  "expects_retrieval": true,
+  "expect": {
+    "terminal": "audit_complete",
+    "incomplete_reason": null,
+    "finding_types": [
+      "upcod|anesthesia|code mismatch|01402"
+    ],
+    "no_fixture": true
+  }
+}

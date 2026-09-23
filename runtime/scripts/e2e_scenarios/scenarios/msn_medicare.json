@@ -38,5 +38,6 @@
   "expect": {
     "terminal": "audit_complete",
     "no_fixture": true
-  }
+  },
+  "expects_retrieval": true
 }

@@ -548,6 +548,11 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             if got != exp["incomplete_reason"]:
                 fails.append(f"incomplete_reason={got!r} expected {exp['incomplete_reason']!r}")
         fails.extend(_scan_audit_markers(audit))
+        # Retrieval health (e2e 2026-09-23 B1): a scenario that expects the rules corpus FAILS
+        # when any knowledge-tool call errored or none was made — 22/23 green with retrieval
+        # dead was a harness gap, not a pass. The record comes from the audit's own provenance.
+        if scenario.get("expects_retrieval"):
+            fails.extend(_retrieval_checks(audit))
         findings = audit.get("findings", [])
         # max_findings counts ERROR findings only: informational context (all-clear notes,
         # audit-performed summaries — cfg.INFORMATIONAL_CATEGORIES) is not an accusation, and
@@ -571,6 +576,23 @@ def _check(scenario: dict, terminal: str, extract: dict, audit: dict | None) -> 
             # is a pass, not a miss (the doubled-MRI duplicate is correctly mue_excess_units).
             if not any(alt.strip().lower() in hay for alt in want.split("|") if alt.strip()):
                 fails.append(f"no finding matching {want!r}")
+    return fails
+
+
+def _retrieval_checks(audit: dict) -> list[str]:
+    prov = audit.get("audit_provenance") or {}
+    rec = prov.get("retrieval")
+    if not rec:
+        return ["expects_retrieval: the audit carries no retrieval record (runtime predates it, or the record failed to write)"]
+    fails: list[str] = []
+    if int(rec.get("calls") or 0) == 0:
+        fails.append("expects_retrieval: the agents made NO knowledge-tool calls")
+    if int(rec.get("errors") or 0) > 0:
+        fails.append(
+            f"expects_retrieval: {rec['errors']} of {rec['calls']} knowledge-tool calls failed "
+            f"(status={rec.get('status')}, reasons={rec.get('error_reasons')}) — retrieval is down; "
+            "check Admin › System › Retrieval and the Voyage account"
+        )
     return fails
 
 

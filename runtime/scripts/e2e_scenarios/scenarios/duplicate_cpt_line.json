@@ -56,5 +56,6 @@
     ],
     "no_fixture": true,
     "expect_qualifier": true
-  }
+  },
+  "expects_retrieval": true
 }

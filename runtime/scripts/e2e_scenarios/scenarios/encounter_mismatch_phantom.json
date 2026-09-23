@@ -59,5 +59,6 @@
       "encounter_mismatch"
     ],
     "no_fixture": true
-  }
+  },
+  "expects_retrieval": true
 }

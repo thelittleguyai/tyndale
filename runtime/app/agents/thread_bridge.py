@@ -73,6 +73,8 @@ RENDER_PATH_KEYS: frozenset[str] = frozenset(
         "verification_nudge",
         # data quality
         "dataquality_partial_illegible", "dataquality_summary_not_itemized",
+        # retrieval degradation (e2e 2026-09-23 B1)
+        "retrieval.unavailable_notice",
         # reconcile ladder
         "reconcile.explain", "reconcile.ask_one_input", "reconcile.last_resort",
         # the reveal + terminal states
@@ -489,6 +491,17 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
                 {"intro": intro, "nudge": nudge, "group_index": gi // VERIFICATION_GROUP_SIZE,
                  "line_items": group},
             )
+
+    # Retrieval degradation (e2e 2026-09-23 B1): the audit ran with the rulebook out of
+    # reach. Said ONCE, in the registry's voice, before the numbers — never silently.
+    from app.agents.retrieval_grounding import retrieval_unavailable
+
+    if not machine_working and retrieval_unavailable(case):
+        text = orchestration_step("retrieval.unavailable_notice")
+        await ensure(
+            "retrieval:unavailable", "system_message",
+            {"text": text, "tone": "neutral", "marker": "retrieval_unavailable"}, text,
+        )
 
     # External-program handoff (§A2 state 5 / script §12). Regime detection already routes
     # PACE to a handoff seam; this is the user-facing beat. Warm, with the program's own

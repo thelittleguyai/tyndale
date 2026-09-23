@@ -207,6 +207,17 @@ the copy route until you author it (engineering fallbacks render in the app):
 * `reveal.gap_callout` `[A]` — the E3 gap framing on the three-number reveal; suppressed
   server-side on clean/negative/unknown gaps.
 
+## Retrieval degradation — PROPOSED, interim engineering seeds (2026-09-23)
+
+*Status: INTERIM. The e2e walk-through (2026-09-23, B1) found the audit running with the rules
+corpus unreachable and still shipping a [B] claim. Two keys make the degradation honest; both
+are engineering seeds for Brock to author.*
+
+| key | source | seed |
+|---|---|---|
+| `retrieval.unavailable_notice` | eng | I couldn't reach my rulebook while I checked this bill, so I stuck to what your documents show and to the math. Anything that would need a rule behind it is marked as worth checking — not stated as a fact. |
+| `finding.worth_checking` | eng | Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it. |
+
 ## Guided intake (doc 40) — PROPOSED, interim engineering seeds (2026-09-21)
 
 *Status: INTERIM. Every string the guided `/intake` route renders is LIVE in the registry as a
