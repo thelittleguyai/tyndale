@@ -186,3 +186,95 @@ def test_rise_on_scroll_hides_nothing_it_cannot_reveal():
     # the hero (above the fold) does not rise — nothing hidden on first paint
     hero_end = page.index("<main>")
     assert "data-rise" not in page[:hero_end]
+
+
+# ── 5 · the fence: exactly these keyframes, and no glass riding in with the motion ──────
+
+# What a landing build may define. `tyn-mock-*` is the hero loop; `spin` is Tailwind's
+# `animate-spin` on the signed-in page's loader; `tyn-typing` is the one name the 2026-09-23
+# prompt did not list — the chat-compare typing dots (the prototype used Tailwind's
+# `animate-bounce`, which would have put an un-namespaced `bounce` in the build instead).
+ALLOWED_KEYFRAMES = {"tyn-rise", "tyn-kenburns", "tyn-funnel", "tyn-intake", "tyn-typing", "spin"}
+ALLOWED_PREFIXES = ("tyn-mock-",)
+# Tailwind's animation utilities → the keyframe each one emits into the build.
+_TAILWIND_ANIMATE = {"animate-spin": "spin", "animate-ping": "ping", "animate-pulse": "pulse", "animate-bounce": "bounce"}
+# The round-2 glass language (delta inventory N7) — HELD. None of it may appear in the source.
+_GLASS = ("backdrop-filter", "backdropFilter", "backdrop-blur", "AmbientAuras", "GlassCard", "glass-tile", "glass-dark", "aura")
+
+
+def _strip_comments(src: str) -> str:
+    """Code only: block comments (/* */, the JSX {/* */} kind included) and // lines go."""
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return re.sub(r"^\s*//.*$", "", src, flags=re.M)
+
+
+def _defined_keyframes() -> set[str]:
+    names: set[str] = set()
+    for css in _src_files(".css"):
+        names |= set(re.findall(r"@keyframes\s+([\w-]+)", _read(css)))
+    for tsx in _src_files(".tsx", ".ts"):
+        src = _read(tsx)
+        names |= set(re.findall(r"@keyframes\s+([\w-]+)", src))  # a component-body <style> would land here
+        names |= {kf for util, kf in _TAILWIND_ANIMATE.items() if re.search(rf"(?<![\w-]){util}(?![\w-])", src)}
+    return names
+
+
+def _allowed(name: str) -> bool:
+    return name in ALLOWED_KEYFRAMES or name.startswith(ALLOWED_PREFIXES)
+
+
+def test_a_landing_build_defines_exactly_the_allowed_keyframe_set():
+    defined = _defined_keyframes()
+    stray = sorted(n for n in defined if not _allowed(n))
+    assert stray == [], f"keyframes outside the allowed set: {stray}"
+    # every named keyframe is really defined — the set is exact in both directions
+    missing = sorted(n for n in ALLOWED_KEYFRAMES if n not in defined)
+    assert missing == [], f"allowed keyframes no build defines any more: {missing}"
+    assert any(n.startswith("tyn-mock-") for n in defined)
+    # every `tyn-*` name an animation shorthand or a className references is defined
+    referenced: set[str] = set()
+    for f in _src_files(".css", ".tsx", ".ts"):
+        src = _read(f)
+        referenced |= set(re.findall(r"animation:\s*(tyn-[\w-]+)", src))
+        referenced |= set(re.findall(r"['\"`](tyn-[\w-]+)", src))
+    undefined = sorted(r for r in referenced if r not in defined and not r.endswith("-"))  # 'tyn-mock-' is prose
+    assert undefined == [], f"animations referencing undefined keyframes: {undefined}"
+
+
+def test_every_keyframe_is_namespaced_and_lives_in_globals_css():
+    for tsx in _src_files(".tsx", ".ts"):
+        src = _read(tsx)
+        assert "<style" not in src, f"{tsx.name}: component-body <style> — keyframes belong in globals.css"
+        assert "@keyframes" not in src, f"{tsx.name}: keyframes belong in globals.css"
+    for css in _src_files(".css"):
+        for name in re.findall(r"@keyframes\s+([\w-]+)", _read(css)):
+            assert name.startswith("tyn-"), f"{css.name}: keyframe {name!r} is not namespaced tyn-*"
+
+
+def test_no_glass_rides_in_with_the_motion():
+    """N7 (glass / auras / floating glass cards) is HELD for Brock's round-2.5 decision. A
+    motion port is exactly how it would slip in — so the source is scanned, not trusted."""
+    offenders = []
+    for f in _src_files(".css", ".tsx", ".ts"):
+        for i, line in enumerate(_strip_comments(_read(f)).splitlines(), 1):
+            for token in _GLASS:
+                if token in line:
+                    offenders.append(f"{f.relative_to(REPO)}:{i}: {token}")
+    assert offenders == [], "glass language in the marketing source:\n  " + "\n  ".join(offenders)
+    # no translucent-surface utility either (bg-white/40-style glass tints on cards)
+    for tsx in _src_files(".tsx"):
+        assert not re.search(r"backdrop-blur|backdrop-saturate", _read(tsx))
+
+
+def test_every_tyn_animation_class_has_a_reduced_motion_rule():
+    css = _read(GLOBALS_CSS)
+    classes = set(re.findall(r"^\.(tyn-[\w-]+)\s*\{", css, re.M))
+    reduced_blocks = re.findall(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\n\}", css, re.S)
+    reduced = "\n".join(reduced_blocks)
+    for cls in classes:
+        assert f".{cls}" in reduced, f".{cls} has no prefers-reduced-motion rule"
+        rule = re.search(rf"\.{re.escape(cls)}[^{{]*\{{(.*?)\}}", reduced, re.S)
+        assert rule and "animation: none" in rule.group(1), cls
+    # the hero mock and the demo apply their keyframes only when motion is not reduced
+    for comp in (HERO_MOCK, AUDIT_DEMO, MARKETING / "components/chat-compare.tsx"):
+        assert "useReducedMotion" in _read(comp), comp.name

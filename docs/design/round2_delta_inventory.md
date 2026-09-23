@@ -17,7 +17,9 @@ behavioural difference. Sorted by classification, then by screen.
 | `[behavior]` | a UX behaviour difference | varies — read each |
 | `[conflict]` | contradicts a locked decision or the checklist | **needs Brock** |
 
-**Totals:** 6 `[token]` · 7 `[layout]` · 8 `[new]` · 5 `[behavior]` · 4 `[conflict]`
+**Totals:** 6 `[token]` · 7 `[layout]` · 8 `[new]` · 5 `[behavior]` · 4 `[conflict]` · 4 `[motion]`
+(the motion rows were added 2026-09-23 — the inventory had counted content bands and missed
+the prototype's animation system entirely; see `tyndale_landing_motion_gap_2026-09-23.md`)
 
 ---
 
@@ -29,6 +31,29 @@ behavioural difference. Sorted by classification, then by screen.
 | C2 | Verification | "No" maps to `bg-severity-high` (a red/alarm token) | "No" is a neutral choice among three | A "no" answer is **information, not an error** — the user did nothing wrong by telling us a charge is wrong. Colouring it as high severity teaches people that honesty is a failure state. Recommend keeping neutral; needs his call since it's his prototype. |
 | C3 | Findings | Impact renders as `−$389.00` in money green | We render the impact without a leading minus | A minus reads as "you lose $389". The finding is worth **+$389 to the user**. Sign convention needs a decision — it appears on every finding card. |
 | C4 | Three numbers | Prototype three-numbers card has no zero-gap variant | Our reveal suppresses the gap callout when the gap is ≤0 (E3, shipped) | The prototype assumes a gap always exists. Confirm the clean-bill case renders the three numbers with **no** callout (what we do today) rather than a "$0.00 less" line. |
+
+---
+
+## `[motion]` — the prototype's animation system (landing)
+
+Surfaced by the 2026-09-23 audit: the 08-28 review called the landing "~85% shipped" by
+counting content bands; measured live it carried ONE animated set-piece and none of the
+prototype's ambient motion. Only the float/auras/glass third of that is the held N7 decision —
+these four are plain CSS keyframes + IntersectionObserver on the existing tokens, and all four
+shipped in Phase A (`apps/web-marketing`, commits of 2026-09-23). Every one respects
+`prefers-reduced-motion` (static fallback), causes no layout shift (opacity/transform only), and
+a guard test (`runtime/tests/test_landing_motion_guards.py`) pins the keyframe set to exactly
+`tyn-mock-*`, `tyn-rise`, `tyn-kenburns`, `tyn-funnel`, `tyn-intake`, `tyn-typing`, `spin` and
+fails on any `backdrop-filter` / `AmbientAuras` / glass class — so N7 cannot ride in with motion.
+
+| # | Surface | Prototype | Ours (2026-09-23) | Status |
+|---|---|---|---|---|
+| M1 | Hero photo | `tyndale-kenburns` — slow scale/drift on the atmospheric photo | `tyn-kenburns`: scale 1.05→1.14, −1.5% translate, 60 s linear, `alternate` (no hard restart snap) on the existing `fill` image behind the navy scrim; reduced motion holds the end frame | **APPLIED** |
+| M2 | "Not a chatbot with opinions" | ChatCompare playback — two chats answer the same question message by message, typing dots, `animate-rise` entrances, spotlight timer | Ported faithfully (`components/chat-compare.tsx`): alternating timeline, `tyn-typing` dots, `tyn-rise`, 5.8 s spotlight; starts in view, runs once, Replay (44 px); stacks at 375; the four ✗/✓ contrasts stay as a caption row. **Words are ours, not the prototype's**: the Tyndale pane is registry copy (5 existing keys + 7 `landing.compare.*` seeds PROPOSED for Brock) — shows a range where an input is missing, cites the plan clause / EOBs, states no statistic; the prototype's misapplied No Surprises Act line and its "$196" maths are not carried | **APPLIED** (copy PROPOSED) |
+| M3 | How it works | AuditDemo three acts — documents funnel into a pulsing intake node, phase rail with timed bars, findings sort out; the shipped hero mock began each loop with ~5 s of empty white card | Hero mock rewritten: populated from the first frame, animates the resolution, crossfades back (never a wipe). `components/audit-demo.tsx` in the How-it-works band: `tyn-funnel` into an opaque teal `tyn-intake` ring, phase rail, Act 3 pay / overcharged / your script with `tyn-rise`; the hero's numbers only; Act 3's product lines are registry copy | **APPLIED** |
+| M4 | Bands | `tyndale-rise` staggered entrances on cards and rows as they enter view | `data-rise` + one observer (`components/rise-on-scroll.tsx`): headings and card grids rise 12 px / fade, siblings 75 ms apart; hidden only under `@media (scripting: enabled) and (prefers-reduced-motion: no-preference)`, so no-JS / old-engine / reduced-motion visitors see everything static | **APPLIED** |
+| M5 | Hero ThreeNumbers card, "Finding" chip | `tyndale-float` — gentle 6-s vertical float on glass cards | not built — the float is on glass surfaces | **N7 HELD** |
+| M6 | Six of eleven bands | `AmbientAuras` (calm / warm / money) gradient blobs behind content | not built | **N7 HELD** |
 
 ---
 
