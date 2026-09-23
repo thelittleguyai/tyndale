@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { AuditMock } from '../components/audit-mock';
+import { ChatCompare } from '../components/chat-compare';
 import { Logo, Wordmark } from '@/components/logo';
 
 /* Landing content ported verbatim from docs/design/prototype-round2/lib/tyndale-data.ts.
@@ -362,7 +363,10 @@ export default function HomePage() {
  * introduce the prototype's second token vocabulary.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** B5 · "Not a chatbot with opinions" — same question, two very different answers. */
+/** B5 · "Not a chatbot with opinions" — same question, two very different answers, played out
+ *  message by message (the prototype's ChatCompare, ported 2026-09-23). The four ✗/✓ contrasts
+ *  Brock ruled on stay as a compact caption row under the panes: demonstrated above, stated
+ *  below. */
 function ComparisonBand() {
   return (
     <section className="bg-cream-soft">
@@ -375,32 +379,25 @@ function ComparisonBand() {
           remembers your case, and cites the law it stands on.
         </p>
 
-        <div className="mt-10 overflow-hidden rounded-lg ring-1 ring-line">
-          <div className="grid grid-cols-1 sm:grid-cols-2">
-            <div className="border-b border-line bg-surface px-5 py-3.5 sm:border-b-0 sm:border-r">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
-                A general chatbot
-              </p>
-            </div>
-            <div className="bg-teal-tint px-5 py-3.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal">
-                Tyndale
-              </p>
-            </div>
-          </div>
+        <ChatCompare />
+
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2" aria-label="How the two differ">
           {COMPARISON.map((row) => (
-            <div key={row.tyndale} className="grid grid-cols-1 border-t border-line sm:grid-cols-2">
-              <div className="flex gap-2.5 border-b border-line bg-surface px-5 py-4 sm:border-b-0 sm:border-r">
-                <X size={17} className="mt-0.5 shrink-0 text-ink/35" aria-hidden="true" />
-                <p className="text-base leading-6 text-ink/60">{row.generic}</p>
-              </div>
-              <div className="flex gap-2.5 bg-surface px-5 py-4">
-                <Check size={17} className="mt-0.5 shrink-0 text-sage" aria-hidden="true" />
-                <p className="text-base leading-6 text-ink">{row.tyndale}</p>
-              </div>
-            </div>
+            <li
+              key={row.tyndale}
+              className="grid gap-1.5 rounded-md bg-surface px-4 py-3 text-[14px] leading-snug ring-1 ring-line"
+            >
+              <span className="flex gap-2 text-ink/55">
+                <X size={15} className="mt-0.5 shrink-0 text-ink/35" aria-hidden="true" />
+                {row.generic}
+              </span>
+              <span className="flex gap-2 text-ink">
+                <Check size={15} className="mt-0.5 shrink-0 text-sage" aria-hidden="true" />
+                {row.tyndale}
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

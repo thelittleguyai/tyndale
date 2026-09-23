@@ -53,3 +53,60 @@ def test_reduced_motion_holds_the_kenburns_frame_at_the_end_scale():
     assert reduced, "no reduced-motion block"
     rule = re.search(r"\.tyn-kenburns\s*\{(.*?)\}", reduced.group(1), re.S)
     assert rule and "animation: none" in rule.group(1) and "scale(1.14)" in rule.group(1)
+
+
+# ── 2 · "Not a chatbot with opinions" — the playback's words are registry copy ──────────
+
+COMPARE_JSON = MARKETING / "content/landing-compare.json"
+
+
+def _compare_messages() -> list[tuple[str, dict]]:
+    import json
+
+    doc = json.loads(_read(COMPARE_JSON))
+    return [(pane, m) for pane, data in doc["panes"].items() for m in data["messages"]]
+
+
+def test_every_keyed_playback_line_is_verbatim_registry_copy():
+    """The marketing site cannot read the registry at build time (a separate static deploy),
+    so the transcript JSON mirrors it — and this is what keeps the mirror honest. Every entry
+    with a `key` renders exactly what `orchestration_step(key, **vars)` renders."""
+    from app.agents.context_loader import load_orchestration_registry, orchestration_step
+
+    registry = load_orchestration_registry()
+    keyed = [(p, m) for p, m in _compare_messages() if m.get("key")]
+    assert len(keyed) >= 8
+    for pane, m in keyed:
+        assert m["key"] in registry, f"{pane}: unknown registry key {m['key']!r}"
+        expected = orchestration_step(m["key"], **m.get("vars", {}))
+        assert m["text"] == expected, f"{pane}/{m['key']} drifted from the registry"
+        if m.get("chip"):
+            chip = m["chip"]
+            assert chip["text"] == orchestration_step(chip["key"], **chip.get("vars", {}))
+    # the shared question really is shared, and every landing.compare key is used
+    first = {p: ms[0] for p, ms in {p: [m for q, m in _compare_messages() if q == p] for p in ("generic", "tyndale")}.items()}
+    assert first["generic"]["key"] == first["tyndale"]["key"] == "landing.compare.user_q1"
+    used = {m["key"] for _, m in keyed}
+    assert {k for k in registry if k.startswith("landing.compare.")} <= used
+
+
+def test_the_tyndale_pane_keeps_the_doctrine_the_band_claims():
+    """It shows a range where an input is missing, cites what it stands on, and never states a
+    statistic; the foil is the one that quotes odds and invents a statute."""
+    msgs = {p: [m for q, m in _compare_messages() if q == p] for p in ("generic", "tyndale")}
+    tyndale = " ".join(m["text"] for m in msgs["tyndale"] if m["from"] == "bot")
+    assert "Your share becomes a range." in tyndale and "$412.40 to $1,184.60" in tyndale
+    chips = [m["chip"]["text"] for m in msgs["tyndale"] if m.get("chip")]
+    assert any("Summary of Benefits" in c for c in chips) and any("EOB" in c for c in chips)
+    assert "What you should actually owe: $612.40" in tyndale  # the hero fixture, not new numbers
+    # no base rate, no odds ("80% of imaging" is the plan's own coinsurance term, not a statistic)
+    assert not re.search(r"\b\d{1,3}% (?:get|succeed|win|of (?:people|cases|disputes|bills))", tyndale)
+    assert "studies show" not in tyndale and "Most people" not in tyndale
+    generic = " ".join(m["text"] for m in msgs["generic"] if m["from"] == "bot")
+    assert "60%" in generic and "Fair Medical Billing Act" in generic
+    # every spotlight phrase is really in its message, inside one bold/plain segment
+    for _, m in _compare_messages():
+        if m.get("spot"):
+            assert any(m["spot"] in seg for seg in m["text"].split("**")), m["spot"]
+    # every foil flag is a ✗ the caption row also states; every Tyndale flag is a ✓
+    assert all(m.get("flag") for m in msgs["generic"] if m["from"] == "bot")

@@ -1841,3 +1841,33 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.help.plan_year_3
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] No SBC? Your benefits office or your insurer can tell you the date.
+
+## §L · Landing page — "Not a chatbot with opinions" playback (marketing site, 2026-09-23)
+
+## landing.compare.user_q1
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The one question BOTH panes of the marketing site's chat-compare playback answer. Illustrative numbers = the hero card's fixture ($2,347.18 billed / $1,184.60 EOB / $612.40 Tyndale); apps/web-marketing/src/content/landing-compare.json mirrors this text and a guard test keeps it verbatim. -->
+[A] My hospital billed me $2,347.18 for an MRI. My insurer says I owe $1,184.60. Is that right?
+
+## landing.compare.tyndale_open
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). Tyndale's first turn: reads the documents it has and names the one thing it cannot know yet. -->
+[A] Let me read it, not guess. I have your plan's Summary of Benefits and this EOB. The EOB puts $965.25 toward your deductible. Whether that is right depends on what you had already paid this year.
+
+## landing.compare.tyndale_range
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). Follows intake.limits.no_accumulator in the playback: the honest bracket while the accumulator is unknown (20% of the plan rate with the deductible met, up to the EOB's own figure). -->
+[A] Right now that is **$412.40 to $1,184.60**. Your other EOBs from this year would pin it down.
+
+## landing.compare.user_eobs
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The visitor's second turn in the Tyndale pane. -->
+[A] I met most of it in February. Here are my other EOBs from this year.
+
+## landing.compare.tyndale_deductible
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The payer-side finding, every number from a named document; rendered with finding_card_source ("your Feb 3 and Feb 20 EOBs") as its chip. -->
+[A] Got them. Your Feb 3 and Feb 20 EOBs put you at **$1,750.00** of your **$2,000.00** deductible before this scan. So only **$250.00** belongs on this one — not $965.25.
+
+## landing.compare.tyndale_plan_rule
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The coverage line — read from the plan's own Summary of Benefits, rendered with finding_card_source ("your Summary of Benefits — Imaging, 20% after deductible") as its chip. -->
+[A] After the deductible, your plan pays 80% of imaging and you pay 20%. 20% of the remaining **$1,812.00** is **$362.40**.
+
+## landing.compare.user_win
+<!-- UNMAPPED — landing motion parity Phase A (2026-09-23); PROPOSED interim seed (engineering). The visitor's last turn in both panes; Tyndale answers with decline.guarantee_trio_no_rate. -->
+[A] Will I win if I dispute it?

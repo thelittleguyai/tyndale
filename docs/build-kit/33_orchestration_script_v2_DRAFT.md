@@ -232,6 +232,41 @@ photo (B2). Four keys make the degradation honest; all are engineering seeds for
 | `degraded.missing_input` | eng | I don't have what I need to say that part yet. So I left it out. I don't guess. |
 | `finding.worth_checking` | eng | Worth checking: there may be a rule behind this, but I couldn't confirm it from a source I could read. Ask about it — don't count on it. |
 
+## Landing "Not a chatbot with opinions" playback — PROPOSED, interim engineering seeds (2026-09-23)
+
+*Status: INTERIM. The marketing landing's comparison band now PLAYS the two chats side by side
+(your round-2 ChatCompare, ported on our tokens — glass still held). The Tyndale pane is registry
+copy: five lines are existing keys rendered with the hero fixture's numbers
+(`intake.limits.no_accumulator`, `three_number_reveal`, `reveal.gap_callout`, `finding_card_source`
+twice, `decline.guarantee_trio_no_rate`); the seven below are new and yours to author. Illustrative
+story: an MRI billed $2,347.18; the EOB applied $965.25 to the deductible but two earlier EOBs show
+$1,750.00 of the $2,000.00 already met, so only $250.00 belongs on this scan and the member's share
+is $612.40 (20% of the remaining $1,812.00 = $362.40 + $250.00), $572.20 under the EOB's $1,184.60.
+No statistic anywhere in the Tyndale pane; the citation chips cite the plan's Summary of Benefits
+and the member's own EOBs, not a statute — a hand-picked statute on a public page is a legal claim
+nobody here can vouch for (the prototype's No Surprises Act line was misapplied to an in-network
+overcharge). The OTHER pane — the general chatbot's four replies and their ✗ flags — is marketing
+copy like the rest of the page (`apps/web-marketing/src/content/landing-compare.json`), written to
+demonstrate the four contrasts you ruled on; it is listed here so you see the whole transcript.*
+
+| key | source | seed |
+|---|---|---|
+| `landing.compare.user_q1` | eng | My hospital billed me $2,347.18 for an MRI. My insurer says I owe $1,184.60. Is that right? |
+| `landing.compare.tyndale_open` | eng | Let me read it, not guess. I have your plan's Summary of Benefits and this EOB. The EOB puts $965.25 toward your deductible. Whether that is right depends on what you had already paid this year. |
+| `landing.compare.tyndale_range` | eng | Right now that is **$412.40 to $1,184.60**. Your other EOBs from this year would pin it down. |
+| `landing.compare.user_eobs` | eng | I met most of it in February. Here are my other EOBs from this year. |
+| `landing.compare.tyndale_deductible` | eng | Got them. Your Feb 3 and Feb 20 EOBs put you at **$1,750.00** of your **$2,000.00** deductible before this scan. So only **$250.00** belongs on this one — not $965.25. |
+| `landing.compare.tyndale_plan_rule` | eng | After the deductible, your plan pays 80% of imaging and you pay 20%. 20% of the remaining **$1,812.00** is **$362.40**. |
+| `landing.compare.user_win` | eng | Will I win if I dispute it? |
+
+*The foil (not registry; marketing copy):* "Great question! Your insurer's statement lists $1,184.60
+as your responsibility, so that figure is most likely correct. For context, an MRI in the U.S.
+usually runs somewhere between $400 and $3,500 …" · "I don't have access to your claims, your EOBs,
+or anything from earlier conversations …" · "… under Section 12(b) of the Fair Medical Billing Act,
+providers must honor a 40% self-pay discount …" (flagged on screen: *Invented — there is no such
+law*) · "Most people who dispute a medical bill succeed — studies show around 60% get a reduction
+…" (flagged: *A statistic it made up*).
+
 ## Guided intake (doc 40) — PROPOSED, interim engineering seeds (2026-09-21)
 
 *Status: INTERIM. Every string the guided `/intake` route renders is LIVE in the registry as a

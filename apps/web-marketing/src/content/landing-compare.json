@@ -1,0 +1,158 @@
+{
+  "_comment": "The 'Not a chatbot with opinions' playback (landing motion parity Phase A, 2026-09-23). Every entry with a `key` is VERBATIM registry copy (intelligence-layer/prompts/orchestration_script.md), `vars` filled exactly as the runtime would; runtime/tests/test_landing_motion_guards.py fails if the text drifts. Entries without a key are the foil — what a general chatbot does — and are marketing copy like the rest of page.tsx. Illustrative numbers = the hero fixture. `spot` is the phrase the spotlight underlines while `flag` shows.",
+  "example_note": "Example conversation — illustrative numbers, the same as the audit card above.",
+  "panes": {
+    "generic": {
+      "name": "A general chatbot",
+      "subtitle": "No documents, no memory, no rulebook",
+      "pill": "Opinions",
+      "aria": "The same question asked to a general AI chatbot",
+      "caption": "A reenactment of what general chatbots do with medical bills: take the insurer's number at face value, guess a price, invent a statute, and leave you with homework.",
+      "messages": [
+        {
+          "from": "user",
+          "key": "landing.compare.user_q1",
+          "text": "My hospital billed me $2,347.18 for an MRI. My insurer says I owe $1,184.60. Is that right?"
+        },
+        {
+          "from": "bot",
+          "text": "Great question! Your insurer's statement lists $1,184.60 as your responsibility, so that figure is most likely correct. For context, an MRI in the U.S. usually runs somewhere between $400 and $3,500, so $2,347.18 is within the normal range. You could ask for an itemized bill or a prompt-pay discount.",
+          "spot": "somewhere between $400 and $3,500",
+          "flag": "Takes the insurer's number at face value — and guesses a price from memory"
+        },
+        {
+          "from": "user",
+          "text": "It applied $965 to my deductible. I thought I'd met most of it in February."
+        },
+        {
+          "from": "bot",
+          "text": "I don't have access to your claims, your EOBs, or anything from earlier conversations, so I can't check what you've paid toward your deductible. Try your member portal, or call the number on the back of your card.",
+          "spot": "I don't have access to your claims, your EOBs, or anything from earlier conversations",
+          "flag": "No memory of your case, no documents — the homework is yours"
+        },
+        {
+          "from": "bot",
+          "text": "One more thing that may help: under Section 12(b) of the Fair Medical Billing Act, providers must honor a 40% self-pay discount if you ask in writing within 30 days.",
+          "spot": "Section 12(b) of the Fair Medical Billing Act",
+          "flag": "Invented — there is no such law"
+        },
+        {
+          "from": "user",
+          "key": "landing.compare.user_win",
+          "text": "Will I win if I dispute it?"
+        },
+        {
+          "from": "bot",
+          "text": "Most people who dispute a medical bill succeed — studies show around 60% get a reduction, so it's definitely worth a try! Let me know if you have any other questions.",
+          "spot": "studies show around 60% get a reduction",
+          "flag": "A statistic it made up — ask again and you'll get a different one"
+        }
+      ]
+    },
+    "tyndale": {
+      "name": "Tyndale",
+      "subtitle": "Your documents and the rules — read, not guessed",
+      "pill": "Evidence",
+      "aria": "The same question asked to Tyndale",
+      "caption": "Tyndale reads your documents, remembers your case, and cites the clause it stands on — so every answer is checkable, and the conversation ends with one number and one plan.",
+      "messages": [
+        {
+          "from": "user",
+          "key": "landing.compare.user_q1",
+          "text": "My hospital billed me $2,347.18 for an MRI. My insurer says I owe $1,184.60. Is that right?"
+        },
+        {
+          "from": "bot",
+          "key": "landing.compare.tyndale_open",
+          "text": "Let me read it, not guess. I have your plan's Summary of Benefits and this EOB. The EOB puts $965.25 toward your deductible. Whether that is right depends on what you had already paid this year.",
+          "spot": "read it, not guess",
+          "flag": "Reads your documents — and says what it can't know yet"
+        },
+        {
+          "from": "bot",
+          "key": "intake.limits.no_accumulator",
+          "text": "I don't know what you had paid so far. Your share becomes a range.",
+          "spot": "Your share becomes a range."
+        },
+        {
+          "from": "bot",
+          "key": "landing.compare.tyndale_range",
+          "text": "Right now that is **$412.40 to $1,184.60**. Your other EOBs from this year would pin it down.",
+          "spot": "$412.40 to $1,184.60",
+          "flag": "A range where an input is missing — never a made-up exact number"
+        },
+        {
+          "from": "user",
+          "key": "landing.compare.user_eobs",
+          "text": "I met most of it in February. Here are my other EOBs from this year."
+        },
+        {
+          "from": "bot",
+          "key": "landing.compare.tyndale_deductible",
+          "text": "Got them. Your Feb 3 and Feb 20 EOBs put you at **$1,750.00** of your **$2,000.00** deductible before this scan. So only **$250.00** belongs on this one — not $965.25.",
+          "spot": "Feb 3 and Feb 20 EOBs",
+          "chip": {
+            "key": "finding_card_source",
+            "vars": {
+              "finding_source": "your Feb 3 and Feb 20 EOBs"
+            },
+            "text": "source: your Feb 3 and Feb 20 EOBs"
+          },
+          "flag": "Remembers your case — every number traces to a document you can open"
+        },
+        {
+          "from": "bot",
+          "key": "landing.compare.tyndale_plan_rule",
+          "text": "After the deductible, your plan pays 80% of imaging and you pay 20%. 20% of the remaining **$1,812.00** is **$362.40**.",
+          "spot": "your plan pays 80% of imaging and you pay 20%",
+          "chip": {
+            "key": "finding_card_source",
+            "vars": {
+              "finding_source": "your Summary of Benefits — Imaging, 20% after deductible"
+            },
+            "text": "source: your Summary of Benefits — Imaging, 20% after deductible"
+          },
+          "flag": "Cites the plan clause it stands on — so you can check it"
+        },
+        {
+          "from": "bot",
+          "key": "three_number_reveal",
+          "text": "Billed: **$2,347.18**\nYour insurer says you owe: **$1,184.60**\n**What you should actually owe: $612.40**",
+          "vars": {
+            "billed": "$2,347.18",
+            "payer": "Your insurer",
+            "eob_owed": "$1,184.60",
+            "tyndale_owed": "$612.40"
+          },
+          "spot": "What you should actually owe: $612.40",
+          "flag": "Three numbers: the bill, the insurer's claim, and its own independent math"
+        },
+        {
+          "from": "bot",
+          "key": "reveal.gap_callout",
+          "text": "**$572.20** less than your insurer's number",
+          "vars": {
+            "gap": "$572.20"
+          }
+        },
+        {
+          "from": "user",
+          "key": "landing.compare.user_win",
+          "text": "Will I win if I dispute it?"
+        },
+        {
+          "from": "bot",
+          "key": "decline.guarantee_trio_no_rate",
+          "text": "I won't promise you'll win — nobody honest can, and I won't guess with your money. I also won't quote odds I don't have: there isn't yet an honest number for cases exactly like yours, and I'd rather tell you that than invent one. What I can tell you: your case rests on **your insurer's own EOBs**, and the best next step is **a call to member services asking them to re-run the claim with your deductible credited — I'll give you the script**.",
+          "vars": {
+            "strength_of_basis": "your insurer's own EOBs",
+            "next_step": "a call to member services asking them to re-run the claim with your deductible credited — I'll give you the script"
+          },
+          "spot": "I also won't quote odds I don't have",
+          "flag": "No odds it doesn't have — the basis and the next step instead"
+        }
+      ]
+    }
+  },
+  "replay": "Replay"
+}

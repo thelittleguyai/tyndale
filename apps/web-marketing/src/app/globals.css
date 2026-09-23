@@ -50,10 +50,34 @@ body {
   will-change: transform;
 }
 
+/* The entrance every chat bubble, flag and (item 4) band heading shares: rise 12px and fade
+   in, ~420 ms, ease-out. Opacity/transform only. */
+@keyframes tyn-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tyn-rise {
+  animation: tyn-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* The chat-compare typing indicator — three dots breathing in sequence (the prototype used
+   Tailwind's `animate-bounce`; a namespaced keyframe keeps the allowed set pinned). */
+@keyframes tyn-typing {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+.tyn-typing {
+  animation: tyn-typing 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* static at the END scale — the composed frame, not the un-drifted one */
   .tyn-kenburns {
     animation: none;
     transform: scale(1.14) translate(-1.5%, -1.5%);
+  }
+  .tyn-rise,
+  .tyn-typing {
+    animation: none;
   }
 }
