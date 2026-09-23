@@ -1,0 +1,115 @@
+{
+  "_comment": "The How-it-works three-act demo's fixture (landing motion parity Phase A, 2026-09-23) — the HERO's numbers, nothing invented: billed $2,347.18, the EOB's $1,184.60, Tyndale's $612.40, the $572.20 payer-side gap. Entries with a `key` are verbatim registry copy (guard-tested).",
+  "phases": [
+    {
+      "id": "add",
+      "label": "Add your documents",
+      "caption": "One bill, your EOB, your plan's Summary of Benefits and your card. That's all Tyndale needs."
+    },
+    {
+      "id": "audit",
+      "label": "Tyndale audits",
+      "caption": "Every line is recomputed against your plan's real rules and published prices."
+    },
+    {
+      "id": "sort",
+      "label": "Every finding, sorted",
+      "caption": "Each finding comes back with its source and the exact next step."
+    }
+  ],
+  "documents": [
+    {
+      "id": "bill",
+      "kind": "bill",
+      "title": "Imaging center",
+      "note": "MRI — itemized bill",
+      "amount_label": "Amount due",
+      "amount": "$2,347.18"
+    },
+    {
+      "id": "eob",
+      "kind": "eob",
+      "title": "Explanation of Benefits",
+      "note": "This is not a bill",
+      "amount_label": "You may owe",
+      "amount": "$1,184.60"
+    },
+    {
+      "id": "sob",
+      "kind": "sob",
+      "title": "Summary of Benefits",
+      "rows": [
+        [
+          "Deductible",
+          "$2,000"
+        ],
+        [
+          "Imaging",
+          "20%"
+        ],
+        [
+          "Out-of-pocket max",
+          "$5,000"
+        ]
+      ]
+    },
+    {
+      "id": "card",
+      "kind": "card",
+      "title": "Your insurer · PPO",
+      "rows": [
+        [
+          "Member",
+          "you"
+        ],
+        [
+          "Member ID",
+          "•••• ••••"
+        ]
+      ]
+    }
+  ],
+  "audit_lines": [
+    "Reading every line on the bill",
+    "Checking your plan's rules",
+    "Comparing to published prices",
+    "Recomputing the math"
+  ],
+  "sorted": [
+    {
+      "id": "pay",
+      "tone": "pay",
+      "label": "Pay",
+      "amount": "$612.40",
+      "title": "Your real share",
+      "body": "20% after your deductible — read from your Summary of Benefits."
+    },
+    {
+      "id": "dispute",
+      "tone": "dispute",
+      "label": "Overcharged",
+      "amount": "$572.20",
+      "title": "Your insurer's deductible math",
+      "body": "Your Feb EOBs show $1,750.00 of your $2,000.00 deductible met; this EOB credited only $1,034.75.",
+      "chip": {
+        "key": "finding_card_source",
+        "vars": {
+          "finding_source": "your Feb 3 and Feb 20 EOBs"
+        },
+        "text": "source: your Feb 3 and Feb 20 EOBs"
+      }
+    },
+    {
+      "id": "script",
+      "tone": "script",
+      "label": "Your script",
+      "title": "The call, written for you",
+      "body_key": "call_script_opener_payer",
+      "body_vars": {
+        "party": "your insurer's member services"
+      },
+      "body": "When you reach your insurer's member services, give your name and member ID and say you're calling about a billing error you'd like corrected."
+    }
+  ],
+  "closing": "And when a call is needed — Tyndale writes the script and walks you through it."
+}

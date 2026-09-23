@@ -110,3 +110,51 @@ def test_the_tyndale_pane_keeps_the_doctrine_the_band_claims():
             assert any(m["spot"] in seg for seg in m["text"].split("**")), m["spot"]
     # every foil flag is a ✗ the caption row also states; every Tyndale flag is a ✓
     assert all(m.get("flag") for m in msgs["generic"] if m["from"] == "bot")
+
+
+# ── 3 · the hero loop is never blank; the three-act demo runs on the hero's numbers ─────
+
+DEMO_JSON = MARKETING / "content/landing-demo.json"
+HERO_MOCK = MARKETING / "components/audit-mock.tsx"
+AUDIT_DEMO = MARKETING / "components/audit-demo.tsx"
+HERO_FIXTURE = ("$2,347.18", "$1,184.60", "$612.40")
+
+
+def test_the_hero_loop_starts_populated_and_crossfades_instead_of_wiping():
+    src = _read(HERO_MOCK)
+    # the three rows are unconditional markup — no `play ?` gate, no delay-hidden rows
+    for figure in HERO_FIXTURE:
+        assert figure in src
+    assert "tyn-mock-doc" not in src and "tyn-mock-cross" in src
+    assert "play ?" not in src and "{play ?" not in src
+    # the loop resets at the crossfade's midpoint, never a hard cut to an empty card
+    assert "CROSS_MS / 2" in src
+    css = _read(GLOBALS_CSS)
+    cross = re.search(r"@keyframes tyn-mock-cross\s*\{(.*?)\n\}", css, re.S).group(1)
+    assert "opacity: 1" in cross and "opacity: 0" in cross and "width" not in cross
+
+
+def test_the_demo_uses_the_hero_fixture_and_registry_copy_only():
+    import json
+
+    from app.agents.context_loader import orchestration_step
+
+    doc = json.loads(_read(DEMO_JSON))
+    text = json.dumps(doc)
+    for figure in HERO_FIXTURE:
+        assert figure in text, f"demo fixture lost the hero figure {figure}"
+    assert "$572.20" in text  # the gap, 1,184.60 − 612.40
+    # no dollar figure the hero does not carry (the deductible terms are the compare story's)
+    allowed = set(HERO_FIXTURE) | {"$572.20", "$2,000", "$2,000.00", "$1,750.00", "$1,034.75", "$5,000"}
+    assert set(re.findall(r"\$[\d,]+(?:\.\d{2})?", text)) <= allowed
+    for item in doc["sorted"]:
+        if item.get("chip"):
+            assert item["chip"]["text"] == orchestration_step(item["chip"]["key"], **item["chip"]["vars"])
+        if item.get("body_key"):
+            assert item["body"] == orchestration_step(item["body_key"], **item["body_vars"])
+    assert [p["id"] for p in doc["phases"]] == ["add", "audit", "sort"]
+    src = _read(AUDIT_DEMO)
+    assert "tyn-funnel" in src and "tyn-intake" in src and "tyn-rise" in src
+    assert "IntersectionObserver" in _read(MARKETING / "lib/motion.ts") and "useInView(" in src
+    page = _read(LANDING)
+    assert page.index("<AuditDemo />") < page.index("{STEPS.map(")  # the demo shows, the cards explain

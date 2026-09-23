@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { AuditDemo } from '../components/audit-demo';
 import { AuditMock } from '../components/audit-mock';
 import { ChatCompare } from '../components/chat-compare';
 import { Logo, Wordmark } from '@/components/logo';
@@ -215,7 +216,14 @@ export default function HomePage() {
               </p>
             </div>
 
-            <ol className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {/* The three-act demo (prototype AuditDemo, ported 2026-09-23): the documents funnel
+                in, the audit runs, the findings sort out — the hero's numbers, nothing invented.
+                The three step cards below stay: the demo shows, the cards explain. */}
+            <div className="mx-auto mt-12 max-w-3xl">
+              <AuditDemo />
+            </div>
+
+            <ol className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
               {STEPS.map(({ title, body }, i) => (
                 <li
                   key={title}

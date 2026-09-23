@@ -16,21 +16,22 @@ body {
   box-sizing: border-box;
 }
 
-/* The hero's example-audit animation (components/audit-mock.tsx). Keyframe names share one
-   global namespace, hence `tyn-mock-*`. The component only applies them when the user has NOT
-   asked for reduced motion; the final frame of each is the static layout. */
-@keyframes tyn-mock-doc {
-  0% { opacity: 0; transform: translateY(-14px) scale(0.96); }
-  22% { opacity: 1; transform: translateY(0) scale(1); }
-  78% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(4px); visibility: hidden; }
-}
+/* The hero's example-audit loop (components/audit-mock.tsx). Keyframe names share one global
+   namespace, hence `tyn-mock-*`. The component only applies them when the user has NOT asked
+   for reduced motion; the resolved frame is the static layout. `tyn-mock-cross` is the
+   crossfade back to the "before" state between loops — the rows dip to transparent and return,
+   never a wipe to white (the state resets at the midpoint). */
 @keyframes tyn-mock-row {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes tyn-mock-strike { from { width: 0; } to { width: 100%; } }
 @keyframes tyn-mock-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tyn-mock-cross {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
 
 /* ── Landing motion (Phase A, 2026-09-23) — the prototype's motion system on OUR tokens, no
    glass. Keyframes are namespaced `tyn-*` because keyframe names are global, and the guard
@@ -70,6 +71,29 @@ body {
   animation: tyn-typing 1s ease-in-out infinite;
 }
 
+/* How-it-works, Act 1: each document rises in at its slot, holds, then travels along
+   (--fx, --fy) into the intake ring, shrinking away. */
+@keyframes tyn-funnel {
+  0% { transform: translate(0, 12px) scale(0.94); opacity: 0; }
+  12% { transform: translate(0, 0) scale(1); opacity: 1; }
+  55% { transform: translate(0, 0) scale(1); opacity: 1; }
+  92% { opacity: 0.9; }
+  100% { transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(0.15); opacity: 0; }
+}
+.tyn-funnel {
+  animation: tyn-funnel 4.6s cubic-bezier(0.5, 0, 0.4, 1) both;
+}
+
+/* The intake ring breathes as documents arrive — an opaque teal ring (rgb 62 92 87 = the teal
+   token), never a translucent surface. */
+@keyframes tyn-intake {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(62, 92, 87, 0.35); }
+  50% { box-shadow: 0 0 0 14px rgba(62, 92, 87, 0); }
+}
+.tyn-intake {
+  animation: tyn-intake 1.8s ease-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* static at the END scale — the composed frame, not the un-drifted one */
   .tyn-kenburns {
@@ -77,7 +101,9 @@ body {
     transform: scale(1.14) translate(-1.5%, -1.5%);
   }
   .tyn-rise,
-  .tyn-typing {
+  .tyn-typing,
+  .tyn-funnel,
+  .tyn-intake {
     animation: none;
   }
 }
