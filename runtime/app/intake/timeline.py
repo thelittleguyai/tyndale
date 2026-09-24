@@ -9,7 +9,9 @@ and visibly marked as not affecting this bill's position.
 The model is ready for what Phase 2 renders: every row carries ``member`` (the covered person —
 a family plan's deductible accumulates across everyone) and ``network`` (in | out | None — the
 two accumulate separately), and a ``source`` from the typed ``TimelineSource`` seam so EOBs that
-arrive by email forwarding or a coverage connection land without a schema change.
+arrive from a coverage connection land without a schema change. The timeline is UPLOAD-FED:
+email forwarding was dropped (Brock 2026-09-21, decision 6 — an injection surface that needs its
+own security design first); there is no forwarding source, seam or copy.
 """
 
 from __future__ import annotations
@@ -20,10 +22,11 @@ from typing import Literal
 
 from app.sources.eob_completeness import _parse_date, _unwrap
 
-# Typed seam (§A7): only `upload` is offered in Phase 1. The other two exist so their arrival
-# is a new value, not a migration — and so nothing renders a button for them until it is real.
-TimelineSource = Literal["upload", "email_forward", "api"]
-TIMELINE_SOURCES: tuple[str, ...] = ("upload", "email_forward", "api")
+# Typed seam (§A7): only `upload` is offered. `api` (a coverage connection) exists so its arrival
+# is a new value, not a migration — and so nothing renders a button for it until it is real.
+# Email forwarding is DROPPED (decision 6), not merely unoffered: no value is kept for it.
+TimelineSource = Literal["upload", "api"]
+TIMELINE_SOURCES: tuple[str, ...] = ("upload", "api")
 OFFERED_SOURCES: tuple[str, ...] = ("upload",)
 
 EOB_DOC_TYPES = frozenset({"eob", "ma_eob", "msn", "tricare_eob"})

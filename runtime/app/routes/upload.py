@@ -340,7 +340,8 @@ async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], U
         # The EOB timeline's data model (doc 40 §A7): WHOSE statement this is — a family plan's
         # deductible accumulates across every covered member — and which accumulator it fed.
         # Both are nullable: set only when the document itself says so. `source` is the typed
-        # TimelineSource seam (upload | email_forward | api); only upload exists today.
+        # TimelineSource seam (upload | api); only upload exists today (forwarding dropped,
+        # decision 6).
         from app.sources.extraction import _network_status
 
         entry["member"] = entry["patient_name"]

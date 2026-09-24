@@ -81,7 +81,7 @@ Use the existing missing-data spectrum (Tranche 1 priors + the Tier 0–3 disclo
 | 8 | Plan rules (SBC) | Keep — this is the one screen that already has an example. Add the Plan Library path: "We may already have your plan's rules — confirm these match?" Add skip consequence: "your share becomes a range." |
 | 9 | Rules extracted | Keep. Add embedded vs. aggregate family deductible to the extracted fields; add in/out-of-network OOP max. |
 | 10 | Plan year | Keep. |
-| 11 | EOB timeline | Keep — best screen in the set. Extend per A7 (family rows, forwarding, completeness confirmation). Fix the date inconsistency (bill is June 14 on #5, June 30 on #11). |
+| 11 | EOB timeline | Keep — best screen in the set. Extend per A7 (family rows, ~~forwarding~~ *(dropped 2026-09-21, decision 6)*, completeness confirmation). Fix the date inconsistency (bill is June 14 on #5, June 30 on #11). |
 | 12 | Missing statement | Keep the honesty. Rewrite to 5th grade (A6). |
 | 13 | Who was it for | Keep, but when the name on the bill ≠ the account holder, this becomes the locked attest-and-proceed step (B5-6): relationship menu + confirm line + logged + decline path; softer prompts for a teen's sensitive care and a deceased person's estate. |
 | 14 | Other insurance | Keep — "we'll check it rather than assuming the second plan covers everything" is exactly the COB lock. |
@@ -99,7 +99,7 @@ Use the existing missing-data spectrum (Tranche 1 priors + the Tier 0–3 disclo
 5. Summary-bill coaching — the concept's own sample bill would trigger it.
 6. Attest-and-proceed for third-party bills (compliance).
 7. Save and resume — people leave to find a document. Continuous autosave, magic-link return, and the honest link-expiry line ("this link works for 90 days"). The concept shows no return path.
-8. Email-forwarding as an intake path — approved; belongs on the EOB and timeline screens.
+8. ~~Email-forwarding as an intake path — approved; belongs on the EOB and timeline screens.~~ **DROPPED 2026-09-21** (Brock, decision 6): the timeline is upload-fed; forwarding is an injection surface and returns only through its own security packet.
 9. "I don't have the SBC" fallback — Plan Library match, then range.
 10. Trust microcopy at the moment of capture (Encrypted. Never sold. Used only for your audit.). Absent from the concept.
 11. Accessibility floor — several concept screens look below 16px body. Enforce 16px / 4.5:1 / 44px.
