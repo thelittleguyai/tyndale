@@ -447,6 +447,11 @@ async def upload(
         session.add(case)
     else:
         case.documents = documents  # reassign — SQLAlchemy doesn't track in-place JSONB mutation
+    # an SBC names the plan year's start — kept on the coverage record for the retention
+    # schedule (doc 43, decision 9), whichever front door the document came through
+    from app.intake.timeline import persist_plan_year_start
+
+    persist_plan_year_start(case)
     # The user's plan-level SBC (Settings → Plan documents) counts toward the checklist.
     from app.sources.plan_docs import plan_sbc_state
 

@@ -49,7 +49,7 @@ from app.ingestion.extract_documents import (
 from app.intake import planner as ip
 from app.intake.render import group_copy, render_help, render_progress, render_screen, step
 from app.intake.snapshot import COVERAGE_TYPE_OPTIONS, IntakeState, gather_inputs
-from app.intake.timeline import eob_rows, plan_year_start_for
+from app.intake.timeline import eob_rows, persist_plan_year_start, plan_year_start_for
 from app.routes.upload import BENEFITS_DOC_ALIASES
 from app.schemas.intake import (
     CapturedData,
@@ -236,6 +236,7 @@ async def _plan(
     the planner owns — the current screen, the progress high-water mark, intake_status."""
     await _read_new_cards(case)  # infer first, then ask (§A4-1): a card is READ the moment it lands
     _apply_regime_detection(case)
+    persist_plan_year_start(case)  # the retention anchor outlives the intake (doc 43, decision 9)
     proposal = await _pending_proposal(session, case)
     inputs = await gather_inputs(session, case, plan_proposal=proposal is not None)
     gaps = ip.gap_list(inputs)

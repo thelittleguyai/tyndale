@@ -72,6 +72,31 @@ def plan_year_start_from_documents(documents: list | None) -> str | None:
     return None
 
 
+def resolved_plan_year_start(case) -> tuple[str | None, str | None]:
+    """(start, source): the SBC's own "Coverage Period" first, then the user's answer to the
+    plan-year ask. Never assumed to be January 1 — unknown is (None, None)."""
+    sbc = plan_year_start_from_documents(getattr(case, "documents", None))
+    if sbc:
+        return sbc, "sbc"
+    user = (getattr(case, "coverage", None) or {}).get("plan_effective_date")
+    return (str(user), "user") if user else (None, None)
+
+
+def persist_plan_year_start(case) -> bool:
+    """Write the resolved plan-year start onto the case's COVERAGE record
+    (coverage.plan_year_start + plan_year_start_source). The retention schedule (doc 43, Brock
+    2026-09-21 decision 9) keeps a plan year's EOBs through the end of THAT plan year — it must
+    read the anchor after the intake snapshot is gone. True when the record changed; the caller
+    commits."""
+    start, source = resolved_plan_year_start(case)
+    cov = dict(getattr(case, "coverage", None) or {})
+    if not start or (cov.get("plan_year_start"), cov.get("plan_year_start_source")) == (start, source):
+        return False
+    cov["plan_year_start"], cov["plan_year_start_source"] = start, source
+    case.coverage = cov
+    return True
+
+
 def plan_year_start_for(month: int, date_of_service: datetime.date | None) -> str:
     """The user names the MONTH their plan year starts; the year follows from the visit: the
     latest such month-start on or before the date of service (today, when it is unknown)."""

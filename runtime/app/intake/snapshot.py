@@ -25,7 +25,7 @@ from app.intake.planner import (
     PlannerInputs,
     population_of,
 )
-from app.intake.timeline import eob_rows, plan_year_start_from_documents
+from app.intake.timeline import eob_rows, resolved_plan_year_start
 from app.sources.missing_data_priors import missing_cost_share_inputs
 from app.sources.plan_docs import merge_case_coverage, plan_sbc_state
 
@@ -156,9 +156,7 @@ async def gather_inputs(
     )
 
     # plan-year start: the SBC's own coverage period wins; else the user's answer
-    sbc_start = plan_year_start_from_documents(case.documents)
-    user_start = case_cov.get("plan_effective_date")
-    plan_year_start = sbc_start or (str(user_start) if user_start else None)
+    plan_year_start, plan_year_source = resolved_plan_year_start(case)  # SBC first, then the ask
 
     # completeness is asked EVERY time — and again if the stack changed since it was confirmed
     confirmed = case_cov.get("all_plan_year_eobs_confirmed")
@@ -193,7 +191,7 @@ async def gather_inputs(
         regime=regime,
         regime_candidate=detection.get("candidate"),
         plan_year_start=plan_year_start,
-        plan_year_source="sbc" if sbc_start else ("user" if user_start else None),
+        plan_year_source=plan_year_source,
         eobs_undated=sum(1 for r in rows if not r["date"]),
         completeness_confirmed=confirmed if isinstance(confirmed, bool) else None,
         deductible_met_known=_known("deductible_met"),

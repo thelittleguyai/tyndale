@@ -55,6 +55,19 @@ Nothing here creates or touches staging/production infrastructure.
       way to the plan except billing; `block` (a testing aid) offers none at all
       (`runtime/tests/test_unlock_gate.py` pins all three).
 
+## Retention (Brock 2026-09-21, decision 9) · added 2026-09-24
+
+- [ ] **Documented retention schedule + counsel sign-off (launch-gating).** The plan-year rule
+      for EOBs — retain through the end of the plan year they belong to (anchored on the SBC's
+      plan year, not the calendar year) plus the locked 6–12-month post-closure tail, then purge;
+      inside B5-6 (a verified deletion request is honored immediately). Draft:
+      `docs/build-kit/43_retention_schedule_DRAFT.md` — its open items (tail length, no-anchor
+      default, what purge covers) are counsel's and Brock's.
+- [ ] **Scheduler built before the first purge date (not launch-gating).** The first EOB can
+      become purgeable more than a year after launch; A3 builds it in sequence, not as a Phase 1
+      blocker. The anchor it reads (`coverage.plan_year_start` + source) is persisted from
+      2026-09-24.
+
 ## Data activation
 
 - [x] Priors tranche 1 received (`intelligence-layer/reference/priors/`) — *2026-08-27:
