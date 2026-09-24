@@ -557,7 +557,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.help.eob_4` | eng | Look for a link that says EOB, or View Statement. Save it as a file. |
 | `intake.help.eob_5` | eng | No luck? Call the number on the back of your card. Ask them to mail or email the EOB. |
 | `intake.help.sbc_1` | eng | Sign in to your insurer's website or app. |
-| `intake.help.sbc_2` | eng | Look for Plan Documents or Benefits. |
+| `intake.help.sbc_2` | eng — reconciled 2026-09-24 with the portal guide's generic pattern (item G; was "Look for Plan Documents or Benefits.") | Open the menu for your plan. It may be called Benefits, Coverage, or My Plan. |
 | `intake.help.sbc_3` | eng | Open the file named Summary of Benefits and Coverage. Save it. |
 | `intake.help.sbc_4` | eng | Got your plan at work? Your benefits office has it too. They must give it to you when you ask. |
 | `intake.help.insurance_card_1` | eng | Check your wallet, or a drawer with your mail from the insurer. |
@@ -568,7 +568,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.help.itemized_bill_3` | eng | Give them your account number and your visit date. |
 | `intake.help.itemized_bill_4` | eng | They can mail it, email it, or post it on their website. There is no charge. |
 | `intake.help.accumulators_1` | eng | Sign in to your insurer's website or app. |
-| `intake.help.accumulators_2` | eng | Look for Deductible, or Plan Balances. It is often on the first page. |
+| `intake.help.accumulators_2` | eng — reconciled 2026-09-24 with the portal guide's generic pattern (item G; was "Look for Deductible, or Plan Balances. It is often on the first page.") | Look at the first page after you sign in. Most sites show your deductible right there. |
 | `intake.help.accumulators_3` | eng | Write down the amount you have paid so far, and the date it shows. |
 | `intake.help.plan_year_1` | eng | Look at the top of your SBC. Find the words Coverage Period. |
 | `intake.help.plan_year_2` | eng | The first date is the day your plan year starts. |
@@ -681,6 +681,91 @@ SBC" / "A sample MSN").*
 | `intake.example.gloss_itemized` | `intake.bill.gloss_itemized`, verbatim | Itemized means each charge is on its own line, with a short code next to it. |
 | `intake.example.gloss_eob` | `intake.eob.gloss_eob`, verbatim | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
 | `intake.example.gloss_coinsurance` | `intake.plan_rules_confirm.gloss_coinsurance`, verbatim | Coinsurance is your share of the cost after the deductible. |
+
+### "Where to find it" — the portal guide, ingested (item G) — PROPOSED, interim engineering seeds
+
+*`docs/research/portal_navigation_guide_2026-07-02.md` now feeds "Help me find it" for nine
+payers (`runtime/app/intake/payer_instructions.py`). The guide's ship rule is enforced in code: a
+payer's path is shown only where the guide VERIFIED it against the payer's own public pages. Its
+UNVERIFIED items (exact in-portal sub-menu labels for seven payers, Cigna's and Kaiser's
+registration fields, the HCSC and Florida Blue app names, the pharmacy split) are stored as
+`verified: false` for the hands-on pass and never shown. There, the member sees the general steps
+below, behind the payer's own verified front door (its sign-in line). The FACTS are the guide's;
+the WORDS below are engineering's, graded ≤ 5.9 — yours to rewrite. Where the guide names a
+feature but not its exact menu label (UHC's plan spending, Aetna's benefit balances, HCSC's
+"Check your deductible"), the copy describes the feature and does not claim a label. Admin ›
+Knowledge shows every entry with its `verified_on` and the quarterly re-verify date (next:
+2026-10-02).*
+
+*Never collect an SSN in-app: the no-card lines only SAY which payers accept one on their own
+site, and every one ends "Tyndale never asks for it". A test fails if any intake field asks for it.*
+
+**The generic fallback — the guide's four-step pattern** (with the reconciled `sbc_2` /
+`accumulators_2` above):
+
+| key | from | seed |
+|---|---|---|
+| `intake.help.sbc_5` | guide, generic step 3 | Find your plan papers in it. The link may say Plan Documents, Benefit Summary, or Documents & Forms. |
+| `intake.help.accumulators_4` | guide, generic step 2 | Not there? Open Benefits, Coverage, or My Plan. Look for plan spending, benefit balances, or your deductible. |
+| `intake.help.sign_up` | guide, generic step 4 (registration prep) — the last step of every portal sheet | No account yet? Sign up on the site. Have your card ready, but some insurers let you sign up without it. Stuck? Call the member services number on any bill or EOB. |
+
+**Per payer — verified facts only:**
+
+| key | from | seed |
+|---|---|---|
+| `intake.help.uhc_sign_in` | guide — UnitedHealthcare | Start at uhc.com/sign-in. Pick the kind of plan you have, then sign in. The UHC app works too. |
+| `intake.help.uhc_sbc` | guide — UnitedHealthcare | After you sign in, you can see your SBC. Start in Coverage & Benefits. |
+| `intake.help.uhc_accumulators` | guide — UnitedHealthcare | Look for your plan spending. It shows how much of your deductible you have paid. |
+| `intake.help.anthem_sign_in` | guide — Elevance/Anthem | Sign in at anthem.com, or in the Sydney Health app. |
+| `intake.help.anthem_accumulators` | guide — Elevance/Anthem | Your deductible shows on the home screen of the Sydney Health app. |
+| `intake.help.aetna_sign_in` | guide — Aetna | Sign in at member.aetna.com, or in the Aetna Health app. Use the member sign-in, not the one for Medicare. |
+| `intake.help.aetna_accumulators` | guide — Aetna | Look for your benefit balances and plan limits. They show how much of your deductible you have paid. |
+| `intake.help.cigna_sign_in` | guide — Cigna | Sign in at myCigna.com, or in the myCigna app. |
+| `intake.help.cigna_accumulators` | guide — Cigna | Your first page, Your Plan at a Glance, shows how much of your deductible is left. It shows your out-of-pocket total too. |
+| `intake.help.cigna_sbc_public` | guide — Cigna | Bought your plan yourself? Cigna posts SBCs online, and you do not need to sign in. Go to cigna.com, then the member guide, then Plan Documents. |
+| `intake.help.cigna_sbc_work` | guide — Cigna | Got your plan at work? Sign in at myCigna.com, or ask your benefits office. |
+| `intake.help.kaiser_sign_in` | guide — Kaiser | Sign in at kp.org. Pick your area first. Each area's site is a little different. |
+| `intake.help.kaiser_sbc` | guide — Kaiser (exact verified path) | Go to Benefits. Then pick View benefit summary. Or you can pick Coverage documents. Your SBC is in there. |
+| `intake.help.kaiser_accumulators` | guide — Kaiser (exact verified path) | Go to Benefits. Then choose Track the progress of your plan. |
+| `intake.help.kaiser_accumulators_billing` | guide — Kaiser | Some plans also show it under Billing. Choose View your out-of-pocket summary. |
+| `intake.help.kaiser_elsewhere` | guide — Kaiser | A link may take you to another company's site. That is normal. |
+| `intake.help.ambetter_sign_in` | guide — Centene/Ambetter | Go straight to member.ambetterhealth.com, or the Ambetter Health app. Skip your state's Ambetter site. There is one sign-in for everyone. |
+| `intake.help.hcsc_sign_in` | guide — HCSC (BCBS IL/TX/OK/NM/MT) | Sign in to Blue Access for Members, on your state's Blue Cross site. In Illinois, that is bcbsil.com. |
+| `intake.help.hcsc_accumulators` | guide — HCSC | Blue Access for Members lets you check your deductible. |
+| `intake.help.florida_blue_sign_in` | guide — Florida Blue | Go to floridablue.com and sign in there. |
+| `intake.help.florida_blue_accumulators` | guide — Florida Blue | After you sign in, view your plan details. They show your deductible and your claims. |
+| `intake.help.highmark_sign_in` | guide — Highmark | Sign in at member.myhighmark.com, or in the My Highmark app. One sign-in works for both. |
+| `intake.help.highmark_accumulators` | guide — Highmark | The My Highmark app shows your deductible. |
+
+**No-card branch** (shown on "I don't have my card", and on the card's own sheet):
+
+| key | from | seed |
+|---|---|---|
+| `intake.help.uhc_no_card` | guide no-card branch — UHC: member ID or SSN + DOB, via HealthSafe ID | No card? You can still sign up at healthsafe-id.com with your Social Security number and birth date. Type those on their site only. Tyndale never asks for them. |
+| `intake.help.aetna_no_card` | guide no-card branch — Aetna: ID card or SSN | No card? Aetna lets you sign up with your Social Security number instead. Type it on their site only. Tyndale never asks for it. |
+| `intake.help.ambetter_no_card` | guide no-card branch — Ambetter: member ID or last-4 SSN | No card? Ambetter lets you sign up with the last 4 digits of your Social Security number. Type them on their site only. Tyndale never asks for them. |
+| `intake.help.hcsc_no_card` | guide no-card branch — HCSC requires the card: member services on any bill/EOB, or HR for the SBC | No card? You need it to sign up for Blue Access for Members. Call the member services number on any bill or EOB instead. Your benefits office can also give you your SBC. |
+
+**The BCBS router** — a planner screen (`blue_plan`), asked only when the card or bill says Blue
+Cross / Blue Shield and not which company, and only while an SBC or deductible ask is still
+ahead. Routing reads the plan name: Anthem → Anthem; IL/TX/OK/NM/MT → HCSC; FL → Florida Blue;
+PA/DE/WV/WNY → Highmark; anything else → the general steps + the bcbs.com lookup. Open for you:
+the guide says "Anthem is the Blue in 14 states" but does not list them. The router places
+Anthem by the name on the card. That rests on an assumption, not on the guide: that an
+Anthem-state card prints "Anthem". A card that names only its state lands on the lookup, not on
+Anthem.
+
+| key | from | seed |
+|---|---|---|
+| `intake.blue_plan.title` | eng | Which Blue plan is yours? |
+| `intake.blue_plan.body` | the guide's routing question, VERBATIM, after one line of why | There are more than 30 Blue Cross plans, and each one has its own website. What plan name is on your card, and what are the first 3 letters of your member ID? |
+| `intake.blue_plan.field_plan_name` | eng | Plan name on your card |
+| `intake.blue_plan.field_id_prefix` | eng (pre-filled from the member ID when a document gave it) | First 3 letters of your member ID |
+| `intake.blue_plan.primary` | eng | Save |
+| `intake.blue_plan.skip` | eng | I'm not sure |
+| `intake.blue_plan.skip_consequence` | eng | That's okay. I will show you general steps, and how to look up your plan at bcbs.com. |
+| `intake.help.bcbs_lookup` | guide — the router's else branch (bcbs.com/member-services) | Not sure which Blue plan is yours? Go to bcbs.com/member-services. Look it up with the first 3 letters of your member ID, or your ZIP code. It shows your plan's own website. |
+| `intake.help.bcbs_lookup_prefix` | guide — the same, with the prefix the member typed; IN-APP ONLY, the emailed steps use the line above (DL-47) | Not sure which Blue plan is yours? Go to bcbs.com/member-services. Type {prefix}, the first 3 letters of your member ID. It shows your plan's own website. |
 
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.

@@ -11,6 +11,7 @@
 import type {
   AdminUserDetail,
   AdminUserSummary,
+  PayerCorpusView,
   QdrantChunkResult,
   QdrantCollectionInfo,
 } from '@tyndale/shared';
@@ -253,6 +254,10 @@ export const adminSearchCollection = (
     `/v1/admin/qdrant/collections/${encodeURIComponent(name)}/search`,
     body,
   );
+
+/** The payer-instructions corpus + its quarterly re-verify clock (read-only). */
+export const adminPayerInstructions = () =>
+  get<PayerCorpusView>('/v1/admin/knowledge/payer-instructions');
 
 export const adminGetChunk = (name: string, chunkId: string) =>
   get<Record<string, unknown>>(

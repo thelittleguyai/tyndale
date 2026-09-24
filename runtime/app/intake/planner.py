@@ -116,6 +116,9 @@ class PlannerInputs:
     wrong_document: str | None = None  # wrongdoc branch when documents exist but none is auditable
     payer_known: bool = False
     member_id_known: bool = False
+    # the card or bill says Blue Cross / Blue Shield and not WHICH of the ~three dozen companies —
+    # their portals differ, so "Help me find it" needs the BCBS router's answer (portal guide)
+    blue_plan_unplaced: bool = False
     provider: str | None = None
     date_of_service: datetime.date | None = None
     billed_total: float | None = None
@@ -398,6 +401,13 @@ def _applies(screen_id: str, i: PlannerInputs, g: GapList) -> bool:  # noqa: PLR
             and (i.card_present or "card" in i.skipped)
             and plausibly_commercial
         )
+    if screen_id == "blue_plan":
+        # the BCBS router — only while a portal ask is still ahead ("Where to find it" is the only
+        # thing the answer changes; the audit never reads it)
+        portal_ahead = any(
+            s(k) == "unresolved" for k in ("plan_rules", "eob", "eob_completeness", "deductible_met", "oop_max_met")
+        )
+        return i.blue_plan_unplaced and "blue_plan" not in i.skipped and portal_ahead
     if screen_id == "coverage_type":
         return s("coverage_type") == "unresolved"
     if screen_id == "plan_rules_confirm":
@@ -455,6 +465,9 @@ SCREEN_REGISTRY: tuple[Screen, ...] = (
            expect="sbc", skippable=True),
     Screen("insurer", "fields", "card", "claim",
            "which insurer — asked ONLY when no document named it", skippable=True),
+    Screen("blue_plan", "fields", "card", "claim",
+           "which Blue Cross Blue Shield company — the card says Blue, not which one (the BCBS router)",
+           skippable=True),
     Screen("coverage_type", "choice", "card", "patient_context",
            "which kind of coverage — asked only when detection could not tell"),
     Screen("plan_rules_confirm", "plan_confirm", "plan_rules", "plan_rules",

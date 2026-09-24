@@ -1093,6 +1093,37 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 [A] Without it, I can't look up your plan. I may need to ask you more.
 
 
+## — intake.blue_plan · which Blue Cross Blue Shield company — the BCBS router (portal guide 2026-07-02)
+
+## intake.blue_plan.title
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed -->
+[A] Which Blue plan is yours?
+
+## intake.blue_plan.body
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: the guide's routing question, verbatim, after one line of why (~three dozen Blues, no national login) -->
+[A] There are more than 30 Blue Cross plans, and each one has its own website. What plan name is on your card, and what are the first 3 letters of your member ID?
+
+## intake.blue_plan.field_plan_name
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed -->
+[A] Plan name on your card
+
+## intake.blue_plan.field_id_prefix
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed (pre-filled from the member ID when a document gave it) -->
+[A] First 3 letters of your member ID
+
+## intake.blue_plan.primary
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed -->
+[A] Save
+
+## intake.blue_plan.skip
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed -->
+[A] I'm not sure
+
+## intake.blue_plan.skip_consequence
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, the BCBS router); PROPOSED interim seed: engineering seed (a way out always says what it costs) -->
+[A] That's okay. I will show you general steps, and how to look up your plan at bcbs.com.
+
+
 ## — intake.coverage_type · kind of coverage — only when detection could not tell
 
 ## intake.coverage_type.title
@@ -1987,8 +2018,8 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 [A] Sign in to your insurer's website or app.
 
 ## intake.help.sbc_2
-<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
-[A] Look for Plan Documents or Benefits.
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed, reconciled 2026-09-24 with the portal guide's generic pattern (item G) -->
+[A] Open the menu for your plan. It may be called Benefits, Coverage, or My Plan.
 
 ## intake.help.sbc_3
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
@@ -2031,8 +2062,8 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 [A] Sign in to your insurer's website or app.
 
 ## intake.help.accumulators_2
-<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
-[A] Look for Deductible, or Plan Balances. It is often on the first page.
+<!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed, reconciled 2026-09-24 with the portal guide's generic pattern (item G) -->
+[A] Look at the first page after you sign in. Most sites show your deductible right there.
 
 ## intake.help.accumulators_3
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
@@ -2049,6 +2080,134 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.help.plan_year_3
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] No SBC? Your benefits office or your insurer can tell you the date.
+
+## intake.help.sbc_5
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, generic pattern step 3); PROPOSED interim seed: the documents list's usual names -->
+[A] Find your plan papers in it. The link may say Plan Documents, Benefit Summary, or Documents & Forms.
+
+## intake.help.accumulators_4
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, generic pattern step 2); PROPOSED interim seed: the menus and the tracker's usual names -->
+[A] Not there? Open Benefits, Coverage, or My Plan. Look for plan spending, benefit balances, or your deductible.
+
+## intake.help.sign_up
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, generic pattern step 4 — registration prep); PROPOSED interim seed: the last step of every portal sheet -->
+[A] No account yet? Sign up on the site. Have your card ready, but some insurers let you sign up without it. Stuck? Call the member services number on any bill or EOB.
+
+## intake.help.uhc_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, UnitedHealthcare: myuhc.com / UHC app; uhc.com/sign-in routes by plan type — start there); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Start at uhc.com/sign-in. Pick the kind of plan you have, then sign in. The UHC app works too.
+
+## intake.help.uhc_sbc
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, UnitedHealthcare: signed-in section "Coverage & Benefits"; SBC/COC viewable after sign-in. The exact document-list label is UNVERIFIED and not named); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] After you sign in, you can see your SBC. Start in Coverage & Benefits.
+
+## intake.help.uhc_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, UnitedHealthcare: "view plan spending" = deductible tracking (a feature, not an exact menu label)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Look for your plan spending. It shows how much of your deductible you have paid.
+
+## intake.help.uhc_no_card
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, UnitedHealthcare no-card branch: register at healthsafe-id.com with member ID OR SSN + DOB. Tyndale never collects an SSN); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] No card? You can still sign up at healthsafe-id.com with your Social Security number and birth date. Type those on their site only. Tyndale never asks for them.
+
+## intake.help.anthem_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Elevance/Anthem: anthem.com / Sydney Health app); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in at anthem.com, or in the Sydney Health app.
+
+## intake.help.anthem_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Elevance/Anthem: deductible/copay status displayed on the app home); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Your deductible shows on the home screen of the Sydney Health app.
+
+## intake.help.aetna_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Aetna: member.aetna.com / Aetna Health app; a separate Medicare login page catches commercial users); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in at member.aetna.com, or in the Aetna Health app. Use the member sign-in, not the one for Medicare.
+
+## intake.help.aetna_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Aetna: "Benefit balances and plan limits" on the secure site (a feature, not an exact menu label)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Look for your benefit balances and plan limits. They show how much of your deductible you have paid.
+
+## intake.help.aetna_no_card
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Aetna no-card branch: register with the ID card OR SSN. Tyndale never collects an SSN); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] No card? Aetna lets you sign up with your Social Security number instead. Type it on their site only. Tyndale never asks for it.
+
+## intake.help.cigna_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Cigna: myCigna.com / myCigna app); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in at myCigna.com, or in the myCigna app.
+
+## intake.help.cigna_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Cigna: dashboard "Your Plan at a Glance" — deductible remaining, YTD deductibles + OOP); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Your first page, Your Plan at a Glance, shows how much of your deductible is left. It shows your out-of-pocket total too.
+
+## intake.help.cigna_sbc_public
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Cigna: public no-login SBC library for individual/family plans (cigna.com → member guide → Plan Documents)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Bought your plan yourself? Cigna posts SBCs online, and you do not need to sign in. Go to cigna.com, then the member guide, then Plan Documents.
+
+## intake.help.cigna_sbc_work
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Cigna: employer members use myCigna or HR); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Got your plan at work? Sign in at myCigna.com, or ask your benefits office.
+
+## intake.help.kaiser_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Kaiser Permanente: kp.org; region picker (8 regions, features differ)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in at kp.org. Pick your area first. Each area's site is a little different.
+
+## intake.help.kaiser_sbc
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Kaiser Permanente, exact verified path: Benefits → "View benefit summary" / "Coverage documents"); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Go to Benefits. Then pick View benefit summary. Or you can pick Coverage documents. Your SBC is in there.
+
+## intake.help.kaiser_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Kaiser Permanente, exact verified path: Benefits → "Track the progress of your plan"); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Go to Benefits. Then choose Track the progress of your plan.
+
+## intake.help.kaiser_accumulators_billing
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Kaiser Permanente: + Billing → "View your out-of-pocket summary" on some plans); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Some plans also show it under Billing. Choose View your out-of-pocket summary.
+
+## intake.help.kaiser_elsewhere
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Kaiser Permanente: some links SSO to external TPA portals — tell users that's normal); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] A link may take you to another company's site. That is normal.
+
+## intake.help.ambetter_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Centene/Ambetter: member.ambetterhealth.com / Ambetter Health app; 29 state-branded public sites, ONE member login); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Go straight to member.ambetterhealth.com, or the Ambetter Health app. Skip your state's Ambetter site. There is one sign-in for everyone.
+
+## intake.help.ambetter_no_card
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Centene/Ambetter no-card branch: register with member ID OR last-4 SSN. Tyndale never collects an SSN); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] No card? Ambetter lets you sign up with the last 4 digits of your Social Security number. Type them on their site only. Tyndale never asks for them.
+
+## intake.help.hcsc_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, HCSC (BCBS IL/TX/OK/NM/MT): Blue Access for Members on the state domains, e.g. bcbsil.com. The app name is UNVERIFIED and not named); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in to Blue Access for Members, on your state's Blue Cross site. In Illinois, that is bcbsil.com.
+
+## intake.help.hcsc_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, HCSC: "Check your deductible" in BAM (a feature, not an exact menu label)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Blue Access for Members lets you check your deductible.
+
+## intake.help.hcsc_no_card
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, HCSC no-card branch: registration REQUIRES the card (ID + group number + ZIP match) — route to the member-services number on any bill/EOB, or HR for the SBC); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] No card? You need it to sign up for Blue Access for Members. Call the member services number on any bill or EOB instead. Your benefits office can also give you your SBC.
+
+## intake.help.florida_blue_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Florida Blue: floridablue.com. The app name is UNVERIFIED and not named); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Go to floridablue.com and sign in there.
+
+## intake.help.florida_blue_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Florida Blue: "View plan details like deductibles and claims" after login); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] After you sign in, view your plan details. They show your deductible and your claims.
+
+## intake.help.highmark_sign_in
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Highmark: member.myhighmark.com / My Highmark app (same login web + app) — the common front door); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Sign in at member.myhighmark.com, or in the My Highmark app. One sign-in works for both.
+
+## intake.help.highmark_accumulators
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, Highmark: deductibles in-app); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] The My Highmark app shows your deductible.
+
+## intake.help.bcbs_lookup
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, BCBS router, the else branch: ~three dozen independent Blues, no national login — route via the bcbs.com/member-services lookup (member-ID prefix, or home ZIP)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Not sure which Blue plan is yours? Go to bcbs.com/member-services. Look it up with the first 3 letters of your member ID, or your ZIP code. It shows your plan's own website.
+
+## intake.help.bcbs_lookup_prefix
+<!-- UNMAPPED — guided Phase 2 item G (portal guide 2026-07-02, BCBS router, the else branch, when the router was given the prefix — IN-APP ONLY: the emailed steps use intake.help.bcbs_lookup (DL-47)); PROPOSED interim seed: engineering wording of a VERIFIED fact -->
+[A] Not sure which Blue plan is yours? Go to bcbs.com/member-services. Type {prefix}, the first 3 letters of your member ID. It shows your plan's own website.
 
 ## §L · Landing page — "Not a chatbot with opinions" playback (marketing site, 2026-09-23)
 

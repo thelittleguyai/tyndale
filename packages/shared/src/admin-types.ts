@@ -52,6 +52,35 @@ export interface QdrantCollectionInfo {
   sources: Array<{ source: string; last_seen: string | null }>;
 }
 
+/**
+ * Admin › Knowledge — the payer-instructions corpus behind "Where to find it" (portal guide
+ * 2026-07-02, guided Phase 2 item G) and its quarterly re-verify clock. A verified entry carries
+ * the steps exactly as a member sees them; an unverified one only what the hands-on pass must fill.
+ */
+export interface PayerCorpusEntry {
+  document_type: string;
+  screen_id: string | null;
+  verified: boolean;
+  verified_on: string | null;
+  due_on: string | null;
+  overdue: boolean;
+  source: string;
+  claim: string;
+  steps: string[];
+  origin: 'portal_guide' | 'receiving_dock';
+}
+
+export interface PayerCorpusView {
+  source: string;
+  reverify_every_months: number;
+  today: string;
+  next_due: string | null;
+  overdue: number;
+  verified: number;
+  unverified: number;
+  payers: Array<{ payer_id: string; name: string; entries: PayerCorpusEntry[] }>;
+}
+
 export interface QdrantChunkResult {
   id: string;
   score: number;

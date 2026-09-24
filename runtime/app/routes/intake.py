@@ -47,7 +47,7 @@ from app.ingestion.extract_documents import (
     extract_insurance_card,
 )
 from app.intake import planner as ip
-from app.intake.render import group_copy, render_help, render_progress, render_screen, step
+from app.intake.render import group_copy, help_context, render_help, render_progress, render_screen, step
 from app.intake.snapshot import COVERAGE_TYPE_OPTIONS, IntakeState, gather_inputs
 from app.intake.timeline import eob_rows, persist_plan_year_start, plan_year_start_for
 from app.routes.upload import BENEFITS_DOC_ALIASES
@@ -585,6 +585,15 @@ async def _apply_answer(  # noqa: PLR0912, PLR0915
         if not payer:
             raise HTTPException(status_code=422, detail="payer_name is required")
         case.coverage = {**(case.coverage or {}), "payer_name": payer, **({"member_id": member} if member else {})}
+    elif sid == "blue_plan":
+        # the BCBS router's answer steers "Where to find it" only — the audit never reads it, and
+        # the insurer name a document gave is never overwritten by it
+        plan = str(v.get("plan_name") or "").strip()[:120]
+        if not plan:
+            raise HTTPException(status_code=422, detail="plan_name is required")
+        prefix = "".join(ch for ch in str(v.get("id_prefix") or "") if ch.isalnum())[:3].upper()
+        st.answer("blue_plan", {"plan_name": plan, **({"id_prefix": prefix} if len(prefix) == 3 else {})})
+        st.unskip(sid)
     elif sid == "coverage_type":
         choice = str(v.get("choice") or "")
         if choice not in COVERAGE_TYPE_OPTIONS:
@@ -797,11 +806,10 @@ async def intake_help(
 ) -> dict[str, Any]:
     """"Help me find it" (§A5): the payer's own path when a document named the payer and the
     corpus has it, else the generic steps."""
-    payer = None
+    ctx = None
     if case_file_id:
-        case = await _resolve_case(session, user, case_file_id)
-        payer = (case.coverage or {}).get("payer_name")
-    found = render_help(payer, document_type, screen)
+        ctx = help_context(await _resolve_case(session, user, case_file_id))
+    found = render_help(ctx, document_type, screen)
     if found is None:
         raise HTTPException(status_code=404, detail="no instructions for that document type")
     return found
@@ -819,11 +827,10 @@ async def email_intake_help(
     no document content. SMS is not built and is not offered."""
     from app.notify.email import FOOTER, send_product_email
 
-    payer = None
+    ctx = None
     if req.case_file_id:
-        case = await _resolve_case(session, user, req.case_file_id)
-        payer = (case.coverage or {}).get("payer_name")
-    found = render_help(payer, req.document_type, req.screen)
+        ctx = help_context(await _resolve_case(session, user, req.case_file_id))
+    found = render_help(ctx, req.document_type, req.screen, for_email=True)
     if found is None:
         raise HTTPException(status_code=404, detail="no instructions for that document type")
     urow = (await session.execute(select(User).where(User.user_id == user.user_id))).scalar_one()

@@ -18,8 +18,9 @@ from app.db.models.case_files import CaseFile
 from app.ingestion.bill_heuristics import ITEMIZED_REQUEST_SCRIPT
 from app.intake.examples import example_for
 from app.intake.reading_level import terms_used
-from app.intake.payer_instructions import instructions_for
+from app.intake.payer_instructions import BCBS_LOOKUP, BCBS_LOOKUP_PREFIX, HelpContext, instructions_for
 from app.intake.planner import (
+    CARD_TYPES,
     PROGRESS_GROUPS,
     READY,
     SCREENS,
@@ -168,6 +169,16 @@ def _data_for(screen: Screen, case: CaseFile, i: PlannerInputs, g: GapList, prop
                     "required": name == "payer_name"}
 
         return {"fields": [_field("payer_name", "field_payer"), _field("member_id", "field_member_id")]}
+    if sid == "blue_plan":
+        # the BCBS router's question (portal guide). The member ID, when a document gave it, already
+        # carries the three letters — offered, never silent
+        member = str((i.coverage or {}).get("member_id") or "")[:3]
+        prefix = member.upper() if len(member) == 3 and member.isalnum() and not member.isdigit() else None
+        return {"fields": [
+            {"name": "plan_name", "slot": "field_plan_name", "value": None, "input": "text", "required": True},
+            {"name": "id_prefix", "slot": "field_id_prefix", "value": prefix, "input": "text",
+             "suggested": bool(prefix), "required": False},
+        ]}
     if sid in ("deductible_met", "oop_met"):
         name = "deductible_met" if sid == "deductible_met" else "oop_max_met"
         return {"fields": [{"name": name, "slot": "field_amount", "value": (i.coverage or {}).get(name),
@@ -287,17 +298,46 @@ def render_screen(
             },
         }
     if screen.help_doc:
-        help_ = render_help((i.coverage or {}).get("payer_name"), screen.help_doc, screen.id)
+        ctx = help_context(case, payer_name=(i.coverage or {}).get("payer_name"))
+        help_ = render_help(ctx, screen.help_doc, screen.id)
         if help_:
             out["help"] = help_
     return out
 
 
-def render_help(payer_name: str | None, document_type: str, screen_id: str | None = None) -> dict | None:
-    found = instructions_for(payer_name, document_type, screen_id)
+def help_context(case: CaseFile, *, payer_name: str | None = None) -> HelpContext:
+    """What "Help me find it" may know about this case: the payer (the planner passes the
+    EFFECTIVE coverage's name), the BCBS router's answer, and whether the card is on file or the
+    user said they don't have it."""
+    st = IntakeState(case)
+    blue = st.answers.get("blue_plan") or {}
+    types = {d.get("document_type") for d in (case.documents or []) if isinstance(d, dict)}
+    return HelpContext(
+        payer_name=payer_name or (case.coverage or {}).get("payer_name"),
+        blue_plan_name=blue.get("plan_name"),
+        id_prefix=blue.get("id_prefix"),
+        card_on_file=bool(types & CARD_TYPES),
+        card_skipped="card" in st.skipped,
+    )
+
+
+def render_help(
+    ctx: HelpContext | None, document_type: str, screen_id: str | None = None, *, for_email: bool = False
+) -> dict | None:
+    """The "Where to find it" sheet. ``for_email`` drops the one line that carries something
+    read from the user's card (the member-ID prefix on the bcbs.com lookup): the email is generic
+    steps + the payer's name, nothing else (DL-47)."""
+    ctx = ctx or HelpContext()
+    found = instructions_for(document_type, screen_id, ctx)
     if found is None:
         return None
-    steps = found["steps"] or [t for k in found["step_keys"] if (t := step(k))]
+
+    def _line(key: str) -> str | None:
+        if key == BCBS_LOOKUP and ctx.id_prefix and not for_email:
+            return step(BCBS_LOOKUP_PREFIX, prefix=ctx.id_prefix) or step(key)
+        return step(key)
+
+    steps = [*found["steps"], *(t for k in found["step_keys"] if (t := _line(k)))]
     if not steps:
         return None
     note = (

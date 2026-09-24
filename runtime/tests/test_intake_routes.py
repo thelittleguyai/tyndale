@@ -289,18 +289,30 @@ async def test_see_an_example_renders_only_where_an_asset_exists(client: AsyncCl
 
 @pytest.mark.asyncio
 async def test_help_me_find_it_uses_the_payer_entry_when_there_is_one_else_generic(client: AsyncClient, monkeypatch):
+    import dataclasses
+
     from app.intake import payer_instructions as pi
 
-    assert pi.instructions_for("Aetna", "eob")["scope"] == "generic"  # the corpus has not landed
-    entry = pi.PayerEntry("aetna", "Aetna", "eob", None, ("Sign in at aetna.com.", "Open Claims."), "public help page", False)
-    monkeypatch.setitem(pi.PAYER_ENTRIES, ("aetna", "eob", None), entry)
+    # the portal guide has no verified Aetna EOB path: the general steps, behind Aetna's own door
+    base = pi.instructions_for("eob", None, pi.HelpContext(payer_name="Aetna"))
+    assert base["scope"] == "generic" and base["step_keys"][0] == "intake.help.aetna_sign_in"
+    dropped = pi.PayerEntry("aetna", "Aetna", "eob", None, ("Sign in at aetna.com.", "Open Claims."),
+                            "logged-in screen", True, "2026-09-01")
+    monkeypatch.setitem(pi.PAYER_ENTRIES, ("aetna", "eob", None), dropped)
     cf = await _case(coverage={"payer_name": "Aetna"})
-    got = (await client.get("/v1/intake/help", params={"document_type": "eob", "case_file_id": str(cf.case_file_id)})).json()
-    assert got["scope"] == "payer" and got["steps"][0] == "Sign in at aetna.com." and got["note"] == "These steps are for Aetna."
-    assert got["verified"] is False  # §A5: public help page, not a logged-in screen — said, not hidden
+    params = {"document_type": "eob", "case_file_id": str(cf.case_file_id)}
+    got = (await client.get("/v1/intake/help", params=params)).json()
+    assert got["scope"] == "payer" and got["steps"][:2] == ["Sign in at aetna.com.", "Open Claims."]
+    assert got["note"] == "These steps are for Aetna." and got["verified"] is True
+    # the guide's ship rule (item G): an UNVERIFIED path is stored, and never shown — the general
+    # steps show instead (Phase 1 rendered it with a caveat; the guide says never print it)
+    monkeypatch.setitem(pi.PAYER_ENTRIES, ("aetna", "eob", None), dataclasses.replace(dropped, verified=False))
+    hidden = (await client.get("/v1/intake/help", params=params)).json()
+    assert hidden["scope"] == "generic" and "Sign in at aetna.com." not in hidden["steps"]
     other = await _case(coverage={"payer_name": "Some Regional Plan"})
     fallback = (await client.get("/v1/intake/help", params={"document_type": "eob", "case_file_id": str(other.case_file_id)})).json()
-    assert fallback["scope"] == "generic" and len(fallback["steps"]) == 5
+    assert fallback["scope"] == "generic" and len(fallback["steps"]) == 6  # the five + sign-up prep
+    assert fallback["steps"][0] == "Sign in to your insurer's website or app."
     assert (await client.get("/v1/intake/help", params={"document_type": "fax"})).status_code == 404
 
 

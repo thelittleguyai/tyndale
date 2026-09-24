@@ -16,6 +16,7 @@ from app.routes.admin import (
     cases,
     crons,
     knowledge_gaps,
+    payer_corpus,
     qdrant,
     review,
     system,
@@ -28,6 +29,7 @@ router = APIRouter()
 router.include_router(cases.router)
 router.include_router(users.router)
 router.include_router(qdrant.router)
+router.include_router(payer_corpus.router)  # Admin › Knowledge: the payer corpus + re-verify clock
 router.include_router(audit.router)
 router.include_router(system.router)
 router.include_router(crons.router)

@@ -25,6 +25,7 @@ from app.intake.planner import (
     PlannerInputs,
     population_of,
 )
+from app.intake.payer_instructions import needs_blue_router
 from app.intake.timeline import eob_rows, resolved_plan_year_start
 from app.sources.missing_data_priors import missing_cost_share_inputs
 from app.sources.plan_docs import merge_case_coverage, plan_sbc_state
@@ -179,6 +180,7 @@ async def gather_inputs(
         wrong_document=wrong,
         payer_known=bool(effective.get("payer_name")),
         member_id_known=bool(effective.get("member_id")),
+        blue_plan_unplaced=needs_blue_router(effective.get("payer_name")) and "blue_plan" not in st.answers,
         provider=case.provider_name,
         date_of_service=case.date_of_service,
         patient_name=case.patient_name,

@@ -92,7 +92,7 @@ _ATTRIB_MEDIUMS = ("cpc", "organic", "social", "email", "referral", "affiliate",
 # tests/test_intake_planner.py, so a new screen cannot ship without its funnel event being valid.
 _INTAKE_SCREENS = (
     "welcome", "handoff", "bill", "bill_itemized", "bill_summary", "eob", "card", "insurer",
-    "coverage_type", "plan_rules_confirm", "plan_rules", "plan_year", "timeline",
+    "blue_plan", "coverage_type", "plan_rules_confirm", "plan_rules", "plan_year", "timeline",
     "deductible_met", "oop_met", "attest", "other_insurance", "reading", "facts_only",
     "confirmations", "readiness", "ready",
 )  # fmt: skip
