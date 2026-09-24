@@ -30,7 +30,7 @@ import {
 import { IntakeBody } from '../../components/intake/IntakeBody';
 import { IntakeProgressBar } from '../../components/intake/IntakeProgressBar';
 import { ExampleSheet, HelpSheet } from '../../components/intake/IntakeSheets';
-import { Button } from '../../components/ui';
+import { Button, TextLink } from '../../components/ui';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
 import { useThemeColors } from '../../theme/useThemeColors';
@@ -192,12 +192,15 @@ export default function IntakeScreenRoute() {
             }
           />
           <View className="mt-5 flex-row flex-wrap gap-3">
-            {/* present ONLY when the server sent something to show — never an empty sheet */}
+            {/* present ONLY when the server sent something to show — never an empty sheet.
+                Text links (e2e round 3 R7): the label sits inside the Pressable, the target is
+                44 px on both axes (+ hitSlop on native) and hugs its label — not a full-width
+                band with a centred label. */}
             {screen.example ? (
-              <Button label={chrome.see_example ?? ''} variant="tertiary" onPress={() => setSheet('example')} testID="intake-see-example" />
+              <TextLink label={chrome.see_example ?? ''} onPress={() => setSheet('example')} testID="intake-see-example" />
             ) : null}
             {screen.help ? (
-              <Button label={chrome.help_find ?? ''} variant="tertiary" onPress={() => setSheet('help')} testID="intake-help" />
+              <TextLink label={chrome.help_find ?? ''} onPress={() => setSheet('help')} testID="intake-help" />
             ) : null}
           </View>
         </View>

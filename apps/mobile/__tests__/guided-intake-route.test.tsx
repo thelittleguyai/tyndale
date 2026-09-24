@@ -93,6 +93,31 @@ it('offers "See an example" / "Help me find it" ONLY when the server sent someth
   expect(full.getByTestId('intake-help')).toBeTruthy();
 });
 
+it('"See an example" / "Help me find it" answer a press that lands on the LABEL, on a 44 px target (e2e round 3 R7)', async () => {
+  mockGetIntakeState.mockResolvedValue(
+    planRules({
+      example: { ask: 'sbc', title: 'A sample plan summary', callouts: ['Look for the deductible.'], asset: { kind: 'external_pdf', url: 'https://www.cms.gov/sample.pdf', publisher: 'CMS' }, source_line: 'A federal sample.', glosses: {} },
+      help: { document_type: 'sbc', scope: 'generic', payer_name: null, title: 'How to find it', note: 'These steps work for most plans.', steps: ['Log in to your plan website.'], verified: true, can_email: true },
+    }),
+  );
+  const r = render(<IntakeScreenRoute />);
+  await waitFor(() => expect(r.getByTestId('intake-see-example')).toBeTruthy());
+  for (const id of ['intake-see-example', 'intake-help']) {
+    const link = r.getByTestId(id);
+    // the round-3 run clicked the label's centre and nothing happened: the label is INSIDE the
+    // pressable and the target is at least 44 px each way (hitSlop widens it on native)
+    expect(String(link.props.className)).toMatch(/min-h-\[44px\]/);
+    expect(String(link.props.className)).toMatch(/min-w-\[44px\]/);
+    expect(String(link.props.className)).not.toMatch(/\bw-full\b/);
+    expect(link.props.hitSlop).toBe(8);
+  }
+  fireEvent.press(r.getByText('See an example')); // the press lands on the text itself
+  await waitFor(() => expect(r.getByText('A sample plan summary')).toBeTruthy());
+  fireEvent.press(r.getByText('Close'));
+  fireEvent.press(r.getByText('Help me find it'));
+  await waitFor(() => expect(r.getByText('How to find it')).toBeTruthy());
+});
+
 it('sends an answer back and draws whatever the planner returns next — the app holds no sequence', async () => {
   mockGetIntakeState.mockResolvedValue(planRules());
   mockAnswerIntake.mockResolvedValue(state({ id: 'plan_year', kind: 'choice', copy: { title: 'When does your plan year start?' }, data: { options: [] } }));
