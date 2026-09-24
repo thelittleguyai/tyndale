@@ -1,0 +1,45 @@
+{
+  "//": "The verification card copy cap (e2e 2026-09-23 minor, round 3 R4): apps/mobile/lib/line-item-copy.ts splitTranslation and runtime/app/intake/fact_copy.py split_translation must agree on every case.",
+  "cases": [
+    {
+      "input": "An office visit.",
+      "headline": "An office visit.",
+      "rest": null
+    },
+    {
+      "input": "A visit with a doctor you have seen before. It was coded at the second-highest of four standard visit levels.",
+      "headline": "A visit with a doctor you have seen before.",
+      "rest": "It was coded at the second-highest of four standard visit levels."
+    },
+    {
+      "input": "A diagnostic arthroscopic procedure of the knee joint, performed with removal of the torn meniscal cartilage. It is usually done as an outpatient surgery. Recovery takes a few weeks.",
+      "headline": "A diagnostic arthroscopic procedure of the knee joint",
+      "rest": "performed with removal of the torn meniscal cartilage. It is usually done as an outpatient surgery. Recovery takes a few weeks."
+    },
+    {
+      "input": "An office or outpatient visit for an established patient, coded at the second-highest of four standard visit levels, reflecting a visit that involved a moderate level of medical decision-making",
+      "headline": "An office or outpatient visit for an established patient",
+      "rest": "coded at the second-highest of four standard visit levels, reflecting a visit that involved a moderate level of medical decision-making"
+    },
+    {
+      "input": "A visit coded at the second highest of four standard visit levels reflecting a moderate level of medical decision making overall",
+      "headline": "A visit coded at the second highest of four standard visit levels reflecting a moderate level of medical decision making overall",
+      "rest": null
+    },
+    {
+      "input": "   Blood   drawn\nfrom your arm.   ",
+      "headline": "Blood drawn from your arm.",
+      "rest": null
+    },
+    {
+      "input": "",
+      "headline": "",
+      "rest": null
+    },
+    {
+      "input": "Anesthesia during your procedure — the anesthesiologist kept you comfortable and monitored your breathing and heart rate the whole time; this is billed by time.",
+      "headline": "Anesthesia during your procedure",
+      "rest": "— the anesthesiologist kept you comfortable and monitored your breathing and heart rate the whole time; this is billed by time."
+    }
+  ]
+}

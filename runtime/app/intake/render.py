@@ -204,14 +204,18 @@ def _data_for(screen: Screen, case: CaseFile, i: PlannerInputs, g: GapList, prop
         }
     if sid == "confirmations":
         # ONE card per fact the engine emitted and nobody has answered yet — never capped, never
-        # padded (§A4-5), never a fact asked twice (R1: the registry every surface reads).
+        # padded (§A4-5), never a fact asked twice (R1: the registry every surface reads). Each
+        # card says the code and ONE plain sentence under the grade-5 guard; the rest goes under
+        # the disclosure (R4 — the chat-first cap, which never reached this screen).
         from app.agents.encounter_facts import registry
+        from app.intake.fact_copy import fact_card
 
+        fallback = step("intake.confirmations.fact_fallback")
         return {"line_items": [
             {"line_item_id": li.get("line_item_id"),
              "fact_id": li["fact_id"],
-             "text": li.get("plain_language_translation") or li.get("raw_description"),
-             "context": li.get("plain_language_context") or None}
+             "code": li.get("code") or None,
+             **fact_card(li, fallback)}
             for li in registry(case).pending if li.get("line_item_id")
         ]}
     if sid == "readiness":

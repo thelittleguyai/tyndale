@@ -11,7 +11,7 @@ import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 import type { IntakeScreen } from '@tyndale/shared';
 
 import { ChatMarkdown } from '../chat/Markdown';
-import { Button, Card, TextLink } from '../ui';
+import { Button, Card, Disclosure, TextLink } from '../ui';
 import { PressableScale } from '../ui/PressableScale';
 import { useThemeColors } from '../../theme/useThemeColors';
 
@@ -342,9 +342,12 @@ function Attest({ screen, busy, onAttest, onAttestDecline, onExit }: IntakeBodyP
 
 type Answer = 'yes' | 'no' | 'not_sure';
 
+interface FactCard { line_item_id: string; code?: string | null; text: string | null; more?: string | null }
+
 function Confirmations({ screen, busy, act }: IntakeBodyProps) {
-  // ONE card per fact the engine emitted — the list is never capped and never padded (§A4-5)
-  const items = ((screen.data as { line_items?: { line_item_id: string; text: string | null; context: string | null }[] }).line_items ?? []);
+  // ONE card per fact the engine emitted — the list is never capped and never padded (§A4-5).
+  // Each card: the code and ONE plain sentence; the rest under the disclosure (e2e round 3 R4).
+  const items = ((screen.data as { line_items?: FactCard[] }).line_items ?? []);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const all = items.length > 0 && items.every((i) => answers[i.line_item_id]);
   return (
@@ -353,8 +356,14 @@ function Confirmations({ screen, busy, act }: IntakeBodyProps) {
       <View className="mt-4 gap-4">
         {items.map((it) => (
           <Card key={it.line_item_id}>
-            <Text className="text-body font-semibold leading-6 text-primary">{it.text}</Text>
-            {it.context ? <Text className="mt-1 text-body leading-6 text-secondary">{it.context}</Text> : null}
+            <Text className="text-body font-semibold leading-6 text-primary" testID={`intake-fact-${it.line_item_id}-text`}>
+              {it.code ? `${it.code} · ${it.text ?? ''}` : it.text}
+            </Text>
+            {it.more ? (
+              <Disclosure summary={c(screen, 'more') ?? ''}>
+                <Text className="text-body leading-6 text-secondary">{it.more}</Text>
+              </Disclosure>
+            ) : null}
             <View className="mt-3 flex-row gap-2">
               {(['yes', 'no', 'not_sure'] as Answer[]).map((a) => (
                 <View key={a} className="flex-1">

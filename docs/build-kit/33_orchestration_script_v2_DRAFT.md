@@ -574,6 +574,19 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.help.plan_year_2` | eng | The first date is the day your plan year starts. |
 | `intake.help.plan_year_3` | eng | No SBC? Your benefits office or your insurer can tell you the date. |
 
+## E2E round 3 fixes — PROPOSED, interim engineering seeds (2026-09-24)
+
+*Status: INTERIM. The guided confirmations screen printed the translate pass's whole clinical
+paragraph per charge. Each card now shows the code and ONE sentence (the chat-first cap: the
+first sentence, cut at a clause boundary past 90 characters); the rest sits under a disclosure.
+The sentence is engine-written, so it runs through the same grade-5 guard as your intake copy;
+one that fails is replaced by the fallback below and moves, whole, under the disclosure.*
+
+| key | source | seed |
+|---|---|---|
+| `intake.confirmations.more` | eng — the chat-first card's "Show what this usually looks like", plus "me" (the 6-word form fails the label rule on "usually") | Show me what this usually looks like |
+| `intake.confirmations.fact_fallback` | eng | A charge on your bill. |
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

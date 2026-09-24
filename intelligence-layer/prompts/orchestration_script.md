@@ -1444,6 +1444,14 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
 [A] Done
 
+## intake.confirmations.more
+<!-- UNMAPPED — e2e round 3 R4; PROPOSED interim seed: the chat-first card's disclosure label, with "me" so it clears the grade-5 guard -->
+[A] Show me what this usually looks like
+
+## intake.confirmations.fact_fallback
+<!-- UNMAPPED — e2e round 3 R4; PROPOSED interim seed: a card's sentence when the engine's own one reads above grade 5 — the engine's words move under the disclosure -->
+[A] A charge on your bill.
+
 
 ## — intake.readiness · #17 readiness — the planner's summary
 
