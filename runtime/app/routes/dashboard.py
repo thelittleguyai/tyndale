@@ -29,7 +29,14 @@ from app.db.models.case_files import CaseFile
 from app.db.models.deadlines import Deadline
 from app.db.models.findings import Finding
 from app.db.session import get_session
-from app.intake.mode import ensure_cohort, guided_case_label, hidden_surfaces, in_guided_intake, resolve_intake_mode
+from app.intake.mode import (
+    case_chat_case,
+    ensure_cohort,
+    guided_case_label,
+    hidden_surfaces,
+    in_guided_intake,
+    resolve_intake_mode,
+)
 from app.schemas.case_file import as_dict
 from app.schemas.dashboard import (
     ActiveCase,
@@ -470,6 +477,8 @@ async def get_dashboard(
         intake_mode, intake_mode_source = resolve_intake_mode(urow, settings)
     unfinished = [c for c in cases if in_guided_intake(c)]
     resume = max(unfinished, key=lambda c: c.created_at, default=None)
+    hidden = hidden_surfaces(intake_mode, settings)
+    case_chat = case_chat_case(cases, settings) if "freeform_chat_entry" in hidden else None
 
     return DashboardPayload(
         user=UserBrief(id=str(user.user_id), first_name=user.first_name),
@@ -490,6 +499,7 @@ async def get_dashboard(
         coverage_connection_enabled=bool(get_settings().enable_coverage_connection),
         intake_mode=intake_mode,
         intake_mode_source=intake_mode_source,
-        hidden_surfaces=hidden_surfaces(intake_mode, settings),
+        hidden_surfaces=hidden,
         guided_resume_case_id=str(resume.case_file_id) if resume is not None else None,
+        case_chat_case_id=str(case_chat.case_file_id) if case_chat is not None else None,
     )

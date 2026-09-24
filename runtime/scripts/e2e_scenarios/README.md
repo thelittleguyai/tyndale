@@ -86,8 +86,9 @@ points for that case, the landing no longer offers the case as "pick up where yo
 a second call returns the same route. The harness never calls the card-extract step either — the
 planner reads a new card itself, so a card that names the payer must still never raise `insurer`.
 
-Run them with **`--intake-mode guided`** (workflow input `intake_mode`, default `guided`); without
-it they are reported as skipped. No server flag is involved: a case opened through
+They run by default: **`--intake-mode guided`** is the harness default (and the workflow input
+`intake_mode`'s), because guided is the product's only front door since Brock's 2026-09-21
+decision 1; `--intake-mode chat_first` reports them as skipped. No server flag is involved: a case opened through
 `/v1/intake/start` records `intake_mode='guided'` by construction, so both routes land in the
 same Human Review queue. They need the REAL pipeline — locally the stub OCR types every upload
 `unclassified`, and the planner (correctly) keeps asking for a bill. Today:

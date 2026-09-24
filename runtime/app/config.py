@@ -333,20 +333,21 @@ class Settings(BaseSettings):
     # two flip separately; the classic dashboard is untouched when off.
     enable_record_view: bool = False  # env: ENABLE_RECORD_VIEW
 
-    # --- Guided intake (doc 40 §D, Brock 2026-09-19) — a SECOND front door onto the same engine.
-    # intake_mode_default is what a user with no override and no cohort assignment gets;
-    # intake_mode_cohort_pct is the share of NEW users assigned 'guided' at first sign-in
-    # (deterministic by user-id hash, decided once — app.intake.mode). Both routes write the
-    # same case file; case_files.intake_mode records which one opened each case.
-    intake_mode_default: Literal["chat_first", "guided"] = "chat_first"  # env: INTAKE_MODE_DEFAULT
-    intake_mode_cohort_pct: int = Field(default=0, ge=0, le=100)  # env: INTAKE_MODE_COHORT_PCT
-    # PROVISIONAL (doc 40 open question 1 — Phil/Brock decide): which entry points a GUIDED user
-    # does NOT see. Data, not code: the answer is a tfvars value. Hidden means absent — never a
-    # dead button. Known surfaces: app.intake.mode.HIDEABLE_SURFACES.
+    # --- Guided intake (doc 40 §D, Brock 2026-09-19) — onto the same engine as chat-first.
+    # DECIDED (Brock 2026-09-21, decision 1): guided is the ONLY front door for now — every user
+    # without an admin override goes through /intake; chat-first stays in the codebase behind
+    # the override, not deleted, not shown. intake_mode_cohort_pct still samples NEW users (100
+    # = all), decided once per user (app.intake.mode). case_files.intake_mode records the route.
+    intake_mode_default: Literal["chat_first", "guided"] = "guided"  # env: INTAKE_MODE_DEFAULT
+    intake_mode_cohort_pct: int = Field(default=100, ge=0, le=100)  # env: INTAKE_MODE_COHORT_PCT
+    # DECIDED (decision 1): a guided user does not see the free-form chat entry or the quick-
+    # actions grid; cases, Settings, the Record and per-case chat after the unlock stay. Data,
+    # not code: a tfvars value. Hidden means absent — never a dead button. Known surfaces:
+    # app.intake.mode.HIDEABLE_SURFACES.
     guided_hidden_surfaces: str = "freeform_chat_entry,quick_actions_grid"  # env: GUIDED_HIDDEN_SURFACES
-    # PROVISIONAL (doc 40 open question 2 — Phil decides): what the unlock moment does while
-    # billing is dark. free_beta = render it with the honest interim line and proceed;
-    # block = render it with no proceed path (testing); billing = the future real gate.
+    # DECIDED (decision 4): while billing is dark the unlock moment renders with the honest beta
+    # line and proceeds — TEMPORARY, tracked in docs/GO_LIVE_CHECKLIST.md (paywall goes live).
+    # block = render it with no proceed path (testing); billing = the real gate.
     unlock_gate_mode: Literal["free_beta", "block", "billing"] = "free_beta"  # env: UNLOCK_GATE_MODE
 
     # --- Billing (Item 4, dark scaffold — DL-16). Entirely inert while enable_billing is False:

@@ -458,8 +458,8 @@ variable "review_trigger_material_disagreement" {
 
 variable "intake_mode_default" {
   type        = string
-  default     = "chat_first"
-  description = "Guided intake (doc 40 §D): the front door a user gets when they have no admin override and no cohort assignment — chat_first | guided."
+  default     = "guided"
+  description = "Guided intake (doc 40 §D): the front door a user gets when they have no admin override and no cohort assignment — chat_first | guided. DECIDED 2026-09-21 (Brock, decision 1): guided is the only front door; chat-first stays behind the per-user override."
   validation {
     condition     = contains(["chat_first", "guided"], var.intake_mode_default)
     error_message = "intake_mode_default must be chat_first or guided."
@@ -468,7 +468,7 @@ variable "intake_mode_default" {
 
 variable "intake_mode_cohort_pct" {
   type        = number
-  default     = 0
+  default     = 100
   description = "Percentage (0-100) of NEW users assigned the guided front door at first sign-in. Deterministic by user-id hash and decided once, so moving this dial never flips a user mid-journey."
   validation {
     condition     = var.intake_mode_cohort_pct >= 0 && var.intake_mode_cohort_pct <= 100
@@ -479,13 +479,13 @@ variable "intake_mode_cohort_pct" {
 variable "guided_hidden_surfaces" {
   type        = string
   default     = "freeform_chat_entry,quick_actions_grid"
-  description = "PROVISIONAL (doc 40 open question 1): comma-separated entry points a GUIDED user does not see. Known: freeform_chat_entry, quick_actions_grid, connect_plan_tile. Hidden means absent. Empty string = hide nothing."
+  description = "DECIDED 2026-09-21 (decision 1): comma-separated entry points a GUIDED user does not see. Known: freeform_chat_entry, quick_actions_grid, connect_plan_tile. Hidden means absent. Empty string = hide nothing."
 }
 
 variable "unlock_gate_mode" {
   type        = string
   default     = "free_beta"
-  description = "PROVISIONAL (doc 40 open question 2): what the unlock moment does while billing is dark — free_beta (honest interim line, proceeds) | block (no proceed path; testing) | billing (the future real gate)."
+  description = "DECIDED 2026-09-21 (decision 4, TEMPORARY — GO_LIVE_CHECKLIST): what the unlock moment does while billing is dark — free_beta (honest beta line, proceeds) | block (no proceed path; testing) | billing (the real gate, once billing lands)."
   validation {
     condition     = contains(["free_beta", "block", "billing"], var.unlock_gate_mode)
     error_message = "unlock_gate_mode must be free_beta, block or billing."

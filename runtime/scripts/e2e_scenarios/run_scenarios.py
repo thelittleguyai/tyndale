@@ -1449,11 +1449,12 @@ def main() -> int:
     ap.add_argument("--chat-first", action="store_true",
                     help="also assert the chat-first thread matches engine state (DL-91; target "
                          "server must have ENABLE_CHAT_FIRST_AUDIT on)")
-    ap.add_argument("--intake-mode", choices=["guided", "chat_first"], default="chat_first",
-                    help="guided: ALSO run the scenarios that carry an `intake` block, driven "
-                         "through /v1/intake/* the way the app is (doc 40). They are skipped "
-                         "otherwise. The case records intake_mode='guided' because of HOW it was "
-                         "opened — no server flag is needed.")
+    ap.add_argument("--intake-mode", choices=["guided", "chat_first"], default="guided",
+                    help="guided (the default — guided is the product's only front door since "
+                         "Brock's 2026-09-21 decision 1): ALSO run the scenarios that carry an "
+                         "`intake` block, driven through /v1/intake/* the way the app is (doc 40). "
+                         "chat_first skips them. The case records intake_mode='guided' because of "
+                         "HOW it was opened — no server flag is needed.")
     ap.add_argument("--assert-no-placeholders", action="store_true",
                     help="fail if [PLACEHOLDER-eng] copy appears in the thread (staging config)")
     ap.add_argument("--record", action="store_true",

@@ -123,12 +123,42 @@ async def test_dashboard_carries_the_resolved_mode_and_what_to_leave_out(client:
         assert (body["intake_mode"], body["intake_mode_source"]) == ("guided", "override")
         assert body["hidden_surfaces"] == ["freeform_chat_entry", "quick_actions_grid"]
 
+        # decided 2026-09-21 (decision 1): with no override, guided is the front door
         await _dev_user_row(intake_mode=None)
         body = (await client.get("/v1/dashboard")).json()
-        assert (body["intake_mode"], body["intake_mode_source"]) == ("chat_first", "default")
-        assert body["hidden_surfaces"] == []
+        assert (body["intake_mode"], body["intake_mode_source"]) == ("guided", "default")
+        assert body["hidden_surfaces"] == ["freeform_chat_entry", "quick_actions_grid"]
+
+        # chat-first stays behind the per-user override, unchanged: everything shown, no case pill
+        await _dev_user_row(intake_mode="chat_first")
+        body = (await client.get("/v1/dashboard")).json()
+        assert (body["intake_mode"], body["intake_mode_source"]) == ("chat_first", "override")
+        assert body["hidden_surfaces"] == [] and body["case_chat_case_id"] is None
     finally:
         await _dev_user_row(intake_mode=None, intake_cohort="default")
+
+
+def test_the_guided_pill_opens_a_finished_case_only_past_the_unlock():
+    """Decision 1: per-case chat after the unlock stays; free-form chat does not. The floating
+    pill is absent until a finished audit is past the unlock, then opens that case's chat."""
+    import datetime as _dt
+    from types import SimpleNamespace as NS
+
+    from app.intake.mode import case_chat_case
+
+    t0 = _dt.datetime(2026, 9, 1, tzinfo=_dt.timezone.utc)
+    running = NS(case_file_id="a", status="audit_running", updated_at=t0, created_at=t0)
+    older = NS(case_file_id="b", status="audit_complete", updated_at=t0, created_at=t0)
+    newer = NS(case_file_id="c", status="resolved", updated_at=t0 + _dt.timedelta(days=2), created_at=t0)
+
+    def s(gate_on: bool, mode: str):
+        return NS(enable_first_case_unlock=gate_on, unlock_gate_mode=mode)
+
+    assert case_chat_case([running], s(True, "free_beta")) is None  # nothing finished yet
+    assert case_chat_case([running, older, newer], s(True, "free_beta")).case_file_id == "c"
+    assert case_chat_case([older], s(False, "billing")).case_file_id == "b"  # no gate at all
+    assert case_chat_case([older], s(True, "block")) is None
+    assert case_chat_case([older], s(True, "billing")) is None  # billing dark: nothing to buy yet
 
 
 @pytest.mark.asyncio

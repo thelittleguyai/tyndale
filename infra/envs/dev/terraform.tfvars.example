@@ -96,14 +96,14 @@ sendgrid_from_email = "no-reply@tyndaleapp.net"
 # audit_wall_clock_budget_seconds      = 600
 # audit_reconcile_stale_seconds        = 1800
 
-# --- Guided intake (doc 40) — the second front door ------------------------------
-# intake_mode_default is what a user with no admin override and no cohort assignment gets.
-# intake_mode_cohort_pct samples NEW users into the guided route, once, at first sign-in.
-# The two PROVISIONAL values are open decisions kept as data so the answer is a flip here:
-# guided_hidden_surfaces (which entry points a guided user does not see) and
-# unlock_gate_mode (what the unlock moment does while billing is dark).
-# intake_mode_default    = "chat_first"
-# intake_mode_cohort_pct = 0
+# --- Guided intake (doc 40) — the only front door (Brock 2026-09-21, decision 1) ----
+# Every user without an admin override goes through /intake; chat-first stays in the codebase
+# behind the per-user override. intake_mode_cohort_pct samples NEW users, once, at first sign-in.
+# guided_hidden_surfaces: the free-form chat entry and the quick-actions grid are absent for a
+# guided user (cases, Settings, the Record and per-case chat after the unlock stay).
+# unlock_gate_mode: free_beta while billing is dark — TEMPORARY, tracked in GO_LIVE_CHECKLIST.
+# intake_mode_default    = "guided"
+# intake_mode_cohort_pct = 100
 # guided_hidden_surfaces = "freeform_chat_entry,quick_actions_grid"
 # unlock_gate_mode       = "free_beta"
 

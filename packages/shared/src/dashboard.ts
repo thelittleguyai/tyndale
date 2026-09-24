@@ -102,6 +102,11 @@ export interface DashboardPayload {
   hidden_surfaces?: HideableSurface[];
   /** The guided case this user left unfinished, if any — "pick up where you left off". */
   guided_resume_case_id?: string | null;
+  /**
+   * Guided users only (Brock 2026-09-21, decision 1): the case whose chat the floating "Chat with
+   * Tyndale" pill opens — the most recent finished audit past the unlock. Absent/null → no pill.
+   */
+  case_chat_case_id?: string | null;
 }
 
 export interface CaseSummary {

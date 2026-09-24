@@ -102,7 +102,7 @@ describe('guided mode', () => {
   const guided = {
     ...base,
     intake_mode: 'guided',
-    hidden_surfaces: ['freeform_chat_entry', 'quick_actions_grid'], // the provisional default
+    hidden_surfaces: ['freeform_chat_entry', 'quick_actions_grid'], // decided 2026-09-21 (decision 1)
     guided_resume_case_id: null,
   };
 
@@ -133,6 +133,16 @@ describe('guided mode', () => {
     expect(queryByText('Chat with Tyndale')).toBeNull();
     fireEvent.press(getByTestId('header-check-bill')); // still the way in — never a dead end
     expect(mockPush).toHaveBeenCalledWith('/intake');
+  });
+
+  it('guided, after the unlock: the pill is back and opens THAT case\'s chat — never free-form chat', async () => {
+    mockGetDashboard.mockResolvedValue({ ...guided, case_chat_case_id: 'cf-done' });
+    const { getByTestId, queryByTestId } = render(<DashboardScreen />);
+    await waitFor(() => expect(getByTestId('floating-chat')).toBeTruthy());
+    expect(queryByTestId('quick-actions-grid')).toBeNull(); // the grid stays hidden
+    fireEvent.press(getByTestId('floating-chat'));
+    expect(mockPush).toHaveBeenCalledWith('/audit/cf-done/chat');
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringMatching(/^\/chat/));
   });
 
   it('the hidden set is DATA: a guided user with nothing hidden keeps the grid, pointed at /intake', async () => {

@@ -134,6 +134,10 @@ class DashboardPayload(BaseModel):
     hidden_surfaces: list[str] = Field(default_factory=list)
     # The guided case this user left unfinished, if any — the "pick up where you left off" card.
     guided_resume_case_id: str | None = None
+    # Guided users only (decision 1): the case whose chat the floating "Chat with Tyndale" pill
+    # opens — the most recent finished audit past the unlock. None → the pill is absent. A
+    # chat-first user's pill opens free-form chat as before (this stays None for them).
+    case_chat_case_id: str | None = None
 
 
 class CasesListPayload(BaseModel):

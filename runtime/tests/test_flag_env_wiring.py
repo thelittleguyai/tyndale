@@ -403,17 +403,26 @@ def test_guided_intake_settings_are_env_wired_for_runtime_and_cron(env_name):
     assert f'variable "{env_name.lower()}"' in VARIABLES_TF.read_text(encoding="utf-8")
 
 
-def test_the_two_provisional_defaults_are_the_documented_ones():
-    """Two open decisions ship as data (doc 40 open questions 1 and 2). The code default, the
-    terraform default and the documented default must be the same value — a disagreement
-    would mean the env you deploy is not the behaviour you reviewed."""
+def test_the_decided_front_door_defaults_are_the_documented_ones():
+    """Brock's 2026-09-21 decisions ship as data: guided is the only front door (decision 1 —
+    guided by default, every new user in the cohort, free-form chat + quick actions hidden) and
+    the unlock passes with the beta line while billing is dark (decision 4). The code default
+    and the terraform default must be the same value — a disagreement would mean the env you
+    deploy is not the behaviour that was decided."""
     from app.config import Settings
 
     fields = Settings.model_fields
     tf = VARIABLES_TF.read_text(encoding="utf-8")
+
+    def block(name: str) -> str:
+        b = tf[tf.index(f'variable "{name}"') :]
+        return b[: b.index("\n}\n")]
+
     for name in ("guided_hidden_surfaces", "unlock_gate_mode", "intake_mode_default"):
         default = fields[name].default
-        block = tf[tf.index(f'variable "{name}"') :]
-        block = block[: block.index("\n}\n")]
-        assert f'default     = "{default}"' in block, (name, default)
-    assert fields["intake_mode_cohort_pct"].default == 0
+        assert f'default     = "{default}"' in block(name), (name, default)
+    assert fields["intake_mode_default"].default == "guided"
+    assert fields["guided_hidden_surfaces"].default == "freeform_chat_entry,quick_actions_grid"
+    assert fields["unlock_gate_mode"].default == "free_beta"
+    assert fields["intake_mode_cohort_pct"].default == 100
+    assert "default     = 100" in block("intake_mode_cohort_pct")

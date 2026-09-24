@@ -261,12 +261,18 @@ export default function DashboardScreen() {
         </Text>
       </ScreenView>
     </ScrollView>
-    {/* Persistent chat entry (mockup item 1): floats above the scroll, routes to freeform. */}
+    {/* Persistent chat entry (mockup item 1): floats above the scroll. A chat-first user's pill
+        opens free-form chat; a GUIDED user has none until a finished audit is past the unlock,
+        and then it opens THAT case's chat (Brock 2026-09-21, decision 1). */}
     {/* <480 the pill compacts to an icon bubble: the labeled quick-action card is right
         there, and the full pill overlays content at phone widths (viewport sweep note). */}
-    {hidden.has('freeform_chat_entry') ? null : (
+    {hidden.has('freeform_chat_entry') && !data?.case_chat_case_id ? null : (
     <PressableScale
-      onPress={openChat}
+      onPress={
+        hidden.has('freeform_chat_entry')
+          ? () => router.push(`/audit/${data!.case_chat_case_id}/chat` as never)
+          : openChat
+      }
       accessibilityRole="button"
       accessibilityLabel="Chat with Tyndale"
       className={`absolute bottom-6 right-5 flex-row items-center justify-center rounded-full bg-accent shadow-card ${

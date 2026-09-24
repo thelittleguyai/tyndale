@@ -77,6 +77,27 @@ def hidden_surfaces(mode: str, settings) -> list[str]:
     return [s for s in settings.guided_hidden_surface_list if s in HIDEABLE_SURFACES]
 
 
+# A finished audit — its per-case chat is open to a guided user once the unlock is passed.
+CASE_CHAT_STATUSES: tuple[str, ...] = ("audit_complete", "resolved")
+
+
+def unlock_passed(settings) -> bool:
+    """Whether a finished audit's unlock lets the user through today. free_beta passes (the
+    honest beta line, then proceed — decision 4); no gate at all passes; block and billing (dark:
+    nothing to buy yet) do not."""
+    return (not settings.enable_first_case_unlock) or settings.unlock_gate_mode == "free_beta"
+
+
+def case_chat_case(cases, settings):
+    """The case whose chat the floating "Chat with Tyndale" pill opens for a GUIDED user
+    (decision 1: per-case chat after the unlock stays, free-form chat does not): the most recent
+    finished audit past the unlock. None until there is one — the pill is ABSENT until then."""
+    if not unlock_passed(settings):
+        return None
+    done = [c for c in cases if c.status in CASE_CHAT_STATUSES]
+    return max(done, key=lambda c: c.updated_at or c.created_at, default=None)
+
+
 def in_guided_intake(case) -> bool:
     """True while a case is still ON the guided route: opened through it, and neither run
     (READY → audit) nor handed to chat-first. The ONE test the resume card, the Open Cases card
