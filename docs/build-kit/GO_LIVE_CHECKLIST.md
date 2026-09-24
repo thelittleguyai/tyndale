@@ -43,6 +43,18 @@ Nothing here creates or touches staging/production infrastructure.
       strings, D5 clean-bill/negotiation copy, A6 error taxonomy + §3.10, §3.8 nudge-split
       confirmation.
 
+## Paywall (Brock 2026-09-21, decision 4) · added 2026-09-24
+
+- [ ] **Paywall goes live: flip `unlock_gate_mode` to `billing` once the flow is stable
+      end-to-end and billing lands (pricing memo → billing rework → Stripe).** Until then the
+      unlock moment renders with the honest beta line (`intake.unlock.free_beta`, "Free while
+      we're in beta.", PROPOSED for Brock) and proceeds to the plan — `unlock_gate_mode =
+      free_beta` in `runtime/app/config.py`, `infra/envs/dev/variables.tf` and the tfvars example
+      (the moment itself is `ENABLE_FIRST_CASE_UNLOCK`, on in dev). This is TEMPORARY by
+      decision: it must not drift into launch. `billing` renders §7.1's priced card and offers no
+      way to the plan except billing; `block` (a testing aid) offers none at all
+      (`runtime/tests/test_unlock_gate.py` pins all three).
+
 ## Data activation
 
 - [x] Priors tranche 1 received (`intelligence-layer/reference/priors/`) — *2026-08-27:

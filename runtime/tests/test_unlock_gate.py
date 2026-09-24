@@ -1,6 +1,10 @@
-"""The first-case unlock moment while billing is dark (doc 40 open question 2 — PROVISIONAL,
-Phil decides): `unlock_gate_mode` = free_beta | block | billing, behind the existing
-ENABLE_FIRST_CASE_UNLOCK flag (default off — the moment stays dark in every env until flipped)."""
+"""The first-case unlock moment while billing is dark — DECIDED (Brock 2026-09-21, decision 4):
+pass through with the honest beta line, TEMPORARILY (docs/build-kit/GO_LIVE_CHECKLIST.md,
+"Paywall goes live"). `unlock_gate_mode`:
+  free_beta  renders "Free while we're in beta." and proceeds to the plan;
+  billing    renders §7.1's priced card and offers no way to the plan except billing;
+  block      offers no way through at all (a testing aid).
+Behind ENABLE_FIRST_CASE_UNLOCK (code default off; on in dev)."""
 
 from __future__ import annotations
 
