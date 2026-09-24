@@ -126,7 +126,7 @@ async def test_only_an_authentic_recently_expired_link_can_be_renewed(client: As
     forged = pyjwt.encode({"email": "victim@example.com", "jti": "x", "iss": "tyndale", "aud": "magic_link",
                            "iat": datetime.now(timezone.utc) - timedelta(hours=1),
                            "exp": datetime.now(timezone.utc) - timedelta(minutes=5)},
-                          "not-the-secret", algorithm="HS256")
+                          "not-the-secret-" + "b" * 32, algorithm="HS256")  # wrong key, full length
     assert (await client.post("/v1/auth/magic-link-reissue", json={"token": forged})).status_code == 400
     ancient = pyjwt.encode({"email": "old@example.com", "jti": "y", "iss": "tyndale", "aud": "magic_link",
                             "iat": datetime.now(timezone.utc) - timedelta(days=30),
