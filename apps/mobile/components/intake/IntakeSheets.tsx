@@ -1,16 +1,29 @@
 /**
  * "See an example" and "Help me find it" (doc 40 §A3, §A5). Both are rendered ONLY when the
- * server sent something to show: a screen with no example asset has no example button at all —
- * never an empty sheet, never "coming soon". The example opens the public federal sample in the
- * browser; nothing is bundled.
+ * server sent something to show: a screen with no example has no example button at all — never
+ * an empty sheet, never "coming soon". An example is either the doc 41 illustration bundled with
+ * the app (assets/examples — its numbered legend rendered beside it as text, never baked into the
+ * image) or, until that image lands, the public federal sample opened in the browser (SBC, MSN).
  */
 import { useState } from 'react';
-import { Linking, Modal, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, Modal, ScrollView, Text, View } from 'react-native';
 
 import type { IntakeExample, IntakeHelp } from '@tyndale/shared';
 
+import { EXAMPLE_IMAGES } from '../../assets/examples';
 import { emailIntakeHelp } from '../../lib/api-client';
+import { ChatMarkdown } from '../chat/Markdown';
 import { Button } from '../ui';
+
+/** The bundled image for an illustrated example — undefined when this build does not carry it. */
+function illustrationOf(example: IntakeExample) {
+  return example.illustration ? EXAMPLE_IMAGES[example.illustration.slot] : undefined;
+}
+
+/** Whether the sheet has anything to show in THIS build: a bundled illustration, or a sample. */
+export function exampleShowable(example: IntakeExample | null | undefined): boolean {
+  return !!example && (!!illustrationOf(example) || !!example.asset);
+}
 
 function Sheet({
   title,
@@ -60,6 +73,8 @@ export function ExampleSheet({
   chrome: Record<string, string>;
   onClose: () => void;
 }) {
+  const image = illustrationOf(example);
+  const asset = example.asset;
   return (
     <Sheet title={example.title} onClose={onClose} closeLabel={chrome.close ?? 'Close'}>
       {Object.values(example.glosses).map((g) => (
@@ -67,17 +82,43 @@ export function ExampleSheet({
           {g}
         </Text>
       ))}
-      <Steps steps={example.callouts} />
-      {example.source_line ? (
+      {image ? (
+        <>
+          <Image
+            source={image}
+            resizeMode="contain"
+            accessibilityLabel={example.title ?? undefined}
+            style={{ width: '100%', aspectRatio: example.illustration?.aspect === 'landscape' ? 1560 / 975 : 1560 / 1950 }}
+            testID="intake-example-image"
+          />
+          {/* the legend, numbered to match the image's badges — text, so it is read aloud */}
+          <View className="mt-4 gap-3" testID="intake-example-legend">
+            {(example.legend ?? []).map((line, i) => (
+              <View key={i} className="flex-row gap-3">
+                <Text className="w-6 text-body font-semibold text-accent">{i + 1}</Text>
+                <View className="flex-1">
+                  <ChatMarkdown text={line} className="text-body leading-6 text-primary" />
+                </View>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <Steps steps={example.callouts} />
+      )}
+      {!image && example.source_line ? (
         <Text className="mt-4 text-body text-secondary">{example.source_line}</Text>
       ) : null}
-      <Button
-        label={chrome.open_sample ?? 'Open the sample'}
-        onPress={() => Linking.openURL(example.asset.url).catch(() => undefined)}
-        fullWidth
-        className="mt-4"
-        testID="intake-example-open"
-      />
+      {asset ? (
+        <Button
+          label={chrome.open_sample ?? 'Open the sample'}
+          variant={image ? 'secondary' : 'primary'}
+          onPress={() => Linking.openURL(asset.url).catch(() => undefined)}
+          fullWidth
+          className="mt-4"
+          testID="intake-example-open"
+        />
+      ) : null}
     </Sheet>
   );
 }

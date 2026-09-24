@@ -469,7 +469,7 @@ SCREEN_REGISTRY: tuple[Screen, ...] = (
            help_doc="plan_year", skippable=True),
     Screen("timeline", "timeline", "timeline", "accumulators",
            "every EOB since the plan year began, gaps named, completeness confirmed EVERY time",
-           example="eob", help_doc="eob", expect="eob"),
+           example="eob_timeline", help_doc="eob", expect="eob"),
     Screen("deductible_met", "fields", "timeline", "accumulators",
            "how much of the deductible was already paid — only when the EOBs cannot say",
            example="accumulators", help_doc="accumulators", skippable=True),

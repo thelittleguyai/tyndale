@@ -179,6 +179,23 @@ def screen_glosses(script: dict[str, str]) -> dict[str, frozenset[str]]:
     return {k: frozenset(v) for k, v in out.items()}
 
 
+# Brock-AUTHORED intake strings that score over the ceiling. The rule for authored copy is
+# "report it, don't rewrite it" (guided Phase 2 prompt, item F): each is pinned to its exact
+# text, reported in docs/build-kit/reading_level_report.md, and exempt ONLY while that text is
+# unchanged — his rewrite has to pass like any other intake string.
+AUTHORED_OVER_CEILING: dict[str, str] = {
+    # doc 41 §6 legend 3 — FK 10.6: "Individual" (5 syllables) in a 7-word line cut by "vs."
+    "intake.example.accumulators.3": "Individual vs. family — these are different amounts.",
+}
+
+
+def _key_shape_ok(parts: list[str]) -> bool:
+    """intake.<screen>.<slot>, or a numbered example legend intake.example.<doc>.<n> (doc 41)."""
+    if len(parts) == 3:
+        return True
+    return len(parts) == 4 and parts[1] == "example" and parts[3].isdigit()
+
+
 def check_intake_keys(script: dict[str, str]) -> list[str]:
     """Every problem with the `intake.*` keys, as "key: why" lines — empty means the set ships."""
     glosses = screen_glosses(script)
@@ -187,8 +204,8 @@ def check_intake_keys(script: dict[str, str]) -> list[str]:
         if not key.startswith("intake."):
             continue
         parts = key.split(".")
-        if len(parts) != 3:
-            problems.append(f"{key}: key shape must be intake.<screen>.<slot>")
+        if not _key_shape_ok(parts):
+            problems.append(f"{key}: key shape must be intake.<screen>.<slot> (or intake.example.<doc>.<n>)")
             continue
         allowed = glosses.get(parts[1], frozenset())
         unknown = {g for g in allowed if g not in GLOSSED_TERMS}
@@ -202,6 +219,6 @@ def check_intake_keys(script: dict[str, str]) -> list[str]:
             )
             continue
         r = read(text, exempt=allowed)
-        if not r.passes():
+        if not r.passes() and AUTHORED_OVER_CEILING.get(key) != text.strip():
             problems.append(f"{key}: {r.why()}")
     return problems

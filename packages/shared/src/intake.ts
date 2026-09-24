@@ -41,8 +41,19 @@ export type IntakeProgressGroup =
 export interface IntakeExample {
   ask: string;
   title: string | null;
+  /**
+   * doc 41 (Brock 2026-09-21, decision 8): the drawn illustration bundled with the app
+   * (apps/mobile/assets/examples/<slot>@2x.png) and Brock's legend — one line per numbered badge,
+   * rendered by the app, never baked into the image. Absent/null → the federal sample path.
+   */
+  illustration?: { slot: string; aspect: 'portrait' | 'landscape' } | null;
+  legend?: string[];
+  /**
+   * The federal sample's "look for this" callouts (SBC, MSN) — sent whenever a sample exists, even
+   * once it is illustrated: the app shows them (with source_line) when its build lacks the image.
+   */
   callouts: string[];
-  asset: { kind: 'external_pdf'; url: string; publisher: string };
+  asset: { kind: 'external_pdf'; url: string; publisher: string } | null;
   source_line: string | null;
   glosses: Record<string, string>;
 }

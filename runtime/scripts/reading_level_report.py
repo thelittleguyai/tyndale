@@ -16,7 +16,13 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from app.intake.reading_level import GRADE_CEILING, PROSE_MIN_WORDS, read, screen_glosses  # noqa: E402
+from app.intake.reading_level import (  # noqa: E402
+    AUTHORED_OVER_CEILING,
+    GRADE_CEILING,
+    PROSE_MIN_WORDS,
+    read,
+    screen_glosses,
+)
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 OUT = REPO / "docs/build-kit/reading_level_report.md"
@@ -45,6 +51,8 @@ def build() -> str:
     rows_other = [row(k, v, frozenset()) for k, v in other.items()]
     rows_intake = [row(k, v, glosses.get(k.split(".")[1], frozenset())) for k, v in intake.items()]
     over = [r for r in rows_other if r[1] != "ok"]
+    authored_over = [r for r in rows_intake if r[1] != "ok" and AUTHORED_OVER_CEILING.get(r[2]) == intake[r[2]].strip()]
+    intake_over = [r for r in rows_intake if r[1] != "ok" and r not in authored_over]
     prose = [r for r in rows_other if r[0] != "label"]
     grades = sorted(float(r[0]) for r in prose)
     median = grades[len(grades) // 2] if grades else 0.0
@@ -61,11 +69,26 @@ def build() -> str:
         "",
         "## Enforced — the `intake.*` keys",
         "",
-        f"{len(rows_intake)} keys, **{sum(1 for r in rows_intake if r[1] != 'ok')} over**. CI fails "
-        "on any key over the ceiling, and on any glossed term (deductible, coinsurance, EOB, "
-        "out-of-pocket, SBC, MSN, itemized) used on a screen that does not carry its "
+        f"{len(rows_intake)} keys, **{len(intake_over)} over**"
+        + (f" (plus {len(authored_over)} Brock-authored, reported below)" if authored_over else "")
+        + ". CI fails on any key over the ceiling, and on any glossed term (deductible, coinsurance, "
+        "EOB, out-of-pocket, SBC, MSN, itemized) used on a screen that does not carry its "
         "`gloss_<term>` key (`tests/test_intake_reading_level.py`).",
         "",
+        *(
+            [
+                "**Brock-authored and over the ceiling — reported, not rewritten.** Each is pinned to "
+                "its exact text and exempt only while it is unchanged; a rewrite must pass like any "
+                "other intake string.",
+                "",
+                "| key | words | FK grade | text |",
+                "|---|---:|---:|---|",
+                *[f"| `{k}` | {w} | {s} | {script[k]} |" for s, _v, k, w in authored_over],
+                "",
+            ]
+            if authored_over
+            else []
+        ),
         "## Report-only — every other key",
         "",
         f"{len(rows_other)} keys authored to the earlier 7th-grade floor: **{len(over)} would fail** "

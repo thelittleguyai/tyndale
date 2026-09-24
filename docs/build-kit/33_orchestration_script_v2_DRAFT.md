@@ -592,6 +592,96 @@ one that fails is replaced by the fallback below and moves, whole, under the dis
 | `upload_rejected_too_large` | eng — the per-file size cap's reason, same shape | "{filename}" is too big for me to read, so I left it out. Add a smaller file, or a photo of each page. |
 | `upload_failed_generic` | eng — replaces "Upload failed: upload failed: 422 {json}" when the send itself fails | That didn't upload. Your files are still here — try again. |
 
+## Guided intake — Brock's 2026-09-21 decisions applied (2026-09-24)
+
+*Engineering applied your answers (`brock_to_phil_guided_intake_answers_2026-09-21.md`). This
+section lists every registry key those answers added, and what each one is: **yours**
+(authored, drift-checked against your doc) or **PROPOSED** (an interim engineering seed that
+waits for your sign-off, like every other section in this file).*
+
+### "See an example" legends — BROCK-AUTHORED (decision 8, doc 41) — not proposed
+
+*There are 38 keys, `intake.example.<doc>.<n>`, one per numbered badge. They are verbatim from
+`41_example_illustrations_spec.md` (the "Legend" block of §1–§8). Their registry source class
+is `DOC41`, so CI fails the moment a legend drifts from doc 41
+(`test_every_example_legend_is_brocks_verbatim`). Like every `intake.*` key, they sit under the
+strict ≤ 5.9 guard. The app renders them as text beside the image, never baked into it, and
+numbered to match the badges, so a screen reader reads them.*
+
+*They go live per image. Until Phil drops `<doc>@2x.png` into `apps/mobile/assets/examples`
+(and flips `pending_asset`), the screen offers what it offered before: the CMS sample for the
+SBC, and nothing new elsewhere. `runtime/tests/test_example_manifest.py` fails until the flag,
+the file and the app's build-time manifest agree.*
+
+*One legend is over the ceiling. It is **reported, not rewritten**:
+`intake.example.accumulators.3` — "Individual vs. family — these are different amounts." —
+scores FK 10.6. It is a 9-word line, and the formula punishes "individual" (5 syllables) and
+"different". It is pinned in `reading_level.AUTHORED_OVER_CEILING`: the guard lets exactly
+this text through and fails the moment it changes. Your call: keep it (it reads fine next to
+the drawing) or reword it.*
+
+| key | from | text |
+|---|---|---|
+| `intake.example.itemized_bill.1` | doc 41 §1 | Account and visit numbers — these match your bill to your insurer's statement. |
+| `intake.example.itemized_bill.2` | doc 41 §1 | Each line has its own date — check for days you weren't there. |
+| `intake.example.itemized_bill.3` | doc 41 §1 | The 5-digit code says exactly what was billed. |
+| `intake.example.itemized_bill.4` | doc 41 §1 | The words should match the code. If they don't, that's a flag. |
+| `intake.example.itemized_bill.5` | doc 41 §1 | Each line's price. Add them up — it should match the total. |
+| `intake.example.itemized_bill.6` | doc 41 §1 | This line means it's the itemized list, not the bill to pay. |
+| `intake.example.summary_vs_itemized.1` | doc 41 §1 | A summary shows only totals. An itemized bill lists every service with a code. We need the itemized one — we'll tell you how to ask for it. |
+| `intake.example.insurance_card.1` | doc 41 §2 | Your member ID — it ties every statement to you. It might be a spouse's or parent's name. |
+| `intake.example.insurance_card.2` | doc 41 §2 | Group number — needed when you call. |
+| `intake.example.insurance_card.3` | doc 41 §2 | Plan type (PPO, HMO) — tells us if out-of-network care is covered. |
+| `intake.example.insurance_card.4` | doc 41 §2 | Copays printed here are a quick check. Your plan's rulebook wins if they differ. |
+| `intake.example.insurance_card.5` | doc 41 §2 | Pharmacy numbers — only for prescription bills. |
+| `intake.example.insurance_card.6` | doc 41 §2 | The phone number to call for documents or to dispute a claim. |
+| `intake.example.eob.1` | doc 41 §3 | Claim number and date — match these to your bill. |
+| `intake.example.eob.2` | doc 41 §3 | What the provider asked for. |
+| `intake.example.eob.3` | doc 41 §3 | **The allowed amount — the price your insurer actually agreed to. This is the number that matters.** |
+| `intake.example.eob.4` | doc 41 §3 | How much went to your deductible and coinsurance. |
+| `intake.example.eob.5` | doc 41 §3 | What your plan paid the provider. |
+| `intake.example.eob.6` | doc 41 §3 | What they say you owe. If your bill is higher than this, something's wrong. |
+| `intake.example.msn.1` | doc 41 §4 | Your deductible status — Medicare tells you right here. |
+| `intake.example.msn.2` | doc 41 §4 | The date of the service. |
+| `intake.example.msn.3` | doc 41 §4 | What Medicare approved — the amount that counts. |
+| `intake.example.msn.4` | doc 41 §4 | What Medicare paid. |
+| `intake.example.msn.5` | doc 41 §4 | What you may be billed. Compare this to your bill. |
+| `intake.example.sbc.1` | doc 41 §5 | The coverage period — make sure it's the right year. |
+| `intake.example.sbc.2` | doc 41 §5 | Your deductible — what you pay before insurance starts paying. |
+| `intake.example.sbc.3` | doc 41 §5 | Some services have their own separate deductible. Look here. |
+| `intake.example.sbc.4` | doc 41 §5 | Your out-of-pocket limit — the most you pay in a year. |
+| `intake.example.sbc.5` | doc 41 §5 | Two columns: in-network and out-of-network. They're different. |
+| `intake.example.sbc.6` | doc 41 §5 | The examples page shows what a typical visit should cost on this plan. |
+| `intake.example.accumulators.1` | doc 41 §6 | **The "as of" date — this is today's number, not the number on the day of your visit.** |
+| `intake.example.accumulators.2` | doc 41 §6 | Deductible met so far — use the individual, in-network figure. |
+| `intake.example.accumulators.3` | doc 41 §6 | Individual vs. family — these are different amounts. **(FK 10.6 — reported, pinned; see above)** |
+| `intake.example.accumulators.4` | doc 41 §6 | Out-of-pocket met so far — tracked separately from the deductible. |
+| `intake.example.accumulators.5` | doc 41 §6 | The claims that add up to these numbers. Screenshot this list too. |
+| `intake.example.accumulators.6` | doc 41 §6 | When your plan year starts — not always January 1. |
+| `intake.example.eob_timeline.1` | doc 41 §7 | The visit we're checking. Everything before it decides what you owed that day. |
+| `intake.example.eob_timeline.2` | doc 41 §7 | A gap. If you had a visit in April, we need that statement too — otherwise we'll show a range. |
+
+### Sheet titles and the legends' glosses — PROPOSED, interim engineering seeds
+
+*A drawn sheet needs a title over the image. doc 41's section headings name each image but are
+not written as on-screen titles, so these seeds adapt them ("Your deductible on the insurer's
+website" → "…on your insurer's website"). The three glosses are copies of your existing lines: a glossed term
+may appear only on a sheet that carries its gloss (§A6), and the legends use "itemized", "EOB"
+and "coinsurance". The SBC and MSN keep `intake.example.sbc_title` / `msn_title` ("A sample
+SBC" / "A sample MSN").*
+
+| key | from | seed |
+|---|---|---|
+| `intake.example.itemized_bill_title` | eng — doc 41 §1 | An itemized bill |
+| `intake.example.summary_vs_itemized_title` | eng — doc 41 §1 (the side-by-side) | A summary and an itemized bill |
+| `intake.example.insurance_card_title` | eng — doc 41 §2 | An insurance card |
+| `intake.example.eob_title` | eng — doc 41 §3 | An EOB |
+| `intake.example.accumulators_title` | eng — doc 41 §6 | Your deductible on your insurer's website |
+| `intake.example.eob_timeline_title` | eng — doc 41 §7 | All your EOBs this year |
+| `intake.example.gloss_itemized` | `intake.bill.gloss_itemized`, verbatim | Itemized means each charge is on its own line, with a short code next to it. |
+| `intake.example.gloss_eob` | `intake.eob.gloss_eob`, verbatim | An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it. |
+| `intake.example.gloss_coinsurance` | `intake.plan_rules_confirm.gloss_coinsurance`, verbatim | Coinsurance is your share of the cost after the deductible. |
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

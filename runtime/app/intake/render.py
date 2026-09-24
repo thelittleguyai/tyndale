@@ -259,18 +259,28 @@ def render_screen(
         "skippable": screen.skippable,
     }
     ex = example_for(screen.example)
-    if ex is not None:  # no asset → no affordance (never an empty sheet)
+    if ex is not None:  # nothing to show → no affordance (never an empty sheet)
         title = step(ex.title_key) if ex.title_key else None
+        # doc 41: the drawn illustration + Brock's legend when its image is bundled; otherwise the
+        # federal sample (SBC, MSN) with its "look for this" callouts, as before. A sample's
+        # callouts + source line ride along even once it is illustrated: the APP picks by what its
+        # build bundles, so a tab still running last week's bundle falls back to them, whole
+        legend = [t for k in ex.legend_keys if (t := step(k))] if ex.illustrated else []
         callouts = [t for k in ex.callout_keys if (t := step(k))]
         # only the glosses this sheet's own words need (e2e round 3 R6: the SBC sample carried
         # the MSN gloss — every example gloss rode on every sheet)
-        used = terms_used(" ".join([title or "", *callouts]))
+        used = terms_used(" ".join([title or "", *legend, *callouts]))
         out["example"] = {
             "ask": ex.ask,
             "title": title,
+            "illustration": {"slot": ex.illustration, "aspect": ex.aspect} if ex.illustrated else None,
+            "legend": legend,
             "callouts": callouts,
-            "asset": {"kind": ex.asset.kind, "url": ex.asset.url, "publisher": ex.asset.publisher},
-            "source_line": step("intake.example.source_federal"),
+            "asset": (
+                {"kind": ex.asset.kind, "url": ex.asset.url, "publisher": ex.asset.publisher}
+                if ex.asset is not None else None
+            ),
+            "source_line": step("intake.example.source_federal") if ex.asset else None,
             "glosses": {
                 term: v for k, v in group_copy("example").items()
                 if k.startswith("gloss_") and (term := k[len("gloss_"):]) in used

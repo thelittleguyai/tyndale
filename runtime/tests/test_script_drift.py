@@ -77,7 +77,22 @@ def test_mapping_covers_the_registry_and_names_real_sections():
         # Four provenance classes: §N.N = his orchestration script (drift-compared above) ·
         # CHECKLIST-* = his conformance checklist (a different authored doc, so not in the
         # script file) · UNMAPPED = rendered but unauthored · ENG = mechanism, not voice.
-        assert entry.source.startswith(("§", "CHECKLIST", "UNMAPPED", "ENG")), f"{key}: {entry.source!r}"
+        # DOC41 = the example legends Brock authored in docs/build-kit/41_example_illustrations_spec.md
+        # (drift-compared against THAT file below).
+        assert entry.source.startswith(("§", "CHECKLIST", "UNMAPPED", "ENG", "DOC41")), f"{key}: {entry.source!r}"
+
+
+_DOC41 = pathlib.Path(__file__).resolve().parents[2] / "docs/build-kit/41_example_illustrations_spec.md"
+
+
+def test_every_example_legend_is_brocks_verbatim():
+    """doc 41's legends go into the registry VERBATIM (guided Phase 2, item F) — drift-guarded like
+    everything else, against the file they were authored in."""
+    corpus = _norm(_DOC41.read_text(encoding="utf-8"))
+    legends = {k: e for k, e in load_orchestration_registry().items() if e.source.startswith("DOC41")}
+    assert len(legends) == 38  # 6 + 1 + 6 + 6 + 5 + 6 + 6 + 2 badges across doc 41 §1–§7
+    drifted = [k for k, e in legends.items() if _norm(e.text) not in corpus]
+    assert not drifted, f"legends that are not doc 41's words: {drifted}"
 
 
 # NOT hash-pinned, deliberately. There used to be a `test_authored_file_is_pinned_by_hash`

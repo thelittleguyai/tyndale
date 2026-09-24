@@ -29,7 +29,7 @@ import {
 } from '../../lib/api-client';
 import { IntakeBody } from '../../components/intake/IntakeBody';
 import { IntakeProgressBar } from '../../components/intake/IntakeProgressBar';
-import { ExampleSheet, HelpSheet } from '../../components/intake/IntakeSheets';
+import { ExampleSheet, HelpSheet, exampleShowable } from '../../components/intake/IntakeSheets';
 import { Button, TextLink } from '../../components/ui';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { Screen } from '../../components/ui/Screen';
@@ -196,7 +196,7 @@ export default function IntakeScreenRoute() {
                 Text links (e2e round 3 R7): the label sits inside the Pressable, the target is
                 44 px on both axes (+ hitSlop on native) and hugs its label — not a full-width
                 band with a centred label. */}
-            {screen.example ? (
+            {exampleShowable(screen.example) ? (
               <TextLink label={chrome.see_example ?? ''} onPress={() => setSheet('example')} testID="intake-see-example" />
             ) : null}
             {screen.help ? (

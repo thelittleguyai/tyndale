@@ -1731,6 +1731,194 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A3 line -->
 [A] Last page: how to appeal, and the date you must do it by.
 
+## intake.example.gloss_itemized
+<!-- UNMAPPED — e2e/guided Phase 2 (doc 41); PROPOSED interim seed: intake.bill.gloss_itemized, verbatim — the legends below use the term -->
+[A] Itemized means each charge is on its own line, with a short code next to it.
+
+## intake.example.gloss_eob
+<!-- UNMAPPED — e2e/guided Phase 2 (doc 41); PROPOSED interim seed: intake.eob.gloss_eob, verbatim — the legends below use the term -->
+[A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
+
+## intake.example.gloss_coinsurance
+<!-- UNMAPPED — e2e/guided Phase 2 (doc 41); PROPOSED interim seed: intake.plan_rules_confirm.gloss_coinsurance, verbatim — the legends below use the term -->
+[A] Coinsurance is your share of the cost after the deductible.
+
+## intake.example.itemized_bill_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §1); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] An itemized bill
+
+## intake.example.summary_vs_itemized_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §1); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] A summary and an itemized bill
+
+## intake.example.insurance_card_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §2); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] An insurance card
+
+## intake.example.eob_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §3); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] An EOB
+
+## intake.example.accumulators_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §6); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] Your deductible on your insurer's website
+
+## intake.example.eob_timeline_title
+<!-- UNMAPPED — guided Phase 2 (doc 41 §7); PROPOSED interim seed: the sheet's title over the illustration, from doc 41's heading -->
+[A] All your EOBs this year
+
+## intake.example.itemized_bill.1
+<!-- DOC41 §1 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] Account and visit numbers — these match your bill to your insurer's statement.
+
+## intake.example.itemized_bill.2
+<!-- DOC41 §1 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] Each line has its own date — check for days you weren't there.
+
+## intake.example.itemized_bill.3
+<!-- DOC41 §1 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] The 5-digit code says exactly what was billed.
+
+## intake.example.itemized_bill.4
+<!-- DOC41 §1 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] The words should match the code. If they don't, that's a flag.
+
+## intake.example.itemized_bill.5
+<!-- DOC41 §1 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] Each line's price. Add them up — it should match the total.
+
+## intake.example.itemized_bill.6
+<!-- DOC41 §1 legend 6 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 6, never baked into the image -->
+[A] This line means it's the itemized list, not the bill to pay.
+
+## intake.example.summary_vs_itemized.1
+<!-- DOC41 §1 (companion) legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] A summary shows only totals. An itemized bill lists every service with a code. We need the itemized one — we'll tell you how to ask for it.
+
+## intake.example.insurance_card.1
+<!-- DOC41 §2 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] Your member ID — it ties every statement to you. It might be a spouse's or parent's name.
+
+## intake.example.insurance_card.2
+<!-- DOC41 §2 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] Group number — needed when you call.
+
+## intake.example.insurance_card.3
+<!-- DOC41 §2 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] Plan type (PPO, HMO) — tells us if out-of-network care is covered.
+
+## intake.example.insurance_card.4
+<!-- DOC41 §2 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] Copays printed here are a quick check. Your plan's rulebook wins if they differ.
+
+## intake.example.insurance_card.5
+<!-- DOC41 §2 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] Pharmacy numbers — only for prescription bills.
+
+## intake.example.insurance_card.6
+<!-- DOC41 §2 legend 6 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 6, never baked into the image -->
+[A] The phone number to call for documents or to dispute a claim.
+
+## intake.example.eob.1
+<!-- DOC41 §3 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] Claim number and date — match these to your bill.
+
+## intake.example.eob.2
+<!-- DOC41 §3 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] What the provider asked for.
+
+## intake.example.eob.3
+<!-- DOC41 §3 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] **The allowed amount — the price your insurer actually agreed to. This is the number that matters.**
+
+## intake.example.eob.4
+<!-- DOC41 §3 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] How much went to your deductible and coinsurance.
+
+## intake.example.eob.5
+<!-- DOC41 §3 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] What your plan paid the provider.
+
+## intake.example.eob.6
+<!-- DOC41 §3 legend 6 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 6, never baked into the image -->
+[A] What they say you owe. If your bill is higher than this, something's wrong.
+
+## intake.example.msn.1
+<!-- DOC41 §4 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] Your deductible status — Medicare tells you right here.
+
+## intake.example.msn.2
+<!-- DOC41 §4 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] The date of the service.
+
+## intake.example.msn.3
+<!-- DOC41 §4 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] What Medicare approved — the amount that counts.
+
+## intake.example.msn.4
+<!-- DOC41 §4 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] What Medicare paid.
+
+## intake.example.msn.5
+<!-- DOC41 §4 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] What you may be billed. Compare this to your bill.
+
+## intake.example.sbc.1
+<!-- DOC41 §5 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] The coverage period — make sure it's the right year.
+
+## intake.example.sbc.2
+<!-- DOC41 §5 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] Your deductible — what you pay before insurance starts paying.
+
+## intake.example.sbc.3
+<!-- DOC41 §5 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] Some services have their own separate deductible. Look here.
+
+## intake.example.sbc.4
+<!-- DOC41 §5 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] Your out-of-pocket limit — the most you pay in a year.
+
+## intake.example.sbc.5
+<!-- DOC41 §5 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] Two columns: in-network and out-of-network. They're different.
+
+## intake.example.sbc.6
+<!-- DOC41 §5 legend 6 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 6, never baked into the image -->
+[A] The examples page shows what a typical visit should cost on this plan.
+
+## intake.example.accumulators.1
+<!-- DOC41 §6 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] **The "as of" date — this is today's number, not the number on the day of your visit.**
+
+## intake.example.accumulators.2
+<!-- DOC41 §6 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] Deductible met so far — use the individual, in-network figure.
+
+## intake.example.accumulators.3
+<!-- DOC41 §6 legend 3 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 3, never baked into the image -->
+[A] Individual vs. family — these are different amounts.
+
+## intake.example.accumulators.4
+<!-- DOC41 §6 legend 4 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 4, never baked into the image -->
+[A] Out-of-pocket met so far — tracked separately from the deductible.
+
+## intake.example.accumulators.5
+<!-- DOC41 §6 legend 5 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 5, never baked into the image -->
+[A] The claims that add up to these numbers. Screenshot this list too.
+
+## intake.example.accumulators.6
+<!-- DOC41 §6 legend 6 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 6, never baked into the image -->
+[A] When your plan year starts — not always January 1.
+
+## intake.example.eob_timeline.1
+<!-- DOC41 §7 legend 1 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 1, never baked into the image -->
+[A] The visit we're checking. Everything before it decides what you owed that day.
+
+## intake.example.eob_timeline.2
+<!-- DOC41 §7 legend 2 — Brock-authored at grade 5 (decision 8); rendered beside the illustration's badge 2, never baked into the image -->
+[A] A gap. If you had a visit in April, we need that statement too — otherwise we'll show a range.
+
 
 ## — intake.help · "Help me find it" — generic fallbacks (§A5)
 

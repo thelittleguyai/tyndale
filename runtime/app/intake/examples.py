@@ -17,8 +17,16 @@ names something that is actually printed on that document:
     "Maximum You May Be Billed" column; last page "How to Handle Denied Claims or File an Appeal".
 
 Copyright rule (§A3): federal works may be shown directly. Payer-branded guide images (UHC,
-Humana, Aetna, Mayo) are REFERENCES for drawing our own and are never embedded — the five
-drawn, de-branded illustrations come from Brock's sources file, which is not in the repo yet.
+Humana, Aetna, Mayo) are REFERENCES for drawing our own and are never embedded.
+
+Phase 2 (Brock 2026-09-21, decision 8 — docs/build-kit/41_example_illustrations_spec.md): every
+ask also gets an AI-GENERATED, de-branded illustration with numbered badges, and Brock's grade-5
+LEGEND (`intake.example.<doc>.<n>`, verbatim from doc 41) rendered by the app beside or below it
+— screen-reader readable and localizable, never baked into the image. The images are bundled
+with the app at ``apps/mobile/assets/examples/<slot>@2x.png`` (1560×1950 portrait; 1560×975 for
+the card and the side-by-side). Phil generates them from doc 41's prompts; until a file lands its
+entry is ``pending_asset`` and offers NOTHING new — the SBC and MSN screens keep showing the CMS
+samples directly. tests/test_example_manifest.py keeps each flag in step with the file on disk.
 """
 
 from __future__ import annotations
@@ -39,13 +47,37 @@ class ExampleAsset:
 class Example:
     ask: str
     title_key: str | None
-    callout_keys: tuple[str, ...]  # 4–6 numbered "look for this" callouts
-    asset: ExampleAsset | None
-    pending: str | None = None  # what the missing asset is waiting on
+    callout_keys: tuple[str, ...]  # the FEDERAL sample's 4–6 numbered "look for this" callouts
+    asset: ExampleAsset | None  # the federal sample, shown directly (SBC, MSN)
+    pending: str | None = None  # what the missing piece is waiting on
+    # doc 41: the drawn illustration — its bundled image slot, Brock's legend (one line per badge,
+    # in badge order), whether the file is still to come, and its frame.
+    illustration: str | None = None
+    legend_keys: tuple[str, ...] = ()
+    pending_asset: bool = True
+    aspect: str = "portrait"  # portrait 1560×1950 · landscape 1560×975
+
+    @property
+    def illustrated(self) -> bool:
+        """The drawn illustration can be shown: its image is in the app bundle."""
+        return bool(self.illustration) and not self.pending_asset and bool(self.legend_keys)
 
     @property
     def renderable(self) -> bool:
-        return self.asset is not None and bool(self.callout_keys)
+        return self.illustrated or (self.asset is not None and bool(self.callout_keys))
+
+
+def _legend(doc: str, n: int) -> tuple[str, ...]:
+    return tuple(f"intake.example.{doc}.{i}" for i in range(1, n + 1))
+
+
+def _drawn(ask: str, section: str, n: int, *, aspect: str = "portrait") -> Example:
+    """An ask whose only example is a doc 41 illustration (no federal sample exists)."""
+    return Example(
+        ask, f"intake.example.{ask}_title", (), None,
+        f"AI-generated illustration, doc 41 {section} — drop {ask}@2x.png into apps/mobile/assets/examples",
+        illustration=ask, legend_keys=_legend(ask, n), pending_asset=True, aspect=aspect,
+    )
 
 
 _FEDERAL = "U.S. federal government work — public domain"
@@ -62,6 +94,7 @@ EXAMPLES: dict[str, Example] = {
             license=_FEDERAL,
             verified_on="2026-09-21",
         ),
+        illustration="sbc", legend_keys=_legend("sbc", 6), pending_asset=True,  # doc 41 §5
     ),
     "msn": Example(
         ask="msn",
@@ -74,14 +107,15 @@ EXAMPLES: dict[str, Example] = {
             license=_FEDERAL,
             verified_on="2026-09-21",
         ),
+        illustration="msn", legend_keys=_legend("msn", 5), pending_asset=True,  # doc 41 §4
     ),
-    # Present in the registry, NOT renderable: each waits on a drawn, de-branded illustration
-    # (research_companions/example_documents_sources_2026-09-17.md — ANNOTATION SPEC).
-    "itemized_bill": Example("itemized_bill", None, (), None, "drawn illustration (Mayo layout reference)"),
-    "summary_vs_itemized": Example("summary_vs_itemized", None, (), None, "drawn illustration"),
-    "insurance_card": Example("insurance_card", None, (), None, "drawn illustration (CARIN card anatomy)"),
-    "eob": Example("eob", None, (), None, "drawn illustration (CMS generic EOB + reader guides)"),
-    "accumulators": Example("accumulators", None, (), None, "drawn composite (FEP Blue / Humana dashboards)"),
+    # Only an illustration (doc 41), each pending until its image lands — offered nowhere until then.
+    "itemized_bill": _drawn("itemized_bill", "§1", 6),
+    "summary_vs_itemized": _drawn("summary_vs_itemized", "§1 (companion)", 1, aspect="landscape"),
+    "insurance_card": _drawn("insurance_card", "§2", 6, aspect="landscape"),
+    "eob": _drawn("eob", "§3", 6),
+    "accumulators": _drawn("accumulators", "§6 (the portal deductible screen)", 6),
+    "eob_timeline": _drawn("eob_timeline", "§7 (the timeline helper)", 2),
 }
 
 
