@@ -4,7 +4,20 @@ Brock → Phil · 2026-09-19 · Companion to the 18 ChatGPT concept screens (att
 
 > **Engineering note (2026-09-21).** This packet lands on top of an existing guided wizard: Phase CO-1A (May) built `/intake/*` — twelve screens (`welcome · bills · eobs · insurance-card · benefits · deductible · oop-max · coverage-details · coverage-regime-confirm · visit-context · plan-proposal · complete`), server-side step tracking (`routes/intake.py`: `_next_step`, `_missing_items`, `_apply_regime_detection`), the guided-answers → coverage persistence, the summary-bill heuristic, and the all-plan-year-EOBs completeness signal (`test_guided_flows.py`). CO-1A's fixed `_next_step` sequence is exactly what §A4 says must not exist — it becomes the Intake Planner. Its screen copy is engineering-voiced (no registry keys) — that becomes `intake.*` keys under §A6. Phase 1 build plan + open decisions: `claude_code_prompt_guided_intake_p1_2026-09-21.md` (workspace root) and `reply_to_brock_2026-09-21_guided_intake.md`.
 >
-> Referenced research files not present in this repo as of filing: `research_companions/example_documents_sources_2026-09-17.md`, `portal_navigation_guide_2026-07-02.md`, `tyndale_oop_calculation_method.md`. Same shared-folder gap as A1–A7; requested in the reply.
+> ~~Referenced research files not present in this repo as of filing.~~ **Received 2026-09-24** (attached by Brock): now at `docs/research/example_documents_sources_2026-09-17.md`, `docs/research/portal_navigation_guide_2026-07-02.md`, `docs/research/tyndale_oop_calculation_method.md`; plus `41_example_illustrations_spec.md` (this folder) and the 18 concept screens (`docs/design/concept-screens/`, images to be dropped).
+>
+> **DECISIONS — Brock 2026-09-21 (`brock_to_phil_guided_intake_answers_2026-09-21.md`), three changed from this packet:**
+> 1. **Guided is the ONLY front door** (changed from "run both"): cohort 100% guided; freeform chat + quick-actions grid hidden; cases, settings, Record, post-unlock chat kept; chat-first stays behind `intake_mode`, never deleted; `intake_mode` recorded on every case.
+> 2. Fifth-grade rule: ratchet — new `intake.*` strict, existing 136 keys report-only until touched.
+> 3. A9 scanning explicitly supersedes N1/B2 — Phase 4, costed as its own phase; native capture parked on DL-44.
+> 4. Paywall: unlock moment renders with the honest beta line and proceeds — **temporary, tracked as a launch-checklist item**; paywall goes live when billing lands.
+> 5. Files attached (received); Brock wants the absolute path of the directory we sync from.
+> 6. **Email forwarding DROPPED** (changed): remove from the timeline entirely; upload-fed. Revisit only via a security packet.
+> 7. Link expiry: real 15 minutes; resume must re-issue a fresh link cleanly.
+> 8. Illustrations: AI-generated per doc 41 (one prompt per document, callouts, grade-5 legends as `intake.example.*`); CMS SBC + MSN samples may be shown directly.
+> 9. **Retention CHANGED to a plan-year rule**: retain a plan year's EOBs through the end of that plan year + the locked post-closure tail (6–12 mo), anchored on the SBC plan year; sits inside B5-6 (immediate-honor deletion still applies); documented schedule + counsel sign-off are launch-gating; the scheduler must exist before the first purge date (>1 yr post-launch) — build A3 in sequence.
+>
+> Sequencing confirmed: Phase 1 → Phase 2 (authored copy, generated examples, payer instructions, family rows) → Phase 3 (coverage branches) → Phase 4 (A9). Applied in `claude_code_prompt_guided_intake_decisions_phase2_2026-09-24.md`.
 
 ---
 
