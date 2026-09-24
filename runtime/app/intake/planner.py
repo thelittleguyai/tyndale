@@ -417,8 +417,13 @@ def _applies(screen_id: str, i: PlannerInputs, g: GapList) -> bool:  # noqa: PLR
     if screen_id == "other_insurance":
         return s("other_insurance") == "unresolved"
     if screen_id == "reading":
-        # a bill is in, the engine has not emitted its facts yet
-        return i.bill_count > 0 and i.line_items == 0 and i.case_status in ("open", "in_progress")
+        # a bill is in, the engine has not finished reading it. The facts land ONE BY ONE while
+        # the case is in_progress: a partial list is never the facts (e2e round 3 — the
+        # confirmations screen appeared on the first stored charge, mid-read, and its answers
+        # were refused because verification had not started yet)
+        return i.bill_count > 0 and (
+            i.case_status == "in_progress" or (i.line_items == 0 and i.case_status == "open")
+        )
     if screen_id == "facts_only":
         return s("encounter_facts") == "unresolved" and "facts_only" not in i.acked
     if screen_id == "confirmations":

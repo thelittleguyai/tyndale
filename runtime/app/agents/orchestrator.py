@@ -250,6 +250,10 @@ async def _set_status(
                 # a real terminal ends the failure episode: the next failure gets fresh attempts
                 cf.recovery_attempts = 0
                 cf.recovery_retry_after = None
+            if status == "in_progress":
+                # the document read's claim time (R1): _stale_extraction measures a read's age
+                # against IT — updated_at is bumped by every intake answer written meanwhile
+                cf.audit_heartbeat_at = datetime.now(timezone.utc)
             if status == "audit_running":
                 # A fresh run: first heartbeat, and a clean slate for the healer — and no summary
                 # retry left owed by the previous run (this run writes its own).
@@ -1762,11 +1766,14 @@ EXTRACTION_WAIT_SECONDS = 90.0
 
 
 def _stale_extraction(cf: CaseFile) -> bool:
-    return (
-        cf.status == "in_progress"
-        and cf.updated_at is not None
-        and datetime.now(timezone.utc) - cf.updated_at > EXTRACTION_STALE_AFTER
-    )
+    """An in_progress read that has held the case for EXTRACTION_STALE_AFTER — it died (a read
+    takes about a minute). Measured from the claim (audit_heartbeat_at, stamped on the move into
+    in_progress), never updated_at: every intake answer bumps that while the read runs. A claim
+    with no stamp predates it and is treated as dead."""
+    if cf.status != "in_progress":
+        return False
+    claimed = getattr(cf, "audit_heartbeat_at", None)
+    return claimed is None or datetime.now(timezone.utc) - claimed > EXTRACTION_STALE_AFTER
 
 
 def _facts_projection(cf: CaseFile) -> ExtractResult:
@@ -1852,10 +1859,10 @@ async def extract_line_items(case_file_id: str, *, rerun: str | None = None) -> 
     if cf is None:
         raise ValueError(f"case_file {case_file_id} not found")
     if rerun is None:
-        if cf.line_items:
-            return _facts_projection(cf)
         if cf.status == "in_progress" and not _stale_extraction(cf):
-            return await _await_extraction(case_file_id)
+            return await _await_extraction(case_file_id)  # a live read owns the case
+        if cf.line_items and cf.status != "in_progress":
+            return _facts_projection(cf)
         if cf.status not in (*_EXTRACT_CLAIMABLE, "in_progress"):
             return _facts_projection(cf)  # an audit ran or is running — never re-read here
     elif rerun not in REOPEN_REASONS:
@@ -1865,6 +1872,10 @@ async def extract_line_items(case_file_id: str, *, rerun: str | None = None) -> 
         return _facts_projection(cf)
     prior_status, prior_reason = cf.status, cf.audit_incomplete_reason
     prior_facts = encounter_facts.registry(cf).facts if rerun else []
+    # a read that died mid-way left in_progress and a PARTIAL list: those are not the bill's
+    # facts, so this read starts from an empty list too (answers are keyed by fact_id, so any
+    # recorded against these charges re-attach when the same charges are read again)
+    fresh_start = bool(rerun) or prior_status == "in_progress"
 
     if use_real or rerun:
         # e2e 2026-09-23 B4: reading + classifying the documents is a MACHINE phase like the
@@ -1875,7 +1886,7 @@ async def extract_line_items(case_file_id: str, *, rerun: str | None = None) -> 
             case_file_id, "in_progress", expected_status=prior_status, reopen=rerun
         ):
             return await _await_extraction(case_file_id)
-    if rerun:
+    if fresh_start:
         # the re-read starts from an empty list (the translate tool appends); the prior facts
         # come back below, matched to the fresh read — or as they were, if the read fails
         await _write_line_items(case_file_id, [])

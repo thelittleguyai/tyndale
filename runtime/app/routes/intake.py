@@ -692,10 +692,11 @@ async def answer(
 def _kick_extraction(case: CaseFile, background: BackgroundTasks) -> None:
     """The engine reads the bill (Bill Detective, translate mode) while the user keeps going —
     once per case; the planner's `reading` screen polls /intake/state until the facts land."""
+    from app.agents.orchestrator import _stale_extraction, extract_line_items
+
     st = IntakeState(case)
-    if st.get("extraction_started_at"):
-        return
-    from app.agents.orchestrator import extract_line_items
+    if st.get("extraction_started_at") and not _stale_extraction(case):
+        return  # once per case — unless that read died (in_progress, silent for 10 min)
 
     st.set("extraction_started_at", datetime.now(timezone.utc).isoformat())
     background.add_task(extract_line_items, str(case.case_file_id))

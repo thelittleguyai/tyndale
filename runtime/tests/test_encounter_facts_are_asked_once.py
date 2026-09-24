@@ -455,3 +455,75 @@ async def test_the_repair_drops_the_appended_copies_and_restores_the_finished_au
         await s.run_sync(lambda sync: mod.repair(sync.connection()))
         await s.commit()
     assert [i["line_item_id"] for i in (await _case(morning)).line_items] == ["a", "b"]
+
+
+# ── mid-read (the dev e2e after R1: confirmations offered on the first stored charge) ────
+def test_the_planner_waits_for_the_whole_read_not_the_first_charge():
+    import dataclasses
+
+    from app.intake.planner import next_screen
+    from tests.test_intake_planner import DONE
+
+    mid_read = dataclasses.replace(DONE, line_items=1, confirmations_done=False, case_status="in_progress")
+    assert next_screen(mid_read) == "reading"  # a partial list is never the facts
+    read = dataclasses.replace(mid_read, case_status="encounter_verification_pending")
+    assert next_screen(read) in ("facts_only", "confirmations")
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_died_mid_way_is_read_again_from_empty(chat_first_on, real_translate):
+    import datetime as _dt
+
+    cfid = await _new_case(
+        intake_mode="chat_first", status="in_progress",
+        line_items=[{"line_item_id": "partial-0", "code": "99214", "plain_language_translation": "half a read"}],
+        audit_heartbeat_at=_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=30),
+    )
+    res = await orchestrator.extract_line_items(cfid)
+    assert real_translate["calls"] == 1
+    cf = await _case(cfid)
+    assert cf.status == "encounter_verification_pending"
+    assert [li["code"] for li in cf.line_items] == ["99214", "36415", "85025"]  # the bill, once
+    assert "partial-0" not in {li["line_item_id"] for li in cf.line_items}
+    assert len(res.line_items) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_live_read_is_waited_on_never_doubled(chat_first_on, real_translate, monkeypatch):
+    import datetime as _dt
+
+    monkeypatch.setattr(orchestrator, "EXTRACTION_WAIT_SECONDS", 0.2)
+    cfid = await _new_case(
+        intake_mode="chat_first", status="in_progress",
+        line_items=[{"line_item_id": "so-far-0", "code": "99214", "code_system": "CPT",
+                     "raw_description": "99214", "plain_language_translation": "first charge"}],
+        audit_heartbeat_at=_dt.datetime.now(_dt.timezone.utc),
+    )
+    await orchestrator.extract_line_items(cfid)
+    assert real_translate["calls"] == 0  # the live read owns it
+    cf = await _case(cfid)
+    assert cf.status == "in_progress" and len(cf.line_items) == 1
+
+
+def test_the_intake_re_kicks_only_a_read_that_died():
+    import datetime as _dt
+    from types import SimpleNamespace
+
+    from app.routes.intake import _kick_extraction
+
+    class _Tasks:
+        def __init__(self):
+            self.added = []
+
+        def add_task(self, fn, *a, **k):
+            self.added.append(a)
+
+    def case(beat_age_min: float | None, status: str = "in_progress"):
+        beat = None if beat_age_min is None else _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=beat_age_min)
+        return SimpleNamespace(case_file_id=uuid.uuid4(), status=status, audit_heartbeat_at=beat,
+                               intake_state={"extraction_started_at": "2026-09-24T00:00:00+00:00"})
+
+    live, dead = _Tasks(), _Tasks()
+    _kick_extraction(case(1), live)
+    _kick_extraction(case(30), dead)
+    assert live.added == [] and len(dead.added) == 1
