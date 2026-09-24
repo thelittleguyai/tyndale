@@ -17,6 +17,8 @@ Every signal is read from the seam that OWNS it — this module re-implements no
   Plan Library candidate ... services.plan_library.match (the CO-12C propose/confirm path)
   population ............... sources.regime_detection.detect_regime (via case.regime_detection)
   EOB completeness ......... sources.eob_completeness.summarize_eob_completeness
+  allowed amount ........... sources.extraction.eob_money_figures (the rung-2 anchor's own read)
+  network status ........... the EOB's in/out-of-network line, read at upload (extraction._network_status)
   attest ................... agents.attest.evaluate_attest_state (case.attest_status)
   encounter facts .......... agents.encounter_facts.registry — ONE card per unanswered fact_id
 
@@ -122,6 +124,12 @@ class PlannerInputs:
     provider: str | None = None
     date_of_service: datetime.date | None = None
     billed_total: float | None = None
+    # the cost-share basis (OOP method Part 1-A, Part 2 step 0): the payer's ALLOWED amount — only
+    # an EOB states it. Without one the audit's figure runs on the BILLED charge (anchor "billed").
+    allowed_amount_known: bool = False
+    # "in" | "out" when an EOB for this visit says so; None = no document says. The cost-share
+    # model is in-network arithmetic, so None means the audit ASSUMES in-network.
+    network_status: str | None = None
     patient_name: str | None = None
     account_first_name: str | None = None  # display only (the attest intro names both people)
     # plan rules
@@ -262,6 +270,25 @@ def gap_list(i: PlannerInputs) -> GapList:
     gaps.append(
         Gap("eob", "claim", _state(i.eob_count > 0, "eob" in sk), "document",
             limits="intake.limits.no_eob", screen="eob")
+    )
+    # The cost-share basis and the network (OOP method Part 1-A — the 2026-09-24 gap audit, doc 44:
+    # both were computed on or assumed without a line on the readiness screen). Neither is ever
+    # asked of the user: only the payer's statement knows them, so the EOB ask is where they come
+    # from and the readiness screen says what their absence limits.
+    has_claim = i.bill_count > 0 or i.eob_count > 0
+    gaps.append(
+        Gap("allowed_amount", "claim",
+            _state(i.allowed_amount_known, "eob" in sk, needed=has_claim),
+            "document" if i.allowed_amount_known else None,
+            limits="intake.limits.no_allowed_amount", screen="eob")
+    )
+    gaps.append(
+        # below the chase bar by construction: no prior spans it and the model has no
+        # out-of-network arithmetic — assumed in-network (tier 0–1), disclosed, never a screen
+        Gap("network_status", "claim",
+            _state(i.network_status in ("in", "out"), needed=has_claim),
+            "document" if i.network_status in ("in", "out") else None,
+            load_bearing=False, limits="intake.limits.network_assumed", screen="eob")
     )
     # "which insurer?" is NEVER asked when a document already named it (§A4-3). Skipping the
     # CARD does not skip this: "I don't have my card" → type the insurer (§B7). Only skipping

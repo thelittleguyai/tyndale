@@ -767,6 +767,22 @@ Anthem.
 | `intake.help.bcbs_lookup` | guide — the router's else branch (bcbs.com/member-services) | Not sure which Blue plan is yours? Go to bcbs.com/member-services. Look it up with the first 3 letters of your member ID, or your ZIP code. It shows your plan's own website. |
 | `intake.help.bcbs_lookup_prefix` | guide — the same, with the prefix the member typed; IN-APP ONLY, the emailed steps use the line above (DL-47) | Not sure which Blue plan is yours? Go to bcbs.com/member-services. Type {prefix}, the first 3 letters of your member ID. It shows your plan's own website. |
 
+### Readiness lines for the two gaps the planner audit added (item H) — PROPOSED, interim engineering seeds
+
+*`docs/build-kit/44_planner_gap_matrix.md` checked the planner against the OOP method's inputs.
+Two were computed on or assumed with nothing on the readiness screen, and both are now gaps:
+the **allowed amount** and **network status**. Only an EOB states either one. Without an allowed
+amount, the figure runs on the billed charge. Without a network line, the audit assumes
+in-network. Neither is ever asked; each gets a readiness label and a line saying what its
+absence limits.*
+
+| key | from | seed |
+|---|---|---|
+| `intake.readiness.item_allowed_amount` | eng | Your plan's price for each charge |
+| `intake.readiness.item_network_status` | eng | Whether your doctor is in your plan's network |
+| `intake.limits.no_allowed_amount` | eng — the rung-2 figure falls back to the billed charge | I don't have your plan's price for each charge. I used the billed price, so your real share may be lower. |
+| `intake.limits.network_assumed` | eng — the cost-share model is in-network arithmetic | No paper says if this doctor is in your plan's network. I assumed they are. If not, your share can change. |
+
 ## NOT drafted (needs Brock's facts or judgment, per the no-invention rule)
 - `{base_rate}` / `{base_rate_source}` — whether a citable base rate EXISTS is yours; the no-rate variant above is the honest default until one does.
 - **§10.5 crisis copy** — the routing conflict with DL-04 is a doctrine decision; no draft can resolve it.

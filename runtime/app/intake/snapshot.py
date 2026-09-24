@@ -21,11 +21,13 @@ from app.ingestion.bill_heuristics import detect_summary_bill
 from app.intake.planner import (
     BILL_TYPES,
     CARD_TYPES,
+    EOB_TYPES,
     SBC_TYPES,
     PlannerInputs,
     population_of,
 )
 from app.intake.payer_instructions import needs_blue_router
+from app.sources.extraction import eob_money_figures
 from app.intake.timeline import eob_rows, resolved_plan_year_start
 from app.sources.missing_data_priors import missing_cost_share_inputs
 from app.sources.plan_docs import merge_case_coverage, plan_sbc_state
@@ -128,6 +130,29 @@ def _bill_is_summary(case: CaseFile) -> bool:
     return True
 
 
+def _eob_docs(case: CaseFile) -> list[dict]:
+    return [d for d in (case.documents or []) if isinstance(d, dict) and d.get("document_type") in EOB_TYPES]
+
+
+def _allowed_amount_known(case: CaseFile) -> bool:
+    """An EOB on the case states the payer's ALLOWED amount — the same read the audit's rung-2
+    figure anchors on (orchestrator: "allowed" when an EOB states it, else the billed charge)."""
+    for d in _eob_docs(case):
+        text = d.get("ocr_text") or d.get("ocr_text_preview") or ""
+        if text and eob_money_figures(text).get("allowed_amount") is not None:
+            return True
+    return False
+
+
+def _network_status(case: CaseFile, rows: list[dict]) -> str | None:
+    """In or out of network, as THIS visit's EOB says (the rows dated on the visit, else every
+    row). Any "out" wins — the one that changes what is owed. None when no EOB says."""
+    dos = case.date_of_service.isoformat() if case.date_of_service else None
+    visit = [r for r in rows if dos and r.get("date") == dos] or rows
+    said = {r.get("network") for r in visit} & {"in", "out"}
+    return "out" if "out" in said else ("in" if said else None)
+
+
 def _user_provenance(cov: dict, key: str) -> dict:
     return (cov.get("user_input_provenance") or {}).get(key) or {}
 
@@ -183,6 +208,8 @@ async def gather_inputs(
         blue_plan_unplaced=needs_blue_router(effective.get("payer_name")) and "blue_plan" not in st.answers,
         provider=case.provider_name,
         date_of_service=case.date_of_service,
+        allowed_amount_known=_allowed_amount_known(case),
+        network_status=_network_status(case, rows),
         patient_name=case.patient_name,
         account_first_name=(first_name or "").strip() or None,
         sbc_on_file=sbc_present or any(t in SBC_TYPES for t in types),

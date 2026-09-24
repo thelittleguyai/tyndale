@@ -1542,6 +1542,14 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed. A2 (2026-09-23): the document's printed name, glossed on this screen -->
 [A] Your Explanation of Benefits (EOB)
 
+## intake.readiness.item_allowed_amount
+<!-- UNMAPPED — guided Phase 2 item H (planner gap audit vs the OOP method Part 1-A, doc 44); PROPOSED interim seed: engineering seed -->
+[A] Your plan's price for each charge
+
+## intake.readiness.item_network_status
+<!-- UNMAPPED — guided Phase 2 item H (planner gap audit vs the OOP method Part 1-A, doc 44); PROPOSED interim seed: engineering seed -->
+[A] Whether your doctor is in your plan's network
+
 ## intake.readiness.gloss_eob
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §A2 line -->
 [A] An EOB is the statement your insurer sends after a visit. It says "This is not a bill" on it.
@@ -1604,6 +1612,14 @@ Reused, NOT duplicated here: `upload_trust_microcopy` (§1.2), `dataquality_summ
 ## intake.limits.no_eob
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: seeded from the packet §B6 line -->
 [A] No EOB. I can't check your insurer's math.
+
+## intake.limits.no_allowed_amount
+<!-- UNMAPPED — guided Phase 2 item H (planner gap audit vs the OOP method Part 1-A, doc 44); PROPOSED interim seed: engineering seed (the audit's figure falls back to the billed charge — rung-2 anchor 'billed') -->
+[A] I don't have your plan's price for each charge. I used the billed price, so your real share may be lower.
+
+## intake.limits.network_assumed
+<!-- UNMAPPED — guided Phase 2 item H (planner gap audit vs the OOP method Part 1-A, doc 44); PROPOSED interim seed: engineering seed (the cost-share model is in-network arithmetic: no EOB line → assumed in-network) -->
+[A] No paper says if this doctor is in your plan's network. I assumed they are. If not, your share can change.
 
 ## intake.limits.no_payer
 <!-- UNMAPPED — guided intake (doc 40); PROPOSED interim seed: engineering seed -->
