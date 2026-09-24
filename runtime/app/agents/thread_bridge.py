@@ -365,8 +365,15 @@ async def refresh_verification_cards(
 
 
 async def refresh_on_read(session: AsyncSession, conv: Conversation) -> None:
-    """The projections a case thread re-derives on every read (status card, verification
-    cards). Never raises — a read must never fail on the projection."""
+    """The projections a case thread re-derives on every read. Never raises — a read must
+    never fail on the projection.
+
+    A FINISHED case's thread is reconciled in full (e2e round 3 R8): the bridge projects on
+    status transitions, so a case that finished before a projection existed never got it —
+    every case completed before a5db054 lacked its finding cards and game-plan link. Finished
+    threads are read on open, not polled, and every entry is marker-idempotent: the first read
+    draws what is missing, later reads write nothing. A live case keeps its per-transition
+    reconcile; a read refreshes only its verification cards (R1)."""
     await refresh_status_card(session, conv)
     if not enabled() or conv.case_id is None:
         return
@@ -374,11 +381,21 @@ async def refresh_on_read(session: AsyncSession, conv: Conversation) -> None:
         case = (
             await session.execute(select(CaseFile).where(CaseFile.case_file_id == conv.case_id))
         ).scalar_one_or_none()
-        if case is not None:
+        if case is None:
+            return
+        if case.status in _TERMINAL:
+            before = await _markers(session, conv.conversation_id)
+            await _reconcile(session, conv, case)
+            added = sorted((await _markers(session, conv.conversation_id)) - before)
+            if added:  # markers are entry ids (finding:<uuid>, moment:gameplan) — never content
+                log.info("thread_bridge.read_reprojected", case_file_id=str(case.case_file_id), added=added)
+        else:
             await refresh_verification_cards(session, conv, case)
-            await session.commit()
+        await session.commit()
+        await session.refresh(conv)  # an insert bumps its counters server-side; the read serves them
     except Exception:  # noqa: BLE001
-        log.warning("thread_bridge.verification_refresh_failed", exc_info=True)
+        await session.rollback()
+        log.warning("thread_bridge.read_reprojection_failed", exc_info=True)
 
 
 def _payer_of(case) -> str | None:
