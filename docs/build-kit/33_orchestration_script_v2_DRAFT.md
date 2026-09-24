@@ -521,7 +521,7 @@ coaching screen; `wrongdoc.*`, `attest.*`, `system_error*`, `cap_collision` are 
 | `intake.analysis.leave` | eng | This can take a few minutes. You can leave. I will keep working. |
 | `intake.unlock.headline` | your §7.1 `unlock.card`, minus the price clause | {gap} of this should not be yours to pay. Your plan to fix it is ready. |
 | `intake.unlock.proceed` | eng | See my plan |
-| `intake.unlock.free_beta` | prompt item 8 | Free while we're in beta. |
+| `intake.unlock.free_beta` | prompt item 8 — DECIDED as the interim line by decision 4 (2026-09-21); wording still PROPOSED. Its removal is tracked on GO_LIVE_CHECKLIST "Paywall goes live" | Free while we're in beta. |
 | `intake.unlock.blocked` | eng | This step is not open yet. |
 | `intake.example.gloss_sbc` | packet §A2 | It is called the Summary of Benefits and Coverage (SBC). Think of it as your plan's rulebook. |
 | `intake.example.gloss_msn` | packet §A2 | An MSN is the Medicare Summary Notice. Medicare mails it to show what it paid. |
@@ -598,6 +598,14 @@ one that fails is replaced by the fallback below and moves, whole, under the dis
 section lists every registry key those answers added, and what each one is: **yours**
 (authored, drift-checked against your doc) or **PROPOSED** (an interim engineering seed that
 waits for your sign-off, like every other section in this file).*
+
+*Two more of your decisions touch this file without adding keys:*
+
+- *Decision 4, the paywall: the unlock moment's beta line is `intake.unlock.free_beta` (in the
+  guided-intake table above), now the decided interim line. Its wording is still PROPOSED.*
+- *Decision 6, email forwarding dropped: there was nothing to strike. No forwarding key ever
+  reached the registry or this DRAFT, and `runtime/tests/test_no_email_forwarding.py` keeps it
+  that way (timeline seam, registry, app source).*
 
 ### "See an example" legends — BROCK-AUTHORED (decision 8, doc 41) — not proposed
 

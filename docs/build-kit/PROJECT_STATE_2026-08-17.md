@@ -1,5 +1,31 @@
 # Tyndale — Project State (2026-08-17)
 
+> **2026-09-24 — guided is the default front door** (Brock 2026-09-21, decision 1; guided
+> Phase 2 item A, `fc11b70`). The defaults in Settings, `variables.tf` and
+> `terraform.tfvars.example` are now:
+>
+> - `intake_mode_default = guided`
+> - `intake_mode_cohort_pct = 100`
+> - `guided_hidden_surfaces = ["freeform_chat_entry","quick_actions_grid"]`
+>
+> What that means for a guided user:
+>
+> - Every "Check a bill", the landing CTA and the resume card enter `/intake`.
+> - The freeform chat entry and the quick-actions grid are ABSENT.
+> - The "Chat with Tyndale" pill appears only past the unlock, and opens that case's chat.
+> - Cases, Settings, Record and post-unlock chat stay.
+>
+> Chat-first stays whole behind `intake_mode`: the admin per-user override routes a user there,
+> and so would a lower cohort percentage. Nothing was deleted. Dev moves to guided/100 on Phil's next `terraform apply`:
+> the live tfvars does not pin these values. §2's chat-first paragraph now describes the
+> secondary door. The rest of Phase 2 landed the same day:
+>
+> - the doc 41 example registry (legends live, images pending);
+> - "Where to find it" from the portal guide, with the BCBS router;
+> - the planner gap matrix (doc 44);
+> - retention doc 43;
+> - the A9 Phase 4 plan (doc 42).
+
 > **Scoreboard re-counted 2026-09-21** (deep review 2026-09-18, docs group): §1 is current as of `b1289b2`,
 > counted from the tree and — for the jobs row — read from the dev resource group the same day; §2 gains
 > the Human Review paragraph. The rest of the NARRATIVE still describes the 08-17 snapshot: five more
@@ -162,6 +188,8 @@ confirmed the first six, and this week added the rest:
 
 ON: foundry, real Claude, real OCR, real auth, chat-first audit, record view,
 audit-ready email, crisis classifier, all custom domains/certs.
+FRONT DOOR (defaults from 2026-09-24; they take effect on the next apply): guided intake for
+100% of users, chat-first behind `intake_mode`.
 OFF (deliberate): `use_real_presidio` (Phase-4 security cutover), `enable_nsa_checks`
 (awaits the 50-state seed gate), `enable_cpt_display` (AMA license), `enable_appeals_casemgmt`,
 `enable_nudge_emails` (cron scans and logs; sends dark until flipped), `enable_first_case_unlock`,
