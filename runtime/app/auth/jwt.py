@@ -31,6 +31,16 @@ class InvalidTokenError(Exception):
     """Raised when a token fails any validation check."""
 
 
+class ExpiredLinkError(InvalidTokenError):
+    """An AUTHENTIC magic link past its lifetime (every other check passed). The one failure
+    worth a friendly answer: the app offers to send a new link (doc 40 decision 7)."""
+
+
+# How long after expiry an authentic link can still be renewed (to its own address) — past
+# this, the user types their email again.
+MAGIC_LINK_RENEWABLE_FOR = timedelta(days=7)
+
+
 def _secret() -> str:
     settings = get_settings()
     if not settings.has_real_auth_secret():
@@ -135,6 +145,8 @@ def verify_magic_link_token(token: str) -> dict[str, Any]:
                 "verify_iss": True,
             },
         )
+    except jwt.ExpiredSignatureError as exc:
+        raise ExpiredLinkError(str(exc)) from exc
     except jwt.PyJWTError as exc:
         raise InvalidTokenError(str(exc)) from exc
     return {
@@ -143,3 +155,34 @@ def verify_magic_link_token(token: str) -> dict[str, Any]:
         "jti": payload["jti"],
         "exp": payload["exp"],
     }
+
+
+def renewable_magic_link_claims(token: str) -> dict[str, Any]:
+    """{email, return_url} of an AUTHENTIC magic link that has expired within
+    MAGIC_LINK_RENEWABLE_FOR — every check but expiry still applies (signature, audience,
+    issuer, required claims). Raises InvalidTokenError for anything else, including a link
+    that has not expired (it can simply be used)."""
+    try:
+        payload = jwt.decode(
+            token,
+            _secret(),
+            algorithms=[_ALGO],
+            audience=_AUD_MAGIC,
+            issuer=_ISSUER,
+            options={
+                "require": ["exp", "iat", "jti", "aud", "iss", "email"],
+                "verify_signature": True,
+                "verify_exp": False,
+                "verify_aud": True,
+                "verify_iss": True,
+            },
+        )
+    except jwt.PyJWTError as exc:
+        raise InvalidTokenError(str(exc)) from exc
+    expired_at = datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
+    now = _now()
+    if expired_at > now:
+        raise InvalidTokenError("not expired")
+    if now - expired_at > MAGIC_LINK_RENEWABLE_FOR:
+        raise InvalidTokenError("expired too long ago to renew")
+    return {"email": str(payload["email"]).strip().lower(), "return_url": payload.get("return_url")}

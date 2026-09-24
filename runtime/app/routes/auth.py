@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import urlencode, urljoin, urlsplit
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -28,6 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import CurrentUser, current_user
 from app.auth.google import GoogleOAuthError, handle_google_callback, initiate_google_oauth
 from app.auth.jwt import (
+    ExpiredLinkError,
+    renewable_magic_link_claims,
     InvalidTokenError,
     create_magic_link_token,
     create_session_token,
@@ -135,7 +138,7 @@ async def callback(
     await session.commit()
 
     token = create_session_token(str(user.user_id), user.jwt_version or 1)
-    redirect = RedirectResponse(url=settings.auth_success_redirect, status_code=302)
+    redirect = RedirectResponse(url=await _landing(session, user.user_id, None), status_code=302)
     _set_session_cookie(redirect, token)
     redirect.delete_cookie(_OAUTH_STATE_COOKIE, domain=settings.cookie_domain or None, path="/")
     return redirect
@@ -155,6 +158,45 @@ def _safe_return_path(value: object) -> str | None:
     if "\\" in value or any(ord(c) < 0x20 for c in value):
         return None
     return value
+
+
+def _app_url(path: str) -> str:
+    """A same-origin relative path, on the APP's origin (auth_success_redirect's). The verify
+    link is served by the API host (api.tyndaleapp.net on dev), so a bare "/intake" Location
+    would land on the API, not the app."""
+    base = urlsplit(get_settings().auth_success_redirect)
+    return urljoin(f"{base.scheme}://{base.netloc}", path)
+
+
+async def _landing(session: AsyncSession, user_id, return_url: object) -> str:
+    """Where a fresh sign-in lands. An explicit safe return path wins; else a guided case the
+    user left unfinished resumes on /intake at the planner's next screen (doc 40 decision 7:
+    the resume path — never the dashboard); else the default post-login page."""
+    safe = _safe_return_path(return_url)
+    if safe:
+        return _app_url(safe)
+    from app.db.models.case_files import CaseFile
+
+    resume = (
+        await session.execute(
+            select(CaseFile.case_file_id)
+            .where(CaseFile.user_id == user_id)
+            .where(CaseFile.intake_mode == "guided")
+            .where(CaseFile.intake_status == "in_progress")
+            .where(CaseFile.soft_deleted_at.is_(None))
+            .order_by(CaseFile.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if resume is not None:
+        return _app_url(f"/intake?case={resume}")
+    return get_settings().auth_success_redirect
+
+
+def _email_hint(email: str) -> str:
+    """"j•••@gmail.com" — enough to recognise the address, not to read it off a screen."""
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}•••@{domain}" if domain else "•••"
 
 
 class MagicLinkRequest(BaseModel):
@@ -201,9 +243,17 @@ async def magic_link_verify(
     token: str,
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:
-    settings = get_settings()
     try:
         claims = verify_magic_link_token(token)
+    except ExpiredLinkError:
+        # An AUTHENTIC link past its 15 minutes (doc 40 decision 7): the app's sign-in screen,
+        # which offers a new link in one tap — never a JSON 401 on the API host. The token goes
+        # back in the query (it came in one): /magic-link-reissue re-checks it and mails the new
+        # link to the address inside it, so nobody retypes it and the app never reads it.
+        return RedirectResponse(
+            url=_app_url("/sign-in") + "?" + urlencode({"link": "expired", "t": token}),
+            status_code=302,
+        )
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="invalid or expired link") from None
 
@@ -227,11 +277,49 @@ async def magic_link_verify(
 
     session_token = create_session_token(str(user.user_id), user.jwt_version or 1)
     # Enforced at CONSUME time too, not just at mint: already-issued tokens (and any
-    # future mint path) stay constrained to same-origin relative paths.
-    dest = _safe_return_path(claims.get("return_url")) or settings.auth_success_redirect
-    redirect = RedirectResponse(url=dest, status_code=302)
+    # future mint path) stay constrained to same-origin relative paths — resolved on the app.
+    redirect = RedirectResponse(url=await _landing(session, user.user_id, claims.get("return_url")), status_code=302)
     _set_session_cookie(redirect, session_token)
     return redirect
+
+
+class MagicLinkReissue(BaseModel):
+    token: str
+
+
+@router.post("/auth/magic-link-reissue")
+async def magic_link_reissue(body: MagicLinkReissue, request: Request) -> dict:
+    """An authentic link that EXPIRED (within MAGIC_LINK_RENEWABLE_FOR) → a fresh one to the
+    SAME address with the SAME destination (doc 40 decision 7: the resume path re-issues
+    cleanly). The address rides inside the signed token — the caller neither types nor sees
+    it; the answer names it only as a hint. Rate-limited exactly like a request."""
+    settings = get_settings()
+    try:
+        claims = renewable_magic_link_claims(body.token)
+    except InvalidTokenError:
+        raise HTTPException(status_code=400, detail="that link can't be renewed — enter your email") from None
+    email = claims["email"]
+    ip = request.client.host if request.client else "unknown"
+    try:
+        magic_link_limiter.check(
+            f"email:{email}", limit=settings.magic_link_rate_per_email_hour, window_seconds=3600
+        )
+        magic_link_limiter.check(
+            f"ip:{ip}", limit=settings.magic_link_rate_per_ip_hour, window_seconds=3600
+        )
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="too many requests",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
+    token, _jti = create_magic_link_token(email, _safe_return_path(claims.get("return_url")))
+    magic_link_url = f"{settings.magic_link_base_url}/v1/auth/magic-link-verify?token={token}"
+    try:
+        await send_magic_link_email(email, magic_link_url)
+    except Exception:  # noqa: BLE001 — never leak send failures to the caller
+        log.error("auth.magic_link.reissue_send_error", to_domain=email.split("@")[-1])
+    return {"ok": True, "email_hint": _email_hint(email)}
 
 
 # --- Session management ------------------------------------------------------

@@ -6,7 +6,7 @@
  */
 
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useGlobalSearchParams } from 'expo-router';
 
 import { useCurrentUser } from '../../lib/auth';
 import { themeColors, useThemeColors } from '../../theme/useThemeColors';
@@ -14,6 +14,7 @@ import { themeColors, useThemeColors } from '../../theme/useThemeColors';
 export default function IntakeLayout() {
   const tc = useThemeColors();
   const { user, loading } = useCurrentUser();
+  const { case: caseId, screen } = useGlobalSearchParams<{ case?: string; screen?: string }>();
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-page">
@@ -21,7 +22,14 @@ export default function IntakeLayout() {
       </View>
     );
   }
-  if (!user) return <Redirect href="/sign-in" />;
+  if (!user) {
+    // the resume path (doc 40 decision 7): sign in and come straight back to THIS intake
+    const q = new URLSearchParams();
+    if (caseId) q.set('case', String(caseId));
+    if (screen) q.set('screen', String(screen));
+    const back = `/intake${q.toString() ? `?${q.toString()}` : ''}`;
+    return <Redirect href={`/sign-in?return=${encodeURIComponent(back)}` as never} />;
+  }
   return (
     <Stack
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themeColors('dark').bg.page } }}

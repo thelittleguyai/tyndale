@@ -108,10 +108,16 @@ async def test_medium2_hostile_return_url_falls_back_to_default(client, real_aut
 async def test_medium2_relative_return_url_passes_through(client, real_auth):
     from app.auth.jwt import create_magic_link_token
 
+    from urllib.parse import urlsplit
+
+    from app.config import get_settings
+
     token, _ = create_magic_link_token("returner@example.com", "/case/123")
     r = await client.get(f"/v1/auth/magic-link-verify?token={token}", follow_redirects=False)
     assert r.status_code == 302
-    assert r.headers["location"] == "/case/123"
+    # the relative path, resolved on the APP's origin (the verify link is served by the API host)
+    app = urlsplit(get_settings().auth_success_redirect)
+    assert r.headers["location"] == f"{app.scheme}://{app.netloc}/case/123"
 
 
 # ── MEDIUM-6: verbose 500 bodies are an explicit opt-in, never in a public env ──────

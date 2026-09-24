@@ -28,8 +28,10 @@ import { SvgXml } from 'react-native-svg';
 
 import { logoSvg } from '@tyndale/shared';
 
+import { useLocalSearchParams } from 'expo-router';
+
 import { track } from '../../lib/analytics';
-import { getGoogleAuthUrl } from '../../lib/api-client';
+import { getGoogleAuthUrl, reissueMagicLink } from '../../lib/api-client';
 import { requestEmailMagicLink } from '../../lib/auth';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { ScreenView } from '../../components/ui/Screen';
@@ -56,8 +58,21 @@ async function fetchAuthUrlWithRetry(): Promise<string> {
   }
 }
 
+/** A same-origin relative path to come back to after signing in, or undefined (the server
+ *  re-checks it — this only keeps an obviously bad value out of the request). */
+function safeReturn(value: string | undefined): string | undefined {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return undefined;
+  return value;
+}
+
 export default function SignInScreen() {
   const c = useThemeColors();
+  // doc 40 decision 7: `?link=expired&t=…` arrives from an EXPIRED sign-in link (the server sends
+  // it here); `?return=/intake…` from a signed-out visit to a page that needs a session.
+  const params = useLocalSearchParams<{ link?: string; t?: string; return?: string }>();
+  const expiredToken = params.link === 'expired' && params.t ? params.t : null;
+  const returnUrl = safeReturn(params.return);
+  const [renewedTo, setRenewedTo] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +147,7 @@ export default function SignInScreen() {
     setBusy(true);
     setError(null);
     try {
-      await requestEmailMagicLink(email.trim());
+      await requestEmailMagicLink(email.trim(), returnUrl);
       setSent(true);
       setCooldown(60);
     } catch (e: any) {
@@ -144,6 +159,21 @@ export default function SignInScreen() {
 
   const canSend = !!email.trim() && !busy;
 
+  // One tap: the server renews the expired link to the address inside it — same destination.
+  const onRenew = async () => {
+    if (!expiredToken || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { email_hint } = await reissueMagicLink(expiredToken);
+      setRenewedTo(email_hint);
+    } catch {
+      setError("That link can't be renewed. Enter your email and I'll send a new one.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <View className="flex-1 items-center justify-center bg-page px-6 py-10">
       <ScreenView className="w-full max-w-sm items-center">
@@ -154,6 +184,36 @@ export default function SignInScreen() {
         <Text className="mt-2 text-center text-body leading-6 text-secondary">
           Your medical bill advocate. Check a bill, or pick up where you left off.
         </Text>
+
+        {/* An expired sign-in link (doc 40 decision 7): a new one in one tap, to the same address,
+            back to the same place — nobody retypes the email. */}
+        {expiredToken ? (
+          <View className="mt-8 w-full rounded-2xl border border-warning bg-warning-tint p-5" testID="link-expired">
+            {renewedTo ? (
+              <Text className="text-center text-body leading-6 text-primary" testID="link-renewed">
+                Check your email — we sent a new sign-in link to{' '}
+                <Text className="font-semibold">{renewedTo}</Text>.
+              </Text>
+            ) : (
+              <>
+                <Text className="text-center text-body leading-6 text-primary">
+                  That sign-in link has expired.
+                </Text>
+                <PressableScale
+                  onPress={() => void onRenew()}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  testID="renew-link"
+                  className="mt-3 min-h-[48px] items-center justify-center rounded-xl bg-accent px-5 py-3"
+                >
+                  <Text className="text-base font-bold text-on-accent">
+                    {busy ? 'Sending…' : 'Send me a new link'}
+                  </Text>
+                </PressableScale>
+              </>
+            )}
+          </View>
+        ) : null}
 
         {/* Card: the same surface / hairline / radius rhythm as settings + landing cards. */}
         <View className="mt-8 w-full rounded-2xl border border-hairline bg-surface p-5 shadow-card">

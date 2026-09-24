@@ -632,6 +632,20 @@ export async function getGoogleAuthUrl(): Promise<string> {
   return ((await res.json()) as { authorization_url: string }).authorization_url;
 }
 
+/** POST /v1/auth/magic-link-reissue — an EXPIRED sign-in link, renewed to the address inside it
+ *  (doc 40 decision 7: the resume path re-issues cleanly). The app never reads the address; the
+ *  answer names it only as a hint ("j•••@gmail.com"). 400 = the link can't be renewed. */
+export async function reissueMagicLink(token: string): Promise<{ email_hint: string }> {
+  const res = await cfetch(`${BASE_URL}/v1/auth/magic-link-reissue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw new Error(`reissue ${res.status}`);
+  return (await res.json()) as { email_hint: string };
+}
+
 /** POST /v1/auth/magic-link-request — always 200 (anti-enumeration); throws
  * on 429 so the UI can surface a rate-limit message. */
 export async function requestMagicLink(email: string, return_url?: string): Promise<void> {

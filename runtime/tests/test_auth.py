@@ -112,11 +112,22 @@ async def test_magic_link_verify_replay_returns_401(client: AsyncClient, real_au
 
 
 @pytest.mark.asyncio
-async def test_magic_link_expired_token_returns_401(client: AsyncClient, real_auth, monkeypatch) -> None:
+async def test_magic_link_expired_token_signs_nobody_in_and_offers_a_new_link(client: AsyncClient, real_auth, monkeypatch) -> None:
     # TTL in the past -> the freshly-minted token is already expired.
     monkeypatch.setattr(real_auth, "magic_link_ttl_minutes", -1)
     token, _ = create_magic_link_token("expired@example.com", None)
     r = await client.get(f"/v1/auth/magic-link-verify?token={token}", follow_redirects=False)
+    # doc 40 decision 7: the app's sign-in screen with a one-tap renewal — never a session
+    assert r.status_code == 302
+    assert "/sign-in?link=expired&t=" in r.headers["location"]
+    assert not any("tyndale_session=" in h for h in r.headers.get_list("set-cookie"))
+
+
+@pytest.mark.asyncio
+async def test_a_forged_link_is_still_refused_outright(client: AsyncClient, real_auth) -> None:
+    token, _ = create_magic_link_token("forged@example.com", None)
+    tampered = token[:-4] + ("AAAA" if not token.endswith("AAAA") else "BBBB")
+    r = await client.get(f"/v1/auth/magic-link-verify?token={tampered}", follow_redirects=False)
     assert r.status_code == 401
 
 
