@@ -207,6 +207,63 @@ def test_coverage_number_mapper_matrix():
     assert map_coverage_number("my deductible is $2,000", ["oop_max_amount"]) is None
 
 
+def test_the_phrasing_says_which_deductible_number_it_is():
+    """e2e round 3 R3: "my deductible is $X" / "deductible of $X" is the PLAN's number;
+    "paid toward / met / spent" is what has been paid toward it."""
+    from app.agents.verification_mapper import CoverageMapping, map_coverage_number
+
+    pending = ["deductible_amount", "deductible_met", "oop_max_amount", "oop_max_met"]
+    amount = ["my deductible is $2,000", "a deductible of $2,000", "deductible: 2000",
+              "it's a $2,000 deductible", "my out-of-pocket max is $8,000"]
+    met = ["I've paid $500 toward my deductible", "I met $500 of my deductible",
+           "I've spent $300 on my deductible", "it was $300 so far on my deductible"]
+    for u in amount:
+        r = map_coverage_number(u, pending)
+        assert isinstance(r, CoverageMapping) and r.field.endswith("_amount"), u
+    for u in met:
+        r = map_coverage_number(u, pending)
+        assert isinstance(r, CoverageMapping) and r.field == "deductible_met", u
+
+
+def test_words_that_fit_both_numbers_ask_instead_of_guessing():
+    from app.agents.verification_mapper import CoverageChoice, map_coverage_number
+
+    pending = ["deductible_amount", "deductible_met"]
+    for u in ("deductible $2,000", "I met my deductible of $2,000"):
+        r = map_coverage_number(u, pending)
+        assert isinstance(r, CoverageChoice), u
+        assert r.fields == ["deductible_amount", "deductible_met"] and r.value == 2000.0
+    # only one of the two is being asked → still no guess
+    assert map_coverage_number("deductible $2,000", ["deductible_met"]) is None
+
+
+@pytest.mark.asyncio
+async def test_the_which_did_you_mean_line_carries_its_choices(client: AsyncClient, chat_first_on):  # noqa: F811
+    """The line used to post as {text, tone} alone — nothing to tap (dev specimen 36736626)."""
+    case_id, conv_id = await _upload_new_case(client)
+    await _set_case(
+        case_id, status="audit_incomplete", audit_incomplete_reason="needs_documents",
+        line_items=[_li("99213")],
+    )
+    await thread_bridge.bridge_case_state(case_id)
+    r = await client.post(f"/v1/audit/{case_id}/coverage-text", json={"utterance": "deductible $2,000"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["mapped"] is False and body["value"] == 2000.0
+    assert [o["field"] for o in body["options"]] == ["deductible_amount", "deductible_met"]
+    assert all(o["label"] for o in body["options"])
+    line = [m for m in await _messages(conv_id) if (m.payload or {}).get("coverage_choice")]
+    assert len(line) == 1
+    assert line[0].payload["coverage_choice"] == {"value": 2000.0, "options": body["options"]}
+    assert line[0].payload["text"] == line[0].content  # the registry's own line, voiced
+    async with AsyncSessionLocal() as s:  # asking wrote nothing (D4b)
+        cf = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(case_id)))
+        ).scalar_one()
+        assert (cf.coverage or {}).get("deductible_amount") is None
+        assert (cf.coverage or {}).get("deductible_met") is None
+
+
 @pytest.mark.asyncio
 async def test_free_text_run_maps_confirms_and_acks(client: AsyncClient, chat_first_on):  # noqa: F811
     """The prompt's second harness run: enter deductible-met via FREE TEXT — the mapper

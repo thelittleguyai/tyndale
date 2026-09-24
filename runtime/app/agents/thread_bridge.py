@@ -1358,6 +1358,20 @@ async def post_verification_nudge(case_file_id: str, *, partial: bool) -> str | 
     )
 
 
+async def post_coverage_choice(case_file_id: str, options: list[dict], value: float) -> str | None:
+    """"Which of these did you mean?" — WITH the choices (e2e round 3 R3). The line used to go
+    out as {text, tone} alone: nothing to tap. Each option is {field, label}; the thread renders
+    them as reply chips and a pick pre-selects that checklist item with ``value`` — the
+    confirming tap still saves (D4b: free text never writes)."""
+    text = orchestration_step("verification_map_fallback")
+    return await _post(
+        case_file_id, role="system", kind="system_message",
+        payload={"text": text, "tone": "neutral",
+                 "coverage_choice": {"value": value, "options": options}},
+        content=text,
+    )
+
+
 async def post_checklist_ack(case_file_id: str, item_label: str, field: str) -> str | None:
     """One-line checklist acknowledgment (image-3 item 4): the conversation reflects
     checklist progress — one line, no fanfare. DEDUPED per (case, field) via the marker

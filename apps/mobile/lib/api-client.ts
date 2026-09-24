@@ -418,6 +418,9 @@ export interface CoverageTextResult {
   label?: string | null;
   result: string;
   conversation_id?: string | null;
+  /** e2e round 3 R3: the words fit two items — the server posted "Which of these did you
+   *  mean?" carrying these as chips; nothing else to send. */
+  options?: { field: string; label: string }[] | null;
 }
 export async function coverageText(
   caseFileId: string,

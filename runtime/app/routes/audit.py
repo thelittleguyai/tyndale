@@ -182,6 +182,10 @@ class CoverageTextResult(BaseModel):
     label: str | None = None
     result: str = "ok"  # ok | crisis | blocked
     conversation_id: str | None = None
+    # e2e round 3 R3 — the words fit two pending items ("deductible $2,000": the plan's amount,
+    # or what has been paid toward it). The thread line asking which carries these as chips; a
+    # pick pre-selects that item with ``value`` exactly as a mapping would.
+    options: list[dict] | None = None
 
 
 @router.post("/audit/{case_file_id}/coverage-text", response_model=CoverageTextResult)
@@ -195,7 +199,7 @@ async def coverage_text(
     the matching coverage item. Same screen order as verify-text: crisis first (DL-04),
     then injection, then the deterministic mapper over the case's PENDING fields only."""
     from app.agents import thread_bridge
-    from app.agents.verification_mapper import map_coverage_number
+    from app.agents.verification_mapper import CoverageChoice, map_coverage_number
     from app.hooks.contracts import CrisisClassifierInput, UserPromptSubmitInput
     from app.hooks.crisis_classifier import crisis_classifier_async
     from app.hooks.user_prompt_submit import user_prompt_submit_hook
@@ -230,6 +234,12 @@ async def coverage_text(
     if mapping is None:
         return CoverageTextResult(mapped=False)  # ordinary chat — the client sends it there
     cid = await thread_bridge.post_user_utterance(case_file_id, ups.scrubbed_message)
+    if isinstance(mapping, CoverageChoice):
+        options = [{"field": f, "label": label_for(f)} for f in mapping.fields]
+        await thread_bridge.post_coverage_choice(case_file_id, options, mapping.value)
+        return CoverageTextResult(
+            mapped=False, value=mapping.value, options=options, conversation_id=cid,
+        )
     return CoverageTextResult(
         mapped=True, field=mapping.field, value=mapping.value,
         label=label_for(mapping.field), conversation_id=cid,

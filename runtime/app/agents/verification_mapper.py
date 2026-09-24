@@ -316,8 +316,17 @@ def summarize_mappings(mappings: list[Mapping], cards: list[Card]) -> str:
 # degrades to None and the utterance flows to ordinary chat instead.
 
 _COVERAGE_AMOUNT_RE = re.compile(r"\$?\d[\d,]*(?:\.\d{1,2})?")
+# "what's been paid toward it": met / paid toward / spent / so far …
 _MET_CTX_RE = re.compile(
-    r"\b(?:met|already|so far|to date|ytd|year[- ]to[- ]date|before this|spent|paid|put)\b",
+    r"\b(?:met|already|so far|to date|ytd|year[- ]to[- ]date|before this|spent|paid|put|toward|towards)\b",
+    re.IGNORECASE,
+)
+# "what the plan's number IS": "my deductible is $2,000", "a deductible of $2,000",
+# "deductible: 2000", "a $2,000 deductible", "out-of-pocket max is 8000" (e2e round 3 R3 bias)
+_AMOUNT_CTX_RE = re.compile(
+    r"\b(?:is|of)\s*\$?\d"
+    r"|(?:deductible|out[- ]of[- ]pocket|\boop|\bmoop|max(?:imum)?|limit)\s*[:=]\s*\$?\d"
+    r"|\$?\d[\d,]*(?:\.\d{1,2})?\s+(?:a\s+year\s+)?(?:deductible|out[- ]of[- ]pocket|oop|moop)\b",
     re.IGNORECASE,
 )
 _DED_RE = re.compile(r"\bdeductible\b", re.IGNORECASE)
@@ -331,8 +340,21 @@ class CoverageMapping:
     confidence: float
 
 
-def map_coverage_number(utterance: str, pending_fields: list[str]) -> CoverageMapping | None:
-    """Map free text to ONE pending coverage-number field + amount, or None."""
+@dataclass
+class CoverageChoice:
+    """The phrasing fits two PENDING fields ("deductible $2,000": the plan's deductible, or
+    what's been paid toward it). Nothing is guessed: the user picks, and the pick pre-selects
+    the item exactly as a mapping would — the confirming tap still saves (e2e round 3 R3)."""
+
+    fields: list[str]
+    value: float
+
+
+def map_coverage_number(
+    utterance: str, pending_fields: list[str]
+) -> CoverageMapping | CoverageChoice | None:
+    """Map free text to ONE pending coverage-number field + amount; to a CoverageChoice when
+    the words fit the plan's amount AND the paid-so-far figure and both are pending; else None."""
     amounts = _COVERAGE_AMOUNT_RE.findall(utterance or "")
     if len(amounts) != 1:
         return None  # zero or several amounts -> ambiguous, never a half-right guess
@@ -345,12 +367,18 @@ def map_coverage_number(utterance: str, pending_fields: list[str]) -> CoverageMa
     has_ded, has_oop = bool(_DED_RE.search(utterance)), bool(_OOP_RE.search(utterance))
     if has_ded == has_oop:
         return None  # neither named, or both named -> ambiguous
-    met = bool(_MET_CTX_RE.search(utterance))
-    field = (
-        ("deductible_met" if met else "deductible_amount")
-        if has_ded
-        else ("oop_max_met" if met else "oop_max_amount")
+    amount_field, met_field = (
+        ("deductible_amount", "deductible_met") if has_ded else ("oop_max_amount", "oop_max_met")
     )
-    if field not in pending_fields:
-        return None  # that field isn't being asked for -> don't guess a sibling
-    return CoverageMapping(field=field, value=value, confidence=CONF_HIGH)
+    met = bool(_MET_CTX_RE.search(utterance))
+    amount = bool(_AMOUNT_CTX_RE.search(utterance))
+    if met != amount:
+        field = met_field if met else amount_field
+        if field not in pending_fields:
+            return None  # that field isn't being asked for -> don't guess a sibling
+        return CoverageMapping(field=field, value=value, confidence=CONF_HIGH)
+    # the words fit both ("deductible $2,000"; "I met my $2,000 deductible") — ask, don't guess
+    candidates = [f for f in (amount_field, met_field) if f in pending_fields]
+    if len(candidates) == 2:
+        return CoverageChoice(fields=candidates, value=value)
+    return None

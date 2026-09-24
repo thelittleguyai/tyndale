@@ -183,22 +183,23 @@ export default function CaseThreadScreen() {
     appliedSuggestion.current = null;
     setSending(true);
     try {
-      // Structured verification is pending → map the free text; a pending checklist maps
-      // coverage numbers (typed input takes precedence over chips — the mapping only
-      // PRE-SELECTS; the confirming tap saves); anything unmapped is ordinary chat.
-      if (pendingVerification) {
+      // A pending checklist maps coverage numbers first ("my deductible is $2,000" is never a
+      // charge — e2e round 3 R3): a mapping only PRE-SELECTS (the confirming tap saves), and
+      // words that fit two items come back as a "which did you mean" line with chips. Then
+      // structured verification maps what is left; anything else is ordinary chat.
+      const coverage = coveragePending ? await coverageText(case_file_id, text) : null;
+      if (coverage?.mapped && coverage.field && coverage.value != null) {
+        setCoverageSuggestion({ field: coverage.field, value: coverage.value });
+      } else if (coverage && (coverage.options?.length || coverage.result !== 'ok')) {
+        // the server posted the choice line (or intervened) — nothing more to send
+      } else if (pendingVerification) {
         await verifyText(case_file_id, text);
-      } else if (coveragePending) {
-        const r = await coverageText(case_file_id, text);
-        if (r.mapped && r.field && r.value != null) {
-          setCoverageSuggestion({ field: r.field, value: r.value });
-        } else if (r.result === 'ok' && !r.mapped) {
-          await new Promise<void>((resolve) =>
-            streamMessage(conversationId, text, (ev) => {
-              if (ev.event === 'done') resolve();
-            }),
-          );
-        }
+      } else if (coverage) {
+        await new Promise<void>((resolve) =>
+          streamMessage(conversationId, text, (ev) => {
+            if (ev.event === 'done') resolve();
+          }),
+        );
       }
       await refresh(conversationId);
     } catch {
@@ -277,6 +278,7 @@ export default function CaseThreadScreen() {
               activeSuggestionId={activeSuggestionId}
               onConfirmSuggestion={onConfirmSuggestion}
               coverageSuggestion={coverageSuggestion}
+              onCoverageChoice={(field, value) => setCoverageSuggestion({ field, value })}
               onCoverageSaved={() => {
                 setCoverageSuggestion(null);
                 if (conversationId) void refresh(conversationId);

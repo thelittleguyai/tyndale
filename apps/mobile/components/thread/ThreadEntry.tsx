@@ -29,6 +29,7 @@ import { ThreadNeedsDocuments } from './ThreadNeedsDocuments';
 import { ThreadSuggestion } from './ThreadSuggestion';
 import { ThreadVerification } from './ThreadVerification';
 import { BranchCard, branchKindOf } from './BranchCard';
+import { SuggestedReplies } from '../chat/SuggestedReplies';
 
 function SystemLine({ text, tone }: { text: string; tone?: 'neutral' | 'error' }) {
   return (
@@ -49,6 +50,7 @@ export function ThreadEntry({
   onConfirmSuggestion,
   coverageSuggestion,
   onCoverageSaved,
+  onCoverageChoice,
 }: {
   message: Message;
   caseFileId: string;
@@ -60,6 +62,8 @@ export function ThreadEntry({
   /** image-3 item 4: a mapped free-text value pre-selects its checklist item (tap confirms). */
   coverageSuggestion?: { field: string; value: number | string } | null;
   onCoverageSaved?: () => void;
+  /** e2e round 3 R3: a chip on "Which of these did you mean?" — pre-select that item. */
+  onCoverageChoice?: (field: string, value: number) => void;
   onConfirmSuggestion?: () => void;
 }) {
   const kind = message.kind ?? 'message';
@@ -135,6 +139,23 @@ export function ThreadEntry({
             />
           );
         }
+      }
+      if (p.coverage_choice?.options?.length) {
+        // e2e round 3 R3: "Which of these did you mean?" arrives WITH its choices
+        const choice = p.coverage_choice;
+        return (
+          <View className="w-full" testID="coverage-choice">
+            <SystemLine text={p.text ?? message.content ?? ''} tone={p.tone} />
+            <SuggestedReplies
+              replies={choice.options.map((o) => o.label)}
+              disabled={!onCoverageChoice}
+              onPick={(label) => {
+                const picked = choice.options.find((o) => o.label === label);
+                if (picked) onCoverageChoice?.(picked.field, choice.value);
+              }}
+            />
+          </View>
+        );
       }
       return <SystemLine text={p.text ?? message.content ?? ''} tone={p.tone} />;
     }

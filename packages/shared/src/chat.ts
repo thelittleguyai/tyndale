@@ -196,11 +196,19 @@ export interface UnlockMorePayload {
   coverage_items?: CoverageChecklistItem[];
 }
 /** payload for kind='system_message' — a plain rendered script line. */
+/** One choice on a "Which of these did you mean?" line (e2e round 3 R3). */
+export interface CoverageChoiceOption {
+  field: string;
+  label: string;
+}
 export interface SystemMessagePayload {
   text: string;
   tone?: 'neutral' | 'error';
   needs_documents?: NeedsDocumentsPayload; // present on the needs_documents ask
   unlock_more?: UnlockMorePayload; // present on the complete-with-missing-inputs unlock card
+  /** The typed words fit two checklist items: the chips name them; a pick pre-selects that
+   *  item with `value` (the confirming tap still saves). */
+  coverage_choice?: { value: number; options: CoverageChoiceOption[] };
 }
 
 export interface ChatCitation {
