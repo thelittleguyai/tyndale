@@ -6,6 +6,7 @@ export { Card } from './Card';
 export { MetricCard } from './MetricCard';
 export { StatusChip, type ChipTone } from './StatusChip';
 export { Button, type ButtonVariant } from './Button';
+export { TextLink } from './TextLink';
 export { MomentCard } from './MomentCard';
 export { SectionHeader } from './SectionHeader';
 export { ListRow } from './ListRow';

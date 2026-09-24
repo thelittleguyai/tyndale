@@ -11,7 +11,7 @@ import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 import type { IntakeScreen } from '@tyndale/shared';
 
 import { ChatMarkdown } from '../chat/Markdown';
-import { Button, Card } from '../ui';
+import { Button, Card, TextLink } from '../ui';
 import { PressableScale } from '../ui/PressableScale';
 import { useThemeColors } from '../../theme/useThemeColors';
 
@@ -388,8 +388,12 @@ function Readiness({ screen, busy, act, onEdit }: IntakeBodyProps) {
       <View className="mt-4 gap-3">
         {(data.lines ?? []).map((l) => (
           <Card key={l.key}>
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1">
+            {/* e2e round 3 R2: the label column takes the row and may shrink (min-w-0); "Change"
+                is a TextLink — its own width, never stretched (shrink-0). The tertiary Button is
+                full-width by default: beside a flex-1 column it squeezed every label to one
+                character per line. */}
+            <View className="flex-row items-start gap-3" testID={`intake-readiness-row-${l.key}`}>
+              <View className="min-w-0 flex-1" testID={`intake-readiness-label-${l.key}`}>
                 <Text className="text-body font-semibold text-primary">{l.label}</Text>
                 <Text className={`text-body ${l.resolved ? 'text-accent' : 'text-secondary'}`}>
                   {l.resolved ? c(screen, 'resolved') : l.state === 'skipped' ? c(screen, 'skipped') : c(screen, 'unresolved')}
@@ -398,7 +402,7 @@ function Readiness({ screen, busy, act, onEdit }: IntakeBodyProps) {
                 {l.limits ? <Text className="mt-1 text-body leading-6 text-secondary">{l.limits}</Text> : null}
               </View>
               {l.edit_screen ? (
-                <Button label={c(screen, 'edit') ?? ''} variant="tertiary" onPress={() => onEdit(l.edit_screen!)} disabled={busy} testID={`intake-edit-${l.key}`} />
+                <TextLink label={c(screen, 'edit') ?? ''} onPress={() => onEdit(l.edit_screen!)} disabled={busy} testID={`intake-edit-${l.key}`} />
               ) : null}
             </View>
           </Card>

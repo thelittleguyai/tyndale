@@ -183,6 +183,26 @@ describe('readiness (#17)', () => {
     fireEvent.press(getByTestId('intake-edit-eob'));
     expect(onEdit).toHaveBeenCalledWith('eob');
   });
+
+  it('keeps the label column wide beside "Change" (e2e round 3 R2: one letter per line)', () => {
+    // The Button defaults to full width; beside a flex-1 label column it took the whole row and
+    // squeezed every label to one character. jest renders without NativeWind (babel.config.js)
+    // and has no layout engine, so this pins the flex CONTRACT that decides the width — the
+    // rendered widths at 375 px and 1412 px are measured in the browser (the debrief records them).
+    const s = screen({
+      id: 'readiness', kind: 'readiness',
+      copy: { resolved: 'Have it', unresolved: 'Missing', skipped: 'Skipped', edit: 'Change', primary: 'Check my bill' },
+      data: { can_run: true, lines: [
+        { key: 'eob', label: "Your insurer's statement", resolved: false, state: 'skipped', limits: "No insurer statement. I can't check your insurer's math.", edit_screen: 'eob' },
+      ] },
+    });
+    const { getByTestId } = render(<IntakeBody {...props(s)} />);
+    const cls = (id: string) => String(getByTestId(id).props.className ?? '').split(/\s+/);
+    expect(cls('intake-readiness-row-eob')).toContain('flex-row');
+    expect(cls('intake-readiness-label-eob')).toEqual(expect.arrayContaining(['flex-1', 'min-w-0']));
+    expect(cls('intake-edit-eob')).toContain('shrink-0');
+    expect(cls('intake-edit-eob')).not.toContain('w-full');
+  });
 });
 
 describe('attest-and-proceed, hosted (§B13)', () => {
