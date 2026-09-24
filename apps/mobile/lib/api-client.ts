@@ -191,6 +191,28 @@ export interface AuditResult {
   summary_pending_notice?: string | null;
 }
 
+/** One file the server refused, in the order it was sent (e2e round 3 R5). `reason` is the
+ *  registry's own line, naming the file. */
+export interface UploadRejection {
+  index: number;
+  filename: string;
+  code: 'not_a_document' | 'too_large' | string;
+  reason: string;
+}
+
+/** A failed upload, already reduced to what a person should read: the server's `detail` (never
+ *  the status or the JSON envelope) and, when files were refused, which ones and why. */
+export class UploadError extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string | null,
+    readonly rejected: UploadRejection[],
+  ) {
+    super(detail ?? `upload ${status}`);
+    this.name = 'UploadError';
+  }
+}
+
 /**
  * POST /v1/upload — multipart upload of N files in one request (Phase 2L).
  * Accepts Blobs (web) or expo-document-picker shapes (native). Optionally
@@ -217,7 +239,17 @@ export async function uploadDocuments(
   if (expectedType) form.append('expected_type', expectedType);
   const res = await cfetch(`${BASE_URL}/v1/upload`, { method: 'POST', body: form });
   if (!res.ok) {
-    throw new Error(`upload failed: ${res.status} ${await res.text()}`);
+    let body: { detail?: unknown; rejected?: unknown } | null = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null; // not JSON (a proxy page, a dropped connection) — nothing to show but our own line
+    }
+    throw new UploadError(
+      res.status,
+      typeof body?.detail === 'string' ? body.detail : null,
+      Array.isArray(body?.rejected) ? (body.rejected as UploadRejection[]) : [],
+    );
   }
   return (await res.json()) as MultiUploadResponse;
 }

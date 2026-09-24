@@ -25,6 +25,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Camera as CameraIcon, FileText, Lock, Plus, X } from 'lucide-react-native';
 
 import {
+  UploadError,
   extractLineItems,
   getSurfaceCopy,
   handoffIntake,
@@ -67,6 +68,8 @@ export default function UploadScreen() {
   const [queue, setQueue] = useState<Queued[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // e2e round 3 R5: one line per file the server refused — those files left the queue
+  const [refused, setRefused] = useState<string[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const inputRef = useRef<any>(null);
@@ -150,8 +153,10 @@ export default function UploadScreen() {
   const submitAll = async () => {
     if (queue.length === 0 || uploading) return;
     setError(null);
+    setRefused([]);
     setUploading(true);
     setProgress(`Uploading ${queue.length} document${queue.length === 1 ? '' : 's'}…`);
+    const sent = queue.map((q) => q.id); // the server names refused files by their place in this list
     try {
       const res = await uploadDocuments(queue.map((q) => q.file), caseId, expect);
       if (caseId && returnTo?.startsWith('/intake')) {
@@ -183,8 +188,20 @@ export default function UploadScreen() {
       setProgress('Reading your documents…');
       await extractLineItems(res.case_file_id);
       router.push(`/audit/${res.case_file_id}/encounter`);
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
+    } catch (err: unknown) {
+      // Only what a person should read: the server's own line, never a status or a raw
+      // response. Refused files leave the queue with their reason; the rest stay, ready to send.
+      if (err instanceof UploadError && err.rejected.length) {
+        const drop = new Set(err.rejected.map((r) => sent[r.index]).filter(Boolean));
+        setQueue((q) => q.filter((x) => !drop.has(x.id)));
+        setRefused(err.rejected.map((r) => r.reason));
+      } else {
+        setError(
+          (err instanceof UploadError && err.detail) ||
+            copy.failed_generic ||
+            "That didn't upload. Your files are still here — try again.",
+        );
+      }
       setUploading(false);
       setProgress(null);
     }
@@ -364,7 +381,12 @@ export default function UploadScreen() {
       </View>
 
       {progress ? <Text className="mt-4 text-body text-accent">{progress}</Text> : null}
-      {error ? <Text className="mt-4 text-body text-danger">Upload failed: {error}</Text> : null}
+      {refused.map((line, i) => (
+        <Text key={`${i}-${line}`} className="mt-4 text-body text-danger" testID="upload-refused">
+          {line}
+        </Text>
+      ))}
+      {error ? <Text className="mt-4 text-body text-danger" testID="upload-error">{error}</Text> : null}
 
       <Text className="mt-12 text-center text-xs text-faint">
         Tyndale provides medical billing and coverage advocacy, not medical, legal, or financial

@@ -62,6 +62,18 @@ Additional variables his strings use, not in the §0 dictionary (flagged for him
 <!-- §1.3 (new key) -->
 [A] "Just have the bill? That works — I'll tell you what each extra document unlocks."
 
+## upload_rejected_not_document
+<!-- UNMAPPED — e2e round 3 R5; PROPOSED interim seed (engineering). One line per refused file on the upload screen; the rest stay queued. -->
+[A] "{filename}" isn't a PDF or image, so I left it out. Add a PDF, or a clear photo of the page.
+
+## upload_rejected_too_large
+<!-- UNMAPPED — e2e round 3 R5; PROPOSED interim seed (engineering). One line per refused file on the upload screen; the rest stay queued. -->
+[A] "{filename}" is too big for me to read, so I left it out. Add a smaller file, or a photo of each page.
+
+## upload_failed_generic
+<!-- UNMAPPED — e2e round 3 R5; PROPOSED interim seed (engineering). The upload screen's line when the send itself failed (no reason from the server) — never a status code or a raw response. -->
+[A] That didn't upload. Your files are still here — try again.
+
 ## acknowledgment
 <!-- §1.4 -->
 [A] "Got your documents — {doc_list} from {payer}. Reading them now…"

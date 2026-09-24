@@ -120,3 +120,46 @@ async def test_upload_to_existing_case_file_appends_documents(client: AsyncClien
     async with AsyncSessionLocal() as s:
         cf = (await s.execute(select(CaseFile).where(CaseFile.case_file_id == uuid.UUID(cfid)))).scalar_one()
     assert len(cf.documents) == 2  # appended, not replaced
+
+
+# ── e2e round 3 R5: a refused file is refused ALONE ─────────────────────────────────────
+CORRUPT = ("files", ("corrupt.pdf", b"\x00\x01 this is not a pdf at all", "application/pdf"))
+VALID = ("files", ("bill.pdf", b"%PDF-1.4 amount due", "application/pdf"))
+
+
+@pytest.mark.asyncio
+async def test_a_corrupt_file_beside_a_valid_one_is_named_and_nothing_is_stored(client: AsyncClient):
+    """The round-3 run: a corrupt PDF sank the valid file beside it, after the files ahead of it
+    were already persisted, and the app printed the raw envelope. Now every file is checked
+    before any is stored; the answer names each refused file by its place in the request, in
+    the registry's voice — the app drops exactly those and sends the rest again."""
+    first = await client.post("/v1/upload", files=[VALID])
+    cfid = first.json()["case_file_id"]
+    async with AsyncSessionLocal() as s:
+        before = len((await s.get(CaseFile, uuid.UUID(cfid))).documents)
+
+    r = await client.post("/v1/upload", files=[CORRUPT, VALID], data={"case_file_id": cfid})
+    assert r.status_code == 422, r.text
+    body = r.json()
+    (refused,) = body["rejected"]
+    assert refused["index"] == 0 and refused["filename"] == "corrupt.pdf" and refused["code"] == "not_a_document"
+    assert refused["reason"].startswith('"corrupt.pdf" isn\'t a PDF or image')
+    assert body["detail"] == refused["reason"]  # one line — the only thing the app shows
+    async with AsyncSessionLocal() as s:
+        assert len((await s.get(CaseFile, uuid.UUID(cfid))).documents) == before  # nothing stored
+
+    again = await client.post("/v1/upload", files=[VALID], data={"case_file_id": cfid})
+    assert again.status_code == 200, again.text  # the good file, sent on its own, lands
+
+
+@pytest.mark.asyncio
+async def test_each_refused_file_gets_its_own_reason(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(get_settings(), "max_upload_file_bytes", 32)  # CORRUPT fits; scan.pdf doesn't
+    big = ("files", ("scan.pdf", b"%PDF-1.4 " + b"x" * 64, "application/pdf"))
+    only_big = await client.post("/v1/upload", files=[big])
+    assert only_big.status_code == 413  # every refusal a size one → 413, as before
+    assert only_big.json()["rejected"][0]["code"] == "too_large"
+    both = await client.post("/v1/upload", files=[big, CORRUPT])
+    assert both.status_code == 422
+    assert [x["code"] for x in both.json()["rejected"]] == ["too_large", "not_a_document"]
+    assert both.json()["detail"].count("\n") == 1  # one line per refused file

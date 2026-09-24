@@ -23,6 +23,7 @@ _SURFACES: dict[str, dict[str, str]] = {
         "record_frame": "record_first_upload_frame",  # §1.1
         "trust_microcopy": "upload_trust_microcopy",  # §1.2  (C4)
         "just_the_bill": "upload_just_the_bill",  # §1.3  (C3)
+        "failed_generic": "upload_failed_generic",  # e2e round 3 R5
         # Camera capture (N1 · C1/C5). Unauthored today — see _is_renderable: a placeholder is
         # withheld like a missing key, so the client shows its own label instead of shipping
         # "[PLACEHOLDER-eng] Retake" to a user.

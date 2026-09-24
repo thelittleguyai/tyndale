@@ -27,10 +27,12 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.attest import evaluate_attest_state
+from app.agents.context_loader import orchestration_step
 from app.agents.orchestrator import documents_all_satisfied, finalize_audit, reread_for_new_document
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
@@ -259,6 +261,18 @@ _EXPECTED_FAMILIES: dict[str, set[str]] = {
 }
 
 
+def _rejection(index: int, filename: str, content: bytes) -> dict[str, Any] | None:
+    """Why one file cannot be taken — in the registry's voice, naming the file — or None."""
+    if len(content) > get_settings().max_upload_file_bytes:
+        code, key = "too_large", "upload_rejected_too_large"
+    elif _sniff_upload_type(content) is None:
+        code, key = "not_a_document", "upload_rejected_not_document"
+    else:
+        return None
+    return {"index": index, "filename": filename, "code": code,
+            "reason": orchestration_step(key, filename=filename)}
+
+
 async def _process_one(content: bytes, filename: str) -> tuple[dict[str, Any], UploadedDoc]:
     """Persist + classify one file. Returns (case-file document entry, API doc)."""
     settings = get_settings()
@@ -380,11 +394,25 @@ async def upload(
         if case is None or case.user_id != user.user_id:
             raise HTTPException(status_code=404, detail="case_file not found")
 
+    # Every file is checked BEFORE any is stored (e2e round 3 R5): one bad file used to fail the
+    # request midway — after the files ahead of it were already persisted — and the app printed
+    # the raw envelope. Now the answer names each refused file, in the registry's voice, nothing
+    # is stored, and the app drops exactly those and keeps the good ones queued to send again.
+    contents = [(f.filename or "upload", await f.read()) for f in incoming]
+    rejected = [r for i, (name, body) in enumerate(contents) if (r := _rejection(i, name, body))]
+    if rejected:
+        status = 413 if all(r["code"] == "too_large" for r in rejected) else 422
+        log.info("upload.rejected", count=len(rejected), of=len(contents),
+                 codes=sorted({r["code"] for r in rejected}))
+        return JSONResponse(
+            status_code=status,
+            content={"detail": "\n".join(r["reason"] for r in rejected), "rejected": rejected},
+        )
+
     documents: list[dict[str, Any]] = list(case.documents) if case else []
     uploaded: list[UploadedDoc] = []
-    for f in incoming:
-        content = await f.read()
-        entry, api_doc = await _process_one(content, f.filename or "upload")
+    for filename, content in contents:
+        entry, api_doc = await _process_one(content, filename)
         if expected_type in _EXPECTED_FAMILIES:
             entry["expected_type"] = expected_type
         documents.append(entry)
