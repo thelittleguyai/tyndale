@@ -31,12 +31,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.attest import evaluate_attest_state
-from app.agents.orchestrator import documents_all_satisfied, finalize_audit
+from app.agents.orchestrator import documents_all_satisfied, finalize_audit, reread_for_new_document
 from app.auth import CurrentUser, current_user
 from app.config import get_settings
 from app.db.models.case_files import CaseFile
 from app.db.models.users import User
 from app.db.session import get_session
+from app.intake.planner import BILL_TYPES
 from app.schemas.api_contract import MultiUploadResponse, UploadedDoc, UploadResponse
 from app.sources.call_identifiers import derive_call_identifiers
 from app.sources.document_classifier import classify_document
@@ -398,6 +399,16 @@ async def upload(
         and case.status == "audit_incomplete"
         and case.audit_incomplete_reason == "needs_documents"
     )
+    # R1 (e2e round 3): a NEW bill on a case whose encounter facts were already read is the
+    # explicit trigger for re-reading them — recorded answers carry over by fact_id and only a
+    # new or changed charge is asked. (The thread screen's /extract on mount used to be the
+    # accidental trigger, and it re-asked everything.)
+    reread = (
+        case is not None
+        and case_file_id is not None
+        and bool(case.line_items)
+        and any(d.document_type in BILL_TYPES for d in uploaded)
+    )
     if case is None:
         # An upload that opens a case IS the chat-first front door (doc 40 §D) — the guided
         # route creates its case in routes/intake.py and uploads into it by id.
@@ -508,7 +519,12 @@ async def upload(
         await emit_idempotent("document_request_satisfied",
                               dedupe_key=f"document_request_satisfied:{cfid}",
                               user_id=user.user_id, case_file_id=cf_uuid)
-        background.add_task(finalize_audit, cfid)
+        if not reread:
+            background.add_task(finalize_audit, cfid)
+    if reread:
+        # the re-read decides: new facts → the user confirms them (the tap runs the audit);
+        # nothing new → a needs_documents audit whose paper is now all in re-runs
+        background.add_task(reread_for_new_document, cfid, then_audit=reaudit)
 
     log.info(
         "upload.processed",

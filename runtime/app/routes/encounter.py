@@ -20,6 +20,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import (
+    NotAwaitingConfirmations,
     extract_line_items,
     finalize_audit,
     submit_confirmations,
@@ -59,25 +60,11 @@ async def get_line_items(
 ) -> ExtractResult:
     """Idempotent fetch — re-projects whatever line items are persisted without
     re-running the translate pass."""
-    cf = await require_case_owner(case_file_id, user, session)
-    if not cf.line_items:
-        # Not extracted yet (or a prior extraction degraded) — run extraction now. It is
-        # idempotent and, in real mode, returns the honest extraction_failed result rather
-        # than fabricating fixture line items.
-        return await extract_line_items(case_file_id)
-    from app.agents.example_scenarios import backfill_scenarios
-    from app.agents.orchestrator import _documents_projection
-    from app.schemas.encounter import DEFAULT_INTRO_MESSAGE, LineItem
-
-    # Phase 2L: backfill example scenarios for rows persisted before 2L.
-    items = backfill_scenarios([dict(it) for it in cf.line_items])
-    return ExtractResult(
-        case_file_id=case_file_id,
-        status="encounter_verification_pending",
-        line_items=[LineItem(**it) for it in items],
-        intro_message=DEFAULT_INTRO_MESSAGE,
-        documents=_documents_projection(cf),
-    )
+    await require_case_owner(case_file_id, user, session)
+    # Not extracted yet (or a prior extraction degraded) → extraction runs now; facts already
+    # there → the same facts, never a second read (R1). Real mode returns the honest
+    # extraction_failed result rather than fabricating fixture line items.
+    return await extract_line_items(case_file_id)
 
 
 @router.post("/audit/{case_file_id}/confirmations", response_model=ConfirmationsAccepted)
@@ -100,7 +87,13 @@ async def post_confirmations(
         raise HTTPException(status_code=409, detail="case was closed by an authorization decline")
     if not body.confirmations:
         raise HTTPException(status_code=400, detail="confirmations must be non-empty")
-    accepted = await submit_confirmations(case_file_id, body.confirmations)
+    try:
+        accepted = await submit_confirmations(case_file_id, body.confirmations)
+    except NotAwaitingConfirmations:
+        # R1: a finished (or running) audit is never restarted by a tap on a stale card
+        raise HTTPException(status_code=409, detail="no pending verification for this case") from None
+    if not accepted.audit_started:
+        return accepted  # the same answers, re-sent — already on file; nothing starts twice
     # D8 / §4.4: a "not sure" answer is honest, never penalised — say so in the thread so the
     # user can see the audit is proceeding around it rather than blocked on it. Lazy import,
     # like every other bridge call site (the bridge is hooked FROM the orchestrator).
@@ -188,8 +181,12 @@ async def verify_text(
         return VerifyTextResult(result="blocked", conversation_id=cid)
     utterance = ups.scrubbed_message
 
-    # 3. Only maps when verification is pending.
-    if cf.status != "encounter_verification_pending" or not cf.line_items:
+    # 3. Only maps while verification is pending — and only onto facts still unanswered (R1:
+    # the card list comes from the one fact registry; an answered fact is never offered again).
+    from app.agents import encounter_facts
+
+    pending = encounter_facts.registry(cf).pending
+    if cf.status != "encounter_verification_pending" or not pending:
         raise HTTPException(status_code=409, detail="no pending verification for this case")
 
     cid = await thread_bridge.post_user_utterance(case_file_id, utterance)
@@ -202,7 +199,7 @@ async def verify_text(
             description=li.get("plain_language_translation") or li.get("raw_description"),
             amount=li.get("billed_amount"),
         )
-        for i, li in enumerate(cf.line_items)
+        for i, li in enumerate(pending)
     ]
     result = await map_verification(utterance, cards)
     if result.mappable and result.mappings:

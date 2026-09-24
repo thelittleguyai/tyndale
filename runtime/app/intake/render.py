@@ -203,12 +203,16 @@ def _data_for(screen: Screen, case: CaseFile, i: PlannerInputs, g: GapList, prop
             "edge_prompts": [t for s in attest_edge_signals(case) if (t := step(f"attest.edge_{s}", **v))],
         }
     if sid == "confirmations":
-        # ONE card per fact the engine emitted — never capped, never padded (§A4-5).
+        # ONE card per fact the engine emitted and nobody has answered yet — never capped, never
+        # padded (§A4-5), never a fact asked twice (R1: the registry every surface reads).
+        from app.agents.encounter_facts import registry
+
         return {"line_items": [
             {"line_item_id": li.get("line_item_id"),
+             "fact_id": li["fact_id"],
              "text": li.get("plain_language_translation") or li.get("raw_description"),
              "context": li.get("plain_language_context") or None}
-            for li in (case.line_items or []) if isinstance(li, dict) and li.get("line_item_id")
+            for li in registry(case).pending if li.get("line_item_id")
         ]}
     if sid == "readiness":
         r = readiness(i, g)

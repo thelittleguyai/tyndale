@@ -166,9 +166,10 @@ async def get_conversation(
     # A case thread's status card is re-projected from the case's current state on read
     # (e2e re-test 2026-09-23 item 2) — a card written before a projection fix must not keep
     # telling a system_error user "Audit ready".
-    from app.agents.thread_bridge import refresh_status_card
+    # R1: and its verification cards say which facts are answered and which are still owed.
+    from app.agents.thread_bridge import refresh_on_read
 
-    await refresh_status_card(session, conv)
+    await refresh_on_read(session, conv)
     msgs = (
         (
             await session.execute(

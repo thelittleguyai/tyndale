@@ -251,12 +251,15 @@ export function LineItemCard({
   onRespond,
   onNote,
   suggested,
+  locked,
 }: {
   item: LineItem;
   draft: Draft;
   onRespond: (r: LineItemResponse) => void;
   onNote: (n: string) => void;
   suggested?: boolean;
+  /** The answer is already on file (e2e round 3 R1) — shown, never re-asked. */
+  locked?: boolean;
 }) {
   const tc = useThemeColors();
   const answered = draft.response !== null;
@@ -314,12 +317,12 @@ export function LineItemCard({
       {/* Primary / secondary / tertiary — visual hierarchy, not three equal grays. The chosen
           answer keeps a check + full opacity; the others dim so the pick reads at a glance. */}
       <View className="mt-3 flex-row items-center gap-2">
-        <OptionButton label="Yes, that's right" variant="primary" selected={draft.response === 'yes'} answered={answered} onPress={() => onRespond('yes')} />
-        <OptionButton label="That didn't happen" variant="secondary" selected={draft.response === 'no'} answered={answered} onPress={() => onRespond('no')} />
-        <OptionButton label="Not sure" variant="tertiary" selected={draft.response === 'not_sure'} answered={answered} onPress={() => onRespond('not_sure')} />
+        <OptionButton label="Yes, that's right" variant="primary" selected={draft.response === 'yes'} answered={answered} disabled={locked} onPress={() => onRespond('yes')} />
+        <OptionButton label="That didn't happen" variant="secondary" selected={draft.response === 'no'} answered={answered} disabled={locked} onPress={() => onRespond('no')} />
+        <OptionButton label="Not sure" variant="tertiary" selected={draft.response === 'not_sure'} answered={answered} disabled={locked} onPress={() => onRespond('not_sure')} />
       </View>
 
-      {draft.response === 'no' ? (
+      {draft.response === 'no' && !locked ? (
         <View className="mt-3">
           <Text className="mb-1 text-caption text-secondary">What actually happened?</Text>
           <TextInput
@@ -340,12 +343,14 @@ function OptionButton({
   variant,
   selected,
   answered,
+  disabled,
   onPress,
 }: {
   label: string;
   variant: 'primary' | 'secondary' | 'tertiary';
   selected: boolean;
   answered: boolean;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const tc = useThemeColors();
@@ -365,8 +370,9 @@ function OptionButton({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled: Boolean(disabled) }}
       className={`min-h-[44px] ${grow} flex-row items-center justify-center gap-1 rounded-control px-3 py-2 ${base} ${
         answered && !selected ? 'opacity-45' : ''
       }`}

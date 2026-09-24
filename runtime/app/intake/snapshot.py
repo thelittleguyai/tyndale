@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents import encounter_facts
 from app.agents.wrongdoc import AUDITABLE_TYPES, classify_wrong_document
 from app.db.models.case_files import CaseFile
 from app.db.models.users import User
@@ -168,7 +169,7 @@ async def gather_inputs(
         p = _user_provenance(case_cov, key)
         return effective.get(key) is not None or bool(p.get("not_sure"))
 
-    line_items = [li for li in (case.line_items or []) if isinstance(li, dict)]
+    facts = encounter_facts.registry(case)  # R1: the one fact registry, keyed by fact_id
     first_name = (
         await session.execute(select(User.first_name).where(User.user_id == case.user_id))
     ).scalar_one_or_none()
@@ -199,8 +200,9 @@ async def gather_inputs(
         oop_met_known=_known("oop_max_met"),
         attest_status=case.attest_status or "not_required",
         secondary_answered=case_cov.get("has_secondary_coverage") is not None,
-        line_items=len(line_items),
-        confirmations_done=bool(case.encounter_confirmations),
+        line_items=len(facts.facts),
+        # done = every fact the engine emitted has an answer on file, wherever it was given
+        confirmations_done=bool(facts.facts) and not facts.pending,
         case_status=case.status,
         skipped=st.skipped,
         acked=st.acked,

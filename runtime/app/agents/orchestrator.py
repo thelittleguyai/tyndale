@@ -24,7 +24,7 @@ import structlog
 from sqlalchemy import bindparam, cast, func, literal, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.agents import bill_detective, lead_planner, math_person
+from app.agents import bill_detective, encounter_facts, lead_planner, math_person
 from app.agents.audit_budget import AuditBudget, reset_audit_budget, set_audit_budget
 from app.agents.context_loader import orchestration_step
 from app.agents.llm_health import (
@@ -153,6 +153,17 @@ def tripwire_entries(case) -> list[dict]:
     ]
 
 
+# R1 (e2e round 3): once the user's facts are in and the audit has started, the case never goes
+# back to reading / verification on its own. The morning specimen went audit_complete →
+# encounter_verification_pending when the thread screen re-posted /extract; the guided one had
+# audit_running overwritten the same way while its audit ran.
+_POST_VERIFICATION = frozenset({"encounter_verified", "audit_running", "audit_complete", "audit_incomplete"})
+_AUDIT_IN_FLIGHT = frozenset({"encounter_verified", "audit_running"})
+_PRE_AUDIT = frozenset({"open", "in_progress", "encounter_verification_pending"})
+# The only things that may re-open a FINISHED audit's facts: a new document, or the user asking.
+REOPEN_REASONS = frozenset({"new_document", "user_action"})
+
+
 async def _set_status(
     case_file_id: str,
     status: str,
@@ -161,6 +172,7 @@ async def _set_status(
     expected_status: str | None = None,
     expected_incomplete_reason: str | None = None,
     expected_reconcile_token: UUID | None = None,
+    reopen: str | None = None,
 ) -> bool:
     """Set the case status and, atomically, its audit_incomplete_reason. The reason is always
     written (default None), so any non-incomplete transition (audit_running, audit_complete, a
@@ -171,7 +183,12 @@ async def _set_status(
     stranded-audit healer, ``expected_reconcile_token`` — turn the write into a compare-and-swap
     under a row lock: if the case has moved on (a live replica finished the audit between the
     healer's claim and this follow-up), NOTHING is written, no side effect fires, and the caller
-    gets False (deep review C2 — the healer used to stomp audit_complete back to system_error)."""
+    gets False (deep review C2 — the healer used to stomp audit_complete back to system_error).
+
+    The re-verification guard (R1): a write that would take a case whose audit has started or
+    finished back to open / in_progress / encounter_verification_pending is refused unless it
+    names a ``reopen`` reason (REOPEN_REASONS) — and refused outright while an audit is in
+    flight. Chat, the mapper and a re-mounted screen never carry one."""
     user_id = None
     was_system_error = False
     async with AsyncSessionLocal() as s:
@@ -206,6 +223,15 @@ async def _set_status(
                 log.warning(
                     "orchestrator.set_status.refused",
                     case_file_id=case_file_id, wanted=status, reason="reconcile_token_mismatch",
+                )
+                return False
+            if status in _PRE_AUDIT and cf.status in _POST_VERIFICATION and (
+                cf.status in _AUDIT_IN_FLIGHT or reopen not in REOPEN_REASONS
+            ):
+                log.warning(
+                    "orchestrator.set_status.refused",
+                    case_file_id=case_file_id, wanted=status, actual_status=cf.status,
+                    reason="reverification_guard",
                 )
                 return False
             # §10.4's promise trigger: remember whether this case was sitting in the
@@ -1711,34 +1737,151 @@ async def _documents_needed_with_plan(case_file_id: str) -> list[DocumentNeed]:
     return _documents_needed(case, plan_sbc=plan_sbc)
 
 
-async def extract_line_items(case_file_id: str) -> ExtractResult:
-    """Phase 1 of the audit — Bill Detective translates each line item to plain
-    language. Persists them to case_files.line_items; sets status
-    encounter_verification_pending."""
+# The statuses a FIRST read of the documents may claim (the case has no facts yet). A live
+# `in_progress` belongs to the read already running — only a stale one is re-claimed.
+_EXTRACT_CLAIMABLE = ("open", "extraction_failed", "not_a_bill", "encounter_verification_pending")
+# A re-run (a new document, or the user asking) may also re-open a finished audit's facts.
+_RERUN_CLAIMABLE = (*_EXTRACT_CLAIMABLE, "audit_complete", "audit_incomplete")
+EXTRACTION_STALE_AFTER = timedelta(minutes=10)
+EXTRACTION_WAIT_SECONDS = 90.0
+
+
+def _stale_extraction(cf: CaseFile) -> bool:
+    return (
+        cf.status == "in_progress"
+        and cf.updated_at is not None
+        and datetime.now(timezone.utc) - cf.updated_at > EXTRACTION_STALE_AFTER
+    )
+
+
+def _facts_projection(cf: CaseFile) -> ExtractResult:
+    """The facts the case already holds, as an ExtractResult — no read, no status write."""
+    facts = backfill_scenarios(encounter_facts.registry(cf).facts)
+    status, message = "encounter_verification_pending", None
+    if not facts:
+        if cf.status == "audit_incomplete" and cf.audit_incomplete_reason == "needs_documents":
+            status, message = "needs_documents", NEEDS_DOCUMENTS_EXTRACT_MESSAGE
+        elif cf.status == "extraction_failed":
+            status, message = "extraction_failed", EXTRACTION_FAILED_MESSAGE
+        elif cf.status == "not_a_bill":
+            docs = _documents_projection(cf)
+            status, message = "not_a_bill", not_a_bill_message([d.filename for d in docs], docs)
+    return ExtractResult(
+        case_file_id=str(cf.case_file_id),
+        status=status,
+        line_items=[LineItem(**f) for f in facts],
+        intro_message=DEFAULT_INTRO_MESSAGE,
+        extraction_message=message,
+        documents=_documents_projection(cf),
+    )
+
+
+async def _await_extraction(case_file_id: str) -> ExtractResult:
+    """A caller that lost the claim to a live read waits for that read and answers with its
+    result (the classic encounter screen holds GET /line-items open for the whole translate)."""
+    deadline = time.monotonic() + EXTRACTION_WAIT_SECONDS
+    while True:
+        cf = await _load_case(case_file_id)
+        if cf is None:
+            raise ValueError(f"case_file {case_file_id} not found")
+        if cf.status != "in_progress" or time.monotonic() >= deadline:
+            return _facts_projection(cf)
+        await asyncio.sleep(1.0)
+
+
+async def _write_line_items(case_file_id: str, items: list[dict]) -> None:
+    async with AsyncSessionLocal() as s:
+        row = (
+            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
+        ).scalar_one_or_none()
+        if row is not None:
+            row.line_items = items
+            await s.commit()
+
+
+async def _restore_status(case_file_id: str, status: str, reason: str | None) -> None:
+    """Put a re-read case back where it was. Nothing the user sees changed, so no side effect
+    fires — no email, no review offer, no lifecycle event; the thread re-projects its card."""
+    async with AsyncSessionLocal() as s:
+        await s.execute(
+            update(CaseFile)
+            .where(CaseFile.case_file_id == UUID(case_file_id), CaseFile.status == "in_progress")
+            .values(status=status, audit_incomplete_reason=reason)
+        )
+        await s.commit()
+    from app.agents import thread_bridge
+
+    await thread_bridge.bridge_case_state(case_file_id)
+
+
+async def extract_line_items(case_file_id: str, *, rerun: str | None = None) -> ExtractResult:
+    """Phase 1 of the audit — Bill Detective translates each charged line into plain language
+    and the case's ENCOUNTER FACTS are persisted (case_files.line_items, each carrying its
+    fact_id — see encounter_facts); status encounter_verification_pending while one is
+    unanswered.
+
+    Idempotent (e2e round 3 R1): a case that already has its facts is never re-read by an
+    ordinary call. The thread screen posts /extract on every mount; each post re-translated the
+    bill and APPENDED re-worded copies of every charge under new ids — asked a second time on
+    the guided specimen, and the completed morning specimen flipped back to verification. Only
+    the caller that wins the claim reads; one that loses it to a live read waits for its result.
+
+    ``rerun`` (a REOPEN_REASONS value — a new document arrived, or the user asked) re-reads the
+    documents on purpose, carries every recorded answer forward by fact_id and asks only a
+    charge that is new or changed. Nothing new to ask → the case goes back where it was."""
     settings = get_settings()
     use_real = settings.use_real_claude and (
         _has_real_anthropic_creds(settings) or settings.litellm_proxy_url
     )
+    cf = await _load_case(case_file_id)
+    if cf is None:
+        raise ValueError(f"case_file {case_file_id} not found")
+    if rerun is None:
+        if cf.line_items:
+            return _facts_projection(cf)
+        if cf.status == "in_progress" and not _stale_extraction(cf):
+            return await _await_extraction(case_file_id)
+        if cf.status not in (*_EXTRACT_CLAIMABLE, "in_progress"):
+            return _facts_projection(cf)  # an audit ran or is running — never re-read here
+    elif rerun not in REOPEN_REASONS:
+        raise ValueError(f"unknown re-run reason {rerun!r}")
+    elif cf.status not in _RERUN_CLAIMABLE:
+        log.info("orchestrator.extract.rerun_skipped", case_file_id=case_file_id, status=cf.status)
+        return _facts_projection(cf)
+    prior_status, prior_reason = cf.status, cf.audit_incomplete_reason
+    prior_facts = encounter_facts.registry(cf).facts if rerun else []
+
+    if use_real or rerun:
+        # e2e 2026-09-23 B4: reading + classifying the documents is a MACHINE phase like the
+        # audit — the CAS to `in_progress` makes every reconcile during the read render only the
+        # status card, whatever the case was doing before. It is also THE claim: a caller that
+        # loses it does not read (R1 — two reads appended two copies of every charge).
+        if not await _set_status(
+            case_file_id, "in_progress", expected_status=prior_status, reopen=rerun
+        ):
+            return await _await_extraction(case_file_id)
+    if rerun:
+        # the re-read starts from an empty list (the translate tool appends); the prior facts
+        # come back below, matched to the fresh read — or as they were, if the read fails
+        await _write_line_items(case_file_id, [])
 
     bd_tool_calls: int | None = None
-    if use_real:
-        # e2e 2026-09-23 B4: reading + classifying the documents is a MACHINE phase like the
-        # audit. `open` already reads as working, but a case's status can be anything a prior
-        # run left ("extraction_failed" on a re-upload, an old "encounter_verification_pending"
-        # while a new document is read): a CAS to `in_progress` makes every reconcile during
-        # extraction render only the status card, whatever the case was doing before.
-        for prior in ("open", "extraction_failed", "not_a_bill", "encounter_verification_pending"):
-            if await _set_status(case_file_id, "in_progress", expected_status=prior):
-                break
-        log.info("orchestrator.extract.real", case_file_id=case_file_id)
-        bd = await bill_detective.run(case_file_id, mode="translate")
-        bd_tool_calls = len(bd.tool_calls)
-        log.info(
-            "orchestrator.extract.bd_done",
-            case_file_id=case_file_id,
-            tool_calls=bd_tool_calls,
-            usage=bd.usage,
-        )
+    try:
+        if use_real:
+            log.info("orchestrator.extract.real", case_file_id=case_file_id, rerun=rerun)
+            bd = await bill_detective.run(case_file_id, mode="translate")
+            bd_tool_calls = len(bd.tool_calls)
+            log.info(
+                "orchestrator.extract.bd_done",
+                case_file_id=case_file_id,
+                tool_calls=bd_tool_calls,
+                usage=bd.usage,
+            )
+    except Exception:
+        if rerun:
+            await _write_line_items(case_file_id, prior_facts)
+            await _restore_status(case_file_id, prior_status, prior_reason)
+        raise
 
     # Read whatever the agent persisted.
     cf = await _load_case(case_file_id)
@@ -1777,6 +1920,14 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
                         case_file_id, "translate_drop", codes=list(dropped), session=s
                     )
                     await s.commit()
+
+    if not line_items and rerun and use_real:
+        # A re-read that found nothing keeps what the case had — never degrade a case whose
+        # facts (and audit) already exist on the strength of one empty read.
+        log.error("orchestrator.extract.rerun_empty", case_file_id=case_file_id)
+        await _write_line_items(case_file_id, prior_facts)
+        await _restore_status(case_file_id, prior_status, prior_reason)
+        return _facts_projection(await _load_case(case_file_id))
 
     if not line_items:
         # Real translate produced nothing. Decide the honest terminal state from DOCUMENT-READABILITY
@@ -1881,19 +2032,21 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
         # Explicit fixture mode ONLY (use_real is False — dev/CI/demo without Claude).
         line_items = _fixture_line_items()
 
+    # R1: every charge is a fact with a stable identity; a re-read's charges are matched to the
+    # facts the case already had, so an answer recorded against one still applies.
+    case_dos = cf.date_of_service if cf else None
+    if rerun:
+        line_items = encounter_facts.carry_forward(prior_facts, line_items, case_file_id, case_dos)
+    else:
+        line_items = encounter_facts.stamp(line_items, case_file_id, case_dos)
+
     # Phase 2L: every line item must carry example scenarios for the encounter
     # UI (the translate pass may omit them; fixtures + pre-2L rows predate them).
     backfill_scenarios(line_items)
 
     # Persist the (possibly backfilled) line items so the idempotent
     # GET .../line-items re-fetch and the diagnose pass both see the scenarios.
-    async with AsyncSessionLocal() as s:
-        row = (
-            await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
-        ).scalar_one_or_none()
-        if row is not None:
-            row.line_items = line_items
-            await s.commit()
+    await _write_line_items(case_file_id, line_items)
 
     # INVARIANT (item 4): a case may NEVER enter encounter_verification_pending with zero line
     # items. Every empty-extraction path above returns an honest terminal state, so line_items is
@@ -1911,7 +2064,20 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
             documents=_documents_projection(cf),
         )
 
-    await _set_status(case_file_id, "encounter_verification_pending")
+    reg = encounter_facts.build(
+        case_file_id, line_items, list(cf.encounter_confirmations or []) if cf else [], case_dos
+    )
+    if rerun and not reg.pending:
+        log.info("orchestrator.extract.rerun_nothing_new", case_file_id=case_file_id, facts=len(line_items))
+        await _restore_status(case_file_id, prior_status, prior_reason)
+        return _facts_projection(await _load_case(case_file_id))
+    if rerun:
+        log.info(
+            "orchestrator.extract.rerun_new_facts",
+            case_file_id=case_file_id, facts=len(line_items), pending=len(reg.pending),
+        )
+    if not await _set_status(case_file_id, "encounter_verification_pending", reopen=rerun):
+        return _facts_projection(await _load_case(case_file_id))
     return ExtractResult(
         case_file_id=case_file_id,
         status="encounter_verification_pending",
@@ -1921,29 +2087,80 @@ async def extract_line_items(case_file_id: str) -> ExtractResult:
     )
 
 
+async def reread_for_new_document(case_file_id: str, *, then_audit: bool = False) -> None:
+    """A new bill arrived on a case whose facts were already read (R1): re-read on purpose. New
+    or changed charges are asked — the case waits in verification and the confirming tap runs
+    the audit. Nothing new to ask → the case is where it was, and a needs_documents audit whose
+    missing paper is now all in (``then_audit``) re-runs, as an upload always did."""
+    cf = await _load_case(case_file_id)
+    if cf is not None and cf.status == "in_progress" and not _stale_extraction(cf):
+        await _await_extraction(case_file_id)  # a read already running may predate this bill
+    await extract_line_items(case_file_id, rerun="new_document")
+    cf = await _load_case(case_file_id)
+    if (
+        then_audit
+        and cf is not None
+        and cf.status == "audit_incomplete"
+        and cf.audit_incomplete_reason == "needs_documents"
+    ):
+        await finalize_audit(case_file_id)
+
+
+class NotAwaitingConfirmations(Exception):
+    """Answers for a case that is not awaiting them (R1) — the routes' 409."""
+
+
+def _same_answer(recorded: dict | None, c: LineItemConfirmation) -> bool:
+    return bool(recorded) and recorded.get("response") == c.response and (
+        (recorded.get("user_note") or None) == (c.user_note or None)
+    )
+
+
 async def submit_confirmations(
     case_file_id: str,
     confirmations: list[LineItemConfirmation],
 ) -> ConfirmationsAccepted:
-    """Persist confirmations + write feedback_events (value_confirmation,
-    confirmation_kind=encounter_lineitem). Each mismatch (a 'no', or a
-    'not_sure' on a high-risk item) becomes an encounter_mismatch finding stub
-    that Bill Detective pursues during finalize. Sets status encounter_verified."""
+    """Record the user's answers + write feedback_events (value_confirmation,
+    confirmation_kind=encounter_lineitem). Each mismatch (a 'no', or a 'not_sure' on a
+    high-risk item) becomes an encounter_mismatch finding stub that Bill Detective pursues
+    during finalize. Advances encounter_verification_pending → encounter_verified.
+
+    R1 (e2e round 3): answers are MERGED by fact (encounter_facts) — a submission used to
+    REPLACE the whole list, so the answers one surface recorded were invisible to the next. An
+    answer already on file is not recorded twice (no second label, no second finding stub).
+    A case that is not awaiting answers — a stale card tapped on a finished audit — never
+    restarts: a re-sent identical set is acknowledged (``audit_started`` False), anything else
+    raises NotAwaitingConfirmations."""
     cf = await _load_case(case_file_id)
     if cf is None:
         raise ValueError(f"case_file {case_file_id} not found")
-    line_item_by_id = {it["line_item_id"]: it for it in (cf.line_items or [])}
+    reg = encounter_facts.registry(cf)
+    recorded = {
+        c.line_item_id: reg.answers.get(fact["fact_id"])
+        for c in confirmations
+        if (fact := reg.fact_for_line(c.line_item_id))
+    }
+    if cf.status != "encounter_verification_pending":
+        if all(_same_answer(recorded.get(c.line_item_id), c) for c in confirmations):
+            return ConfirmationsAccepted(
+                case_file_id=case_file_id, status=cf.status,
+                confirmations_recorded=0, mismatches=0, audit_started=False,
+            )
+        raise NotAwaitingConfirmations(cf.status)
+    line_item_by_id = {it["line_item_id"]: it for it in reg.facts if it.get("line_item_id")}
     user_id = cf.user_id
+    new_answers = [c for c in confirmations if not _same_answer(recorded.get(c.line_item_id), c)]
 
     mismatches = 0
     async with AsyncSessionLocal() as s:
-        # Persist the raw confirmations on the case file.
         row = (
             await s.execute(select(CaseFile).where(CaseFile.case_file_id == UUID(case_file_id)))
         ).scalar_one()
-        row.encounter_confirmations = [c.model_dump() for c in confirmations]
+        row.encounter_confirmations = encounter_facts.merge_confirmations(
+            reg, [c.model_dump() for c in confirmations]
+        )
 
-        for c in confirmations:
+        for c in new_answers:
             li = line_item_by_id.get(c.line_item_id, {})
             translation = li.get("plain_language_translation", "")
             high_risk = bool(li.get("high_risk", False))
@@ -2006,18 +2223,22 @@ async def submit_confirmations(
                 )
         await s.commit()
 
-    await _set_status(case_file_id, "encounter_verified")
+    advanced = await _set_status(
+        case_file_id, "encounter_verified", expected_status="encounter_verification_pending"
+    )
     log.info(
         "orchestrator.confirmations.recorded",
         case_file_id=case_file_id,
-        count=len(confirmations),
+        count=len(new_answers),
         mismatches=mismatches,
+        advanced=advanced,
     )
     return ConfirmationsAccepted(
         case_file_id=case_file_id,
-        status="audit_running",
-        confirmations_recorded=len(confirmations),
+        status="audit_running" if advanced else (await _load_case(case_file_id)).status,
+        confirmations_recorded=len(new_answers),
         mismatches=mismatches,
+        audit_started=advanced,
     )
 
 

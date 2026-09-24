@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents import encounter_facts
 from app.agents.context_loader import DEGRADATION_KEY, orchestration_step
 from app.config import get_settings
 from app.db.base import AsyncSessionLocal
@@ -284,6 +285,87 @@ async def refresh_status_card(session: AsyncSession, conv: Conversation) -> None
             await session.commit()
     except Exception:  # noqa: BLE001 — a read must never fail on the projection
         log.warning("thread_bridge.status_card_refresh_failed", exc_info=True)
+
+
+async def _verification_cards(session: AsyncSession, conversation_id: uuid.UUID) -> list[Message]:
+    return list(
+        (
+            await session.execute(
+                select(Message)
+                .where(Message.conversation_id == conversation_id)
+                .where(Message.kind == "verification_request")
+                .order_by(Message.sequence_number)
+            )
+        ).scalars().all()
+    )
+
+
+def _card_fact(item: dict, facts: encounter_facts.FactRegistry) -> str | None:
+    if item.get("fact_id"):
+        return item["fact_id"]
+    fact = facts.fact_for_line(item.get("line_item_id"))  # a card written before fact ids
+    return fact["fact_id"] if fact else None
+
+
+async def _carded_facts(
+    session: AsyncSession, conversation_id: uuid.UUID, facts: encounter_facts.FactRegistry
+) -> set[str]:
+    out: set[str] = set()
+    for card in await _verification_cards(session, conversation_id):
+        for item in (card.payload or {}).get("line_items") or []:
+            if isinstance(item, dict) and (fid := _card_fact(item, facts)):
+                out.add(fid)
+    return out
+
+
+async def refresh_verification_cards(
+    session: AsyncSession, conv: Conversation, case: CaseFile, *,
+    facts: encounter_facts.FactRegistry | None = None,
+) -> None:
+    """Keep every verification card telling the truth about its facts (R1). The cards were
+    written once, and the client knew an answer only from the taps of its own session: a
+    reopened thread showed answered facts as unanswered, and any unanswered-looking card routed
+    free text to the verification mapper on a finished audit. Each card now carries
+    ``answered`` (line_item_id → the recorded answer) and ``awaiting`` (the line items still
+    owed an answer — none unless the case is awaiting answers). An item in neither is no longer
+    one of the case's facts. Written only when it changed."""
+    facts = facts or encounter_facts.registry(case)
+    awaiting_answers = case.status == "encounter_verification_pending"
+    for card in await _verification_cards(session, conv.conversation_id):
+        payload = dict(card.payload or {})
+        answered: dict[str, str] = {}
+        awaiting: list[str] = []
+        for item in payload.get("line_items") or []:
+            if not isinstance(item, dict) or not item.get("line_item_id"):
+                continue
+            fid = _card_fact(item, facts)
+            fact = next((f for f in facts.facts if f["fact_id"] == fid), None) if fid else None
+            if fact is None:
+                continue
+            answer = facts.answer_for(fact)
+            if answer:
+                answered[item["line_item_id"]] = answer
+            elif awaiting_answers:
+                awaiting.append(item["line_item_id"])
+        if payload.get("answered") != answered or payload.get("awaiting") != awaiting:
+            card.payload = {**payload, "answered": answered, "awaiting": awaiting}
+
+
+async def refresh_on_read(session: AsyncSession, conv: Conversation) -> None:
+    """The projections a case thread re-derives on every read (status card, verification
+    cards). Never raises — a read must never fail on the projection."""
+    await refresh_status_card(session, conv)
+    if not enabled() or conv.case_id is None:
+        return
+    try:
+        case = (
+            await session.execute(select(CaseFile).where(CaseFile.case_file_id == conv.case_id))
+        ).scalar_one_or_none()
+        if case is not None:
+            await refresh_verification_cards(session, conv, case)
+            await session.commit()
+    except Exception:  # noqa: BLE001
+        log.warning("thread_bridge.verification_refresh_failed", exc_info=True)
 
 
 def _payer_of(case) -> str | None:
@@ -600,23 +682,28 @@ async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) 
             text,
         )
 
-    # verification cards — once line items exist, ≤3 per group (D3); held behind attest
-    line_items = (
-        []
-        if (attest_needed or machine_working)
-        else (list(case.line_items) if case.line_items else [])
-    )
-    if line_items:
-        intro = orchestration_step("verification_intro")
-        nudge = orchestration_step("verification_nudge")
-        for gi in range(0, len(line_items), VERIFICATION_GROUP_SIZE):
-            group = line_items[gi : gi + VERIFICATION_GROUP_SIZE]
-            await ensure(
-                f"verification:{gi // VERIFICATION_GROUP_SIZE}",
-                "verification_request",
-                {"intro": intro, "nudge": nudge, "group_index": gi // VERIFICATION_GROUP_SIZE,
-                 "line_items": group},
-            )
+    # verification cards — ≤3 per group (D3), held behind attest. R1 (e2e round 3): only while
+    # the case is AWAITING answers, only for facts nobody has answered (wherever they were
+    # answered — the intake's confirmations screen, a card, the classic screen), and never a fact
+    # that already has a card. Cards used to be projected from every line item on any
+    # non-working status: a second read's re-worded copies became a second set of cards.
+    facts = encounter_facts.registry(case)
+    if status == "encounter_verification_pending" and not attest_needed:
+        carded = await _carded_facts(session, conv.conversation_id, facts)
+        todo = [f for f in facts.pending if f["fact_id"] not in carded]
+        if todo:
+            intro = orchestration_step("verification_intro")
+            nudge = orchestration_step("verification_nudge")
+            first = sum(1 for m in have if m.startswith("verification:"))
+            for gi in range(0, len(todo), VERIFICATION_GROUP_SIZE):
+                index = first + gi // VERIFICATION_GROUP_SIZE
+                await ensure(
+                    f"verification:{index}",
+                    "verification_request",
+                    {"intro": intro, "nudge": nudge, "group_index": index,
+                     "line_items": todo[gi : gi + VERIFICATION_GROUP_SIZE]},
+                )
+    await refresh_verification_cards(session, conv, case, facts=facts)
 
     # Retrieval degradation (e2e 2026-09-23 B1): the audit ran with the rulebook out of
     # reach. Said ONCE, in the registry's voice, before the numbers — never silently.

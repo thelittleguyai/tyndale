@@ -637,12 +637,14 @@ async def _save_confirmations(case: CaseFile, raw: list) -> None:
     """The encounter facts, through the EXISTING submit path (a "no" becomes an
     encounter_mismatch finding there) — but WITHOUT starting the audit: on the guided route the
     readiness screen comes first, and POST /intake/run is what runs it."""
-    from app.agents.orchestrator import submit_confirmations
+    from app.agents.encounter_facts import registry
+    from app.agents.orchestrator import NotAwaitingConfirmations, submit_confirmations
     from app.schemas.encounter import LineItemConfirmation
 
     if case.attest_status == "required":
         raise HTTPException(status_code=409, detail="attestation required before verification")
-    known = {li.get("line_item_id") for li in (case.line_items or []) if isinstance(li, dict)}
+    # the screen asked for the facts nobody has answered yet — exactly those come back (R1)
+    known = {li.get("line_item_id") for li in registry(case).pending}
     try:
         confs = [LineItemConfirmation(**c) for c in raw]
     except Exception as e:  # noqa: BLE001 — pydantic's message is the useful part
@@ -650,7 +652,10 @@ async def _save_confirmations(case: CaseFile, raw: list) -> None:
     if not confs or {c.line_item_id for c in confs} != known:
         # never capped, never padded (§A4-5): one answer per fact the engine emitted
         raise HTTPException(status_code=422, detail="answer every fact, and only those")
-    await submit_confirmations(str(case.case_file_id), confs)
+    try:
+        await submit_confirmations(str(case.case_file_id), confs)
+    except NotAwaitingConfirmations:
+        raise HTTPException(status_code=409, detail="no pending verification for this case") from None
 
 
 @router.post("/intake/answer", response_model=StepAck)

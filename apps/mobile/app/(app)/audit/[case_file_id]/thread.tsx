@@ -33,6 +33,7 @@ import {
   verifyText,
 } from '../../../../lib/api-client';
 import { ThreadEntry } from '../../../../components/thread/ThreadEntry';
+import { owedItems } from '../../../../components/thread/ThreadVerification';
 import type { Draft } from './encounter';
 import { useThemeColors } from '../../../../theme/useThemeColors';
 import { ChatComposer } from '../../../../components/chat/ChatComposer';
@@ -52,7 +53,7 @@ export default function CaseThreadScreen() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const extractKicked = useRef(false);
-  const submitted = useRef(false);
+  const [submittedIds, setSubmittedIds] = useState<ReadonlySet<string>>(new Set());
   const appliedSuggestion = useRef<string | null>(null);
 
   const refresh = useCallback(async (id: string) => {
@@ -76,6 +77,8 @@ export default function CaseThreadScreen() {
     } finally {
       setLoading(false);
     }
+    // Starts the first read of a new chat-first case. Idempotent server-side (e2e round 3 R1): a
+    // case whose facts were already read is never re-read by this call — it used to re-ask them.
     if (!extractKicked.current) {
       extractKicked.current = true;
       extractLineItems(case_file_id).catch(() => undefined);
@@ -104,14 +107,22 @@ export default function CaseThreadScreen() {
     () => messages.filter((m) => m.kind === 'verification_request'),
     [messages],
   );
-  const allLineItems = useMemo(() => {
+  // e2e round 3 R1: only the facts still OWED an answer count — the server marks every card
+  // with what is answered (wherever it was answered) and what is awaited. Answered cards on a
+  // reopened thread used to read as pending, and free text on a finished audit went to the
+  // verification mapper instead of the conversation.
+  const owedLineItems = useMemo(() => {
     const out: { line_item_id: string }[] = [];
     for (const m of verificationMsgs) {
-      out.push(...((m.payload as unknown as VerificationRequestPayload).line_items ?? []));
+      out.push(...owedItems(m.payload as unknown as VerificationRequestPayload));
     }
     return out;
   }, [verificationMsgs]);
-  const pendingVerification = allLineItems.length > 0 && !submitted.current;
+  const owed = useMemo(
+    () => owedLineItems.filter((li) => !submittedIds.has(li.line_item_id)),
+    [owedLineItems, submittedIds],
+  );
+  const pendingVerification = owed.length > 0;
   // image-3 item 4: the checklist card on screen keeps the composer visible and usable —
   // pending = any coverage-number item still unanswered on the needs/unlock card.
   const coveragePending = messages.some((m) => {
@@ -197,30 +208,32 @@ export default function CaseThreadScreen() {
     }
   };
 
-  // Auto-submit once every card is CONFIRMED (a suggested pre-selection does not count until the
-  // confirming tap clears its `suggested` flag) — the invariant: free text never commits.
+  // Auto-submit once every OWED card is CONFIRMED (a suggested pre-selection does not count until
+  // the confirming tap clears its `suggested` flag) — the invariant: free text never commits.
+  // Tracked per line item, so a card a new document brings later submits on its own.
   useEffect(() => {
-    if (submitted.current || allLineItems.length === 0 || !conversationId) return;
-    const ready = allLineItems.every((li) => {
+    if (owed.length === 0 || !conversationId) return;
+    const ready = owed.every((li) => {
       const d = drafts[li.line_item_id];
       return d?.response && !d.suggested;
     });
     if (!ready) return;
-    submitted.current = true;
+    const ids = owed.map((li) => li.line_item_id);
+    setSubmittedIds((prev) => new Set([...prev, ...ids]));
     (async () => {
-      const confirmations = allLineItems.map((li) => ({
-        line_item_id: li.line_item_id,
-        response: drafts[li.line_item_id].response as LineItemResponse,
-        user_note: drafts[li.line_item_id].user_note || null,
+      const confirmations = ids.map((id) => ({
+        line_item_id: id,
+        response: drafts[id].response as LineItemResponse,
+        user_note: drafts[id].user_note || null,
       }));
       try {
         await submitConfirmations(case_file_id, confirmations);
       } catch {
-        submitted.current = false;
+        setSubmittedIds((prev) => new Set([...prev].filter((id) => !ids.includes(id))));
       }
       await refresh(conversationId);
     })();
-  }, [allLineItems, drafts, conversationId, case_file_id, refresh]);
+  }, [owed, drafts, conversationId, case_file_id, refresh]);
 
   if (loading) {
     return (

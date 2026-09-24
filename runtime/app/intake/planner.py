@@ -18,7 +18,7 @@ Every signal is read from the seam that OWNS it — this module re-implements no
   population ............... sources.regime_detection.detect_regime (via case.regime_detection)
   EOB completeness ......... sources.eob_completeness.summarize_eob_completeness
   attest ................... agents.attest.evaluate_attest_state (case.attest_status)
-  encounter facts .......... case_files.line_items — ONE card per item the engine emitted
+  encounter facts .......... agents.encounter_facts.registry — ONE card per unanswered fact_id
 
 SILENT vs ASK (§A4, last paragraph) is the EXISTING ladder, not a new rule: an input is
 load-bearing when its plausible spread is material at the USER_CHASE bar —

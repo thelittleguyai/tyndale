@@ -24,6 +24,11 @@ export interface LineItem {
   high_risk: boolean;
   billed_amount: number | null;
   units: number | null;
+  /**
+   * e2e round 3 R1 — the fact's stable identity: uuid5(case, CODE|DOS|k). `line_item_id` is the
+   * row handle answers are posted with; `fact_id` is what they are keyed by.
+   */
+  fact_id?: string | null;
 }
 
 export interface LineItemConfirmation {
@@ -63,6 +68,8 @@ export interface ConfirmationsAccepted {
   status: string;
   confirmations_recorded: number;
   mismatches: number;
+  /** False when the answers were already on file and the case had moved on — nothing restarts. */
+  audit_started?: boolean;
 }
 
 export interface AuditStatusResponse {

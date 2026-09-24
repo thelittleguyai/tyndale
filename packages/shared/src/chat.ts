@@ -4,7 +4,7 @@
 // finding-shaped `Citation` (authority/section/src_id/marker); the chat citation is
 // a different shape, so it gets its own name to avoid an import collision.
 
-import type { LineItem } from './encounter';
+import type { LineItem, LineItemResponse } from './encounter';
 
 export type ChatMode = 'per_case' | 'freeform';
 export type VoiceTier = 'A' | 'B' | 'C';
@@ -73,6 +73,14 @@ export interface VerificationRequestPayload {
   nudge: string; // D4a "tap to confirm" copy
   group_index: number;
   line_items: LineItem[];
+  /**
+   * e2e round 3 R1 — refreshed by the server on every reconcile and every read. `answered`:
+   * line_item_id → the answer on file (wherever it was given); `awaiting`: the line items still
+   * owed an answer (empty unless the case is awaiting answers). An item in neither is no longer
+   * one of the case's facts. Absent on a card no server has refreshed yet (legacy behaviour).
+   */
+  answered?: Record<string, LineItemResponse>;
+  awaiting?: string[];
 }
 /** X3 — the qualifier a computed figure carries when its inputs were incomplete. Renders in
  *  the SAME visual unit as the figure (the X3 contract; a footnote elsewhere fails it). */

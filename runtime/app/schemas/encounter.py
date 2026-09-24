@@ -47,6 +47,9 @@ class LineItem(BaseModel):
     )
     billed_amount: float | None = None
     units: int | None = None
+    # e2e round 3 R1 — the fact's stable identity (encounter_facts): uuid5(case, CODE|DOS|k).
+    # line_item_id is the row handle answers are posted with; fact_id is what they are KEYED by.
+    fact_id: str | None = None
 
 
 class LineItemConfirmation(BaseModel):
@@ -112,6 +115,9 @@ class ConfirmationsAccepted(BaseModel):
     status: str = "audit_running"
     confirmations_recorded: int
     mismatches: int = Field(description="how many became encounter_mismatch candidate findings")
+    # False when the answers were already on file and the case had moved past verification —
+    # a re-sent set is acknowledged, but nothing starts a second time (R1).
+    audit_started: bool = True
 
 
 class AuditStatusResponse(BaseModel):

@@ -986,6 +986,7 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
     state = r.json()
     case_id = state["case_file_id"]
     uploaded: set[str] = set()
+    confirmed: list[str] = []  # the facts the intake's confirmations screen asked and got
 
     def answer(screen: str, action: str = "continue", values: dict | None = None) -> dict:
         rr = client.post(f"{base_url}/v1/intake/answer", timeout=120,
@@ -1034,6 +1035,7 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
                     state = client.get(f"{base_url}/v1/intake/state", params={"case_file_id": case_id}, timeout=60).json()
             elif sid == "confirmations":
                 items = (screen.get("data") or {}).get("line_items") or []
+                confirmed.extend(li["line_item_id"] for li in items)
                 state = answer(sid, "continue", {"confirmations": [
                     {"line_item_id": li["line_item_id"], "response": "yes"} for li in items]})
             elif sid == "attest":
@@ -1068,7 +1070,41 @@ def _run_guided(client, base_url: str, scenario: dict, paths: list[pathlib.Path]
         fails.append(f"final screen copy lacks {needle!r}")
     if not fails and seen and seen[-1] == "handoff":
         fails += _follow_handoff(client, base_url, case_id)
-    return case_id, seen, fails, state
+    return case_id, seen, fails, {**state, "_confirmed": confirmed}
+
+
+def _mount_thread(client, base_url: str, case_id: str) -> None:
+    """What the app does on opening the case thread: POST /extract (fire-and-forget there)."""
+    client.post(f"{base_url}/v1/audit/{case_id}/extract", timeout=EXTRACT_TIMEOUT_S)
+
+
+def _asked_once_checks(client, base_url: str, case_id: str, confirmed: list[str], terminal: str) -> list[str]:
+    """e2e round 3 R1: facts the intake confirmed are NEVER asked again. On dev the thread's
+    mount-time /extract re-translated the bill mid-audit, appended re-worded copies under new ids
+    and projected a second set of cards; on a finished case it flipped the status back to
+    verification. After the audit — with the thread opened during AND after it — the case holds
+    exactly the confirmed facts, and every card owes nothing."""
+    fails: list[str] = []
+    if not confirmed:
+        return ["asked-once: the intake confirmed no facts — nothing to hold it to"]
+    if terminal == "encounter_verification_pending":
+        fails.append("asked-once: the case went back to verification after its facts were answered")
+    items = client.get(f"{base_url}/v1/audit/{case_id}/line-items", timeout=EXTRACT_TIMEOUT_S).json()
+    ids = [li["line_item_id"] for li in items.get("line_items") or []]
+    if sorted(ids) != sorted(confirmed):
+        fails.append(f"asked-once: {len(ids)} facts on the case after the audit, {len(confirmed)} confirmed")
+    cards = [m.get("payload") or {} for m in (_fetch_thread(client, base_url, case_id) or [])
+             if m.get("kind") == "verification_request"]
+    carded = [li.get("line_item_id") for c in cards for li in c.get("line_items") or []]
+    new = [i for i in carded if i not in confirmed]
+    if new:
+        fails.append(f"asked-once: {len(new)} verification card row(s) for facts the intake never asked")
+    owed = [i for c in cards for i in c.get("awaiting") or []]
+    if owed:
+        fails.append(f"asked-once: {len(owed)} confirmed fact(s) asked again")
+    if any("awaiting" not in c for c in cards):
+        fails.append("asked-once: a verification card was not refreshed with its answers")
+    return fails
 
 
 def _follow_handoff(client, base_url: str, case_id: str) -> list[str]:
@@ -1116,12 +1152,16 @@ def run_scenario(
                 if run.status_code != 200:
                     fails.append(f"intake/run {run.status_code}: {run.text[:160]}")
                 else:
+                    _mount_thread(client, base_url, case_id)  # the app lands on the thread mid-audit
                     t = time.monotonic()
                     terminal = _poll_status(client, base_url, case_id)
                     timings["audit_s"] = round(time.monotonic() - t, 1)
+                    _mount_thread(client, base_url, case_id)  # …and opens it again once it's done
+                    terminal = client.get(f"{base_url}/v1/audit/{case_id}/status", timeout=30).json().get("status", terminal)
                     audit = _get_audit(client, base_url, case_id)
                     fails += _check(scenario, terminal, {"status": terminal, "line_items": []}, audit)
                     fails += _working_phase_checks(case_id)
+                    fails += _asked_once_checks(client, base_url, case_id, state.get("_confirmed") or [], terminal)
                     # §C14 — "checking both sides" has to LAND: every finding names a side
                     for f in (audit or {}).get("findings") or []:
                         if f.get("responsible_party") not in ("provider", "payer", "either"):
