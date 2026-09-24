@@ -53,9 +53,9 @@ def _case(**kw):
 
 def test_the_acknowledgment_says_only_what_is_known_when_it_renders():
     bill, eob = {"document_type": "bill"}, {"document_type": "eob"}
-    # the payer is known (guided intake captured it) → his §1.4, verbatim
-    full = thread_bridge._acknowledgment(_case(documents=[bill, eob], coverage={"payer": "Blue Shield"}))
-    assert full == orchestration_step("acknowledgment", doc_list="bill and EOB", payer="Blue Shield")
+    # payer-issued papers and the payer known → his §1.4, verbatim ("from" names who issued them)
+    full = thread_bridge._acknowledgment(_case(documents=[eob], coverage={"payer": "Blue Shield"}))
+    assert full == orchestration_step("acknowledgment", doc_list="EOB", payer="Blue Shield")
     assert "Blue Shield" in full
     # one bill from a known provider → his single-document variant
     single = thread_bridge._acknowledgment(_case(documents=[bill], provider_name="Mercy General Hospital"))
@@ -69,6 +69,20 @@ def test_the_acknowledgment_says_only_what_is_known_when_it_renders():
     assert reading == orchestration_step("acknowledgment_reading")
     for text in (full, single, no_payer, reading):
         assert text.strip() != DROP.strip() and not text.startswith("<MISSING")
+
+
+def test_the_insurer_is_never_named_as_the_sender_of_a_bill():
+    """e2e round 3 R6 (guided specimen): one bill, the insurer typed in the intake → "Got your
+    documents — bill from Blue Shield". The clause names whoever issued EVERY document — or no one."""
+    bill, eob = {"document_type": "bill"}, {"document_type": "eob"}
+    blue = {"payer": "Blue Shield"}
+    guided = thread_bridge._acknowledgment(_case(documents=[bill], coverage=blue, provider_name="Maple Grove Clinic"))
+    assert guided == orchestration_step("acknowledgment_single_doc", provider="Maple Grove Clinic")
+    assert "Blue Shield" not in guided and "Maple Grove Clinic" in guided
+    unknown = thread_bridge._acknowledgment(_case(documents=[bill], coverage=blue, provider_name="Amount Due"))
+    assert "Blue Shield" not in unknown and " from " not in unknown  # implausible provider → no clause
+    mixed = thread_bridge._acknowledgment(_case(documents=[bill, eob], coverage=blue, provider_name="Maple Grove Clinic"))
+    assert mixed == orchestration_step("acknowledgment_no_payer", doc_list="bill and EOB")
 
 
 @pytest.mark.asyncio

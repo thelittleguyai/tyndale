@@ -190,7 +190,9 @@ def _headline(variant: str) -> str | None:
     return None if text.startswith("<MISSING") else text
 
 
-def status_card_payload(status: str, *, incomplete_reason: str | None = None) -> dict:
+def status_card_payload(
+    status: str, *, incomplete_reason: str | None = None, has_eob: bool = True
+) -> dict:
     """The four flow-stage bars derived purely from case status (D2 — real completion, no
     fabricated percentages) — and, since the e2e re-test (2026-09-23 item 2), the card's
     VARIANT and HEADLINE, decided here from the terminal itself. The client used to infer
@@ -204,6 +206,10 @@ def status_card_payload(status: str, *, incomplete_reason: str | None = None) ->
       attest_declined                      → closed           no header
       machine working                      → working          the first unfinished stage active
       awaiting the user                    → paused           static, no header, no spinner
+
+    A stage that could not run is ``skipped`` — never ✓ (e2e round 3 R6): with no EOB on the
+    case, "Comparing your insurer's math" (the encounter bar, Brock's §2.1 label) had nothing to
+    compare, and a paused needs_documents card showed it done.
     """
     terminal = status in _TERMINAL
 
@@ -223,14 +229,19 @@ def status_card_payload(status: str, *, incomplete_reason: str | None = None) ->
         variant = "failed" if reason == "system_error" else "needs_documents"
         last = "failed" if variant == "failed" else "waiting"
         return {
-            "stages": [stage(k, last if k == "audit" else "done") for k in _STAGE_ORDER],
+            "stages": [
+                stage(k, last if k == "audit" else ("skipped" if k == "encounter" and not has_eob else "done"))
+                for k in _STAGE_ORDER
+            ],
             "terminal": True,
             "variant": variant,
             "headline": _headline(variant),
         }
     stages, active_assigned = [], False
     for key in _STAGE_ORDER:
-        if status in _DONE_AT[key]:
+        if key == "encounter" and terminal and not has_eob and status in _DONE_AT[key]:
+            state = "skipped"  # the audit finished without an insurer side to compare
+        elif status in _DONE_AT[key]:
             state = "done"
         elif not active_assigned and not terminal:
             state, active_assigned = "active", True
@@ -268,7 +279,9 @@ async def refresh_status_card(session: AsyncSession, conv: Conversation) -> None
         ).scalar_one_or_none()
         if case is None:
             return
-        fresh = status_card_payload(case.status, incomplete_reason=case.audit_incomplete_reason)
+        fresh = status_card_payload(
+            case.status, incomplete_reason=case.audit_incomplete_reason, has_eob=_has_eob(case)
+        )
         card = (
             await session.execute(
                 select(Message)
@@ -548,6 +561,26 @@ async def bridge_case_state(case_file_id: str) -> None:
         log.warning("thread_bridge.reconcile_failed", case_file_id=case_file_id, exc_info=True)
 
 
+# Who issues which document (R6) — the acknowledgment's "from …" clause may only name the one
+# party that issued ALL of them.
+_PROVIDER_ISSUED = frozenset({"bill", "itemized_bill", "gfe", "collections_notice"})
+_PAYER_ISSUED = frozenset({
+    "eob", "ma_eob", "msn", "tricare_eob", "insurance_card", "plan_summary", "denial_letter",
+    "mco_notice",
+})
+_EOB_TYPES = frozenset({"eob", "ma_eob", "msn", "tricare_eob"})
+
+
+def _has_eob(case: CaseFile) -> bool:
+    """Whether the insurer's side of the claim is on file at all (R6: the status card's
+    "Comparing your insurer's math" bar cannot be done without one)."""
+    if getattr(case, "eobs", None):
+        return True
+    return any(
+        isinstance(d, dict) and d.get("document_type") in _EOB_TYPES for d in (case.documents or [])
+    )
+
+
 def _acknowledgment(case: CaseFile) -> str:
     """§1.4, rendered only with what is TRUE when it renders (e2e re-test 2026-09-23 item 4).
 
@@ -559,12 +592,16 @@ def _acknowledgment(case: CaseFile) -> str:
     variant) → the documents' types → just "reading"."""
     docs = [d for d in (case.documents or []) if isinstance(d, dict)]
     doc_list = _doc_types_text(docs)
-    payer = _payer_of(case)
-    if payer:
+    types = {d.get("document_type") for d in docs}
+    # e2e round 3 R6: "from {payer}" put the INSURER on a bill ("bill from Blue Shield"). The
+    # clause names whoever issued every document — the provider for bills, the payer for EOBs,
+    # cards and plan papers — and is dropped when they differ or the name is not known.
+    if docs and types <= _PROVIDER_ISSUED:
+        provider = case.provider_name if plausible_extracted_name(case.provider_name) else None
+        if len(docs) == 1 and types <= {"bill", "itemized_bill"} and provider:
+            return orchestration_step("acknowledgment_single_doc", provider=provider)
+    elif docs and types <= _PAYER_ISSUED and (payer := _payer_of(case)):
         return orchestration_step("acknowledgment", doc_list=doc_list, payer=payer)
-    provider = case.provider_name if plausible_extracted_name(case.provider_name) else None
-    if len(docs) == 1 and docs[0].get("document_type") in ("bill", "itemized_bill") and provider:
-        return orchestration_step("acknowledgment_single_doc", provider=provider)
     if doc_list != "document":
         return orchestration_step("acknowledgment_no_payer", doc_list=doc_list)
     return orchestration_step("acknowledgment_reading")
@@ -573,7 +610,8 @@ def _acknowledgment(case: CaseFile) -> str:
 async def _reconcile(session: AsyncSession, conv: Conversation, case: CaseFile) -> None:
     status = case.status
     await _upsert_status_card(
-        session, conv, status_card_payload(status, incomplete_reason=case.audit_incomplete_reason)
+        session, conv,
+        status_card_payload(status, incomplete_reason=case.audit_incomplete_reason, has_eob=_has_eob(case)),
     )
     have = await _markers(session, conv.conversation_id)
     # Brock 2026-08-22: while the machine is working only the status card renders — and the

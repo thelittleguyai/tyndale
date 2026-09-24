@@ -117,7 +117,11 @@ async def test_thread_derivable_from_state(client: AsyncClient, chat_first_on):
                    "tyndale_computed": 300.0},
         ))
         await s.commit()
-    await _set_case(case_id, status="audit_complete")
+    # a three-number finding means the insurer's EOB was read (R6: without one, the "Comparing
+    # your insurer's math" bar is skipped, never ✓)
+    await _set_case(case_id, status="audit_complete",
+                    documents=[{"document_type": "bill", "filename": "bill.pdf"},
+                               {"document_type": "eob", "filename": "eob.pdf"}])
     await thread_bridge.bridge_case_state(case_id)
     msgs = await _messages(conv_id)
     moment = next(m for m in msgs if m.kind == "moment_card")

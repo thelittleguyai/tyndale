@@ -1647,6 +1647,21 @@ def _with_source_line(f: FindingOut) -> FindingOut:
     return annotate_error_type(apply_finding_tier(f))
 
 
+def _without_unbacked_example_lead_in(text: str) -> str:
+    """§5.3 ends "Here's what each one looks like so you know what to grab:" — a lead-in to
+    pictures of an itemized bill and an EOB. Those pictures do not exist yet (intake.examples:
+    only the federal SBC and MSN samples may be shown), so the sentence introduced nothing and
+    the card ended on a dangling colon (e2e round 3 R6). It renders only when both can be shown."""
+    from app.intake.examples import example_for
+
+    if example_for("itemized_bill") and example_for("eob"):
+        return text
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    if len(sentences) > 1 and sentences[-1].rstrip().endswith(":"):
+        return " ".join(sentences[:-1])
+    return text
+
+
 def not_a_bill_message(filenames: list[str], documents=None) -> str:
     """The wrong-document redirect message (§A2 state 2). When the classifier placed the
     upload (insurance card / SBC / GFE / clinical record), the TYPED branch copy renders —
@@ -1660,7 +1675,7 @@ def not_a_bill_message(filenames: list[str], documents=None) -> str:
         # flagged in the pull-in summary so he can restore file-naming if he wants it.)
         text = orchestration_step(branch.key, detected_doc_type=_detected_doc_type(documents))
         if not text.startswith("<MISSING-script:"):
-            return text
+            return _without_unbacked_example_lead_in(text)
     return (
         f"This doesn't look like a medical bill or insurance document: {named}. "
         "Upload a bill, an Explanation of Benefits (EOB), an insurance card, or a plan "

@@ -14,6 +14,8 @@
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { ChatMarkdown } from '../chat/Markdown';
+
 export type BranchKind = 'partial_read' | 'summary_bill' | 'wrongdoc' | 'reconcile';
 
 const CHROME: Record<BranchKind, { label: string; action: string | null }> = {
@@ -48,7 +50,8 @@ export function BranchCard({
       <View className="mb-2 self-start rounded-chip bg-accent-tint px-2.5 py-1">
         <Text className="text-micro font-medium text-accent">{chrome.label}</Text>
       </View>
-      <Text className="text-body leading-6 text-primary">{text}</Text>
+      {/* Brock's copy carries **bold** (e2e round 3 R6: it printed the asterisks) */}
+      <ChatMarkdown text={text} className="text-body leading-6 text-primary" />
       {chrome.action ? (
         <Pressable
           onPress={() => router.push({ pathname: '/upload', params: { caseId: caseFileId } })}

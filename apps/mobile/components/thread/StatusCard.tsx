@@ -67,7 +67,7 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
         <View key={s.key} className="mb-3 last:mb-0">
           <View className="mb-1.5 flex-row items-center justify-between">
             <Text
-              className={`text-body ${s.state === 'pending' ? 'text-faint' : 'text-primary'}`}
+              className={`text-body ${s.state === 'pending' || s.state === 'skipped' ? 'text-faint' : 'text-primary'}`}
             >
               {s.label}
             </Text>
@@ -79,6 +79,9 @@ export function StatusCard({ payload }: { payload: StatusCardPayload }) {
               <Text className="text-xs font-bold text-danger">!</Text>
             ) : s.state === 'waiting' ? (
               <Text className="text-xs font-bold text-warning">…</Text>
+            ) : s.state === 'skipped' ? (
+              // could not run (e2e round 3 R6): no EOB → no insurer math to compare. Never ✓.
+              <Text className="text-xs font-bold text-faint" testID={`stage-skipped-${s.key}`}>—</Text>
             ) : null}
           </View>
           <Bar state={s.state} />

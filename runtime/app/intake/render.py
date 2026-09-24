@@ -17,6 +17,7 @@ from app.agents.context_loader import load_orchestration_script, orchestration_s
 from app.db.models.case_files import CaseFile
 from app.ingestion.bill_heuristics import ITEMIZED_REQUEST_SCRIPT
 from app.intake.examples import example_for
+from app.intake.reading_level import terms_used
 from app.intake.payer_instructions import instructions_for
 from app.intake.planner import (
     PROGRESS_GROUPS,
@@ -259,13 +260,21 @@ def render_screen(
     }
     ex = example_for(screen.example)
     if ex is not None:  # no asset → no affordance (never an empty sheet)
+        title = step(ex.title_key) if ex.title_key else None
+        callouts = [t for k in ex.callout_keys if (t := step(k))]
+        # only the glosses this sheet's own words need (e2e round 3 R6: the SBC sample carried
+        # the MSN gloss — every example gloss rode on every sheet)
+        used = terms_used(" ".join([title or "", *callouts]))
         out["example"] = {
             "ask": ex.ask,
-            "title": step(ex.title_key) if ex.title_key else None,
-            "callouts": [t for k in ex.callout_keys if (t := step(k))],
+            "title": title,
+            "callouts": callouts,
             "asset": {"kind": ex.asset.kind, "url": ex.asset.url, "publisher": ex.asset.publisher},
             "source_line": step("intake.example.source_federal"),
-            "glosses": {k[len("gloss_"):]: v for k, v in group_copy("example").items() if k.startswith("gloss_")},
+            "glosses": {
+                term: v for k, v in group_copy("example").items()
+                if k.startswith("gloss_") and (term := k[len("gloss_"):]) in used
+            },
         }
     if screen.help_doc:
         help_ = render_help((i.coverage or {}).get("payer_name"), screen.help_doc, screen.id)

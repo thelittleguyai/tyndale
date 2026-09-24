@@ -41,7 +41,8 @@ export interface VerificationSuggestionPayload {
 /** The four FLOW stages the status card renders as labeled bars (each derived from case state). */
 export type ThreadStageKey = 'extraction' | 'translate' | 'encounter' | 'audit';
 /** 'waiting' = the stage stopped on the USER (a needs_documents audit: the checklist beneath). */
-export type ThreadStageState = 'pending' | 'active' | 'done' | 'failed' | 'waiting';
+/** 'skipped' = the stage could not run (no EOB → nothing to compare) — shown as "—", never ✓. */
+export type ThreadStageState = 'pending' | 'active' | 'done' | 'failed' | 'waiting' | 'skipped';
 /** The card's state, decided SERVER-side from the terminal (e2e re-test 2026-09-23 item 2). */
 export type StatusCardVariant =
   | 'working'
